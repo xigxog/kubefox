@@ -1,0 +1,13 @@
+{
+  "kind": "Environment",
+  "apiVersion": "admin.kubefox.io/v1alpha1",
+  "metadata": {
+    "name": "dev",
+    "title": "Development",
+    "description": "A thing to do things with."
+  },
+  "config": "dev/tag/v1.0",
+  "vars": {
+    "who": "John"
+  }
+}

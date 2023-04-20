@@ -1,0 +1,59 @@
+###
+GET {{controller}}/platform/kubefox/release
+
+###
+POST {{controller}}/platform/kubefox/release
+Content-Type: application/json
+
+<@ ./resources/release-demo-dev-v0.1.0.json
+
+###
+POST {{controller}}/platform/kubefox/release
+Content-Type: application/json
+
+<@ ./resources/release-demo-dev-v0.1.1.json
+
+###
+GET {{controller}}/platform/kubefox/release/demo/dev
+
+###
+DELETE {{controller}}/platform/kubefox/release/demo/dev
+
+### DEV/DEMO 2 ###
+POST {{controller}}/release/dev/demo2
+Content-Type: application/json
+
+<@ ./resources/release-dev-demo2-v0.1.0.json
+
+###
+GET {{controller}}/release/dev/demo2
+
+###
+DELETE {{controller}}/release/dev/demo2
+
+### QA ###
+GET {{controller}}/release/qa
+
+### QA/DEMO ###
+POST {{controller}}/release/qa/demo
+Content-Type: application/json
+
+<@ ./resources/release-qa-demo-v0.2.0.json
+
+###
+GET {{controller}}/release/qa/demo
+
+###
+DELETE {{controller}}/release/qa/demo
+
+### QA/DEMO 2 ###
+POST {{controller}}/release/qa/demo2
+Content-Type: application/json
+
+<@ ./resources/release-qa-demo2-v0.2.0.json
+
+###
+GET {{controller}}/release/qa/demo2
+
+###
+DELETE {{controller}}/release/qa/demo2

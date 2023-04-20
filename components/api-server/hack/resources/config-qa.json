@@ -1,0 +1,26 @@
+{
+  "kind": "Config",
+  "apiVersion": "admin.kubefox.io/v1alpha1",
+  "metadata": {
+    "name": "qa"
+  },
+  "secrets": {
+    "bool": false,
+    "str": "a",
+    "int": 1,
+    "float": 2.2,
+    "arrStr": ["a", "b", "c"],
+    "arrNum": [1, 2, 3],
+    "arrFloat": [1.1, 2.2, 3.3]
+  },
+  "components": {
+    "db": {
+      "type": "graphql",
+      "vars": {
+        "url": "https://qa.graphql.local/",
+        "user": "qa",
+        "pass": "qapassword"
+      }
+    }
+  }
+}

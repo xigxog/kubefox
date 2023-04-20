@@ -1,0 +1,5 @@
+{
+  "kind": "Deployment",
+  "apiVersion": "admin.kubefox.io/v1alpha1",
+  "system": "demo"
+}

@@ -1,0 +1,15 @@
+###
+GET https://127.0.0.1:8443/hello
+
+###
+GET http://127.0.0.1:8080/?kf-env=dev&kf-sys=hello-world&kf-target=say-hello:hello
+
+###
+GET http://127.0.0.1:8080/?kf-env=dev:tag:v1.0&kf-sys=hello-world&kf-target=say-hello:hello
+
+###
+GET http://127.0.0.1:8080/?kf-env=dev:id:41e97fca-ae3e-4f0e-9505-022d133b64f7&kf-sys=hello-world:tag:v0.1.0&kf-target=say-hello:hello
+
+###
+GET http://127.0.0.1:8080/?kf-env=dev:tag:v1.0&kf-sys=hello-world:tag:v0.1.0&kf-target=say-hello:hello
+

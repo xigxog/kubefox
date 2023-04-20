@@ -1,0 +1,14 @@
+{
+  "kind": "Platform",
+  "apiVersion": "admin.kubefox.io/v1alpha1",
+  "metadata": {
+    "name": "kubefox",
+    "title": "KubeFox Development Platform",
+    "description": "A thing to do things with."
+  },
+  "systems": {
+    "demo2": {
+      "imagePullSecret": "{{$processEnv GH_IMAGE_PULL_SECRET}}"
+    }
+  }
+}

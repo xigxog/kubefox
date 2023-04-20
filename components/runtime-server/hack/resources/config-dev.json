@@ -1,0 +1,20 @@
+{
+  "kind": "Config",
+  "apiVersion": "admin.kubefox.io/v1alpha1",
+  "metadata": {
+    "name": "dev"
+  },
+  "secrets": {
+    "password": "sshhhh"
+  },
+  "components": {
+    "db": {
+      "type": "graphql",
+      "vars": {
+        "url": "https://dev.graphql.local/",
+        "user": "dev",
+        "pass": "devpassword"
+      }
+    }
+  }
+}

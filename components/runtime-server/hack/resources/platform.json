@@ -1,0 +1,12 @@
+{
+  "kind": "Platform",
+  "apiVersion": "admin.kubefox.io/v1alpha1",
+  "metadata": {
+    "name": "kubefox"
+  },
+  "systems": {
+    "demo": {
+      "imagePullSecret": "eGFkaGF0dGVyOmdob18yclV2aEdteFQ2a3drenNqVmtGTVRhSFNCR0NlM3MwVWdjMTc="
+    }
+  }
+}

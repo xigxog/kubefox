@@ -1,0 +1,9 @@
+{
+  "kind": "Environment",
+  "apiVersion": "admin.kubefox.io/v1alpha1",
+  "metadata": {
+    "name": "dev",
+    "title": "Development",
+    "description": "Updated by meta op."
+  }
+}

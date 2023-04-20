@@ -1,0 +1,35 @@
+###
+GET {{controller}}/platform
+
+###
+GET {{controller}}/platform/kubefox
+
+###
+PUT {{controller}}/platform/kubefox
+Content-Type: application/json
+
+<@ ./resources/platform.json
+
+###
+PATCH {{controller}}/platform/kubefox
+Content-Type: application/json
+
+<@ ./resources/platform-patch.json
+
+###
+PATCH {{controller}}/platform/kubefox
+Content-Type: application/json
+
+<@ ./resources/platform-patch-del.json
+
+###
+PUT {{controller}}/platform/kubefox/metadata
+Content-Type: application/json
+
+<@ ./resources/platform-meta.json
+
+###
+PATCH {{controller}}/platform/kubefox/metadata
+Content-Type: application/json
+
+<@ ./resources/platform-meta-patch.json

@@ -1,0 +1,67 @@
+###
+GET {{controller}}/config
+
+###
+POST {{controller}}/config/dev
+Content-Type: application/json
+
+<@ ./resources/config-dev.json
+
+###
+GET {{controller}}/config/dev
+###
+GET {{controller}}/config/dev/id
+###
+GET {{controller}}/config/dev/tag
+
+###
+# Replace id below with one created above
+POST {{controller}}/config/dev/tag/v1.0
+
+5defc4d7-4651-4f2c-a217-a876a30b4042
+
+###
+# Replace id below with one created above
+POST {{controller}}/config/dev/tag/v1.1
+
+bb22b74b-1d7a-4c4f-b8b9-c58133178e4e
+
+###
+GET {{controller}}/config/dev/tag/v1.0
+###
+GET {{controller}}/config/dev/tag/v1.1
+
+###`
+DELETE {{controller}}/config/dev/tag/v1.0
+###
+DELETE {{controller}}/config/dev/tag/v1.1
+
+######
+
+###
+POST {{controller}}/config/qa
+Content-Type: application/json
+
+<@ ./resources/config-qa.json
+
+###
+GET {{controller}}/config/qa
+###
+GET {{controller}}/config/qa/id
+
+###
+# Replace id below with one created above
+POST {{controller}}/config/qa/tag/v1.0
+
+648e5b21-2c45-45fc-8dc1-820fe96ac34c
+
+###
+GET {{controller}}/config/dev/tag
+###
+GET {{controller}}/config/qa/tag
+
+###
+GET {{controller}}/config/qa/tag/v1.0
+
+###
+DELETE {{controller}}/config/qa/tag/v1.0

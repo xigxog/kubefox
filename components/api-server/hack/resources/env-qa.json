@@ -1,0 +1,11 @@
+{
+  "kind": "Environment",
+  "apiVersion": "admin.kubefox.io/v1alpha1",
+  "metadata": {
+    "name": "qa"
+  },
+  "config": "qa/tag/v1.0",
+  "vars": {
+    "test": "qa"
+  }
+}

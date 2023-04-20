@@ -1,0 +1,18 @@
+# Temp files
+tmp/
+*.bkp
+*.dtmp
+
+# Test output
+*.test
+
+# Debug output
+__debug_bin
+*.out
+
+# Build output
+bin/
+
+# Misc
+workstation/
+*.ignore
