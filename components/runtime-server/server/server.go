@@ -10,6 +10,7 @@ import (
 	"github.com/xigxog/kubefox/libs/core/component"
 	"github.com/xigxog/kubefox/libs/core/kubefox"
 	"github.com/xigxog/kubefox/libs/core/platform"
+	"github.com/xigxog/kubefox/libs/core/vault"
 )
 
 type server struct {
@@ -57,7 +58,7 @@ func (srv *server) Weave(kit kubefox.Kit) error {
 		return nil
 	}
 
-	vaultClient, err := NewVaultClient(srv.vaultURL, sat, kit)
+	vaultClient, err := vault.NewClient(srv.vaultURL, sat, kit)
 	if err != nil {
 		return err
 	}

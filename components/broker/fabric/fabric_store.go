@@ -3,7 +3,6 @@ package fabric
 import (
 	"context"
 	"fmt"
-	"time"
 
 	"github.com/xigxog/kubefox/libs/core/api/common"
 	"github.com/xigxog/kubefox/libs/core/api/uri"
@@ -11,6 +10,7 @@ import (
 	"github.com/xigxog/kubefox/libs/core/kubefox"
 	"github.com/xigxog/kubefox/libs/core/logger"
 	"github.com/xigxog/kubefox/libs/core/platform"
+	"github.com/xigxog/kubefox/libs/core/utils"
 )
 
 var (
@@ -26,20 +26,19 @@ type Broker interface {
 type Store struct {
 	Broker
 
-	sysCache *cache[*common.FabricSystem]
-	envCache *cache[*common.FabricEnv]
+	sysCache *utils.Cache[*common.FabricSystem]
+	envCache *utils.Cache[*common.FabricEnv]
 }
 
 func NewStore(brk Broker) *Store {
 	return &Store{
 		Broker:   brk,
-		sysCache: NewCache[*common.FabricSystem](mTTL, iTTL, brk.Log()),
-		envCache: NewCache[*common.FabricEnv](mTTL, iTTL, brk.Log()),
+		sysCache: utils.NewCache[*common.FabricSystem](mTTL, iTTL, brk.Log()),
+		envCache: utils.NewCache[*common.FabricEnv](mTTL, iTTL, brk.Log()),
 	}
 }
 
 func (store *Store) Get(ctx context.Context, evt kubefox.DataEvent) (*common.Fabric, error) {
-	now := time.Now().Unix()
 	sysKey := sysKey(evt.GetContext())
 	envKey := envKey(evt.GetContext())
 
@@ -56,9 +55,9 @@ func (store *Store) Get(ctx context.Context, evt kubefox.DataEvent) (*common.Fab
 	sysImm := sysURI.SubKind() == uri.Id || sysURI.SubKind() == uri.Tag
 	envImm := envURI.SubKind() == uri.Id || envURI.SubKind() == uri.Tag
 
-	sysIt := store.sysCache.GetItem(sysKey)
-	envIt := store.envCache.GetItem(envKey)
-	if sysIt == nil || envIt == nil {
+	sys := store.sysCache.Get(sysKey)
+	env := store.envCache.Get(envKey)
+	if sys == nil || env == nil {
 		req := evt.ChildEvent()
 		req.SetType(kubefox.FabricRequestType)
 		req.SetArg(platform.TargetArg, evt.GetTarget().GetURI())
@@ -73,34 +72,20 @@ func (store *Store) Get(ctx context.Context, evt kubefox.DataEvent) (*common.Fab
 			return nil, err
 		}
 
-		sysIt = &item[*common.FabricSystem]{
-			key:       sysKey,
-			value:     fab.System,
-			immutable: sysImm,
-			aTime:     now,
-			cTime:     now,
-		}
-		envIt = &item[*common.FabricEnv]{
-			key:       envKey,
-			value:     fab.Env,
-			immutable: envImm,
-			aTime:     now,
-			cTime:     now,
-		}
-		store.Log().Debugf("fabric retrieved from platform server; %s", sysIt)
+		sys = fab.System
+		env = fab.Env
 
-		store.sysCache.SetItem(sysKey, sysIt)
-		store.envCache.SetItem(envKey, envIt)
+		store.sysCache.Set(sysKey, sys, sysImm)
+		store.envCache.Set(envKey, env, envImm)
+		store.Log().Debugf("fabric retrieved from platform server; %s", sys)
 
 	} else {
-		store.Log().Debugf("fabric found in cache; %s", sysIt)
+		store.Log().Debugf("fabric found in cache; %s", sys)
 	}
-	sysIt.aTime = now
-	envIt.aTime = now
 
 	return &common.Fabric{
-		System: sysIt.value,
-		Env:    envIt.value,
+		System: sys,
+		Env:    env,
 	}, nil
 }
 

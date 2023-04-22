@@ -4,11 +4,7 @@ go 1.20
 
 replace github.com/xigxog/kubefox/libs/core => ../../libs/core
 
-require (
-	github.com/hashicorp/vault/api v1.9.1
-	github.com/hashicorp/vault/api/auth/kubernetes v0.4.0
-	github.com/xigxog/kubefox/libs/core v0.1.0-alpha
-)
+require github.com/xigxog/kubefox/libs/core v0.1.0-alpha
 
 require (
 	github.com/cenkalti/backoff/v3 v3.2.2 // indirect
@@ -39,6 +35,8 @@ require (
 	github.com/hashicorp/go-secure-stdlib/strutil v0.1.2 // indirect
 	github.com/hashicorp/go-sockaddr v1.0.2 // indirect
 	github.com/hashicorp/hcl v1.0.0 // indirect
+	github.com/hashicorp/vault/api v1.9.1 // indirect
+	github.com/hashicorp/vault/api/auth/kubernetes v0.4.0 // indirect
 	github.com/imdario/mergo v0.3.15 // indirect
 	github.com/jonboulle/clockwork v0.4.0 // indirect
 	github.com/josharian/intern v1.0.0 // indirect

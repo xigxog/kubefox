@@ -1,4 +1,4 @@
-package server
+package vault
 
 import (
 	"fmt"
@@ -11,17 +11,16 @@ import (
 	"github.com/xigxog/kubefox/libs/core/api/admin"
 	"github.com/xigxog/kubefox/libs/core/api/uri"
 	"github.com/xigxog/kubefox/libs/core/kubefox"
-	"github.com/xigxog/kubefox/libs/core/vault"
 )
 
-type vaultClient struct {
+type VaultClient struct {
 	client *vaultapi.Client
 
 	kit kubefox.Kit
 }
 
 // TODO get svc account tk and login
-func NewVaultClient(vaultURL, svcAccToken string, kit kubefox.Kit) (*vaultClient, error) {
+func NewClient(vaultURL, svcAccToken string, kit kubefox.Kit) (*VaultClient, error) {
 	// init vault client
 	if kit.DevMode() {
 		os.Setenv(vaultapi.EnvVaultSkipVerify, "true")
@@ -35,7 +34,7 @@ func NewVaultClient(vaultURL, svcAccToken string, kit kubefox.Kit) (*vaultClient
 		log.Fatalf("unable to initialize vault client: %v", err)
 	}
 
-	k8sAuth, err := vaultauth.NewKubernetesAuth(vault.BrkRole, vaultauth.WithServiceAccountToken(svcAccToken))
+	k8sAuth, err := vaultauth.NewKubernetesAuth(BrkRole, vaultauth.WithServiceAccountToken(svcAccToken))
 	if err != nil {
 		return nil, err
 	}
@@ -47,13 +46,13 @@ func NewVaultClient(vaultURL, svcAccToken string, kit kubefox.Kit) (*vaultClient
 		return nil, fmt.Errorf("error logging in with kubernetes auth: no auth info was returned")
 	}
 
-	return &vaultClient{
+	return &VaultClient{
 		client: vCl,
 		kit:    kit,
 	}, nil
 }
 
-func (c *vaultClient) Get(u uri.URI, obj admin.Object) error {
+func (c *VaultClient) Get(u uri.URI, obj admin.Object) error {
 	c.kit.Log().Debugf("getting %s", u)
 
 	p := u.Path()
@@ -74,12 +73,12 @@ func (c *vaultClient) Get(u uri.URI, obj admin.Object) error {
 	return nil
 }
 
-func (c *vaultClient) get(path string, obj any) error {
-	path = fmt.Sprintf("%s/data/%s", vault.MountPath(c.kit.Platform()), path)
+func (c *VaultClient) get(path string, obj any) error {
+	path = fmt.Sprintf("%s/data/%s", MountPath(c.kit.Platform()), path)
 
-	secret := &vault.Secret{
-		Data: &vault.Data{
-			Data: &vault.Object{
+	secret := &Secret{
+		Data: &Data{
+			Data: &Object{
 				Object: obj,
 			},
 		},
