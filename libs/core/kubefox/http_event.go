@@ -70,7 +70,7 @@ func (evt *httpEvent) ParseRequest(httpReq *http.Request) error {
 		env := utils.GetParamOrHeader(httpReq, EnvHeader, EnvHeaderShort, RelEnvHeader)
 		env = strings.ReplaceAll(env, uri.HTTPSeparator, uri.PathSeparator)
 		if _, err := uri.New(uri.Authority, uri.Environment, env); err != nil {
-			return fmt.Errorf("invalid environment '%s': %w", env, err)
+			return fmt.Errorf("invalid environment: %w", err)
 		}
 		evt.GetContext().Environment = env
 	}
@@ -79,7 +79,7 @@ func (evt *httpEvent) ParseRequest(httpReq *http.Request) error {
 		sys := utils.GetParamOrHeader(httpReq, SysHeader, SysHeaderShort, RelSysHeader)
 		sys = strings.ReplaceAll(sys, uri.HTTPSeparator, uri.PathSeparator)
 		if _, err := uri.New(uri.Authority, uri.System, sys); err != nil {
-			return fmt.Errorf("invalid system '%s': %w", sys, err)
+			return fmt.Errorf("invalid system: %w", err)
 		}
 		evt.GetContext().System = sys
 	}
@@ -88,7 +88,7 @@ func (evt *httpEvent) ParseRequest(httpReq *http.Request) error {
 		targetURI := "kubefox:component:" + utils.GetParamOrHeader(httpReq, TargetHeader, RelTargetHeader)
 		target, err := component.ParseURI(targetURI)
 		if err != nil {
-			return fmt.Errorf("invalid target '%s': %w", targetURI, err)
+			return fmt.Errorf("invalid target: %w", err)
 		}
 
 		evt.SetTarget(target)

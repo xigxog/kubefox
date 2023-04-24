@@ -145,21 +145,21 @@ func (srv *GRPCServer) Subscribe(subReq *grpc.SubscribeRequest, stream grpc.Comp
 		case req := <-srv.eventCh:
 			select {
 			case <-ctx.Done():
-				srv.Log().Warnf("ignoring canceled request '%s' for subscription '%s'", req.GetId(), subReq.Id)
+				srv.Log().Warnf("ignoring canceled request %s for subscription %s", req.GetId(), subReq.Id)
 				continue
 			default:
 				l := srv.Log()
 				if req.GetTraceId() != "" {
 					l = srv.Log().With("traceId", req.GetTraceId())
 				}
-				l.Debugf("sending request '%s' to subscription '%s'", req.GetId(), subReq.Id)
+				l.Debugf("sending request %s to subscription %s", req.GetId(), subReq.Id)
 
 				stream.Send(req.GetData())
 			}
 
 		case <-ctx.Done():
 			delete(srv.subMap, subReq.Id)
-			srv.Log().Infof("subscription '%s' closed", subReq.Id)
+			srv.Log().Infof("subscription %s closed", subReq.Id)
 			return nil
 		}
 	}

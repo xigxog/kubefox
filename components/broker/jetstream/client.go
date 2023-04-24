@@ -78,7 +78,7 @@ func (c *Client) Connect() error {
 
 	_, err = jsCtx.AddStream(&nats.StreamConfig{
 		Name:        c.cfg.Comp.GetStream(),
-		Description: fmt.Sprintf("Durable queues for requests and responses of the '%s' component.", c.cfg.Comp.GetName()),
+		Description: fmt.Sprintf("Durable queues for requests and responses of the %s component.", c.cfg.Comp.GetName()),
 		Subjects:    []string{c.cfg.Comp.GetSubjectWildcard()},
 		Storage:     nats.MemoryStorage,
 		MaxMsgSize:  1024 * 1024 * 5, // 5 MiB, TODO configurable

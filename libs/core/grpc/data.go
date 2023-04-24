@@ -215,6 +215,6 @@ func (d *Data) unmarshal(v any, strict bool) error {
 		}
 		return dec.Decode(v)
 	default:
-		return fmt.Errorf("%w: '%s'", ErrUnknownContentType, d.ContentType)
+		return fmt.Errorf("%w: %s", ErrUnknownContentType, d.ContentType)
 	}
 }

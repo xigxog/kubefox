@@ -73,7 +73,7 @@ func Parse(val string) (URI, error) {
 	}
 
 	if u.Scheme != KubeFoxScheme {
-		return nil, fmt.Errorf("%w: invalid scheme '%s'", ErrInvalidURI, u.Scheme)
+		return nil, fmt.Errorf("%w: invalid scheme %s", ErrInvalidURI, u.Scheme)
 	}
 
 	auth := u.Host
@@ -81,7 +81,7 @@ func Parse(val string) (URI, error) {
 		return nil, fmt.Errorf("%w: organization authority must be provided", ErrInvalidURI)
 	}
 	if !utils.NameRegexp.MatchString(auth) {
-		return nil, fmt.Errorf("%w: invalid organization authority '%s'", ErrInvalidURI, auth)
+		return nil, fmt.Errorf("%w: invalid organization authority %s", ErrInvalidURI, auth)
 	}
 
 	pathParts := strings.Split(strings.Trim(u.EscapedPath(), PathSeparator), PathSeparator)
@@ -112,35 +112,35 @@ func Parse(val string) (URI, error) {
 
 	switch {
 	case resKind == Unknown:
-		return nil, fmt.Errorf("%w: invalid kind '%s'", ErrInvalidURI, resKindStr)
+		return nil, fmt.Errorf("%w: invalid kind %s", ErrInvalidURI, resKindStr)
 
 	case resName != "" && !utils.NameRegexp.MatchString(resName):
-		return nil, fmt.Errorf("%w: invalid resource name '%s', should match regexp '%s'", ErrInvalidURI, resName, utils.NameRegexp.String())
+		return nil, fmt.Errorf("%w: invalid resource name %s, should match regexp %s", ErrInvalidURI, resName, utils.NameRegexp.String())
 
 	}
 
 	if subresPath != "" {
 		switch {
 		case subresKind == None:
-			return nil, fmt.Errorf("%w: invalid subresource kind '%s'", ErrInvalidURI, subresKindStr)
+			return nil, fmt.Errorf("%w: invalid subresource kind %s", ErrInvalidURI, subresKindStr)
 
 		case subresKind == Metadata:
-			return nil, fmt.Errorf("%w: invalid subpath '%s' for metadata subresource, should be empty", ErrInvalidURI, subresPath)
+			return nil, fmt.Errorf("%w: invalid subpath %s for metadata subresource, should be empty", ErrInvalidURI, subresPath)
 
 		case (subresKind == Branch || subresKind == Tag) && !utils.TagOrBranchRegexp.MatchString(subresPath):
-			return nil, fmt.Errorf("%w: invalid %s name '%s', should match regexp '%s'", ErrInvalidURI, subresKind, subresPath, utils.TagOrBranchRegexp.String())
+			return nil, fmt.Errorf("%w: invalid %s name %s, should match regexp %s", ErrInvalidURI, subresKind, subresPath, utils.TagOrBranchRegexp.String())
 
 		case resKind == System && subresKind == Id && !utils.HashRegexp.MatchString(subresPath):
-			return nil, fmt.Errorf("%w: invalid system id '%s', should be hex encoded SHA-1 hash", ErrInvalidURI, subresPath)
+			return nil, fmt.Errorf("%w: invalid system id %s, should be hex encoded SHA-1 hash", ErrInvalidURI, subresPath)
 
 		case resKind != System && subresKind == Id && !utils.UUIDRegexp.MatchString(subresPath):
-			return nil, fmt.Errorf("%w: invalid %s id '%s', should be UUID type", ErrInvalidURI, subresKind, subresPath)
+			return nil, fmt.Errorf("%w: invalid %s id %s, should be UUID type", ErrInvalidURI, subresKind, subresPath)
 
 		case subresKind == Deployment && !(numParts == 4 || numParts == 6):
-			return nil, fmt.Errorf("%w: invalid number of path parts '%d' for deployment subpath '%s'", ErrInvalidURI, numParts-3, subresPath)
+			return nil, fmt.Errorf("%w: invalid number of path parts '%d' for deployment subpath %s", ErrInvalidURI, numParts-3, subresPath)
 
 		case subresKind == Release && !(numParts == 4 || numParts == 5):
-			return nil, fmt.Errorf("%w: invalid number of path parts '%d' for release subpath '%s'", ErrInvalidURI, numParts-3, subresPath)
+			return nil, fmt.Errorf("%w: invalid number of path parts '%d' for release subpath %s", ErrInvalidURI, numParts-3, subresPath)
 		}
 	}
 

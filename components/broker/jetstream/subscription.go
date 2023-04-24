@@ -189,7 +189,7 @@ func (s *subscription) Close() error {
 			s.log.Error(err)
 			return err
 		} else {
-			s.log.Infof("unsubscribed '%s.%s' from '%s'",
+			s.log.Infof("unsubscribed '%s.%s' from %s",
 				s.cfg.Worker, s.cfg.Consumer, s.cfg.Subject)
 		}
 	}

@@ -98,7 +98,7 @@ func TestParse_Platform(t *testing.T) {
 }
 
 func testParse(t *testing.T, u string, shouldPass bool) {
-	t.Logf("🧪 testing '%s'", u)
+	t.Logf("🧪 testing %s", u)
 	parsed, err := Parse(u)
 	if err != nil {
 		if shouldPass {
@@ -115,7 +115,7 @@ func testParse(t *testing.T, u string, shouldPass bool) {
 		t.Logf("😞 failed: expected error but got '%s", parsed)
 		t.FailNow()
 	} else if !passed && shouldPass {
-		t.Logf("😞 failed: expected '%s' but got '%s'", u, parsed)
+		t.Logf("😞 failed: expected %s but got %s", u, parsed)
 		t.FailNow()
 	}
 }

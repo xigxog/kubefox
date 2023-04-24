@@ -93,10 +93,10 @@ func ParseURI(u string) (Component, error) {
 	uriParts := strings.Split(u, ":")
 
 	if uriParts[0] != uri.KubeFoxScheme {
-		return nil, &InvalidURI{Err: fmt.Sprintf("invalid scheme '%s'", uriParts[0])}
+		return nil, &InvalidURI{Err: fmt.Sprintf("invalid scheme %s", uriParts[0])}
 	}
 	if uriParts[1] != "component" {
-		return nil, &InvalidURI{Err: fmt.Sprintf("invalid path prefix '%s'", uriParts[1])}
+		return nil, &InvalidURI{Err: fmt.Sprintf("invalid path prefix %s", uriParts[1])}
 	}
 
 	var app, name, hash, id string

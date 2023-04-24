@@ -65,11 +65,11 @@ func (srv *server) Weave(kit kubefox.Kit) error {
 
 	env := maker.Empty[v1alpha1.Environment]()
 	if err := vaultClient.Get(envURI, env); err != nil {
-		return fmt.Errorf("error getting environment '%s': %v", envURI, err)
+		return fmt.Errorf("error getting environment %s: %v", envURI, err)
 	}
 	sys := maker.Empty[v1alpha1.System]()
 	if err := vaultClient.Get(sysURI, sys); err != nil {
-		return fmt.Errorf("error getting system '%s': %v", sysURI, err)
+		return fmt.Errorf("error getting system %s: %v", sysURI, err)
 	}
 	sysIdURI, err := uri.New(uri.Authority, uri.System, sys.Metadata.Name, uri.Id, sys.Id)
 	if err != nil {
@@ -77,7 +77,7 @@ func (srv *server) Weave(kit kubefox.Kit) error {
 	}
 	sysApp, ok := sys.Apps[evtCtx.App]
 	if !ok {
-		return fmt.Errorf("event context app '%s' not found in system '%s'", evtCtx.App, sysURI)
+		return fmt.Errorf("event context app %s not found in system %s", evtCtx.App, sysURI)
 	}
 
 	// TODO only the adapters used by the app should be added

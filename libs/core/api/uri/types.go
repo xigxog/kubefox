@@ -112,7 +112,7 @@ func (k *Kind) UnmarshalJSON(data []byte) error {
 
 	kind := KindFromString(kStr)
 	if kind == Unknown {
-		return fmt.Errorf("unknown resource kind '%s'", kStr)
+		return fmt.Errorf("unknown resource kind %s", kStr)
 	}
 	*k = kind
 
@@ -131,7 +131,7 @@ func (k *SubKind) UnmarshalJSON(data []byte) error {
 
 	kind := SubKindFromString(kStr)
 	if kind == None {
-		return fmt.Errorf("unknown subresource kind '%s'", kStr)
+		return fmt.Errorf("unknown subresource kind %s", kStr)
 	}
 	*k = kind
 

@@ -131,7 +131,7 @@ func (c *vaultClient) put(kit kubefox.Kit, u uri.URI, obj admin.Object, op Updat
 			_, err = c.vaultClient.KVv2(vault.MountPath(kit.Platform())).Put(kit.Ctx(), u.HeadPath(), data)
 		}
 		if err := c.get(kit, u.MetadataPath(), obj.GetMetadata()); err != nil {
-			kit.Log().Debugf("could not get metadata '%s', returning obj without it: %v", u.MetadataPath(), err)
+			kit.Log().Debugf("could not get metadata %s, returning obj without it: %v", u.MetadataPath(), err)
 		}
 
 	case Put:
@@ -180,7 +180,7 @@ func (c *vaultClient) Get(kit kubefox.Kit, u uri.URI, obj admin.Object) error {
 	}
 
 	if err := c.get(kit, u.MetadataPath(), obj.GetMetadata()); err != nil {
-		kit.Log().Debugf("could not get metadata '%s', returning obj without it: %v", u.MetadataPath(), err)
+		kit.Log().Debugf("could not get metadata %s, returning obj without it: %v", u.MetadataPath(), err)
 	}
 
 	obj.SetName(u.Name())

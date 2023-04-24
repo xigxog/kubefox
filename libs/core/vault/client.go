@@ -65,7 +65,7 @@ func (c *VaultClient) Get(u uri.URI, obj admin.Object) error {
 	}
 
 	if err := c.get(u.MetadataPath(), obj.GetMetadata()); err != nil {
-		c.kit.Log().Debugf("could not get metadata '%s', returning obj without it: %v", u.MetadataPath(), err)
+		c.kit.Log().Debugf("could not get metadata %s, returning obj without it: %v", u.MetadataPath(), err)
 	}
 
 	obj.SetName(u.Name())
