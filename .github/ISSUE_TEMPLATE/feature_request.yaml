@@ -1,0 +1,65 @@
+name: Feature Request
+description: Request a Feature
+title: "[Feature]: "
+labels: ["feature", "evaluate"]
+assignees:
+  - xadhatter
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for taking the time to fill out this feature request!
+
+  - type: textarea
+    id: request-objective
+    attributes:
+      label: What are you trying to achieve?
+      description: Give us a sense of what you are doing, and why you think we could improve that area of the product.
+      value: ex. This part of the workflow requires several steps, and that could be reduced...
+    validations:
+      required: true
+
+  - type: textarea
+    id: request-description
+    attributes:
+      label: What would you like to see in the product?
+      description: Provide us with a high-level description of your request.
+      value: ex. I would like the product to be able to do this...
+    validations:
+      required: true
+
+  - type: textarea
+    id: request-benefit
+    attributes:
+      label: Give us an idea of the benefit to you and others should we fulfill the request
+      description: |
+        Help us understand how fulfilling the request will help you and others work with the product.  All areas are fair game, e.g., simplifies product use, increases end user productivity, enhances intuitiveness etc.
+    validations:
+      required: true
+
+  - type: dropdown
+    id: version
+    attributes:
+      label: Version
+      description: What version of our software are you running?
+      options:
+        - 0.1.x-alpha
+        - 0.1.y-beta
+    validations:
+      required: true
+
+  - type: textarea
+    id: request-screenshots
+    attributes:
+      label: Request screenshots
+      description: Please copy and paste any screenshots or other information (e.g., diagrams, workflow etc.) that you think will help us understand the request better.
+      render: Text
+
+  - type: checkboxes
+    id: terms
+    attributes:
+      label: Code of Conduct
+      description: By submitting this request, you agree to follow XigXog's [Code of Conduct](https://example.com)
+      options:
+        - label: I agree to follow XigXog's Code of Conduct
+          required: true
