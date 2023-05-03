@@ -2,14 +2,12 @@ module github.com/xigxog/kubefox/components/broker
 
 go 1.20
 
-replace github.com/xigxog/kubefox/libs/core => ../../libs/core
-
 require (
 	github.com/nats-io/nats.go v1.25.0
 	github.com/spf13/cobra v1.7.0
 	github.com/spf13/pflag v1.0.5
 	github.com/spf13/viper v1.15.0
-	github.com/xigxog/kubefox/libs/core v0.1.0-alpha
+	github.com/xigxog/kubefox/libs/core v0.1.1-alpha
 	go.opentelemetry.io/contrib/propagators/jaeger v1.15.0
 	go.opentelemetry.io/otel v1.14.0
 	go.opentelemetry.io/otel/exporters/jaeger v1.14.0

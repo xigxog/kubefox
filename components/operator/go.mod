@@ -2,15 +2,12 @@ module github.com/xigxog/kubefox/components/operator
 
 go 1.20
 
-replace (
-	github.com/gorilla/mux => github.com/containous/mux v0.0.0-20220113180107-8ffa4f6d063c
-	github.com/xigxog/kubefox/libs/core => ../../libs/core
-)
+replace github.com/gorilla/mux => github.com/containous/mux v0.0.0-20220113180107-8ffa4f6d063c
 
 require (
 	github.com/hashicorp/vault/api v1.9.1
 	github.com/traefik/traefik/v2 v2.9.10
-	github.com/xigxog/kubefox/libs/core v0.1.0-alpha
+	github.com/xigxog/kubefox/libs/core v0.1.1-alpha
 	golang.org/x/sync v0.1.0
 	k8s.io/api v0.27.1
 	k8s.io/apimachinery v0.27.1

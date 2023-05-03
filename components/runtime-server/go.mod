@@ -2,9 +2,7 @@ module github.com/xigxog/kubefox/components/runtime-server
 
 go 1.20
 
-replace github.com/xigxog/kubefox/libs/core => ../../libs/core
-
-require github.com/xigxog/kubefox/libs/core v0.1.0-alpha
+require github.com/xigxog/kubefox/libs/core v0.1.1-alpha
 
 require (
 	github.com/cenkalti/backoff/v3 v3.2.2 // indirect

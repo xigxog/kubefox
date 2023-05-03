@@ -2,13 +2,11 @@ module github.com/xigxog/kubefox/components/api-server
 
 go 1.20
 
-replace github.com/xigxog/kubefox/libs/core => ../../libs/core
-
 require (
 	github.com/google/uuid v1.3.0
 	github.com/hashicorp/vault/api v1.9.1
 	github.com/hashicorp/vault/api/auth/kubernetes v0.4.0
-	github.com/xigxog/kubefox/libs/core v0.1.0-alpha
+	github.com/xigxog/kubefox/libs/core v0.1.1-alpha
 	golang.org/x/sync v0.1.0
 	k8s.io/apimachinery v0.27.1
 	k8s.io/client-go v0.27.1

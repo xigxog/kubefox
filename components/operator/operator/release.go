@@ -31,8 +31,8 @@ func (op *operator) ProcessRelease(kit kubefox.Kit) error {
 	case kubefox.Sync:
 		attachments := []runtime.Object{}
 		spec := req.GetObject().Spec
-		su, _ := uri.New(uri.Authority, uri.System, spec.System)
-		eu, _ := uri.New(uri.Authority, uri.Environment, spec.Environment)
+		sys, _ := uri.New(uri.Authority, uri.System, spec.System)
+		env, _ := uri.New(uri.Authority, uri.Environment, spec.Environment)
 
 		for _, c := range spec.Components {
 			comp := component.New(component.Fields{
@@ -42,15 +42,15 @@ func (op *operator) ProcessRelease(kit kubefox.Kit) error {
 			})
 			for _, r := range c.Routes {
 				if r.Type == "http" {
-					name := fmt.Sprintf("%s-%s-%s", su.Name(), eu.Name(), c.Key())
+					name := fmt.Sprintf("%s-%s-%s", sys.Name(), env.Name(), c.Key())
 					mw := maker.New[tv1a1.Middleware](maker.Props{
 						Group: "traefik.containo.us",
 						Name:  name,
 						// Organization: org,
-						System: su.Name(),
+						System: sys.Name(),
 						// SystemRef:      spec.System,
 						SystemId:    spec.SystemId,
-						Environment: eu.Name(),
+						Environment: env.Name(),
 						// EnvironmentRef: spec.Environment,
 						EnvironmentId: spec.EnvironmentId,
 						Component:     c.Name,
@@ -59,8 +59,8 @@ func (op *operator) ProcessRelease(kit kubefox.Kit) error {
 					mw.Spec = tv1a1.MiddlewareSpec{
 						Headers: &dynamic.Headers{
 							CustomRequestHeaders: map[string]string{
-								kubefox.RelEnvHeader:    eu.HTTPKey(),
-								kubefox.RelSysHeader:    su.HTTPKey(),
+								kubefox.RelEnvHeader:    env.HTTPKey(),
+								kubefox.RelSysHeader:    sys.HTTPKey(),
 								kubefox.RelTargetHeader: comp.GetHTTPKey(),
 							},
 						},
@@ -70,10 +70,10 @@ func (op *operator) ProcessRelease(kit kubefox.Kit) error {
 						Group: "traefik.containo.us",
 						Name:  name,
 						// Organization: org,
-						System: su.Name(),
+						System: sys.Name(),
 						// SystemRef:      spec.System,
 						SystemId:    spec.SystemId,
-						Environment: eu.Name(),
+						Environment: env.Name(),
 						// EnvironmentRef: spec.Environment,
 						EnvironmentId: spec.EnvironmentId,
 						Component:     c.Name,
