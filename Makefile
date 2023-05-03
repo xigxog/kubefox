@@ -14,6 +14,7 @@ CRDS_DIR := $(abspath $(ROOT)/libs/core/api/crds)
 CRDS_BOOTSTRAP := $(CRDS_DIR)/bootstrap
 PROTO_SRC := $(abspath $(ROOT)/libs/core/api/protobuf)
 PROTO_OUT := $(abspath $(ROOT)/libs/core/grpc)
+DOCS_OUT := $(abspath $(ROOT)/site)
 
 COMPONENTS := api-server broker operator runtime-server
 PUSHES := $(addprefix push/,$(COMPONENTS))
@@ -26,10 +27,10 @@ INSPECTS := $(addprefix inspect/,$(COMPONENTS))
 all: clean generate $(BINS)
 
 .PHONY: push-all
-push-all: clean $(PUSHES)
+push-all: clean generate $(PUSHES)
 
 .PHONY: image-all
-image-all: clean $(IMAGES)
+image-all: clean generate $(IMAGES)
 
 .PHONY: $(PUSHES)
 $(PUSHES):
@@ -59,6 +60,22 @@ $(BINS):
 	mkdir -p "$(dir $@)"
 	CGO_ENABLED=0 go build -C "$(SRC_DIR)/" -o "$(TARGET_DIR)/$(component)" -ldflags "-s -w" main.go
 
+.PHONY: docs
+docs: clean generate
+	go install github.com/pseudomuto/protoc-gen-doc/cmd/protoc-gen-doc@v1.5.1
+	protoc \
+		--proto_path=$(PROTO_SRC) \
+		--doc_out=docs/reference/ --doc_opt=docs/protobuf.tmpl,protobuf.md \
+		kubefox.proto
+
+	pipenv install
+	pipenv run mkdocs build
+
+.PHONY: serve-docs
+serve-docs:
+	pipenv install
+	pipenv run mkdocs serve
+
 .PHONY: generate
 generate: protobuf crds
 
@@ -83,5 +100,6 @@ crds:
 
 .PHONY: clean
 clean:
-	rm -rf $(CRDS_DIR)
 	rm -rf $(TARGET_DIR)/
+	rm -rf $(CRDS_DIR)/
+	rm -rf $(DOCS_OUT)/

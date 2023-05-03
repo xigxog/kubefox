@@ -1,0 +1,17 @@
+img[alt="diagram"] {
+  border: 1.5rem solid white;
+}
+
+[dir="ltr"] .md-header__title {
+  margin-left: 0;
+  font-size: 1.4rem;
+  font-weight: bold;
+}
+
+.md-header__button.md-logo {
+  padding: 0;
+}
+
+.md-logo img {
+  height: 3rem !important;
+}
