@@ -61,7 +61,8 @@ $(BINS):
 	CGO_ENABLED=0 go build -C "$(SRC_DIR)/" -o "$(TARGET_DIR)/$(component)" -ldflags "-s -w" main.go
 
 .PHONY: docs
-docs: clean generate
+docs:
+	rm -rf $(DOCS_OUT)/
 	go install github.com/pseudomuto/protoc-gen-doc/cmd/protoc-gen-doc@v1.5.1
 	protoc \
 		--proto_path=$(PROTO_SRC) \
