@@ -1,7 +1,30 @@
 # KubeFox Platform Services
 
-The KubeFox Platform is driven by three core components; API Server, Operator,
-and Runtime Server.
+The KubeFox Platform is driven by three core components: 
+
+<table cellpadding="0">
+  <tr style="padding: 0">
+    <td valign="center">
+      <p>API Server</p>
+    </td>
+    <td valign="center"><a href="(https://goreportcard.com/report/github.com/xigxog/kubefox/components/api-server)"><img src="https://goreportcard.com/badge/github.com/xigxog/kubefox/components/api-server"/></a>
+    </td>
+  </tr>
+  <tr style="padding: 0">
+    <td valign="center">
+      <p>Operator</p>
+    </td>
+    <td valign="center"><a href="(https://goreportcard.com/report/github.com/xigxog/kubefox/components/operator)"><img src="https://goreportcard.com/badge/github.com/xigxog/kubefox/components/operator"/></a>
+    </td>
+  </tr>
+  <tr style="padding: 0">
+    <td valign="center">
+      <p>Runtime Server</p>
+    </td>
+    <td valign="center"><a href="(https://goreportcard.com/report/github.com/xigxog/kubefox/components/runtime-server)"><img src="https://goreportcard.com/badge/github.com/xigxog/kubefox/components/runtime-server"/></a>
+    </td>
+  </tr>
+</table>
 
 ## API Server
 
