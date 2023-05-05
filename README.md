@@ -1,6 +1,6 @@
 # KubeFox Platform Services
 
-The KubeFox Platform is driven by three core components: 
+The KubeFox Platform is driven by four core components: 
 
 <table cellpadding="0">
   <tr style="padding: 0">
@@ -20,6 +20,14 @@ The KubeFox Platform is driven by three core components:
     <tr style="padding: 0">
     <td valign="top">
       <p>Runtime Server</p>
+    </td>
+    <td valign="center" style="padding-top: 5px"><a href="https://goreportcard.com/report/github.com/xigxog/kubefox/components/runtime-server"><img src="https://goreportcard.com/badge/github.com/xigxog/kubefox/components/runtime-server"/></a>
+    </td>
+  </tr>
+  </tr>
+    <tr style="padding: 0">
+    <td valign="top">
+      <p>Broker</p>
     </td>
     <td valign="center" style="padding-top: 5px"><a href="https://goreportcard.com/report/github.com/xigxog/kubefox/components/broker"><img src="https://goreportcard.com/badge/github.com/xigxog/kubefox/components/broker"/></a>
     </td>
