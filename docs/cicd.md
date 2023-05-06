@@ -59,6 +59,7 @@ For our next deployment [c], the user decides to make a change to the api-srv co
 
 ![diagram](diagrams/deployment_c.png)
 
+Note that the highest component version is tracked in the System (now [c]), and in the applications (now [c] as well)
 ## Deployment d
 
 In our final deployment [d], the user does a couple of things:
@@ -70,12 +71,16 @@ When the System is deployed, it looks like this:
 
 ![diagram](diagrams/deployment_d.png)
 
-Only the new (reviews) and modified component (order-ui) are deployed.
+Only the new (reviews) and modified component (order-ui) are deployed.  Only the web-ui application was modified - so now it's at version [d], while the fulfillment app was not modified - so it's still at version [c].
 
 ## Summary Notes
 
 There are a few things of note here:
 
-- Each of the deployments is a version in KubeFox.
+- To put a fine point on it, each of the deployments is a version in KubeFox.
 - All of the deployments (a - d) are actually available via explicit URLs (unless they're deprecated).
+- Systems are released monolithically - which greatly simplifies deployent for users.  Under the covers KubeFox is doing a few things:
+  - Distilling the component set to the minimum required to run the new deployment, thereby preserving resources and preventing over-provisioning
+  - Shaping traffic dynamically to enable the use of shared, common components both within a release (for instance, same component inside different applications) and across versions (for instance, same component version used for different deployments)
 - Only one copy of api-srv will be running at any given time *unless* there is a different version of api-srv deployed for one of the apps.  In that case, KubeFox will run the appropriate versions of api-srv to service requests for each individual application. 
+- Default traffic will be routed to the most recently released version.  So if [b] is released, default traffic will be running through version b even after version d is deployed.  That provides development, QA and release teams with a great deal of power and flexibility.
