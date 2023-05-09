@@ -5,7 +5,7 @@
 For purposes of illustration, consider an Order System (in KubeFox, a **System**
 is a collection of applications).
 
-Note: There are additional things happening during these deployment cycles
+> Note: There are additional things happening during these deployment cycles
 which are discussed toward the bottom of the page. For this part of the
 discussion, we're contemplating multiple deployments where only the
 most-recently deployed version of the System is running.
@@ -97,7 +97,7 @@ There are a few things of note here:
 - To put a fine point on it, each of the deployments is a version in KubeFox.
 - All of the deployments (a - d) are actually available via explicit URLs
   (unless they're deprecated).
-- Systems are released monolithically - which greatly simplifies deployent for
+- Systems are released monolithically - which greatly simplifies deployment for
   users. Under the covers KubeFox is doing a few things:
   - Distilling the component set to the minimum required to run the new
     deployment, thereby preserving resources and preventing over-provisioning
