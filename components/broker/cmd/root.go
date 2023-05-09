@@ -75,6 +75,7 @@ func initCommonFlags(cmd *cobra.Command) {
 	f.StringVarP(&flags.NatsAddr, "nats-addr", "n", "127.0.0.1:4222", "address and port of NATS server, JetStream must be enabled on NATS server")
 	f.StringVarP(&flags.TelemetrySrvAddr, "telemetry-srv-addr", "m", "127.0.0.1:8888", "address and port of the brokers's HTTP telemetry server (disabled if \"dev\" flag is set)")
 	f.StringVarP(&flags.TraceAgentAddr, "trace-agent-addr", "e", "127.0.0.1:6831", "address and port of the trace agent")
+	f.StringVarP(&flags.Namespace, "namespace", "l", "", "Kubernetes namespace containing the KubeFox Platform")
 	f.Int64VarP(&flags.EventTimeout, "timeout", "t", 30, "timeout in seconds for processing an event")
 	f.BoolVar(&flags.IsDevMode, "dev", false, "enable dev mode")
 

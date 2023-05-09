@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	"github.com/traefik/traefik/v2/pkg/config/dynamic"
-	tv1a1 "github.com/traefik/traefik/v2/pkg/provider/kubernetes/crd/traefik/v1alpha1"
+	tv1a1 "github.com/traefik/traefik/v2/pkg/provider/kubernetes/crd/traefikcontainous/v1alpha1"
 	kubev1a1 "github.com/xigxog/kubefox/libs/core/api/kubernetes/v1alpha1"
 	"github.com/xigxog/kubefox/libs/core/api/maker"
 	"github.com/xigxog/kubefox/libs/core/api/uri"

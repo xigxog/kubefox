@@ -77,7 +77,7 @@ func (store *Store) Get(ctx context.Context, evt kubefox.DataEvent) (*common.Fab
 
 		store.sysCache.Set(sysKey, sys, sysImm)
 		store.envCache.Set(envKey, env, envImm)
-		store.Log().Debugf("fabric retrieved from platform server; %s", sys)
+		store.Log().Debugf("fabric retrieved from runtime server; %s", sys)
 
 	} else {
 		store.Log().Debugf("fabric found in cache; %s", sys)

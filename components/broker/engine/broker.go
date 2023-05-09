@@ -7,7 +7,6 @@ import (
 	"math/rand"
 	"os"
 	"os/signal"
-	"strings"
 	"time"
 
 	"github.com/xigxog/kubefox/components/broker/blocker"
@@ -21,15 +20,14 @@ import (
 	"github.com/xigxog/kubefox/libs/core/logger"
 	"github.com/xigxog/kubefox/libs/core/platform"
 	"github.com/xigxog/kubefox/libs/core/utils"
-	"google.golang.org/protobuf/types/known/structpb"
-
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
-	"go.opentelemetry.io/otel/exporters/jaeger"
+	"go.opentelemetry.io/otel/exporters/otlp/otlptrace"
+	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp"
 	"go.opentelemetry.io/otel/sdk/resource"
 	otelsdk "go.opentelemetry.io/otel/sdk/trace"
 	semconv "go.opentelemetry.io/otel/semconv/v1.10.0"
-	"go.uber.org/zap"
+	"google.golang.org/protobuf/types/known/structpb"
 )
 
 var (
@@ -37,7 +35,7 @@ var (
 
 	shutdownTimeout = 30 * time.Second
 
-	platformEvtErr    = fmt.Errorf("event is a platform event but local component is not platform server")
+	platformEvtErr    = fmt.Errorf("event is a platform event but local component is not runtime server")
 	localNotTargetErr = fmt.Errorf("local component is not the event target")
 	outOfCtxErr       = fmt.Errorf("local component does not exist in the event context")
 )
@@ -289,7 +287,7 @@ func (brk *broker) InvokeRuntimeServer(ctx context.Context, req kubefox.DataEven
 	ctx, span := telemetry.NewSpan(ctx, brk.EventTimeout(), req)
 	defer span.End(resp)
 
-	brk.Log().Debugf("invoking platform server; evtType: %s", req.GetType())
+	brk.Log().Debugf("invoking runtime server; evtType: %s", req.GetType())
 
 	req.SetSource(brk.Component(), req.GetContext().App)
 	req.SetTarget(platform.RuntimeSrvComp)
@@ -444,15 +442,18 @@ func (brk *broker) StartHTTPSrv() {
 }
 
 func (brk *broker) start() {
-	brk.setupTraceProvider()
+	ctx, cancel := context.WithTimeout(context.Background(), brk.EventTimeout())
+	defer cancel()
+
+	brk.setupTraceProvider(ctx)
 	brk.fabStore = fabric.NewStore(brk)
 
-	// Only try to connect to Platform Server's gRPC server if this broker is
+	// Only try to connect to Platform Runtime's gRPC server if this broker is
 	// not managing the RuntimeServer.
 	if !brk.Config().IsRuntimeSrv {
 		brk.fabricClient = NewRuntimeClient(brk)
 	}
-	brk.bootstrap()
+	brk.bootstrap(ctx)
 
 	brk.jetClient = jetstream.NewClient(brk.Config(), brk.Log())
 	if err := brk.jetClient.Connect(); err != nil {
@@ -492,14 +493,12 @@ func (brk *broker) startComponent() {
 	}
 }
 
-func (brk *broker) bootstrap() {
+func (brk *broker) bootstrap(ctx context.Context) {
 	if brk.cfg.SkipBootstrap {
 		return
 	}
 
 	brk.Log().Debug("bootstrapping component")
-	ctx, cancel := context.WithTimeout(context.Background(), brk.EventTimeout())
-	defer cancel()
 
 	req := kubefox.NewDataEvent(kubefox.BootstrapRequestType)
 	req.SetContext(&grpc.EventContext{
@@ -639,13 +638,15 @@ func (brk *broker) JetStreamClient() *jetstream.Client {
 	return brk.jetClient
 }
 
-func (brk *broker) setupTraceProvider() {
-	addrParts := strings.Split(brk.Config().TraceAgentAddr, ":")
-	exp, err := jaeger.New(jaeger.WithAgentEndpoint(
-		jaeger.WithAgentHost(addrParts[0]),
-		jaeger.WithAgentPort(addrParts[1]),
-		jaeger.WithLogger(zap.NewStdLog(brk.Log().Desugar())),
-	))
+func (brk *broker) setupTraceProvider(ctx context.Context) {
+	// addrParts := strings.Split(brk.Config().TraceAgentAddr, ":")
+	// exp, err := jaeger.New(jaeger.WithAgentEndpoint(
+	// 	jaeger.WithAgentHost(addrParts[0]),
+	// 	jaeger.WithAgentPort(addrParts[1]),
+	// 	jaeger.WithLogger(zap.NewStdLog(brk.Log().Desugar())),
+	// ))
+	client := otlptracehttp.NewClient(otlptracehttp.WithInsecure())
+	exp, err := otlptrace.New(ctx, client)
 	if err != nil {
 		brk.Log().Error(err)
 		os.Exit(kubefox.TelemetryServerErrorCode)

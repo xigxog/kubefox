@@ -36,7 +36,7 @@ func NewRuntimeClient(brk Broker) *RuntimeClient {
 		gogrpc.WithBlock(),
 	)
 	if err != nil {
-		brk.Log().Errorf("unable to connect to platform server: %v", err)
+		brk.Log().Errorf("unable to connect to runtime server: %v", err)
 		os.Exit(kubefox.RpcServerErrorCode)
 	}
 

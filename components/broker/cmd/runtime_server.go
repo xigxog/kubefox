@@ -17,12 +17,10 @@ var fabSrvCmd = &cobra.Command{
 func init() {
 	rootCmd.AddCommand(fabSrvCmd)
 
-	fabSrvCmd.Flags().StringVarP(&flags.Namespace, "namespace", "l", "", "Kubernetes namespace containing the KubeFox Platform")
 	fabSrvCmd.Flags().StringVarP(&flags.GRPCSrvAddr, "grpc-addr", "g", "127.0.0.1:7070", "address and port of gRPC server")
-	fabSrvCmd.MarkFlagRequired("namespace")
 
 	initCommonFlags(fabSrvCmd)
-
+	fabSrvCmd.MarkFlagRequired("namespace")
 }
 
 func runFabSrv(cmd *cobra.Command, args []string) {

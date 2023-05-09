@@ -10,6 +10,7 @@ import (
 
 	"github.com/xigxog/kubefox/libs/core/kubefox"
 	"github.com/xigxog/kubefox/libs/core/utils"
+	"go.opentelemetry.io/contrib/propagators/b3"
 	"go.opentelemetry.io/contrib/propagators/jaeger"
 	"go.opentelemetry.io/otel/propagation"
 )
@@ -17,14 +18,14 @@ import (
 type HTTPServer struct {
 	Broker
 
-	server *http.Server
-	jaeger jaeger.Jaeger
+	server     *http.Server
+	propagator propagation.TextMapPropagator
 }
 
 func NewHTTPServer(brk Broker) *HTTPServer {
 	return &HTTPServer{
-		Broker: brk,
-		jaeger: jaeger.Jaeger{},
+		Broker:     brk,
+		propagator: propagation.NewCompositeTextMapPropagator(jaeger.Jaeger{}, b3.New()),
 	}
 }
 
@@ -60,7 +61,7 @@ func (srv *HTTPServer) Shutdown(ctx context.Context) {
 }
 
 func (srv *HTTPServer) ServeHTTP(resWriter http.ResponseWriter, httpReq *http.Request) {
-	ctx := srv.jaeger.Extract(httpReq.Context(), propagation.HeaderCarrier(httpReq.Header))
+	ctx := srv.propagator.Extract(httpReq.Context(), propagation.HeaderCarrier(httpReq.Header))
 	resWriter.Header().Set("Kf-Adapter", srv.Component().GetURI())
 
 	req := kubefox.EmptyDataEvent()
