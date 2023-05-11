@@ -8,12 +8,12 @@ const (
 
 // OS status codes
 const (
-	ConfigurationErrorCode   = 10
-	JetStreamErrorCode       = 11
-	RpcServerErrorCode       = 12
-	HTTPServerErrorCode      = 13
-	TelemetryServerErrorCode = 14
-	InterruptCode            = 130
+	ConfigurationErrorCode = 10
+	JetStreamErrorCode     = 11
+	RpcServerErrorCode     = 12
+	HTTPServerErrorCode    = 13
+	TelemetryErrorCode     = 14
+	InterruptCode          = 130
 )
 
 // Component event types

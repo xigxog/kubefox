@@ -34,7 +34,7 @@ func (srv *HealthServer) Start() {
 		err := srv.httpSrv.ListenAndServe()
 		if err != nil && !errors.Is(err, http.ErrServerClosed) {
 			srv.Log().Error(err)
-			os.Exit(kubefox.TelemetryServerErrorCode)
+			os.Exit(kubefox.TelemetryErrorCode)
 		}
 	}()
 

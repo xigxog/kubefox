@@ -20,18 +20,6 @@ import (
 	"github.com/xigxog/kubefox/libs/core/logger"
 	"github.com/xigxog/kubefox/libs/core/platform"
 	"github.com/xigxog/kubefox/libs/core/utils"
-	"go.opentelemetry.io/contrib/instrumentation/host"
-	"go.opentelemetry.io/contrib/instrumentation/runtime"
-	"go.opentelemetry.io/otel"
-	"go.opentelemetry.io/otel/attribute"
-	"go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetrichttp"
-	"go.opentelemetry.io/otel/exporters/otlp/otlptrace"
-	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp"
-	"go.opentelemetry.io/otel/metric/global"
-	"go.opentelemetry.io/otel/sdk/metric"
-	"go.opentelemetry.io/otel/sdk/resource"
-	"go.opentelemetry.io/otel/sdk/trace"
-	semconv "go.opentelemetry.io/otel/semconv/v1.10.0"
 	"google.golang.org/protobuf/types/known/structpb"
 )
 
@@ -87,8 +75,8 @@ type broker struct {
 	jetSender   *JetStreamSender
 	jetListener *JetStreamListener
 
-	traceProvider *trace.TracerProvider
-	healthSrv     *HealthServer
+	telClient *telemetry.Client
+	healthSrv *HealthServer
 
 	jetClient *jetstream.Client
 	fabStore  *fabric.Store
@@ -450,16 +438,17 @@ func (brk *broker) start() {
 	ctx, cancel := context.WithTimeout(context.Background(), brk.EventTimeout())
 	defer cancel()
 
+	brk.fabStore = fabric.NewStore(brk)
+
 	if brk.Config().HealthSrvAddr != "false" {
 		brk.healthSrv = NewHealthServer(brk)
 		brk.healthSrv.Start()
 	}
 
 	if brk.Config().TelemetryAgentAddr != "false" {
-		brk.startTelemetry(ctx)
+		brk.telClient = telemetry.NewClient(brk.Config(), brk.Log())
+		brk.telClient.Start(ctx)
 	}
-
-	brk.fabStore = fabric.NewStore(brk)
 
 	// Only try to connect to Platform Runtime's gRPC server if this broker is
 	// not managing the RuntimeServer.
@@ -594,11 +583,8 @@ func (brk *broker) Shutdown() {
 		brk.jetClient.Close()
 	}
 
-	if brk.traceProvider != nil {
-		brk.Log().Info("trace provider shutting down")
-		if err := brk.traceProvider.Shutdown(ctx); err != nil {
-			brk.Log().Error(err)
-		}
+	if brk.telClient != nil {
+		brk.telClient.Shutdown(ctx)
 	}
 
 	if brk.healthSrv != nil {
@@ -652,58 +638,6 @@ func (brk *broker) Blocker() *blocker.Blocker {
 
 func (brk *broker) JetStreamClient() *jetstream.Client {
 	return brk.jetClient
-}
-
-func (brk *broker) startTelemetry(ctx context.Context) {
-	otel.SetErrorHandler(telemetry.OTELErrorHandler{Log: brk.Log()})
-
-	metricExp, err := otlpmetrichttp.New(ctx,
-		otlpmetrichttp.WithInsecure(),
-		otlpmetrichttp.WithEndpoint(brk.Config().TelemetryAgentAddr))
-	if err != nil {
-		panic(err)
-	}
-
-	i := time.Duration(brk.Config().MetricsInterval) * time.Second
-	meterProvider := metric.NewMeterProvider(
-		metric.WithReader(metric.NewPeriodicReader(metricExp, metric.WithInterval(i))))
-	global.SetMeterProvider(meterProvider)
-
-	err = host.Start()
-	if err != nil {
-		brk.Log().Error(err)
-		os.Exit(kubefox.TelemetryServerErrorCode)
-	}
-	err = runtime.Start()
-	if err != nil {
-		brk.Log().Error(err)
-		os.Exit(kubefox.TelemetryServerErrorCode)
-	}
-
-	client := otlptracehttp.NewClient(
-		otlptracehttp.WithInsecure(),
-		otlptracehttp.WithEndpoint(brk.Config().TelemetryAgentAddr))
-	telExp, err := otlptrace.New(ctx, client)
-	if err != nil {
-		brk.Log().Error(err)
-		os.Exit(kubefox.TelemetryServerErrorCode)
-	}
-
-	brk.traceProvider = trace.NewTracerProvider(
-		// TODO sample setup? just rely on outside request to determine if to sample?
-		// sdktrace.WithSampler(sdktrace.AlwaysSample()),
-		trace.WithBatcher(telExp),
-		trace.WithResource(resource.NewWithAttributes(
-			semconv.SchemaURL,
-			semconv.ServiceNameKey.String(brk.Component().GetName()),
-			attribute.String("kubefox.component.id", brk.Component().GetId()),
-			attribute.String("kubefox.component.git-hash", brk.Component().GetGitHash()),
-			attribute.String("kubefox.component.name", brk.Component().GetName()),
-		)),
-	)
-	otel.SetTracerProvider(brk.traceProvider)
-
-	brk.Log().Infof("telemetry client connecting to telemetry agent at %s", brk.Config().TelemetryAgentAddr)
 }
 
 func (brk *broker) notify() {

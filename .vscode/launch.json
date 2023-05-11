@@ -6,14 +6,16 @@
       "type": "go",
       "request": "launch",
       "mode": "auto",
-      "program": "main.go",
+      "program": "components/broker/main.go",
       "args": [
         "adapter",
         "http-server",
         "--dev",
-        "--platform=dev",
-        "--system=dev",
-        "--component=http-adpater"
+        "--platform=kubefox",
+        "--system=kubefox",
+        "--component=http-ingress-adapater",
+        "--namespace=kubefox-system",
+        "--metrics-interval=5"
       ]
     }
   ]

@@ -17,11 +17,12 @@ const (
 	RuntimeSrvSvcAccount = "kfp-runtime-server"
 	OprtrSvcAccount      = "kfp-operator"
 
-	NATSCertSecret  = "kfp-tls-cert-nats"
-	CertSecret      = "kfp-tls-cert-runtime"
-	EnvConfigMap    = "kfp-env"
-	BrkService      = "kfp-broker"
-	ImagePullSecret = "kfp-image-pull-secret"
+	NATSCertSecret      = "kfp-tls-cert-nats"
+	CertSecret          = "kfp-tls-cert-runtime"
+	TelemetryCertSecret = "kfp-tls-cert-telemetry"
+	EnvConfigMap        = "kfp-env"
+	BrkService          = "kfp-broker"
+	ImagePullSecret     = "kfp-image-pull-secret"
 )
 
 // Arg names
