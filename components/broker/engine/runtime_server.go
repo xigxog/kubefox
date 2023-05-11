@@ -8,7 +8,7 @@ import (
 	"github.com/xigxog/kubefox/libs/core/grpc"
 	"github.com/xigxog/kubefox/libs/core/kubefox"
 	"github.com/xigxog/kubefox/libs/core/platform"
-
+	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
 	gogrpc "google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/reflection"
@@ -36,7 +36,10 @@ func NewRuntimeServer(brk Broker) *RuntimeServer {
 
 	return &RuntimeServer{
 		Broker: brk,
-		server: gogrpc.NewServer(gogrpc.Creds(creds)),
+		server: gogrpc.NewServer(gogrpc.Creds(creds),
+			gogrpc.UnaryInterceptor(otelgrpc.UnaryServerInterceptor()),
+			gogrpc.StreamInterceptor(otelgrpc.StreamServerInterceptor()),
+		),
 	}
 }
 

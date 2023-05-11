@@ -20,12 +20,17 @@ import (
 	"github.com/xigxog/kubefox/libs/core/logger"
 	"github.com/xigxog/kubefox/libs/core/platform"
 	"github.com/xigxog/kubefox/libs/core/utils"
+	"go.opentelemetry.io/contrib/instrumentation/host"
+	"go.opentelemetry.io/contrib/instrumentation/runtime"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetrichttp"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp"
+	"go.opentelemetry.io/otel/metric/global"
+	"go.opentelemetry.io/otel/sdk/metric"
 	"go.opentelemetry.io/otel/sdk/resource"
-	otelsdk "go.opentelemetry.io/otel/sdk/trace"
+	"go.opentelemetry.io/otel/sdk/trace"
 	semconv "go.opentelemetry.io/otel/semconv/v1.10.0"
 	"google.golang.org/protobuf/types/known/structpb"
 )
@@ -57,9 +62,9 @@ type Broker interface {
 	Shutdown()
 
 	JetStreamClient() *jetstream.Client
-
 	Blocker() *blocker.Blocker
 
+	IsHealthy(context.Context) bool
 	Log() *logger.Log
 }
 
@@ -73,7 +78,7 @@ type broker struct {
 	remoteSender EventSender
 	localSender  EventSender
 
-	fabricClient EventSender
+	runtimeClient EventSender
 
 	grpcSrv     *GRPCServer
 	runtimeSrv  *RuntimeServer
@@ -82,8 +87,8 @@ type broker struct {
 	jetSender   *JetStreamSender
 	jetListener *JetStreamListener
 
-	telSrv        *TelemetryServer
-	traceProvider *otelsdk.TracerProvider
+	traceProvider *trace.TracerProvider
+	healthSrv     *HealthServer
 
 	jetClient *jetstream.Client
 	fabStore  *fabric.Store
@@ -305,7 +310,7 @@ func (brk *broker) InvokeRuntimeServer(ctx context.Context, req kubefox.DataEven
 		return
 	}
 
-	resp = brk.fabricClient.SendEvent(ctx, req)
+	resp = brk.runtimeClient.SendEvent(ctx, req)
 	resp.SetFabric(nil)
 	if resp.GetType() == kubefox.ErrorEventType {
 		if resp.GetError() == nil {
@@ -445,13 +450,21 @@ func (brk *broker) start() {
 	ctx, cancel := context.WithTimeout(context.Background(), brk.EventTimeout())
 	defer cancel()
 
-	brk.setupTraceProvider(ctx)
+	if brk.Config().HealthSrvAddr != "false" {
+		brk.healthSrv = NewHealthServer(brk)
+		brk.healthSrv.Start()
+	}
+
+	if brk.Config().TelemetryAgentAddr != "false" {
+		brk.startTelemetry(ctx)
+	}
+
 	brk.fabStore = fabric.NewStore(brk)
 
 	// Only try to connect to Platform Runtime's gRPC server if this broker is
 	// not managing the RuntimeServer.
 	if !brk.Config().IsRuntimeSrv {
-		brk.fabricClient = NewRuntimeClient(brk)
+		brk.runtimeClient = NewRuntimeClient(brk)
 	}
 	brk.bootstrap(ctx)
 
@@ -462,13 +475,7 @@ func (brk *broker) start() {
 	}
 
 	if brk.Config().IsDevMode {
-		brk.Log().Warn("dev mode enabled, telemetry server disabled")
 		brk.startDevServices()
-
-	} else {
-		brk.telSrv = NewTelemetryServer(brk)
-		brk.telSrv.Serve()
-		brk.telSrv.AddHealthProvider(brk.jetClient)
 	}
 }
 
@@ -481,16 +488,11 @@ func (brk *broker) startComponent() {
 	brk.grpcSrv.Start()
 	brk.localSender = brk.grpcSrv
 	if brk.Config().IsRuntimeSrv {
-		brk.fabricClient = brk.grpcSrv
+		brk.runtimeClient = brk.grpcSrv
 	}
 
 	brk.jetListener = NewJetStreamListener(brk)
 	brk.jetListener.Start()
-
-	if brk.telSrv != nil {
-		brk.telSrv.AddHealthProvider(brk.grpcSrv)
-		brk.telSrv.EnableComponentMetrics(brk.grpcSrv)
-	}
 }
 
 func (brk *broker) bootstrap(ctx context.Context) {
@@ -592,10 +594,6 @@ func (brk *broker) Shutdown() {
 		brk.jetClient.Close()
 	}
 
-	if brk.telSrv != nil {
-		brk.telSrv.Shutdown(ctx)
-	}
-
 	if brk.traceProvider != nil {
 		brk.Log().Info("trace provider shutting down")
 		if err := brk.traceProvider.Shutdown(ctx); err != nil {
@@ -603,7 +601,25 @@ func (brk *broker) Shutdown() {
 		}
 	}
 
+	if brk.healthSrv != nil {
+		brk.healthSrv.Shutdown(ctx)
+	}
+
 	brk.Log().Sync()
+}
+
+func (brk *broker) IsHealthy(ctx context.Context) bool {
+	healthy := true
+	if brk.jetClient != nil {
+		healthy = healthy && brk.jetClient.Healthy(ctx)
+	}
+	if brk.grpcSrv != nil {
+		healthy = healthy && brk.grpcSrv.Healthy(ctx)
+	}
+
+	brk.Log().Debugf("health check called; healthy: %t", healthy)
+
+	return healthy
 }
 
 func (brk *broker) Log() *logger.Log {
@@ -638,25 +654,46 @@ func (brk *broker) JetStreamClient() *jetstream.Client {
 	return brk.jetClient
 }
 
-func (brk *broker) setupTraceProvider(ctx context.Context) {
-	// addrParts := strings.Split(brk.Config().TraceAgentAddr, ":")
-	// exp, err := jaeger.New(jaeger.WithAgentEndpoint(
-	// 	jaeger.WithAgentHost(addrParts[0]),
-	// 	jaeger.WithAgentPort(addrParts[1]),
-	// 	jaeger.WithLogger(zap.NewStdLog(brk.Log().Desugar())),
-	// ))
-	client := otlptracehttp.NewClient(otlptracehttp.WithInsecure())
-	exp, err := otlptrace.New(ctx, client)
+func (brk *broker) startTelemetry(ctx context.Context) {
+	otel.SetErrorHandler(telemetry.OTELErrorHandler{Log: brk.Log()})
+
+	metricExp, err := otlpmetrichttp.New(ctx,
+		otlpmetrichttp.WithInsecure(),
+		otlpmetrichttp.WithEndpoint(brk.Config().TelemetryAgentAddr))
+	if err != nil {
+		panic(err)
+	}
+
+	i := time.Duration(brk.Config().MetricsInterval) * time.Second
+	meterProvider := metric.NewMeterProvider(
+		metric.WithReader(metric.NewPeriodicReader(metricExp, metric.WithInterval(i))))
+	global.SetMeterProvider(meterProvider)
+
+	err = host.Start()
+	if err != nil {
+		brk.Log().Error(err)
+		os.Exit(kubefox.TelemetryServerErrorCode)
+	}
+	err = runtime.Start()
 	if err != nil {
 		brk.Log().Error(err)
 		os.Exit(kubefox.TelemetryServerErrorCode)
 	}
 
-	brk.traceProvider = otelsdk.NewTracerProvider(
+	client := otlptracehttp.NewClient(
+		otlptracehttp.WithInsecure(),
+		otlptracehttp.WithEndpoint(brk.Config().TelemetryAgentAddr))
+	telExp, err := otlptrace.New(ctx, client)
+	if err != nil {
+		brk.Log().Error(err)
+		os.Exit(kubefox.TelemetryServerErrorCode)
+	}
+
+	brk.traceProvider = trace.NewTracerProvider(
 		// TODO sample setup? just rely on outside request to determine if to sample?
 		// sdktrace.WithSampler(sdktrace.AlwaysSample()),
-		otelsdk.WithBatcher(exp),
-		otelsdk.WithResource(resource.NewWithAttributes(
+		trace.WithBatcher(telExp),
+		trace.WithResource(resource.NewWithAttributes(
 			semconv.SchemaURL,
 			semconv.ServiceNameKey.String(brk.Component().GetName()),
 			attribute.String("kubefox.component.id", brk.Component().GetId()),
@@ -665,7 +702,8 @@ func (brk *broker) setupTraceProvider(ctx context.Context) {
 		)),
 	)
 	otel.SetTracerProvider(brk.traceProvider)
-	brk.Log().Infof("trace client connecting to trace agent at %s", brk.Config().TraceAgentAddr)
+
+	brk.Log().Infof("telemetry client connecting to telemetry agent at %s", brk.Config().TelemetryAgentAddr)
 }
 
 func (brk *broker) notify() {

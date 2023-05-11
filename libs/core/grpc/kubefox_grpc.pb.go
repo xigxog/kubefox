@@ -10,6 +10,7 @@ import (
 	context "context"
 	grpc "google.golang.org/grpc"
 	codes "google.golang.org/grpc/codes"
+	grpc_health_v1 "google.golang.org/grpc/health/grpc_health_v1"
 	status "google.golang.org/grpc/status"
 )
 
@@ -27,6 +28,8 @@ type ComponentServiceClient interface {
 	Subscribe(ctx context.Context, in *SubscribeRequest, opts ...grpc.CallOption) (ComponentService_SubscribeClient, error)
 	Unsubscribe(ctx context.Context, in *SubscribeRequest, opts ...grpc.CallOption) (*Ack, error)
 	GetConfig(ctx context.Context, in *ConfigRequest, opts ...grpc.CallOption) (*ComponentConfig, error)
+	Check(ctx context.Context, in *grpc_health_v1.HealthCheckRequest, opts ...grpc.CallOption) (*grpc_health_v1.HealthCheckResponse, error)
+	Watch(ctx context.Context, in *grpc_health_v1.HealthCheckRequest, opts ...grpc.CallOption) (ComponentService_WatchClient, error)
 }
 
 type componentServiceClient struct {
@@ -105,6 +108,47 @@ func (c *componentServiceClient) GetConfig(ctx context.Context, in *ConfigReques
 	return out, nil
 }
 
+func (c *componentServiceClient) Check(ctx context.Context, in *grpc_health_v1.HealthCheckRequest, opts ...grpc.CallOption) (*grpc_health_v1.HealthCheckResponse, error) {
+	out := new(grpc_health_v1.HealthCheckResponse)
+	err := c.cc.Invoke(ctx, "/kubefox.proto.v1.ComponentService/Check", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *componentServiceClient) Watch(ctx context.Context, in *grpc_health_v1.HealthCheckRequest, opts ...grpc.CallOption) (ComponentService_WatchClient, error) {
+	stream, err := c.cc.NewStream(ctx, &ComponentService_ServiceDesc.Streams[1], "/kubefox.proto.v1.ComponentService/Watch", opts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &componentServiceWatchClient{stream}
+	if err := x.ClientStream.SendMsg(in); err != nil {
+		return nil, err
+	}
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	return x, nil
+}
+
+type ComponentService_WatchClient interface {
+	Recv() (*grpc_health_v1.HealthCheckResponse, error)
+	grpc.ClientStream
+}
+
+type componentServiceWatchClient struct {
+	grpc.ClientStream
+}
+
+func (x *componentServiceWatchClient) Recv() (*grpc_health_v1.HealthCheckResponse, error) {
+	m := new(grpc_health_v1.HealthCheckResponse)
+	if err := x.ClientStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
 // ComponentServiceServer is the server API for ComponentService service.
 // All implementations must embed UnimplementedComponentServiceServer
 // for forward compatibility
@@ -114,6 +158,8 @@ type ComponentServiceServer interface {
 	Subscribe(*SubscribeRequest, ComponentService_SubscribeServer) error
 	Unsubscribe(context.Context, *SubscribeRequest) (*Ack, error)
 	GetConfig(context.Context, *ConfigRequest) (*ComponentConfig, error)
+	Check(context.Context, *grpc_health_v1.HealthCheckRequest) (*grpc_health_v1.HealthCheckResponse, error)
+	Watch(*grpc_health_v1.HealthCheckRequest, ComponentService_WatchServer) error
 	mustEmbedUnimplementedComponentServiceServer()
 }
 
@@ -135,6 +181,12 @@ func (UnimplementedComponentServiceServer) Unsubscribe(context.Context, *Subscri
 }
 func (UnimplementedComponentServiceServer) GetConfig(context.Context, *ConfigRequest) (*ComponentConfig, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetConfig not implemented")
+}
+func (UnimplementedComponentServiceServer) Check(context.Context, *grpc_health_v1.HealthCheckRequest) (*grpc_health_v1.HealthCheckResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Check not implemented")
+}
+func (UnimplementedComponentServiceServer) Watch(*grpc_health_v1.HealthCheckRequest, ComponentService_WatchServer) error {
+	return status.Errorf(codes.Unimplemented, "method Watch not implemented")
 }
 func (UnimplementedComponentServiceServer) mustEmbedUnimplementedComponentServiceServer() {}
 
@@ -242,6 +294,45 @@ func _ComponentService_GetConfig_Handler(srv interface{}, ctx context.Context, d
 	return interceptor(ctx, in, info, handler)
 }
 
+func _ComponentService_Check_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(grpc_health_v1.HealthCheckRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ComponentServiceServer).Check(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/kubefox.proto.v1.ComponentService/Check",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ComponentServiceServer).Check(ctx, req.(*grpc_health_v1.HealthCheckRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ComponentService_Watch_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(grpc_health_v1.HealthCheckRequest)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
+	}
+	return srv.(ComponentServiceServer).Watch(m, &componentServiceWatchServer{stream})
+}
+
+type ComponentService_WatchServer interface {
+	Send(*grpc_health_v1.HealthCheckResponse) error
+	grpc.ServerStream
+}
+
+type componentServiceWatchServer struct {
+	grpc.ServerStream
+}
+
+func (x *componentServiceWatchServer) Send(m *grpc_health_v1.HealthCheckResponse) error {
+	return x.ServerStream.SendMsg(m)
+}
+
 // ComponentService_ServiceDesc is the grpc.ServiceDesc for ComponentService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -265,11 +356,20 @@ var ComponentService_ServiceDesc = grpc.ServiceDesc{
 			MethodName: "GetConfig",
 			Handler:    _ComponentService_GetConfig_Handler,
 		},
+		{
+			MethodName: "Check",
+			Handler:    _ComponentService_Check_Handler,
+		},
 	},
 	Streams: []grpc.StreamDesc{
 		{
 			StreamName:    "Subscribe",
 			Handler:       _ComponentService_Subscribe_Handler,
+			ServerStreams: true,
+		},
+		{
+			StreamName:    "Watch",
+			Handler:       _ComponentService_Watch_Handler,
 			ServerStreams: true,
 		},
 	},
@@ -281,6 +381,8 @@ var ComponentService_ServiceDesc = grpc.ServiceDesc{
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type RuntimeServiceClient interface {
 	Invoke(ctx context.Context, in *Data, opts ...grpc.CallOption) (*Data, error)
+	Check(ctx context.Context, in *grpc_health_v1.HealthCheckRequest, opts ...grpc.CallOption) (*grpc_health_v1.HealthCheckResponse, error)
+	Watch(ctx context.Context, in *grpc_health_v1.HealthCheckRequest, opts ...grpc.CallOption) (RuntimeService_WatchClient, error)
 }
 
 type runtimeServiceClient struct {
@@ -300,11 +402,54 @@ func (c *runtimeServiceClient) Invoke(ctx context.Context, in *Data, opts ...grp
 	return out, nil
 }
 
+func (c *runtimeServiceClient) Check(ctx context.Context, in *grpc_health_v1.HealthCheckRequest, opts ...grpc.CallOption) (*grpc_health_v1.HealthCheckResponse, error) {
+	out := new(grpc_health_v1.HealthCheckResponse)
+	err := c.cc.Invoke(ctx, "/kubefox.proto.v1.RuntimeService/Check", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *runtimeServiceClient) Watch(ctx context.Context, in *grpc_health_v1.HealthCheckRequest, opts ...grpc.CallOption) (RuntimeService_WatchClient, error) {
+	stream, err := c.cc.NewStream(ctx, &RuntimeService_ServiceDesc.Streams[0], "/kubefox.proto.v1.RuntimeService/Watch", opts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &runtimeServiceWatchClient{stream}
+	if err := x.ClientStream.SendMsg(in); err != nil {
+		return nil, err
+	}
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	return x, nil
+}
+
+type RuntimeService_WatchClient interface {
+	Recv() (*grpc_health_v1.HealthCheckResponse, error)
+	grpc.ClientStream
+}
+
+type runtimeServiceWatchClient struct {
+	grpc.ClientStream
+}
+
+func (x *runtimeServiceWatchClient) Recv() (*grpc_health_v1.HealthCheckResponse, error) {
+	m := new(grpc_health_v1.HealthCheckResponse)
+	if err := x.ClientStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
 // RuntimeServiceServer is the server API for RuntimeService service.
 // All implementations must embed UnimplementedRuntimeServiceServer
 // for forward compatibility
 type RuntimeServiceServer interface {
 	Invoke(context.Context, *Data) (*Data, error)
+	Check(context.Context, *grpc_health_v1.HealthCheckRequest) (*grpc_health_v1.HealthCheckResponse, error)
+	Watch(*grpc_health_v1.HealthCheckRequest, RuntimeService_WatchServer) error
 	mustEmbedUnimplementedRuntimeServiceServer()
 }
 
@@ -314,6 +459,12 @@ type UnimplementedRuntimeServiceServer struct {
 
 func (UnimplementedRuntimeServiceServer) Invoke(context.Context, *Data) (*Data, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Invoke not implemented")
+}
+func (UnimplementedRuntimeServiceServer) Check(context.Context, *grpc_health_v1.HealthCheckRequest) (*grpc_health_v1.HealthCheckResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Check not implemented")
+}
+func (UnimplementedRuntimeServiceServer) Watch(*grpc_health_v1.HealthCheckRequest, RuntimeService_WatchServer) error {
+	return status.Errorf(codes.Unimplemented, "method Watch not implemented")
 }
 func (UnimplementedRuntimeServiceServer) mustEmbedUnimplementedRuntimeServiceServer() {}
 
@@ -346,6 +497,45 @@ func _RuntimeService_Invoke_Handler(srv interface{}, ctx context.Context, dec fu
 	return interceptor(ctx, in, info, handler)
 }
 
+func _RuntimeService_Check_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(grpc_health_v1.HealthCheckRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RuntimeServiceServer).Check(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/kubefox.proto.v1.RuntimeService/Check",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RuntimeServiceServer).Check(ctx, req.(*grpc_health_v1.HealthCheckRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _RuntimeService_Watch_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(grpc_health_v1.HealthCheckRequest)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
+	}
+	return srv.(RuntimeServiceServer).Watch(m, &runtimeServiceWatchServer{stream})
+}
+
+type RuntimeService_WatchServer interface {
+	Send(*grpc_health_v1.HealthCheckResponse) error
+	grpc.ServerStream
+}
+
+type runtimeServiceWatchServer struct {
+	grpc.ServerStream
+}
+
+func (x *runtimeServiceWatchServer) Send(m *grpc_health_v1.HealthCheckResponse) error {
+	return x.ServerStream.SendMsg(m)
+}
+
 // RuntimeService_ServiceDesc is the grpc.ServiceDesc for RuntimeService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -357,7 +547,17 @@ var RuntimeService_ServiceDesc = grpc.ServiceDesc{
 			MethodName: "Invoke",
 			Handler:    _RuntimeService_Invoke_Handler,
 		},
+		{
+			MethodName: "Check",
+			Handler:    _RuntimeService_Check_Handler,
+		},
 	},
-	Streams:  []grpc.StreamDesc{},
+	Streams: []grpc.StreamDesc{
+		{
+			StreamName:    "Watch",
+			Handler:       _RuntimeService_Watch_Handler,
+			ServerStreams: true,
+		},
+	},
 	Metadata: "kubefox.proto",
 }

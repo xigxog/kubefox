@@ -9,6 +9,7 @@ import (
 	"github.com/xigxog/kubefox/libs/core/grpc"
 	"github.com/xigxog/kubefox/libs/core/kubefox"
 	"github.com/xigxog/kubefox/libs/core/platform"
+	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
 
 	gogrpc "google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
@@ -42,7 +43,10 @@ func NewGRPCServer(brk Broker) *GRPCServer {
 		Broker:  brk,
 		subMap:  make(map[string]*context.CancelFunc),
 		eventCh: make(chan kubefox.DataEvent, 512),
-		server:  gogrpc.NewServer(gogrpc.Creds(creds)),
+		server: gogrpc.NewServer(gogrpc.Creds(creds),
+			gogrpc.UnaryInterceptor(otelgrpc.UnaryServerInterceptor()),
+			gogrpc.StreamInterceptor(otelgrpc.StreamServerInterceptor()),
+		),
 	}
 }
 
@@ -201,7 +205,6 @@ func (srv *GRPCServer) Healthy(ctx context.Context) bool {
 	// this purposefully bypasses the broker to avoid attaching traces
 	resp := srv.SendEvent(ctx, kubefox.NewDataEvent(kubefox.HealthRequestType))
 	if resp.GetError() != nil {
-		srv.Log().Errorf("error checking component health: %v", resp.GetError())
 		return false
 	}
 

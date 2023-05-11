@@ -18,7 +18,7 @@ import (
 type HTTPServer struct {
 	Broker
 
-	server     *http.Server
+	httpSrv    *http.Server
 	propagator propagation.TextMapPropagator
 }
 
@@ -30,7 +30,7 @@ func NewHTTPServer(brk Broker) *HTTPServer {
 }
 
 func (srv *HTTPServer) Start() {
-	srv.server = &http.Server{
+	srv.httpSrv = &http.Server{
 		Addr: srv.Config().HTTPSrvAddr,
 		// TODO get from config
 		// Good practice to set timeouts to avoid Slowloris attacks.
@@ -41,7 +41,7 @@ func (srv *HTTPServer) Start() {
 	}
 
 	go func() {
-		err := srv.server.ListenAndServe()
+		err := srv.httpSrv.ListenAndServe()
 		if err != nil && !errors.Is(err, http.ErrServerClosed) {
 			srv.Log().Error(err)
 			os.Exit(kubefox.HTTPServerErrorCode)
@@ -54,9 +54,10 @@ func (srv *HTTPServer) Start() {
 func (srv *HTTPServer) Shutdown(ctx context.Context) {
 	srv.Log().Info("HTTP server shutting down")
 
-	err := srv.server.Shutdown(ctx)
-	if err != nil {
-		srv.Log().Error(err)
+	if srv.httpSrv != nil {
+		if err := srv.httpSrv.Shutdown(ctx); err != nil {
+			srv.Log().Error(err)
+		}
 	}
 }
 

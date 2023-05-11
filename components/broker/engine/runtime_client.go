@@ -7,6 +7,7 @@ import (
 	"github.com/xigxog/kubefox/libs/core/grpc"
 	"github.com/xigxog/kubefox/libs/core/kubefox"
 	"github.com/xigxog/kubefox/libs/core/platform"
+	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
 	gogrpc "google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 )
@@ -33,6 +34,8 @@ func NewRuntimeClient(brk Broker) *RuntimeClient {
 	conn, err := gogrpc.Dial(brk.Config().RuntimeSrvAddr,
 		gogrpc.WithTransportCredentials(creds),
 		gogrpc.WithTimeout(brk.ConnectTimeout()),
+		gogrpc.WithUnaryInterceptor(otelgrpc.UnaryClientInterceptor()),
+		gogrpc.WithStreamInterceptor(otelgrpc.StreamClientInterceptor()),
 		gogrpc.WithBlock(),
 	)
 	if err != nil {

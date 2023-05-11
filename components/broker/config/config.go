@@ -22,7 +22,8 @@ type Flags struct {
 	CompGitHash string
 	Namespace   string
 
-	EventTimeout int64
+	EventTimeout    uint8
+	MetricsInterval uint8
 
 	IsRuntimeSrv  bool
 	SkipBootstrap bool
@@ -35,13 +36,13 @@ type Flags struct {
 }
 
 type Addrs struct {
-	RuntimeSrvAddr   string
-	GRPCSrvAddr      string
-	DevHTTPSrvAddr   string
-	HTTPSrvAddr      string
-	NatsAddr         string
-	TelemetrySrvAddr string
-	TraceAgentAddr   string
+	RuntimeSrvAddr     string
+	GRPCSrvAddr        string
+	DevHTTPSrvAddr     string
+	HTTPSrvAddr        string
+	NatsAddr           string
+	TelemetryAgentAddr string
+	HealthSrvAddr      string
 }
 
 type DevContext struct {
