@@ -73,7 +73,7 @@ func initCommonFlags(cmd *cobra.Command) {
 	f.StringVarP(&flags.CompGitHash, "component-hash", "a", "", "hash of the component (required if \"dev\" flag not set)")
 	f.StringVarP(&flags.RuntimeSrvAddr, "runtime-srv-addr", "k", "127.0.0.1:6060", "address and port of gRPC server for KubeFox Runtime Server")
 	f.StringVarP(&flags.NatsAddr, "nats-addr", "n", "127.0.0.1:4222", "address and port of NATS server, JetStream must be enabled on NATS server")
-	f.StringVarP(&flags.HealthSrvAddr, "health-srv-addr", "m", "0.0.0.0:9999", "address and port of the brokers's HTTP health server, set to \"false\" to disable")
+	f.StringVarP(&flags.HealthSrvAddr, "health-srv-addr", "m", "0.0.0.0:1111", "address and port of the brokers's HTTP health server, set to \"false\" to disable")
 	f.StringVarP(&flags.TelemetryAgentAddr, "telemetry-agent-addr", "e", "127.0.0.1:4318", "address and port of the telemetry agent, set to \"false\" to disable")
 	f.StringVarP(&flags.Namespace, "namespace", "l", "", "Kubernetes namespace containing the KubeFox Platform")
 	f.Uint8VarP(&flags.EventTimeout, "timeout", "t", 30, "timeout in seconds for processing an event")

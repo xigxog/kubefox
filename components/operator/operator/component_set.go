@@ -14,6 +14,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
 func (opr *operator) ProcessComponentSet(kit kubefox.Kit) error {
@@ -85,6 +86,7 @@ func (opr *operator) updateSysRefStatus(status *kubev1a1.ComponentSetStatus, dep
 }
 
 func (opr *operator) deployment(platNS, plat, sys string, comp *common.ComponentProps) *appsv1.Deployment {
+	healthPort := int32(1111)
 	defMode := new(int32)
 	*defMode = 420
 
@@ -123,6 +125,8 @@ func (opr *operator) deployment(platNS, plat, sys string, comp *common.Component
 							"--system=" + sys,
 							"--component=" + comp.Name,
 							"--component-hash=" + comp.GitHash,
+							fmt.Sprintf("--health-srv-addr=0.0.0.0:%d", healthPort),
+							"--telemetry-agent-addr=false",
 						},
 						EnvFrom: []corev1.EnvFromSource{
 							{
@@ -143,6 +147,20 @@ func (opr *operator) deployment(platNS, plat, sys string, comp *common.Component
 								Name:      platform.CertSecret,
 								MountPath: platform.CertDir,
 								ReadOnly:  true,
+							},
+						},
+						Ports: []corev1.ContainerPort{
+							{
+								Name:          "health",
+								ContainerPort: healthPort,
+								Protocol:      corev1.ProtocolTCP,
+							},
+						},
+						LivenessProbe: &corev1.Probe{
+							ProbeHandler: corev1.ProbeHandler{
+								HTTPGet: &corev1.HTTPGetAction{
+									Port: intstr.FromString("health"),
+								},
 							},
 						},
 					},

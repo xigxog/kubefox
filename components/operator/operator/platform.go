@@ -43,7 +43,7 @@ func (op *operator) ProcessPlatform(kit kubefox.Kit) error {
 			APIVersion: "v1",
 			Resource:   "secrets",
 			Namespace:  kit.Namespace(),
-			Names:      []string{platform.CertSecret, platform.NATSCertSecret},
+			Names:      []string{platform.CertSecret, platform.NATSCertSecret, platform.TelemetryCertSecret},
 		}
 		env := &RelatedResourceRule{
 			APIVersion: "v1",
