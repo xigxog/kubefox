@@ -4,7 +4,6 @@ package kubefox.proto.v1;
 
 import "google/protobuf/struct.proto";
 import "google/protobuf/timestamp.proto";
-import "grpc/health/v1/messages.proto";
 
 option go_package = "github.com/xigxog/kubefox/libs/core/grpc";
 
@@ -92,14 +91,8 @@ service ComponentService {
   rpc Subscribe(SubscribeRequest) returns (stream Data);
   rpc Unsubscribe(SubscribeRequest) returns (Ack);
   rpc GetConfig(ConfigRequest) returns (ComponentConfig);
-
-  rpc Check(grpc.health.v1.HealthCheckRequest) returns (grpc.health.v1.HealthCheckResponse);
-  rpc Watch(grpc.health.v1.HealthCheckRequest) returns (stream grpc.health.v1.HealthCheckResponse);
 }
 
 service RuntimeService { 
   rpc Invoke(Data) returns (Data);
-  
-  rpc Check(grpc.health.v1.HealthCheckRequest) returns (grpc.health.v1.HealthCheckResponse);
-  rpc Watch(grpc.health.v1.HealthCheckRequest) returns (stream grpc.health.v1.HealthCheckResponse);
 }
