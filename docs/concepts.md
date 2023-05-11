@@ -91,11 +91,17 @@ deeper into detail.
    synchronous calls, are modeled as events and are exchanged as messages via
    brokers.
 
+<<<<<<< HEAD
 1. Genesis Event
 
    A Genesis Event is an originating event. It is often created from an external
    request - for instance an external HTTP call. But an internal process like
    CRON or a batch job could create a Genesis Event as well.
+=======
+1. Genesis Events
+    
+   A Genesis Event is an originating event.  It is often created from an external request - for instance an external HTTP call.  But an internal process like CRON or a batch job could create a Genesis Event as well.
+>>>>>>> 9bd657d (added deployment management, versioned deployments, virtual environments, telemetry, more)
 
    KubeFox determines how a Genesis Event will be routed dynamically.
 
