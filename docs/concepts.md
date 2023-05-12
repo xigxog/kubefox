@@ -43,7 +43,7 @@ deeper into detail.
    components in an application. Brokers provide a number of advanced services
    and capabilities - we’ll dig more into them later.
 
-**`External Components`**
+####**`External Components`**
 
    : External Components are third party software e.g., databases, K/V stores,
    CRON etc. Adapters provide connectivity to External Components.
