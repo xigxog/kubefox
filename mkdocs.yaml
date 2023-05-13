@@ -10,9 +10,14 @@ copyright: Copyright © XigXog
 nav:
   - index.md
   - quickstart.md
+  - why_kubefox.md
   - concepts.md
   - design.md
-  - cicd.md
+  - deployment_management.md
+  - dynamic_routing.md
+  - versioned_deployments.md
+  - virtual_environments.md
+  - telemetry.md
   - Reference:
       - reference/events.md
       - reference/api.md

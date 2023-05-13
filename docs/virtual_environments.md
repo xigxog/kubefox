@@ -1,4 +1,4 @@
-# KubeFox Virtual Environments
+# Virtual Environments
 
 When we think about environments today, we think about them as physical constructs, because that is what they are.  Environments familiar to all of us - dev, QA, UAT, prod - exist for various reasons:
 
@@ -9,13 +9,13 @@ When we think about environments today, we think about them as physical construc
 
 Each of these environments has a set of requirements, some of them unique.  For instance, in dev and QA, we don’t want customer data, UAT should have only limited or synthetic customer data, HA is unimportant in dev but can be mission critical in prod etc.  Environments enable us to build policy controls supporting these tenets.  
 
-![diagram](diagrams/environments/dev_environment.png)
+<img src="../diagrams/environments/dev_environment.png" width=60% height=60%>
 
 To prevent things like adverse impacts to  production customers from destructive prototypes, we segregate the environments.  That segregation can take various forms.  Whether the segregation occurs through different namespaces, different environments or even different clusters, significant DevOps overhead is incurred - largely due to the need to determine the means by which segregation will occur and then building the constructs that will provide for that segregation - e.g., manually building and configuring a new namespace, providing for connectivity, determining and accounting for the blast radius of the new works etc.  This is especially difficult in dev because dev has competing agendas:
 
 1. We want developers to be able to innovate, test out new ideas, collaborate on changes, morph approaches - and do all of this freely and rapidly;
-1. We want to prevent developers from stepping on each other; from a developer productivity standpoint, dedicated systems would be ideal;
-1. We want to keep costs as low as possible, so we want to distill the supporting infrastructure (compute/storage resources, developer, QA and DevOps personnel etc.) to the smallest possible subset necessary
+2. We want to prevent developers from stepping on each other; from a developer productivity standpoint, dedicated systems would be ideal;
+3. We want to keep costs as low as possible, so we want to distill the supporting infrastructure (compute/storage resources, developer, QA and DevOps personnel etc.) to the smallest possible subset necessary
 
 In essence we have a dichotomy:  we want an independent, flexible dev workspace that gracefully supports the innovative efforts of our teams *but* we want it at the lowest cost possible.  And by the way, nothing can affect our production systems.
 
@@ -29,11 +29,11 @@ KubeFox ‘environments’ are lightweight, agile, virtual constructs.  KubeFox�
 
 Polina can test her new code in Environment A, which is unique to her:
 
-![diagram](diagrams/environments/polina_dev_environment_a.png)
+<img src="../diagrams/environments/polina_dev_environment_a.png" width=60% height=60%>
 
 and then shift instantly to Environment B, perhaps to compare her changes with the prior version of software:
 
-![diagram](diagrams/environments/polina_dev_environment_b.png)
+<img src="../diagrams/environments/polina_dev_environment_b.png" width=60% height=60%>
 
 KubeFox takes care of routing the requests appropriately and injecting the appropriate credentials - not just for the datastores, but for all components composing Polina’s deployment.  And by the way, Polina can run her application in both environments simultaneously.
 
@@ -41,7 +41,7 @@ One way to think about it is that the developer environments are spooled up in m
 
 KubeFox segregates the developer sandboxes while leveraging its capabilities to distill the number of Pods running to only those that are unique and necessary (this is discussed in greater depth in Versioned Deployments below).
 
-![diagram](diagrams/environments/dev_environment_sandboxes.png)
+<img src="../diagrams/environments/dev_environment_sandboxes.png" width=60% height=60%>
 
 Qiao, Jose, Polina, Pradeep, Fred and Sally could all be working on their own copies of Component X for Application 3, and KubeFox will ensure that traffic destined for Joe’s environment within Dev will use Joe’s version of Component X.
 

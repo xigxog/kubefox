@@ -1,6 +1,6 @@
-# KubeFox Deployment Management
+# Deployment Management
 
-## Component Distillation During Deployment
+## Component Distillation
 
 KubeFox automatically distills System Deployments to only those components that are new or which have changed.  You can think of this process as a diff between what components are currently running in the cluster, and what components have changed in the new deployment.  In so doing KubeFox helps you control provisioning.
 
@@ -38,7 +38,7 @@ and two of which user-written:
 Note that the fulfillment app and web-ui app both employ the api-srv components,
 i.e., these components are shared.
 
-### Deployment a
+## Deployment a
 
 When the Order System is initially deployed (we'll call this the 'a' deployment), it will look like this in KubeFox:
 

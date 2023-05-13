@@ -6,12 +6,12 @@ With KubeFox, these capabilities are intrinsic to the platform.
 
 You can visualize the behavior of the entire System (all applications that compose the System):
 
-![diagram](diagrams/telemetry/telemetry_system.png)
+<img src="../diagrams/telemetry/telemetry_system.png" width=60% height=60%>
 
 You can visualize behavior by Application:
 
-![diagram](diagrams/telemetry/telemetry_application.png)
+<img src="../diagrams/telemetry/telemetry_application.png" width=60% height=60%>
 
 And you can visualize behavior by individual Component:
 
-![diagram](diagrams/telemetry/telemetry_component.png)
+<img src="../diagrams/telemetry/telemetry_component.png" width=60% height=60%>
