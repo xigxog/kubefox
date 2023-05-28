@@ -93,7 +93,7 @@ A KubeFox deployment results in the following:
 
 1. The components unique to the new version of the System are deployed discretely and the Pods to support them are spooled up.  Think of this as a diff between the collection of components associated with version A of a System and those associated with version 2 of that System.  Any updated component or new component in version B will be deployed when version B of the System is deployed.
 
-    See [**Deployment Distillation**](Deployment_Distillation.md) for a deeper discussion of the component distillation facilities of KubeFox
+    See [**Deployment Distillation**](deployment_distillation.md) for a deeper discussion of the component distillation facilities of KubeFox
 
 2. The new version of the System (version B) is available only via explicit calls, for instance, explicit URLs.  Public traffic continues to be routed to the currently released version of the System (version A).
 ## KubeFox Release
