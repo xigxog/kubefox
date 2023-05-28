@@ -10,13 +10,13 @@ copyright: Copyright © XigXog
 nav:
   - index.md
   - quickstart.md
-  - Why_Kubefox.md
+  - 'Why KubeFox?': 'why_kubefox.md'
   - concepts.md
   - design.md
-  - Deployment_Distillation.md
-  - Dynamic_Routing.md
-  - Versioned_Deployments.md
-  - Virtual_Environments.md
+  - 'Deployment Distillation': 'deployment_distillation.md'
+  - 'Dynamic Routing': 'dynamic_routing.md'
+  - 'Versioned Deployments': 'versioned_deployments.md'
+  - 'Virtual Environments': 'virtual_environments.md'
   - telemetry.md
   - Reference:
       - reference/events.md
