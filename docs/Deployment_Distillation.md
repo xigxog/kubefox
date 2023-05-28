@@ -67,7 +67,9 @@ Note that in our deployment table, only the order-ui component was deployed. Kub
 
 ## Deployment c
 
-For our next deployment [c], the user decides to make a change to the api-srv component. Again, KubeFox checks the state of the System and deploys only api-srv[c]:
+For our next deployment [c], the user decides to make a change to the api-srv
+component. Again, KubeFox checks the state of the System and deploys only
+api-srv[c]:
 
 <figure markdown>
   <img src="../diagrams/deployments/distillation/light/deployment_c(light).svg#only-light" width=100% height=100%>
