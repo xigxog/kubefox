@@ -96,6 +96,7 @@ A KubeFox deployment results in the following:
     See [**Deployment Distillation**](deployment_distillation.md) for a deeper discussion of the component distillation facilities of KubeFox
 
 2. The new version of the System (version B) is available only via explicit calls, for instance, explicit URLs.  Public traffic continues to be routed to the currently released version of the System (version A).
+
 ## KubeFox Release
 
 A KubeFox release results in the following:
