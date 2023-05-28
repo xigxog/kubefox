@@ -10,13 +10,13 @@ copyright: Copyright © XigXog
 nav:
   - index.md
   - quickstart.md
-  - why_kubefox.md
+  - Why_Kubefox.md
   - concepts.md
   - design.md
-  - deployment_management.md
-  - dynamic_routing.md
-  - versioned_deployments.md
-  - virtual_environments.md
+  - Deployment_Distillation.md
+  - Dynamic_Routing.md
+  - Versioned_Deployments.md
+  - Virtual_Environments.md
   - telemetry.md
   - Reference:
       - reference/events.md
@@ -53,6 +53,7 @@ theme:
       scheme: default
       primary: yellow
       accent: deep orange
+      # Palette toggle for light mode
       toggle:
         icon: material/weather-night
         name: Switch to dark mode
@@ -60,6 +61,7 @@ theme:
       scheme: slate
       primary: yellow
       accent: deep orange
+      # Palette toggle for dark mode
       toggle:
         icon: material/weather-sunny
         name: Switch to light mode
@@ -81,6 +83,9 @@ plugins:
 markdown_extensions:
   - admonition
   - attr_list
+  - md_in_html
+  - toc:
+      permalink: false
   - def_list
   - pymdownx.details
   - pymdownx.emoji:
