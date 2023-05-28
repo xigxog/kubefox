@@ -1,37 +1,101 @@
+<!-- markdownlint-disable MD033 -->
 # Versioned Deployments
 
-Deployments are fraught with a host of risks and their management absorbs excessive resources.  Factors like version compatibility, roll-back, availability, blue/green, A/B and canary complicate deployment.  KubeFox simplifies the software lifecycle by providing for elegant versioned deployments that serve to reduce risk and simplify engineering workflows.  But perhaps most importantly, versioning reduces the application and microservice sprawl that is endemic to many of today’s Kubernetes teams. 
+Deployments are fraught with a host of risks and their management absorbs excessive resources.  Factors like version compatibility, roll-back, availability, blue/green, A/B and canary complicate deployment.  KubeFox simplifies the software lifecycle by providing for elegant versioned deployments that serve to reduce risk and simplify engineering workflows.  But perhaps most importantly, versioning reduces the application and microservice sprawl that is endemic to many of today’s Kubernetes teams.
 
-Let’s start with a System “MySystem”, which is composed of 3 applications as follows:
+Let’s start with a Retail System composed of 3 applications, a Web UI app, a Catalog app and a fulfillment app, as shown in Figure 1:
 
-<img src="../diagrams/deployments/mysystem_version1_composition.png" width=60% height=60%>
+<figure markdown>
+  <img src="../diagrams/deployments/versioned/light/retail_system_composition_v1(light).svg#only-light" width=90% height=90%>
+  <img src="../diagrams/deployments/versioned/dark/retail_system_composition_v1(dark).svg#only-dark" width=90% height=90%>
+  <figcaption>Figure 1 - Composition of Version 1 of the Retail System</figcaption>
+</figure>
 
-Note that the applications all share Components A, B and C.  If the MySystem is deployed by KubeFox, then the cluster will look like this:
+As the diagram notes, this is the first version of our Retail System.  Note that
+the applications share some Components - specifically, the API Server, Vendor
+Service and Member Service components.  When the Retail System is deployed by
+KubeFox, the cluster will look like the diagram in Figure 2.  
 
-<img src="../diagrams/deployments/mysystem_version1_deployment.png" width=70% height=70%>
+<figure markdown>
+  <img src="../diagrams/deployments/versioned/retail_system_v1.svg" width=100% height=100%>
+  <figcaption>Figure 2 - First Deployment of the Retail System</figcaption>
+</figure>
 
-KubeFox will handle the routing from component to component, and provide telemetry both on a discrete basis (by application), and on a global basis (across the cluster).  You can visualize the behavior of Shared Component A both in the context of Application 1, and in the context of the cluster.  Similarly, you can visualize the behavior of each of the 3 applications, as if they were running by themselves in the cluster.
+Each of the components runs in its own Pod.  KubeFox handles the routing from component to component, and provides telemetry both on a discrete basis - by component and application - and on a global basis (across the cluster).  You can visualize the behavior of the shared API Server both in the context of the Catalog app, and in the context of the cluster.  Similarly, you can visualize the behavior of each of the 3 applications, as if they were running by themselves in the cluster.
 
-At deployment time, KubeFox determines what components need to be deployed, and deploys only the unique components necessary to support that deployment.  That applies to both components, and unique versions of those components.  In the current example, if we change component H in Application 3 – let’s call it H’ - and deployed the new version of MySystem (any change within a System will yield a new version of that System), when we deploy the new version of MySystem, then the actual deployment to the cluster will be distilled to only deploy component H’.
+At deployment time, KubeFox determines what components need to be deployed, and
+deploys only the unique components necessary to support that deployment.  That
+applies to both components, and unique versions of those components.  In the
+current example, if we update the Catalog Query component in the Catalog app,
+our Retail System will be composed of the components shown in Figure 3.
 
-Let’s look at a different example to explore the power of KubeFox further.  Suppose in the prior diagram, we enhance Application 3.  In our new deployment, Application 3 v2 consists of 5 components, 1 additional unshared component (J), and a new version of Shared component A – component A’.  When we deploy the new version of MySystem, the cluster will look like this:
+<figure markdown>
+  <img src="../diagrams/deployments/versioned/light/retail_system_composition_v2(light).svg#only-light" width=90% height=90%>
+  <img src="../diagrams/deployments/versioned/dark/retail_system_composition_v2(dark).svg#only-dark" width=90% height=90%>
+  <figcaption>Figure 3 - Composition of Version 2 of the Retail System</figcaption>
+</figure>
 
-<img src="../diagrams/deployments/mysystem_deployment_app3_enhancement.png" width=70% height=70%>
+When we redeploy, KubeFox will create a new  version of the Retail System; any
+change within a System - whether an updated to a component, or addition of a
+component - will yield a new version of that System.
 
-Note that both the original Component A – because it is still shared by Applications 1 and 2 – is still running, and the new Component A’ is deployed because it is needed by Application 3 v2.  If we later create new versions of Application 1 and 2 that use the updated Component A’, when we deploy the new version of MySystem, the cluster will look like this:
+<figure markdown>
+  <img src="../diagrams/deployments/versioned/retail_system_v2.svg" width=100% height=100%>
+  <figcaption>Figure 4 - Version 2 of the Retail System with the modified Catalog Query component</figcaption>
+</figure>
 
-<img src="../diagrams/deployments/mysystem_deployment_app1and2_enhancement.png" width=70% height=70%>
+Note that KubeFox is taking care of this, unburdening end users from the drudgery of determining what changed.  The end user simply redeploys the Retail System, and when KubeFox builds the deployment, it determines what changed and distills the deployment to only those components that have changed; in our example, only the Catalog Query component changed and it will be the only component redeployed (Figure 4).
 
+Once the deployment occurs, the Retail System will be capable of supporting both versions of the Catalog application.  KubeFox dynamically shapes traffic and will route version 1 requests to the v1 version of the Catalog Query component, and version 2 requests to the v2 component.  Version 2 is accessible via explicit URLs, enabling teams to validate functionality and stability with minimal risk.  Default traffic will be routed to version 1 until version 2 is released.  The end user can optionally leave version 1 in place or choose to deprecate it.
+
+Let’s look at a different example to explore the power of KubeFox further.  Suppose we enhance the Catalog app further by adding a new component “Catalog Vendor” and to support it, we need to update the shared component Vendor Services.  To keep things a little tidier, let’s say that we’ve deprecated version 1 of the Retail System, so we only need version 2 of the Catalog Query component.  The component building blocks will be those shown in Figure 5.
+
+<figure markdown>
+  <img src="../diagrams/deployments/versioned/light/retail_system_composition_v3(light).svg#only-light" width=90% height=90%>
+  <img src="../diagrams/deployments/versioned/dark/retail_system_composition_v3(dark).svg#only-dark" width=90% height=90%>
+  <figcaption>Figure 5 - Composition of Version 3 of the Retail System</figcaption>
+</figure>
+
+<figure markdown>
+  <img src="../diagrams/deployments/versioned/retail_system_v3.svg" width=100% height=100%>
+  <figcaption>Figure 6 - Version 3 of the Retail System</figcaption>
+</figure>
+
+Note that both the original v1 Vendor Service component – because it is still
+shared by the Web UI and Fulfillment Applications – is still required, and the
+new v2 Vendor Service component - because it is needed by the new Catalog Vendor
+component - are present in the cluster.  If we later create new versions of the
+Web UI and Fulfillment applications that use the updated v2 Vendor Service
+component (thereby creating Version 4 of the Retail System), we can choose to
+deprecate the v1 version of Vendor Services (Figure 7).
+
+<figure markdown>
+  <img src="../diagrams/deployments/versioned/retail_system_v4.svg" width=100% height=100%>
+  <figcaption>Figure 7 - Version 4 of the Retail System</figcaption>
+</figure>
+
+Our examples illustrate some of the power of KubeFox.  We can choose to run all 4 versions of the Retail System in parallel if we wish.  Doing so would not mean that there would be 4 monolithic deployments of the Retail System, each demanding and consuming their own resources.  Instead, KubeFox would only deploy unique versions of needed components.  For instance, only one Pod for the Member Service would be necessary, as the Member Service did not change for versions 2 through 4.  KubeFox would handle traffic shaping for each version, and telemetry for version 2 would be specific to version 2, even for the Member Service.
+
+Now is a good time to review KubeFox deployments and releases.
+
+<!-- <object
+  id="color-change-svg"
+  data="../diagrams/deployments/dark/test.svg"
+  type="image/svg+xml"
+  >
+ </object> -->
+
+<!-- <p>Click the following button to see the function in action</p>  
+<input type = "button" onclick = "changeSVGColor('#FFCD28')" value = "Display">   -->
 ## KubeFox Deploy
 
 A KubeFox deployment results in the following:
 
 1. The components unique to the new version of the System are deployed discretely and the Pods to support them are spooled up.  Think of this as a diff between the collection of components associated with version A of a System and those associated with version 2 of that System.  Any updated component or new component in version B will be deployed when version B of the System is deployed.
 
-    See [**Deployment Management**](deployment_management.md) for a deeper discussion of the component distillation facilities of KubeFox
-   
-2. The new version of the System (version B) is available only via explicit calls, for instance, explicit URLs.  Public traffic continues to be routed to the currently released version of the System (version A).
+    See [**Deployment Distillation**](Deployment_Distillation.md) for a deeper discussion of the component distillation facilities of KubeFox
 
+2. The new version of the System (version B) is available only via explicit calls, for instance, explicit URLs.  Public traffic continues to be routed to the currently released version of the System (version A).
 ## KubeFox Release
 
 A KubeFox release results in the following:
@@ -47,31 +111,3 @@ These are just some scenarios:
 - You have concerns with a new release of your applications, and require the ability to rollback extremely quickly should anything go awry.
 
 KubeFox makes all of this possible.
-
-Let’s revisit one of the prior examples and describe what is actually happening.
-
-<img src="../diagrams/deployments/mysystem_version1_deployment_2.png" width=70% height=70%>
-
-In this example, MySystem Version 1 is constructed as before:
-
-<img src="../diagrams/deployments/mysystem_version1_composition.png" width=60% height=60%>
-
-When we release MySystem Version 1, all default traffic is routed to it.
-
-Now we create a new version of MySystem – Version 2.  In our new version and as before, we’ve modified Application 3.  We’ve added a new component J, and enhanced component A – which we’ll call A’:
-
-<img src="../diagrams/deployments/mysystem_version2_composition.png" width=60% height=60%>
-
-When we deploy MySystem Version 2, KubeFox will only deploy updated component A’ and new component J.  And it will spool up the Pods necessary to support these components.  
-
-<img src="../diagrams/deployments/mysystem_version2_deployment.png" width=70% height=70%>
-
-Default traffic will still be routed to Version 1 of MySystem – including Application 3 – because we have not yet released MySystem Version 2.  Version 2 of MySystem – including Application 3 v2 - is accessible via explicit URLs.  If and when we release Version 2 of MySystem, default traffic will be routed to it instead of Version 1.
-
-
-
-
-
-
-
-

@@ -1,6 +1,5 @@
-# Deployment Management
-
-## Component Distillation
+<!-- markdownlint-disable MD033 -->
+# Deployment Distillation
 
 KubeFox automatically distills System Deployments to only those components that are new or which have changed.  You can think of this process as a diff between what components are currently running in the cluster, and what components have changed in the new deployment.  In so doing KubeFox helps you control provisioning.
 
@@ -40,9 +39,14 @@ i.e., these components are shared.
 
 ## Deployment a
 
-When the Order System is initially deployed (we'll call this the 'a' deployment), it will look like this in KubeFox:
+When the Order System is initially deployed (we'll call this the 'a'
+deployment), it will look like this in KubeFox (Figure 1):
 
-![diagram](diagrams/deployments/deployment_a.png)
+<figure markdown>
+  <img src="../diagrams/deployments/distillation/light/deployment_a(light).svg#only-light" width=100% height=100%>
+  <img src="../diagrams/deployments/distillation/dark/deployment_a(dark).svg#only-dark" width=100% height=100%>
+  <figcaption>Figure 1 - Initial Deployment [a]</figcaption>
+</figure>
 
 KubeFox will spool up 3 Pods, the Worker[a], api-srv[a] and the order-ui[a]. Because the api-srv component is shared by the fulfillment and web-ui apps, KubeFox will deploy it only once.
 
@@ -50,9 +54,14 @@ KubeFox will spool up 3 Pods, the Worker[a], api-srv[a] and the order-ui[a]. Bec
 
 Now things get interesting!
 
-Let's say that the user needs to make a change to the order-ui component. When System b is deployed, it will look like this in KubeFox:
+Let's say that the user needs to make a change to the order-ui component. When
+System b is deployed, it will look as shown in Figure 2:
 
-![diagram](diagrams/deployments/deployment_b.png)
+<figure markdown>
+  <img src="../diagrams/deployments/distillation/light/deployment_b(light).svg#only-light" width=100% height=100%>
+  <img src="../diagrams/deployments/distillation/dark/deployment_b(dark).svg#only-dark" width=100% height=100%>
+  <figcaption>Figure 2 - Deployment [b] to change the order-ui component</figcaption>
+</figure>
 
 Note that in our deployment table, only the order-ui component was deployed. KubeFox checks the state of the Order System and deploys only the components that have changed.
 
@@ -60,7 +69,11 @@ Note that in our deployment table, only the order-ui component was deployed. Kub
 
 For our next deployment [c], the user decides to make a change to the api-srv component. Again, KubeFox checks the state of the System and deploys only api-srv[c]:
 
-![diagram](diagrams/deployments/deployment_c.png)
+<figure markdown>
+  <img src="../diagrams/deployments/distillation/light/deployment_c(light).svg#only-light" width=100% height=100%>
+  <img src="../diagrams/deployments/distillation/dark/deployment_c(dark).svg#only-dark" width=100% height=100%>
+  <figcaption>Figure 3 - Deployment [c] to change the api-srv component</figcaption>
+</figure>
 
 Note that the highest component version is tracked in the System (now [c]), and in the applications (now [c] as well).
 
@@ -71,15 +84,19 @@ In our final deployment [d], the user does a couple of things:
 - Creates a new component (reviews)
 - Modifies the order-ui component
 
-When the System is deployed, it looks like this:
+When the System is deployed, it looks as shown in Figure 4:
 
-![diagram](diagrams/deployments/deployment_d.png)
+<figure markdown>
+  <img src="../diagrams/deployments/distillation/light/deployment_d(light).svg#only-light" width=100% height=100%>
+  <img src="../diagrams/deployments/distillation/dark/deployment_d(dark).svg#only-dark" width=100% height=100%>
+  <figcaption>Figure 4 - Deployment [d] to add a component and modify order-ui</figcaption>
+</figure>
 
 Only the new (reviews) and modified component (order-ui) are deployed. Only the web-ui application was modified - so now it's at version [d], while the fulfillment app was not modified - so it's still at version [c].
 
 ## Summary Notes
 
-There are a few things of note here:
+There are a number things of note here:
 
 - To put a fine point on it, each of the deployments is a version in KubeFox.
 - All of the deployments (a - d) are actually available via explicit URLs (unless they're deprecated).

@@ -1,3 +1,4 @@
+<!-- markdownlint-disable MD033 -->
 # Virtual Environments
 
 When we think about environments today, we think about them as physical constructs, because that is what they are.  Environments familiar to all of us - dev, QA, UAT, prod - exist for various reasons:
@@ -7,9 +8,12 @@ When we think about environments today, we think about them as physical construc
 - In UAT, we’re running pre-production code for the purpose of enabling user and customers to validate that the proposed release meets requirements;
 - In prod, we’re running final code.
 
-Each of these environments has a set of requirements, some of them unique.  For instance, in dev and QA, we don’t want customer data, UAT should have only limited or synthetic customer data, HA is unimportant in dev but can be mission critical in prod etc.  Environments enable us to build policy controls supporting these tenets.  
+Each of these environments has a set of requirements, some of them unique.  For instance, in dev and QA, we don’t want customer data, UAT should have only limited or synthetic customer data, HA is unimportant in dev but can be mission critical in prod etc.  Environments enable us to build policy controls supporting these tenets. Figure 1 shows a typical dev environment.
 
-<img src="../diagrams/environments/dev_environment.png" width=60% height=60%>
+<figure markdown>
+  <img src="../diagrams/environments/typical_dev_environment.svg" width=100% height=100%>
+  <figcaption>Figure 1 - A typical Dev environment</figcaption>
+</figure>
 
 To prevent things like adverse impacts to  production customers from destructive prototypes, we segregate the environments.  That segregation can take various forms.  Whether the segregation occurs through different namespaces, different environments or even different clusters, significant DevOps overhead is incurred - largely due to the need to determine the means by which segregation will occur and then building the constructs that will provide for that segregation - e.g., manually building and configuring a new namespace, providing for connectivity, determining and accounting for the blast radius of the new works etc.  This is especially difficult in dev because dev has competing agendas:
 
@@ -27,25 +31,42 @@ One can think about KubeFox environments as retaining the aspects of environment
 
 KubeFox ‘environments’ are lightweight, agile, virtual constructs.  KubeFox’s dynamic routing empowers developers to easily and simply spool up sandboxes to support their efforts.  So developers are no longer constrained by environment or namespace related logistics.  
 
-Polina can test her new code in Environment A, which is unique to her:
+Polina can test her new code in Environment A, which is unique to her (Figure 2):
 
-<img src="../diagrams/environments/polina_dev_environment_a.png" width=60% height=60%>
+<figure markdown>
+  <img src="../diagrams/environments/polina_environment_a.svg" width=100% height=100%>
+  <figcaption>Figure 2 - Polina testing in environment A</figcaption>
+</figure>
 
-and then shift instantly to Environment B, perhaps to compare her changes with the prior version of software:
+and then shift instantly to Environment B (Figure 3), perhaps to compare her changes with the prior version of software:
 
-<img src="../diagrams/environments/polina_dev_environment_b.png" width=60% height=60%>
+<figure markdown>
+  <img src="../diagrams/environments/polina_environment_b.svg" width=100% height=100%>
+  <figcaption>Figure 3 - Polina testing in environment B</figcaption>
+</figure>
 
-KubeFox takes care of routing the requests appropriately and injecting the appropriate credentials - not just for the datastores, but for all components composing Polina’s deployment.  And by the way, Polina can run her application in both environments simultaneously.
+KubeFox takes care of routing the requests correctly and injecting the appropriate credentials - not just for the datastores, but for all components composing Polina’s deployment.  And by the way, Polina can run her application in both environments simultaneously.
 
-One way to think about it is that the developer environments are spooled up in minutes.  But what is really happening is that the environment is created on-the-fly, and overlaid onto a deployment.  Because KubeFox abstracts the configuration from the deployment, teams can easily and simply shift their workloads - even for deployments that have already occurred.
+One way to think about it is that the developer environments are spooled up in seconds.  But what is really happening is that the environment is overlaid onto a deployment, and routing is dynamic.  Because KubeFox abstracts the configuration from the deployment, teams can easily and simply shift their workloads - including for deployments that have already occurred.
 
-KubeFox segregates the developer sandboxes while leveraging its capabilities to distill the number of Pods running to only those that are unique and necessary (this is discussed in greater depth in Versioned Deployments below).
+KubeFox segregates the developer sandboxes while leveraging its capabilities to distill the number of Pods running to only those that are unique and necessary (this is discussed in greater depth in [**Versioned Deployments**](versioned_deployments.md).
 
-<img src="../diagrams/environments/dev_environment_sandboxes.png" width=60% height=60%>
+In Figure 4, we have a complex Retail System comprising 3 applications (a Web UI
+app, a Catalog app and a Fulfillment app), 2 components that are shared amongst
+those 3 apps, and 6 different developers are working on the same Web UI
+component of the Web UI app.  But KubeFox has distilled the deployment to only
+those unique versions of the Web UI component.
 
-Qiao, Jose, Polina, Pradeep, Fred and Sally could all be working on their own copies of Component X for Application 3, and KubeFox will ensure that traffic destined for Joe’s environment within Dev will use Joe’s version of Component X.
+<figure markdown>
+  <img src="../diagrams/environments/distilled_dev_environment.svg" width=100% height=100%>
+  <figcaption>Figure 4 - KubeFox Distilled Dev Environment</figcaption>
+</figure>
 
+From an individual developer’s perspective however, they are working in what appear to be independent sandboxes with dedicated resources.  For instance, to Polina, the system appears as in Figure 5.
 
+<figure markdown>
+  <img src="../diagrams/environments/distilled_dev_environment.svg" width=100% height=100%>
+  <figcaption>Figure 5 - Polina's Dev Environment</figcaption>
+</figure>
 
-
-
+These developer-specific ‘environments’ are made possible by KubeFox.  KubeFox dynamically routes traffic at runtime based upon configuration, enabling very rapid traffic shaping without redeploying code, without DevOps involvement and without provisioning management.

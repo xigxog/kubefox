@@ -1,18 +1,19 @@
-#**Concepts**
+<!-- markdownlint-disable MD033, MD001 -->
+# **Concepts**
 
 We’ll start with brief descriptions of KubeFox constituents and gradually drop
 deeper into detail.
 
-####**`Applications`**
+#### **`Applications`**
 
-   : Applications are just what you think they are: collections of components which together 
+   : Applications are just what you think they are: collections of components which together
    provide useful capabilities to end users of the software.
 
-####**`Components`**
+#### **`Components`**
 
-   : Components are user-written microservices or functions which provide capabilities to 
-   fulfill requirements of an application. The same component can (of course) be used by one 
-   or more applications. Providing for the sharing of components is at the core of why KubeFox 
+   : Components are user-written microservices or functions which provide capabilities to
+   fulfill requirements of an application. The same component can (of course) be used by one
+   or more applications. Providing for the sharing of components is at the core of why KubeFox
    employs the concept of System.
 
    : Components are primitives of the KubeFox platform. Entrypoints are registered
@@ -21,7 +22,7 @@ deeper into detail.
    follows KubeFox convention. Building, packing, testing, and execution of the
    component is handled by KubeFox.
 
-####**`System`**
+#### **`System`**
 
    : A System is a collection of Applications. KubeFox employs the concept of
    System to help developers, QA and release teams with the reuse of components
@@ -32,23 +33,23 @@ deeper into detail.
    time determining what changed for a particular version - KubeFox handles that
    automatically.
 
-####**`Repository`**
+#### **`Repository`**
 
    : A repository is a Git repository. Repositories map 1:1 with Systems.
 
-####**`Brokers`**
+#### **`Brokers`**
 
    : A Broker is a side-car service attached to a component that serves as a proxy
    for events, requests, and responses between that component and other
    components in an application. Brokers provide a number of advanced services
    and capabilities - we’ll dig more into them later.
 
-####**`External Components`**
+#### **`External Components`**
 
    : External Components are third party software e.g., databases, K/V stores,
    CRON etc. Adapters provide connectivity to External Components.
 
-####**`Adapters`**
+#### **`Adapters`**
 
    : Adapters are simply Brokers for External Components, serving to proxy events,
    requests and responses to and from External Components.
@@ -56,20 +57,20 @@ deeper into detail.
    : External Components are registered with KubeFox, enabling access control,
    secret injection, and telemetry recording via Adapters.
 
-####**`System Object`**
+#### **`System Object`**
 
    : When a System is built, a System Object is created in JSON format that
    includes everything a System needs to be deployed. A System Object comprises
    Applications, Components and Routes for a System.
 
-####**`SysRef`**
+#### **`SysRef`**
 
    : A SysRef is a shorthand reference to a System Object that enables interaction
    with a System Object using its id, branch name, or tag name. A SysRef
    represents a snapshot of a System at a moment in time and once created, a
    SysRef is immutable. A SysRef can be created from a branch or tag.
 
-####**`Deployment`**
+#### **`Deployment`**
 
    : A deployment is a SysRef that has been loaded into a cluster. The result of a
    deployment is that all constituents necessary to run a SysRef are available
@@ -77,28 +78,28 @@ deeper into detail.
 
    : When a SysRef is deployed, it is available via explicit URLs.
 
-####**`Release`**
+#### **`Release`**
 
    : A Release results in the direction of default traffic to the specified
    SysRef. Any traffic not qualified with (for instance) explicit URLs would be
    routed to the currently Released SysRef. The current version of software
    running in Production would always be the released SysRef.
 
-####**`Events`**
+#### **`Events`**
 
    : KubeFox is an event driven architecture. All requests and responses, even
    synchronous calls, are modeled as events and are exchanged as messages via
    brokers.
 
-####**`Genesis Events`**
-    
-   : A Genesis Event is an originating event.  It is often created from an external request - 
-   for instance an external HTTP call.  But an internal process like CRON or a batch job could 
+#### **`Genesis Events`**
+  
+   : A Genesis Event is an originating event.  It is often created from an external request -
+   for instance an external HTTP call.  But an internal process like CRON or a batch job could
    create a Genesis Event as well.
 
    : KubeFox determines how a Genesis Event will be routed dynamically.
 
-####**`Environments`**
+#### **`Environments`**
 
    : Environments are virtual overlays in KubeFox. Because KubeFox dynamically
    shapes and routes traffic, you are not bound to environments in the same way
@@ -108,7 +109,7 @@ deeper into detail.
    : KubeFox environments are quite powerful and greatly simplify provisioning.
    We'll dive much more deeply into environments in a separate section.
 
-####**`Routes`**
+#### **`Routes`**
 
    : Routes are used to send events from external sources to a component of a
    SysRef. A route includes a set of criteria and a target component. A target
