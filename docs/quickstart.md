@@ -8,7 +8,7 @@ The following tools must be installed for this quickstart:
 - [Docker](https://docs.docker.com/engine/install/) - A container toolset and
   runtime. Used to build KubeFox Components' OCI images and run a local
   Kubernetes cluster via Kind.
-- [Fox CLI](https://github.com/xigxog/kubefox-cli/releases/tag/v0.1.0-alpha) -
+- [Fox CLI](https://github.com/xigxog/kubefox-cli/releases/) -
   CLI for communicating with the KubeFox Platform. Download the latest release
   and put the binary on your path.
 - [Helm](https://helm.sh/docs/intro/install/) - Package manager for Kubernetes.

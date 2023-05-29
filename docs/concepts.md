@@ -33,6 +33,8 @@ deeper into detail.
    time determining what changed for a particular version - KubeFox handles that
    automatically.
 
+   : Systems map 1:1 with repositories.
+
 #### **`Repository`**
 
    : A repository is a Git repository. Repositories map 1:1 with Systems.

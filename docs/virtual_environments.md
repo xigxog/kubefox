@@ -49,7 +49,10 @@ KubeFox takes care of routing the requests correctly and injecting the appropria
 
 One way to think about it is that the developer environments are spooled up in seconds.  But what is really happening is that the environment is overlaid onto a deployment, and routing is dynamic.  Because KubeFox abstracts the configuration from the deployment, teams can easily and simply shift their workloads - including for deployments that have already occurred.
 
-KubeFox segregates the developer sandboxes while leveraging its capabilities to distill the number of Pods running to only those that are unique and necessary (this is discussed in greater depth in [**Versioned Deployments**](versioned_deployments.md).
+KubeFox segregates the developer sandboxes while leveraging its capabilities to
+distill the number of Pods running to only those that are unique and necessary
+(this is discussed in greater depth both in [**Versioned
+Deployments**](versioned_deployments.md) and [**Deployment Distillation**](deployment_distillation.md).
 
 In Figure 4, we have a complex Retail System comprising 3 applications (a Web UI
 app, a Catalog app and a Fulfillment app), 2 components that are shared amongst

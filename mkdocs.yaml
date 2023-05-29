@@ -8,16 +8,17 @@ site_author: John Long
 copyright: Copyright © XigXog
 
 nav:
-  - index.md
-  - quickstart.md
+  - 'Overview': 'index.md'
+  - 'Quickstart': 'quickstart.md'
+  - 'Challenges in Kubernetes': 'kubernetes_challenges.md'
   - 'Why KubeFox?': 'why_kubefox.md'
-  - concepts.md
-  - design.md
+  - 'Concepts': 'concepts.md'
+  - 'Design': 'design.md'
+  - 'Versioned Deployments': 'versioned_deployments.md'
   - 'Deployment Distillation': 'deployment_distillation.md'
   - 'Dynamic Routing': 'dynamic_routing.md'
-  - 'Versioned Deployments': 'versioned_deployments.md'
   - 'Virtual Environments': 'virtual_environments.md'
-  - telemetry.md
+  - 'Telemetry': 'telemetry.md'
   - Reference:
       - reference/events.md
       - reference/api.md

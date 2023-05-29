@@ -12,7 +12,7 @@ At a high level, they’re all some variation of Figure 1 below:
 
 KubeFox automates significant parts of this workflow.
 
-In KubeFox, you build and deploy [**Systems**](concepts.md).  A **System** is simply a collection of [**Applications**](concepts.md), and applications are collections of [**Components**](concepts.md).  Components can be microservices or functions.  
+In KubeFox, you build and deploy [**Systems**](concepts.md#system).  A **System** is simply a collection of [**Applications**](concepts.md#applications), and applications are collections of [**Components**](concepts.md#components).  Components can be microservices or functions.  
 
 The System construct exists for a few reasons:
 
