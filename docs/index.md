@@ -1,22 +1,14 @@
 # Overview
 
-KubeFox is a software platform that makes creating, deploying, releasing, and
-maintaining software applications on Kubernetes easier. It consists of a core
-set of services for recording telemetry and storing configuration and a
-framework to develop, test, and run components of an application. The KubeFox
-Platform is highly opinionated greatly reducing its complexity and endless
-configuration for it to work.
+KubeFox is an SDK, platform and infrastructure to enable rapid construction and deployment of secure and robust applications for Kubernetes, and which drastically reduces the burden of DevOps.  
 
-KubeFox is built on the concept of deploying a System. Concretely, a KubeFox
-System is a collection of Apps, which in turn are a collection of Components and
-Routes to those Components. The definition of a System's Apps and Routes as well
-as the source code of its Components is stored in a Git repository, referred to
-as a System Repo.
+Consider the following list:
 
-A KubeFox System can be deployed to an instance of the Kubefox Platform running
-on a Kubernetes Cluster. KubeFox will create Kubernetes Pods for each of the
-System's Components. Even though the Components are running no requests will be
-sent to the System until it is released. A System is released to an Environment
-which defines configuration needed by the System's Components to process
-requests. Once a System is released requests will be sent to it if they match
-any of its Routes.
+- Virtual environments
+- Zero Trust
+- Versioned deployments
+- Federated metrics, tracing, logging, auditing, and monitoring – out of the box
+
+Environments transform into lightweight virtual constructs, still possessing the positive attributes that we expect of them, but shedding undesirable traits that make them unwieldy.  Zero Trust is not something that requires thousands of dollars and large, high caliber DevOps teams - it’s an intrinsic property of a KubeFox-developed system.  Multiple versions of applications can be run side-by-side, facilitating Canary and Blue/Green deployments and drastically simplifying the software lifecycle.  Developers are freed to rapidly evolve and advance applications, without jumping through complex configuration hoops or waiting in line for resources.  
+
+With minimal configuration, KubeFox yields advanced telemetry - including federated, span-based logs, metrics and traces - on user-developed components, and on a by-component and component-to-component basis.  KubeFox orchestrates unheard of efficiencies, yielding provisioning efficiencies and driving down costs.  Sound intriguing?  Read on…
