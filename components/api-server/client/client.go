@@ -51,7 +51,7 @@ func New(ctx kubefox.KitContext, vaultURL string) (*Client, error) {
 	}
 
 	// create Vault client
-	vaultClient, err := vault.NewClient(ctx, vault.APISrvRole, vaultURL)
+	vaultClient, err := vault.NewClient(ctx, vault.APISrvRole, vaultURL, nil)
 	if err != nil {
 		return nil, err
 	}
