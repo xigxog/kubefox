@@ -1,6 +1,0 @@
-{
-  "kind": "Release",
-  "apiVersion": "admin.kubefox.io/v1alpha1",
-  "system": "demo/tag/v0.1.0",
-  "environment": "dev/tag/v1.0"
-}

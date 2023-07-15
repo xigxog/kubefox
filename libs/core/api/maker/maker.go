@@ -106,8 +106,8 @@ func New[T any](props Props) *T {
 func Labels(props Props) map[string]string {
 	labels := make(map[string]string)
 	// addLabel(labels, kubernetes.OrganizationLabel, props.Organization)
-	addLabel(labels, kubernetes.PlatformLabel, props.Platform)
-	addLabel(labels, kubernetes.EnvironmentLabel, props.Environment)
+	// addLabel(labels, kubernetes.PlatformLabel, props.Platform)
+	// addLabel(labels, kubernetes.EnvironmentLabel, props.Environment)
 	addLabel(labels, kubernetes.EnvRefLabel, props.EnvironmentRef)
 	addLabel(labels, kubernetes.EnvIdLabel, props.EnvironmentId)
 	addLabel(labels, kubernetes.ConfigLabel, props.Config)
@@ -116,8 +116,8 @@ func Labels(props Props) map[string]string {
 	addLabel(labels, kubernetes.SystemLabel, props.System)
 	addLabel(labels, kubernetes.SystemRefLabel, props.SystemRef)
 	addLabel(labels, kubernetes.SystemIdLabel, props.SystemId)
-	addLabel(labels, kubernetes.ComponentLabel, props.Component)
-	addLabel(labels, kubernetes.CompHashLabel, props.CompHash)
+	// addLabel(labels, kubernetes.ComponentLabel, props.Component)
+	// addLabel(labels, kubernetes.CompHashLabel, props.CompHash)
 	addLabel(labels, kubernetes.InstanceLabel, props.Instance)
 
 	return labels

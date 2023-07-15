@@ -23,7 +23,7 @@ func New(client *client.Client, log *logger.Log) *server {
 
 func checkPlatformName(kit kubefox.Kit) error {
 	if kit.Platform() != nameArg(kit) {
-		return client.ErrResourceNotFound
+		return kubefox.ErrResourceNotFound
 	}
 
 	return nil

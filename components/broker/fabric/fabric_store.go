@@ -20,7 +20,7 @@ var (
 
 type Broker interface {
 	Log() *logger.Log
-	InvokeRuntimeServer(context.Context, kubefox.DataEvent) kubefox.DataEvent
+	InvokeOperator(context.Context, kubefox.DataEvent) kubefox.DataEvent
 }
 
 type Store struct {
@@ -62,7 +62,7 @@ func (store *Store) Get(ctx context.Context, evt kubefox.DataEvent) (*common.Fab
 		req.SetType(kubefox.FabricRequestType)
 		req.SetArg(platform.TargetArg, evt.GetTarget().GetURI())
 
-		resp := store.InvokeRuntimeServer(ctx, req)
+		resp := store.InvokeOperator(ctx, req)
 		if resp.GetError() != nil {
 			return nil, resp.GetError()
 		}
@@ -77,7 +77,7 @@ func (store *Store) Get(ctx context.Context, evt kubefox.DataEvent) (*common.Fab
 
 		store.sysCache.Set(sysKey, sys, sysImm)
 		store.envCache.Set(envKey, env, envImm)
-		store.Log().Debugf("fabric retrieved from runtime server; %s", sys)
+		store.Log().Debugf("fabric retrieved from operator; %s", sys)
 
 	} else {
 		store.Log().Debugf("fabric found in cache; %s", sys)

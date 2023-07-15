@@ -4,33 +4,8 @@ import (
 	"net/http"
 
 	"github.com/xigxog/kubefox/libs/core/kubefox"
-	"github.com/xigxog/kubefox/libs/core/logger"
 	"k8s.io/apimachinery/pkg/runtime"
 )
-
-type operator struct {
-	Config
-
-	vaultOp *vaultOperator
-
-	log *logger.Log
-}
-
-func New(cfg Config, kitSvc kubefox.KitSvc) (*operator, error) {
-	v, err := newVaultOperator(cfg, kitSvc)
-	if err != nil {
-		return nil, err
-	}
-	if err := v.Init(); err != nil {
-		return nil, err
-	}
-
-	return &operator{
-		Config:  cfg,
-		vaultOp: v,
-		log:     kitSvc.Log(),
-	}, nil
-}
 
 func CustomizeEvent(kit kubefox.Kit, rules ...*RelatedResourceRule) error {
 	resp := kit.Response().HTTP()

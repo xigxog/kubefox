@@ -1,0 +1,42 @@
+apiVersion: apps/v1
+kind: StatefulSet
+{{ include "metadata" . }}
+spec:
+  selector:
+    matchLabels:
+      {{- include "selectors" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{ include "labels" . | nindent 8 }}
+    spec:
+      serviceAccountName: {{ include "fullname" . }}
+      {{- with .System.ImagePullSecret }}
+      imagePullSecrets:
+        - name: {{ . }}
+      {{- end }}
+      containers:
+        - name: {{ .Component.Name }}
+          image: {{ .Component.Image | default (printf "%s/%s:%v" .System.ContainerRegistry .Component.Name .System.GitRef) | quote }}
+          imagePullPolicy: {{ .Component.ImagePullPolicy | default "IfNotPresent" }}
+          livenessProbe:
+            httpGet:
+              port: 8081
+              path: /healthz
+          readinessProbe:
+            httpGet:
+              port: 8081
+              path: /readyz
+          command:
+            - "/usr/bin/metacontroller"
+          args:
+            - --discovery-interval=20s
+            - --cache-flush-interval=30m
+            - --health-probe-bind-address=:8081
+            {{- if .DevMode }}
+            - --zap-log-level=6
+            - --zap-encoder=console
+            {{- else }}
+            - --zap-log-level=4
+            - --zap-encoder=json
+            {{- end }}

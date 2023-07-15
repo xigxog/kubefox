@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  names: {{ .System.Namespace }}
+  labels:
+    {{- include "labels" . | nindent 4 }}
+  {{- with .Owner }}
+  ownerReferences:
+    - {{- . | toYaml | nindent 6 }}
+  {{- end }}

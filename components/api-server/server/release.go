@@ -25,7 +25,7 @@ func (srv *server) ListReleases(kit kubefox.Kit) error {
 		labels[k.SystemLabel] = sysNameArg(kit)
 	}
 	if envNameArg(kit) != "" {
-		labels[k.EnvironmentLabel] = envNameArg(kit)
+		labels[k.EnvLabel] = envNameArg(kit)
 	}
 
 	relList := maker.Empty[kubev1a1.ReleaseList]()
@@ -36,7 +36,7 @@ func (srv *server) ListReleases(kit kubefox.Kit) error {
 	list := []string{}
 	for _, rel := range relList.Items {
 		sys := rel.Labels[k.SystemLabel]
-		env := rel.Labels[k.EnvironmentLabel]
+		env := rel.Labels[k.EnvLabel]
 		list = append(list, fmt.Sprintf("%s%s%s", sys, uri.PathSeparator, env))
 	}
 
@@ -116,7 +116,7 @@ func (srv *server) CreateRelease(kit kubefox.Kit) error {
 		Name:      env.GetName(),
 		Namespace: curRel.GetNamespace(),
 		// Organization:  kit.Organization(),
-		Instance:      kit.Platform(),
+		Platform:      kit.Platform(),
 		Environment:   envURI.Name(),
 		EnvironmentId: env.GetId(),
 		// TODO uncomment when adapters are added

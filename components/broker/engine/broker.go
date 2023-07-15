@@ -28,7 +28,7 @@ var (
 
 	shutdownTimeout = 30 * time.Second
 
-	platformEvtErr    = fmt.Errorf("event is a platform event but local component is not runtime server")
+	platformEvtErr    = fmt.Errorf("event is a platform event but local component is not operator")
 	localNotTargetErr = fmt.Errorf("local component is not the event target")
 	outOfCtxErr       = fmt.Errorf("local component does not exist in the event context")
 )
@@ -41,13 +41,12 @@ type Broker interface {
 
 	InvokeLocalComponent(context.Context, kubefox.DataEvent) kubefox.DataEvent
 	InvokeRemoteComponent(context.Context, kubefox.DataEvent) kubefox.DataEvent
-	InvokeRuntimeServer(context.Context, kubefox.DataEvent) kubefox.DataEvent
+	InvokeOperator(context.Context, kubefox.DataEvent) kubefox.DataEvent
 
 	StartComponent()
-	StartRuntimeSrv()
+	StartOperator()
 	StartHTTPClient()
 	StartHTTPSrv()
-	Shutdown()
 
 	JetStreamClient() *jetstream.Client
 	Blocker() *blocker.Blocker
@@ -66,10 +65,10 @@ type broker struct {
 	remoteSender EventSender
 	localSender  EventSender
 
-	runtimeClient EventSender
+	oprClient EventSender
 
 	grpcSrv     *GRPCServer
-	runtimeSrv  *RuntimeServer
+	oprSrv      *OperatorServer
 	httpClient  *HTTPClient
 	httpSrv     *HTTPServer
 	jetSender   *JetStreamSender
@@ -101,7 +100,7 @@ func New(flags config.Flags) *broker {
 		log = logger.ProdLogger().WithComponent(comp)
 	}
 
-	log.Info("broker starting")
+	log.Infof("broker starting; gitRef: %s, gitHash: %s", config.GitRef, config.GitHash)
 	log.DebugInterface(flags, "config:")
 
 	if flags.Namespace == "" {
@@ -129,12 +128,12 @@ func (brk *broker) InvokeLocalComponent(ctx context.Context, req kubefox.DataEve
 		return
 	}
 	if kubefox.IsPlatformEvent(req) {
-		if !brk.Config().IsRuntimeSrv {
+		if !brk.Config().IsOperator {
 			resp = brk.invokeErr(req, platformEvtErr)
 			return
 		}
 
-		if !component.Equal(platform.RuntimeSrvComp, req.GetTarget()) {
+		if !component.Equal(platform.OperatorComp, req.GetTarget()) {
 			resp = brk.invokeErr(req, localNotTargetErr)
 			return
 		}
@@ -276,14 +275,15 @@ func (brk *broker) InvokeRemoteComponent(ctx context.Context, req kubefox.DataEv
 	return
 }
 
-func (brk *broker) InvokeRuntimeServer(ctx context.Context, req kubefox.DataEvent) (resp kubefox.DataEvent) {
+func (brk *broker) InvokeOperator(ctx context.Context, req kubefox.DataEvent) (resp kubefox.DataEvent) {
 	ctx, span := telemetry.NewSpan(ctx, brk.EventTimeout(), req)
 	defer span.End(resp)
 
-	brk.Log().Debugf("invoking runtime server; evtType: %s", req.GetType())
+	brk.Log().Debugf("invoking operator; target: %s, evtType: %s, traceId: %s",
+		req.GetTarget(), req.GetType(), req.GetSpan().TraceId)
 
 	req.SetSource(brk.Component(), req.GetContext().App)
-	req.SetTarget(platform.RuntimeSrvComp)
+	req.SetTarget(platform.OperatorComp)
 
 	// TODO cache token and only refresh when needed
 	token, err := utils.GetSvcAccountToken(brk.Config().Namespace, platform.BrokerSvcAccount)
@@ -298,7 +298,7 @@ func (brk *broker) InvokeRuntimeServer(ctx context.Context, req kubefox.DataEven
 		return
 	}
 
-	resp = brk.runtimeClient.SendEvent(ctx, req)
+	resp = brk.oprClient.SendEvent(ctx, req)
 	resp.SetFabric(nil)
 	if resp.GetType() == kubefox.ErrorEventType {
 		if resp.GetError() == nil {
@@ -379,34 +379,58 @@ func (brk *broker) checkEvent(req kubefox.DataEvent) error {
 }
 
 func (brk *broker) StartComponent() {
-	brk.start()
-	defer brk.Shutdown()
+	defer brk.shutdown()
 
-	brk.startComponent()
+	ctx, cancel := brk.start()
+	defer cancel()
+
+	brk.jetSender = NewJetStreamSender(brk)
+	brk.jetSender.Start()
+	brk.remoteSender = brk.jetSender
+
+	brk.grpcSrv = NewGRPCServer(ctx, brk)
+	brk.grpcSrv.Start()
+	brk.localSender = brk.grpcSrv
+
+	brk.jetListener = NewJetStreamListener(brk)
+	brk.jetListener.Start()
 
 	brk.notify()
 }
 
-func (brk *broker) StartRuntimeSrv() {
-	brk.Config().IsRuntimeSrv = true
+func (brk *broker) StartOperator() {
+	defer brk.shutdown()
+
+	brk.Config().IsOperator = true
 	brk.Config().SkipBootstrap = true
 
-	brk.start()
+	ctx, cancel := brk.start()
+	defer cancel()
+
 	brk.Config().Comp.SetApp(platform.App)
-	defer brk.Shutdown()
 
-	brk.startComponent()
+	brk.grpcSrv = NewGRPCServer(ctx, brk)
+	brk.grpcSrv.Start()
+	brk.localSender = brk.grpcSrv
+	brk.remoteSender = brk.grpcSrv
+	brk.oprClient = brk.grpcSrv
 
-	brk.runtimeSrv = NewRuntimeServer(brk)
-	brk.runtimeSrv.Start()
+	brk.httpSrv = NewHTTPServer(brk)
+	brk.httpSrv.Start()
+
+	brk.oprSrv = NewOperatorServer(ctx, brk)
+	brk.oprSrv.Start()
 
 	brk.notify()
 }
 
 func (brk *broker) StartHTTPClient() {
-	brk.start()
+	defer brk.shutdown()
+
+	_, cancel := brk.start()
+	defer cancel()
+
 	brk.Config().Comp.SetApp(platform.App)
-	defer brk.Shutdown()
 
 	brk.httpClient = NewHTTPClient(brk)
 	brk.localSender = brk.httpClient
@@ -418,11 +442,14 @@ func (brk *broker) StartHTTPClient() {
 }
 
 func (brk *broker) StartHTTPSrv() {
+	defer brk.shutdown()
+
 	brk.Config().System = platform.System
 
-	brk.start()
+	_, cancel := brk.start()
+	defer cancel()
+
 	brk.Config().Comp.SetApp(platform.App)
-	defer brk.Shutdown()
 
 	brk.jetSender = NewJetStreamSender(brk)
 	brk.jetSender.Start()
@@ -434,9 +461,8 @@ func (brk *broker) StartHTTPSrv() {
 	brk.notify()
 }
 
-func (brk *broker) start() {
-	ctx, cancel := context.WithTimeout(context.Background(), brk.EventTimeout())
-	defer cancel()
+func (brk *broker) start() (context.Context, context.CancelFunc) {
+	ctx, cancel := context.WithTimeout(context.Background(), platform.StartupTimeout)
 
 	brk.fabStore = fabric.NewStore(brk)
 
@@ -450,38 +476,24 @@ func (brk *broker) start() {
 		brk.telClient.Start(ctx)
 	}
 
-	// Only try to connect to Platform Runtime's gRPC server if this broker is
-	// not managing the RuntimeServer.
-	if !brk.Config().IsRuntimeSrv {
-		brk.runtimeClient = NewRuntimeClient(brk)
-	}
-	brk.bootstrap(ctx)
+	// Only try to connect to Platform Operator's gRPC server if this broker is
+	// not managing the Operator.
+	if !brk.Config().IsOperator {
+		brk.oprClient = NewOperatorClient(brk)
+		brk.bootstrap(ctx)
 
-	brk.jetClient = jetstream.NewClient(brk.Config(), brk.Log())
-	if err := brk.jetClient.Connect(); err != nil {
-		brk.Log().Errorf("error connecting to nats: %v", err)
-		os.Exit(kubefox.JetStreamErrorCode)
+		brk.jetClient = jetstream.NewClient(brk.Config(), brk.Log())
+		if err := brk.jetClient.Connect(); err != nil {
+			brk.Log().Errorf("error connecting to nats: %v", err)
+			os.Exit(kubefox.JetStreamErrorCode)
+		}
 	}
 
 	if brk.Config().IsDevMode {
 		brk.startDevServices()
 	}
-}
 
-func (brk *broker) startComponent() {
-	brk.jetSender = NewJetStreamSender(brk)
-	brk.jetSender.Start()
-	brk.remoteSender = brk.jetSender
-
-	brk.grpcSrv = NewGRPCServer(brk)
-	brk.grpcSrv.Start()
-	brk.localSender = brk.grpcSrv
-	if brk.Config().IsRuntimeSrv {
-		brk.runtimeClient = brk.grpcSrv
-	}
-
-	brk.jetListener = NewJetStreamListener(brk)
-	brk.jetListener.Start()
+	return ctx, cancel
 }
 
 func (brk *broker) bootstrap(ctx context.Context) {
@@ -500,7 +512,7 @@ func (brk *broker) bootstrap(ctx context.Context) {
 		App:         platform.App,
 	})
 
-	resp := brk.InvokeRuntimeServer(ctx, req)
+	resp := brk.InvokeOperator(ctx, req)
 	if resp.GetType() == kubefox.ErrorEventType {
 		if resp.GetError() == nil {
 			resp.SetError(errors.New(resp.GetErrorMsg()))
@@ -516,7 +528,7 @@ func (brk *broker) startDevServices() {
 	if brk.Config().DevHTTPSrvAddr != "" {
 		devFlags := brk.Config().Flags // copy
 		devFlags.CompName = platform.HTTPIngressAdapt.GetName()
-		devFlags.IsRuntimeSrv = false
+		devFlags.IsOperator = false
 		devFlags.SkipBootstrap = true
 		devFlags.HTTPSrvAddr = brk.Config().DevHTTPSrvAddr
 		devFlags.DevHTTPSrvAddr = "" // ensure devBrk doesn't start another dev http server
@@ -550,7 +562,7 @@ func (brk *broker) startDevServices() {
 	}
 }
 
-func (brk *broker) Shutdown() {
+func (brk *broker) shutdown() {
 	brk.Log().Info("broker shutting down")
 
 	ctx, cancel := context.WithTimeout(context.Background(), shutdownTimeout)
@@ -563,8 +575,8 @@ func (brk *broker) Shutdown() {
 		brk.jetListener.Shutdown()
 	}
 
-	if brk.runtimeSrv != nil {
-		brk.runtimeSrv.Shutdown()
+	if brk.oprSrv != nil {
+		brk.oprSrv.Shutdown()
 	}
 
 	if brk.httpSrv != nil {

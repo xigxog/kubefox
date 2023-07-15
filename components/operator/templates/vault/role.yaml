@@ -1,0 +1,21 @@
+kind: Role
+apiVersion: rbac.authorization.k8s.io/v1
+{{ include "metadata" . }}
+rules: 
+  - apiGroups:
+      - ""
+    resources:
+      - secrets
+    verbs:
+      - create
+  - apiGroups:
+      - ""
+    resources:
+      - secrets
+    resourceNames:
+      - {{ .Platform.Name }}-unseal-key
+      - {{ .Platform.Name }}-root-ca
+    verbs:
+      - get
+      - update
+      - patch

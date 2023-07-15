@@ -26,8 +26,8 @@ type GRPCServer struct {
 	eventCh chan kubefox.DataEvent
 }
 
-func NewGRPCServer(brk Broker) *GRPCServer {
-	creds, err := platform.NewGPRCSrvCreds(brk.Config().Namespace)
+func NewGRPCServer(ctx context.Context, brk Broker) *GRPCServer {
+	creds, err := platform.NewGPRCSrvCreds(ctx, platform.BrokerCertsDir)
 	if err != nil {
 		if brk.Config().IsDevMode {
 			brk.Log().Warnf("error reading cert: %v", err)

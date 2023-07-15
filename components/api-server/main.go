@@ -21,7 +21,7 @@ func main() {
 	kitSvc := kubefox.New()
 	vaultURL = utils.ResolveFlag(vaultURL, "KUBEFOX_VAULT_URL", "https://127.0.0.1:8200")
 
-	cl, err := client.New(vaultURL, kitSvc)
+	cl, err := client.New(kitSvc, vaultURL)
 	if err != nil {
 		kitSvc.Fatal(err)
 	}

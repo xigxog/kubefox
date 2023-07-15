@@ -6,7 +6,6 @@ import (
 	"net/http"
 	"os"
 	"strconv"
-	"time"
 
 	"github.com/xigxog/kubefox/libs/core/kubefox"
 	"github.com/xigxog/kubefox/libs/core/utils"
@@ -31,12 +30,10 @@ func NewHTTPServer(brk Broker) *HTTPServer {
 
 func (srv *HTTPServer) Start() {
 	srv.httpSrv = &http.Server{
-		Addr: srv.Config().HTTPSrvAddr,
-		// TODO get from config
-		// Good practice to set timeouts to avoid Slowloris attacks.
-		WriteTimeout: time.Second * 30,
-		ReadTimeout:  time.Second * 30,
-		IdleTimeout:  time.Second * 60,
+		Addr:         srv.Config().HTTPSrvAddr,
+		WriteTimeout: srv.EventTimeout(),
+		ReadTimeout:  srv.EventTimeout(),
+		IdleTimeout:  srv.EventTimeout(),
 		Handler:      srv,
 	}
 

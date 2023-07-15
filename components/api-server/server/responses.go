@@ -18,10 +18,10 @@ func Err(kit kubefox.Kit, u uri.URI, err error) error {
 	if client.IsConflict(err) {
 		return Conflict(kit, u)
 	}
-	if errors.Is(err, client.ErrBadRequest) {
+	if errors.Is(err, kubefox.ErrBadRequest) {
 		return BadRequest(kit, http.StatusBadRequest, u, err)
 	}
-	if errors.Is(err, client.ErrResourceForbidden) {
+	if errors.Is(err, kubefox.ErrResourceForbidden) {
 		return BadRequest(kit, http.StatusForbidden, u, err)
 	}
 

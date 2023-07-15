@@ -23,7 +23,7 @@ func (brk *kitBroker) InvokeTarget(req DataEvent) (DataEvent, error) {
 	req.SetParent(brk.kit.req)
 	req.GetTarget().SetApp(brk.kit.req.GetSource().GetApp())
 
-	respData, err := brk.broker.InvokeTarget(brk.kit.Ctx(), req.GetData())
+	respData, err := brk.broker.InvokeTarget(brk.kit, req.GetData())
 	if err != nil {
 		return nil, err
 	}

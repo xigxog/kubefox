@@ -4,10 +4,7 @@ go 1.20
 
 require (
 	github.com/google/uuid v1.3.0
-	github.com/hashicorp/vault/api v1.9.1
-	github.com/hashicorp/vault/api/auth/kubernetes v0.4.0
 	github.com/xigxog/kubefox/libs/core v0.1.1-alpha
-	golang.org/x/sync v0.2.0
 	k8s.io/apimachinery v0.27.1
 	k8s.io/client-go v0.27.1
 	sigs.k8s.io/controller-runtime v0.14.6
@@ -42,6 +39,8 @@ require (
 	github.com/hashicorp/go-secure-stdlib/strutil v0.1.2 // indirect
 	github.com/hashicorp/go-sockaddr v1.0.2 // indirect
 	github.com/hashicorp/hcl v1.0.0 // indirect
+	github.com/hashicorp/vault/api v1.9.1 // indirect
+	github.com/hashicorp/vault/api/auth/kubernetes v0.4.0 // indirect
 	github.com/imdario/mergo v0.3.15 // indirect
 	github.com/jonboulle/clockwork v0.4.0 // indirect
 	github.com/josharian/intern v1.0.0 // indirect

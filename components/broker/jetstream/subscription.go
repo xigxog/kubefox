@@ -134,11 +134,10 @@ func (sub *subscription) Start() error {
 
 			if _, err := component.ParseURI(msg.Header.Get("ce_source")); err != nil {
 				evt = evt.ChildErrorEvent(fmt.Errorf("component address parse error: %w", err))
-				sub.log.Error(evt.GetError())
+				log.Error(evt.GetError())
 			}
 
 			queue <- evt
-
 			msg.Ack()
 		}
 	}
@@ -174,9 +173,9 @@ func (s *subscription) Close() error {
 	if s.closed {
 		return nil
 	}
+	s.closed = true
 
 	s.log.Infof("closing %s.%s for subject %s", s.cfg.Worker, s.cfg.Consumer, s.cfg.Subject)
-	s.closed = true
 
 	if !s.stopped {
 		s.stopped = true
@@ -184,14 +183,12 @@ func (s *subscription) Close() error {
 	}
 
 	if s.cfg.UnsubscribeOnClose {
-		err := s.natsSub.Unsubscribe()
-		if err != nil {
+		if err := s.natsSub.Unsubscribe(); err != nil {
 			s.log.Error(err)
 			return err
-		} else {
-			s.log.Infof("unsubscribed '%s.%s' from %s",
-				s.cfg.Worker, s.cfg.Consumer, s.cfg.Subject)
 		}
+		s.log.Infof("unsubscribed '%s.%s' from %s",
+			s.cfg.Worker, s.cfg.Consumer, s.cfg.Subject)
 	}
 
 	return nil

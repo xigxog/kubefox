@@ -5,12 +5,12 @@ import (
 	"net/http"
 
 	"github.com/google/uuid"
-	"github.com/xigxog/kubefox/components/api-server/client"
 	"github.com/xigxog/kubefox/libs/core/api/admin/v1alpha1"
 	"github.com/xigxog/kubefox/libs/core/api/common"
 	"github.com/xigxog/kubefox/libs/core/api/maker"
 	"github.com/xigxog/kubefox/libs/core/api/uri"
 	"github.com/xigxog/kubefox/libs/core/kubefox"
+	"github.com/xigxog/kubefox/libs/core/vault"
 )
 
 func (srv *server) ListObjs(kit kubefox.Kit) error {
@@ -91,14 +91,14 @@ func (srv *server) GetObjHead(kit kubefox.Kit) error {
 }
 
 func (srv *server) PutMeta(kit kubefox.Kit) error {
-	return srv.updateMeta(kit, client.Put)
+	return srv.updateMeta(kit, vault.Put)
 }
 
 func (srv *server) PatchMeta(kit kubefox.Kit) error {
-	return srv.updateMeta(kit, client.Patch)
+	return srv.updateMeta(kit, vault.Patch)
 }
 
-func (srv *server) updateMeta(kit kubefox.Kit, op client.UpdateOp) error {
+func (srv *server) updateMeta(kit kubefox.Kit, op vault.UpdateOp) error {
 	u, err := subObjURI(kit, uri.Metadata)
 	if err != nil {
 		return NotFound(kit, nil)
@@ -114,20 +114,20 @@ func (srv *server) updateMeta(kit kubefox.Kit, op client.UpdateOp) error {
 
 	meta := obj.GetMetadata()
 	if meta.Name != "" && meta.Name != u.Name() {
-		return InvalidResource(kit, u, fmt.Errorf("%w: %s", client.ErrBadRequest, "name does not match path"))
+		return InvalidResource(kit, u, fmt.Errorf("%w: %s", kubefox.ErrBadRequest, "name does not match path"))
 	}
 	if err := srv.client.Validate(meta); err != nil {
 		return InvalidResource(kit, u, err)
 	}
 
 	switch op {
-	case client.Put:
+	case vault.Put:
 		if err := srv.client.Vault().Put(kit, u, obj); err != nil {
 			return Err(kit, u, err)
 		}
 		return PutResp(kit, u)
 
-	case client.Patch:
+	case vault.Patch:
 		if err := srv.client.Vault().Patch(kit, u, obj); err != nil {
 			return Err(kit, u, err)
 		}
@@ -161,14 +161,14 @@ func (srv *server) GetObj(kit kubefox.Kit) error {
 }
 
 func (srv *server) CreateTag(kit kubefox.Kit) error {
-	return srv.updateRef(kit, client.Create)
+	return srv.updateRef(kit, vault.Create)
 }
 
 func (srv *server) PutBranch(kit kubefox.Kit) error {
-	return srv.updateRef(kit, client.Put)
+	return srv.updateRef(kit, vault.Put)
 }
 
-func (srv *server) updateRef(kit kubefox.Kit, op client.UpdateOp) error {
+func (srv *server) updateRef(kit kubefox.Kit, op vault.UpdateOp) error {
 	u, err := objURI(kit)
 	if err != nil {
 		return NotFound(kit, nil)
@@ -200,13 +200,13 @@ func (srv *server) updateRef(kit kubefox.Kit, op client.UpdateOp) error {
 	// }
 
 	switch {
-	case op == client.Put && u.SubKind() == uri.Branch && u.Kind() == uri.System:
+	case op == vault.Put && u.SubKind() == uri.Branch && u.Kind() == uri.System:
 		if err := srv.client.Vault().Put(kit, u, obj); err != nil {
 			return Err(kit, u, err)
 		}
 		return PutResp(kit, u)
 
-	case op == client.Create && u.SubKind() == uri.Tag:
+	case op == vault.Create && u.SubKind() == uri.Tag:
 		if err := srv.client.Vault().Create(kit, u, obj); err != nil {
 			return Err(kit, u, err)
 		}

@@ -1,34 +1,18 @@
 package operator
 
 import (
-	"time"
-
 	kubev1a1 "github.com/xigxog/kubefox/libs/core/api/kubernetes/v1alpha1"
+	"github.com/xigxog/kubefox/libs/core/vault"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	k8sclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-const (
-	kvPrefix = "kfs"
-
-	brkPolicy      = "kfp-broker-policy"
-	brkRole        = "kfp-broker-role"
-	platformPolicy = "kfp-platform-policy"
-	platformRole   = "kfp-platform-role"
-)
-
-var (
-	defaultTimeout = 30 * time.Second
-)
-
-type Config struct {
-	BrokerImage    string
-	VaultURL       string
-	NATSPluginCmd  string
-	NATSPluginVer  string
-	NATSPluginHash string
+type operator struct {
+	k8sCli   k8sclient.Client
+	vaultCli *vault.Client
 }
 
 type Request[T any] struct {

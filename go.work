@@ -4,6 +4,5 @@ use (
 	./components/api-server
 	./components/broker
 	./components/operator
-	./components/runtime-server
 	./libs/core
 )

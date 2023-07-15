@@ -17,7 +17,7 @@ func NewEventMatcher(rule string) (*EventMatcher, error) {
 		Functions: map[string]interface{}{
 			"Hook":       hook,
 			"Method":     method,
-			"Path":       path,
+			"Path":       pathPredicate,
 			"PathPrefix": pathPrefix,
 			"TargetKind": targetKind,
 			"Type":       eventType,
@@ -68,7 +68,7 @@ func method(s string) eventPredicate {
 	}
 }
 
-func path(s string) eventPredicate {
+func pathPredicate(s string) eventPredicate {
 	return func(e Event) bool {
 		return matchPath(s, e, false)
 	}

@@ -9,30 +9,25 @@ import (
 )
 
 type Kit interface {
+	KitContext
+
 	Env(string) *common.Var
 
 	Request() Event
 	Response() Event
 
 	Component(string) *ComponentSvc
-
-	// Organization() string
-	Platform() string
-	Namespace() string
-	DevMode() bool
-
-	Ctx() context.Context
-	Log() *logger.Log
 }
 
 type kit struct {
+	context.Context
+
 	req  DataEvent
 	resp DataEvent
 
 	kitSvc KitSvc
 	broker kitBroker
 
-	ctx context.Context
 	log *logger.Log
 }
 
@@ -64,16 +59,16 @@ func (kit *kit) Platform() string {
 	return kit.kitSvc.Platform()
 }
 
-func (kit *kit) Namespace() string {
-	return kit.kitSvc.Namespace()
+func (kit *kit) PlatformNamespace() string {
+	return kit.kitSvc.PlatformNamespace()
+}
+
+func (kit *kit) CACertPath() string {
+	return kit.kitSvc.CACertPath()
 }
 
 func (kit *kit) DevMode() bool {
 	return kit.kitSvc.DevMode()
-}
-
-func (kit *kit) Ctx() context.Context {
-	return kit.ctx
 }
 
 func (kit *kit) Log() *logger.Log {

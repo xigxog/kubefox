@@ -1,33 +1,37 @@
 package platform
 
 import (
+	"context"
+	"os"
+	"path"
+	"time"
+
 	"github.com/xigxog/kubefox/libs/core/utils"
 	creds "google.golang.org/grpc/credentials"
+	ktyps "k8s.io/apimachinery/pkg/types"
 )
 
-func NewGPRCSrvCreds(namespace string) (creds.TransportCredentials, error) {
-	if c, err := creds.NewServerTLSFromFile(TLSCertFile, TLSKeyFile); err == nil {
-		return c, nil
-	} else if namespace == "" {
-		return nil, err
+func NewGPRCSrvCreds(ctx context.Context, dir string) (creds.TransportCredentials, error) {
+	// wait for cert file to exists
+	for {
+		if ctx.Err() != nil {
+			return nil, ctx.Err()
+		}
+		if _, err := os.Stat(path.Join(dir, TLSCertFile)); err == nil {
+			break
+		}
+		time.Sleep(time.Second)
 	}
 
-	cert, _, err := utils.GetCertFromSecret(namespace, CertSecret)
-	if err != nil {
-		return nil, err
-	}
-
-	return creds.NewServerTLSFromCert(&cert), nil
+	return creds.NewServerTLSFromFile(path.Join(dir, TLSCertFile), path.Join(dir, TLSKeyFile))
 }
 
-func NewGRPCClientCreds(namespace string) (creds.TransportCredentials, error) {
-	if c, err := creds.NewClientTLSFromFile(CACertFile, ""); err == nil {
+func NewGRPCClientCreds(caCertFile string, key ktyps.NamespacedName) (creds.TransportCredentials, error) {
+	if c, err := creds.NewClientTLSFromFile(caCertFile, ""); err == nil {
 		return c, nil
-	} else if namespace == "" {
-		return nil, err
 	}
 
-	_, cp, err := utils.GetCertFromSecret(namespace, CertSecret)
+	cp, err := utils.GetCAFromSecret(key)
 	if err != nil {
 		return nil, err
 	}

@@ -1,5 +1,7 @@
 package kubefox
 
+type StartHandler func(KitSvc) error
+
 type Entrypoint func(Kit) error
 
 type EntrypointMatcher struct {

@@ -1,9 +1,10 @@
 # Note recursive assignment. The expression is evaluated at usage to ensure
 # $(component) has been set.
 SRC_DIR = $(abspath $(ROOT)/components/$(component))
+GIT_HASH = $(shell git log -n 1 --format="%h" -- components/$(component)/)
 IMAGE = $(IMAGE_REGISTRY)/kubefox/$(component)
 
-IMAGE_TAG := latest
+GIT_REF := $(shell git symbolic-ref -q --short HEAD || git describe --tags --exact-match)
 IMAGE_REGISTRY := ghcr.io/xigxog
 
 ROOT := $(dir $(abspath $(lastword $(MAKEFILE_LIST))))
@@ -16,7 +17,7 @@ PROTO_SRC := $(abspath $(ROOT)/libs/core/api/protobuf)
 PROTO_OUT := $(abspath $(ROOT)/libs/core/grpc)
 DOCS_OUT := $(abspath $(ROOT)/site)
 
-COMPONENTS := api-server broker operator runtime-server
+COMPONENTS := api-server broker operator
 PUSHES := $(addprefix push/,$(COMPONENTS))
 IMAGES := $(addprefix image/,$(COMPONENTS))
 BINS := $(addprefix bin/,$(COMPONENTS))
@@ -35,30 +36,32 @@ image-all: clean generate $(IMAGES)
 .PHONY: $(PUSHES)
 $(PUSHES):
 	$(eval component=$(notdir $@))
-	$(eval git_hash=$(shell git log -n 1 --format="%h" -- components/$(component)/))
 	$(MAKE) "image/$(component)"
 
-	buildah push "$(IMAGE):$(git_hash)"
-	buildah push "$(IMAGE):$(IMAGE_TAG)"
+	buildah push "$(IMAGE):$(GIT_REF)"
 
 .PHONY: $(IMAGES)
 $(IMAGES):
 	$(eval component=$(notdir $@))
-	$(eval git_hash=$(shell git log -n 1 --format="%h" -- components/$(component)/))
 	$(eval container=$(shell buildah from gcr.io/distroless/static))
 	$(MAKE) bin/$(component)
 
 	buildah add $(container) "$(TARGET_DIR)/$(component)"
 	buildah config --entrypoint '["./$(component)"]' $(container) 
-	buildah commit $(container) "$(IMAGE):$(git_hash)"
-	buildah tag "$(IMAGE):$(git_hash)" "$(IMAGE):$(IMAGE_TAG)"
+	buildah commit $(container) "$(IMAGE):$(GIT_REF)"
+
+	docker build . -t "$(IMAGE):$(GIT_REF)" --build-arg component=$(component)
+	kind load docker-image --name kubefox "$(IMAGE):$(GIT_REF)"
 
 .PHONY: $(BINS)
 $(BINS):
 	$(eval component=$(notdir $@))
 
 	mkdir -p "$(dir $@)"
-	CGO_ENABLED=0 go build -C "$(SRC_DIR)/" -o "$(TARGET_DIR)/$(component)" -ldflags "-s -w" main.go
+	CGO_ENABLED=0 go build \
+		-C "$(SRC_DIR)/" -o "$(TARGET_DIR)/$(component)" \
+		-ldflags "-X main.GitRef=$(GIT_REF) -X main.GitHash=$(GIT_HASH)" \
+		main.go
 
 .PHONY: docs
 docs:

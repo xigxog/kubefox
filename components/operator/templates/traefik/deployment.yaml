@@ -1,0 +1,93 @@
+apiVersion: apps/v1
+kind: Deployment
+{{ include "metadata" . }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "selectors" . | nindent 6 }}
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  template:
+    metadata:
+      labels:
+        {{- include "labels" . | nindent 8 }}
+    spec:
+      serviceAccountName: {{ include "fullname" . }}
+      {{- with .System.ImagePullSecret }}
+      imagePullSecrets:
+        - name: {{ . }}
+      {{- end }}
+      containers:
+        - {{- include "broker" . | nindent 10 }}
+        - name: {{ .Component.Name }}
+          image: {{ .Component.Image | default (printf "%s/%s:%v" .System.ContainerRegistry .Component.Name .System.GitRef) | quote }}
+          imagePullPolicy: {{ .Component.ImagePullPolicy | default "IfNotPresent" }}
+          {{- with .Component.Resources }}
+          resources:
+            {{- . | toYaml | nindent 12 }}
+          {{- end }}
+          ports:
+            - name: traefik
+              containerPort: 9000
+              protocol: TCP
+            - name: web
+              containerPort: 8000
+              protocol: TCP
+            - name: websecure
+              containerPort: 8443
+              protocol: TCP
+          readinessProbe:
+            httpGet:
+              path: /ping
+              port: 9000
+              scheme: HTTP
+            failureThreshold: 1
+            initialDelaySeconds: 2
+            timeoutSeconds: 2
+          livenessProbe:
+            httpGet:
+              path: /ping
+              port: 9000
+              scheme: HTTP
+            initialDelaySeconds: 2
+            timeoutSeconds: 2
+          securityContext:
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+          volumeMounts:
+            - name: data
+              mountPath: /data
+            - name: tmp
+              mountPath: /tmp
+          args:
+            - --global.checknewversion=false
+            - --global.sendanonymoususage=false
+            - --log.format={{ .Values.logFormat | default "json" }}
+            - --log.level={{ .Values.logLevel | default "ERROR" }}
+            - --api.dashboard={{ .Values.enableDashboard | default "false" }}
+            - --ping=true
+            - --providers.kubernetescrd
+            - --providers.kubernetescrd.allowCrossNamespace=true
+            - --providers.kubernetescrd.allowExternalNameServices=true
+            - --entrypoints.traefik.address=:9000/tcp
+            - --entrypoints.web.address=:8000/tcp
+            - --entrypoints.websecure.address=:8443/tcp
+            - --entrypoints.web.http.redirections.entryPoint.to=:443
+            - --entrypoints.web.http.redirections.entryPoint.scheme=https
+            - --entrypoints.websecure.http.tls=true
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65532
+        runAsGroup: 65532
+        fsGroupChangePolicy: OnRootMismatch
+      volumes:
+        - name: data
+          emptyDir: {}
+        - name: tmp
+          emptyDir: {}

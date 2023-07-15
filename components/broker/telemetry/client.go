@@ -25,6 +25,7 @@ import (
 	"go.opentelemetry.io/otel/sdk/resource"
 	"go.opentelemetry.io/otel/sdk/trace"
 	semconv "go.opentelemetry.io/otel/semconv/v1.4.0"
+	ktyps "k8s.io/apimachinery/pkg/types"
 )
 
 const (
@@ -51,11 +52,11 @@ func NewClient(cfg *config.Config, log *logger.Log) *Client {
 }
 
 func (cl *Client) Start(ctx context.Context) {
-	tlsCfg, err := cl.tls()
-	if err != nil {
-		cl.log.Error(err)
-		os.Exit(kubefox.TelemetryErrorCode)
-	}
+	// tlsCfg, err := cl.tls()
+	// if err != nil {
+	// 	cl.log.Error(err)
+	// 	os.Exit(kubefox.TelemetryErrorCode)
+	// }
 
 	res := resource.NewWithAttributes(
 		semconv.SchemaURL,
@@ -66,7 +67,8 @@ func (cl *Client) Start(ctx context.Context) {
 	)
 
 	metricExp, err := otlpmetrichttp.New(ctx,
-		otlpmetrichttp.WithTLSClientConfig(tlsCfg),
+		// otlpmetrichttp.WithTLSClientConfig(tlsCfg),
+		otlpmetrichttp.WithInsecure(),
 		otlpmetrichttp.WithEndpoint(cl.cfg.TelemetryAgentAddr))
 	if err != nil {
 		cl.log.Error(err)
@@ -88,9 +90,16 @@ func (cl *Client) Start(ctx context.Context) {
 		os.Exit(kubefox.TelemetryErrorCode)
 	}
 
+	// TODO do not exit if cannot connect, just show warnings it should keep
+	// trying to connect, hopefully just enabling retry on clients will do looks
+	// like the exporters do the right thing and throw away things if queue
+	// fills up
+
 	trClient := otlptracehttp.NewClient(
-		otlptracehttp.WithTLSClientConfig(tlsCfg),
-		otlptracehttp.WithEndpoint(cl.cfg.TelemetryAgentAddr))
+		// otlptracehttp.WithTLSClientConfig(tlsCfg),
+		otlptracehttp.WithInsecure(),
+		otlptracehttp.WithEndpoint(cl.cfg.TelemetryAgentAddr),
+	)
 	trExp, err := otlptrace.New(ctx, trClient)
 	if err != nil {
 		cl.log.Error(err)
@@ -136,7 +145,10 @@ func (cl *Client) tls() (*tls.Config, error) {
 
 	} else {
 		cl.log.Debugf("reading tls certs from kubernetes secret")
-		_, pool, err = utils.GetCertFromSecret(cl.cfg.Namespace, platform.TelemetryCertSecret)
+		pool, err = utils.GetCAFromSecret(ktyps.NamespacedName{
+			Namespace: cl.cfg.Namespace,
+			Name:      fmt.Sprintf("%s-%s", cl.cfg.Platform, platform.RootCASecret),
+		})
 		if err != nil {
 			return nil, fmt.Errorf("failed to read cert from kubernetes secret: %v", err)
 		}

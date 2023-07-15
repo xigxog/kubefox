@@ -1,28 +1,56 @@
 package platform
 
-import "github.com/xigxog/kubefox/libs/core/component"
+import (
+	"path"
+	"time"
 
-// Default TLS cert files
+	"github.com/xigxog/kubefox/libs/core/component"
+)
+
+// Certificate paths
 const (
-	CertDir     = "/kubefox/runtime/tls"
-	TLSCertFile = CertDir + "/tls.crt"
-	TLSKeyFile  = CertDir + "/tls.key"
-	CACertFile  = CertDir + "/ca.crt"
+	RootDir  = "/kubefox"
+	CertsDir = "certs"
+
+	TLSCertFile = "tls.crt"
+	TLSKeyFile  = "tls.key"
+	CACertFile  = "ca.crt"
+)
+
+var (
+	CACertPath       = path.Join(RootDir, CertsDir, CACertFile)
+	BrokerCertsDir   = path.Join(RootDir, CertsDir, "broker")
+	OperatorCertsDir = path.Join(RootDir, CertsDir, "operator")
+)
+
+var (
+	// long timeout as we need to wait for Vault
+	StartupTimeout = 5 * time.Minute
+	GRPCServiceCfg = `{
+		"methodConfig": [{
+		  "name": [{"service": "", "method": ""}],
+		  "waitForReady": true,
+		  "retryPolicy": {
+			  "MaxAttempts": 4,
+			  "InitialBackoff": "1s",
+			  "MaxBackoff": "60s",
+			  "BackoffMultiplier": 15.0,
+			  "RetryableStatusCodes": [ "UNAVAILABLE" ]
+		  }
+		}]}`
 )
 
 // K8s resource names
 const (
-	APISrvSvcAccount     = "kfp-api-server"
-	BrokerSvcAccount     = "kfp-broker"
-	RuntimeSrvSvcAccount = "kfp-runtime-server"
-	OprtrSvcAccount      = "kfp-operator"
+	APISrvSvcAccount   = "api-server"
+	BrokerSvcAccount   = "broker"
+	OperatorSvcAccount = "operator"
 
-	NATSCertSecret      = "kfp-tls-cert-nats"
-	CertSecret          = "kfp-tls-cert-runtime"
-	TelemetryCertSecret = "kfp-tls-cert-telemetry"
-	EnvConfigMap        = "kfp-env"
-	BrkService          = "kfp-broker"
-	ImagePullSecret     = "kfp-image-pull-secret"
+	RootCASecret    = "root-ca"
+	UnsealKeySecret = "unseal-key"
+
+	BrokerService   = "broker"
+	ImagePullSecret = "image-pull-secret"
 )
 
 // Arg names
@@ -44,17 +72,11 @@ var (
 		Name:    "api-server",
 		GitHash: GitHash,
 	})
-	RuntimeSrvComp = component.New(component.Fields{
-		App:     App,
-		Name:    "runtime-server",
-		GitHash: GitHash,
-	})
 	OperatorComp = component.New(component.Fields{
 		App:     App,
 		Name:    "operator",
 		GitHash: GitHash,
 	})
-
 	HTTPIngressAdapt = component.New(component.Fields{
 		App:     App,
 		Name:    "http-ingress-adapter",

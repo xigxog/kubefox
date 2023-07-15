@@ -2,7 +2,6 @@ package utils
 
 import (
 	"context"
-	"crypto/tls"
 	"crypto/x509"
 	"fmt"
 	"net/http"
@@ -85,8 +84,8 @@ func GetParamOrHeader(httpReq *http.Request, keys ...string) string {
 }
 
 // SystemNamespace returns the name of the Kubernetes Namespace that contains
-// all System objects. The format is 'kfs-{Instance}-{System}'.
-// The 'kfs' prefix stands for 'KubeFox System'.
+// all System objects. The format is 'kfs-{Instance}-{System}'. The 'kfs' prefix
+// stands for 'KubeFox System'.
 //
 // If any arg is empty an empty string is returned.
 func SystemNamespace(platform, system string) string {
@@ -126,33 +125,27 @@ func GetSvcAccountToken(namespace, svcAccount string) (string, error) {
 	return tr.Status.Token, nil
 }
 
-func GetCertFromSecret(namespace, secret string) (cert tls.Certificate, cp *x509.CertPool, err error) {
+func GetCAFromSecret(key ktyps.NamespacedName) (*x509.CertPool, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 
 	client, err := getK8sClient()
 	if err != nil {
-		return
+		return nil, err
 	}
 
-	key := ktyps.NamespacedName{Namespace: namespace, Name: secret}
 	sec := &corev1.Secret{}
 	if err = client.Get(ctx, key, sec); err != nil {
-		return
+		return nil, err
 	}
 
-	cert, err = tls.X509KeyPair(sec.Data["tls.crt"], sec.Data["tls.key"])
-	if err != nil {
-		return
-	}
-
-	cp = x509.NewCertPool()
+	cp := x509.NewCertPool()
 	if !cp.AppendCertsFromPEM(sec.Data["ca.crt"]) {
 		err = fmt.Errorf("credentials: failed to append certificates")
-		return
+		return nil, err
 	}
 
-	return
+	return cp, nil
 }
 
 func getK8sClient() (k8s.Client, error) {

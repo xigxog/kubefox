@@ -16,15 +16,13 @@ import (
 	"github.com/xigxog/kubefox/libs/core/platform"
 	"github.com/xigxog/kubefox/libs/core/utils"
 	"google.golang.org/protobuf/proto"
+	ktyps "k8s.io/apimachinery/pkg/types"
 )
 
 // Content types
 const (
 	DataSchemaV1        = "kubefox.proto.v1.KubeFoxData"
 	ProtobufContentType = "application/protobuf"
-	TLSCertFile         = "/kubefox/nats/tls/tls.crt"
-	TLSKeyFile          = "/kubefox/nats/tls/tls.key"
-	CACertFile          = "/kubefox/nats/tls/ca.crt"
 )
 
 type Client struct {
@@ -56,7 +54,7 @@ func (c *Client) Connect() error {
 	}
 
 	nc, err := nats.Connect(
-		fmt.Sprintf("nats://%s", c.cfg.NatsAddr),
+		fmt.Sprintf("nats://%s", c.cfg.NATSAddr),
 		nats.Name(c.cfg.Comp.GetURI()),
 		nats.RetryOnFailedConnect(true),
 		nats.MaxReconnects(3),
@@ -92,47 +90,54 @@ func (c *Client) Connect() error {
 		return err
 	}
 
-	c.log.Infof("connected to JetStream at %s", c.cfg.NatsAddr)
+	c.log.Infof("connected to JetStream at %s", c.cfg.NATSAddr)
 
 	return nil
 }
 
 func (c *Client) natsTLS(namespace string) nats.Option {
 	return func(o *nats.Options) error {
-		var err error
+		// var err error
 		var pool *x509.CertPool
-		var cert tls.Certificate
+		// var cert tls.Certificate
 
-		if pem, err := os.ReadFile(CACertFile); err == nil {
+		// caFile := path.Join(platform.NATSTLSDir, platform.CACertFile)
+		// certFile := path.Join(platform.NATSTLSDir, platform.TLSCertFile)
+		// keyFile := path.Join(platform.NATSTLSDir, platform.TLSKeyFile)
+
+		if pem, err := os.ReadFile(c.cfg.CACertPath); err == nil {
 			c.log.Debugf("reading tls certs from file")
 			pool = x509.NewCertPool()
 			ok := pool.AppendCertsFromPEM(pem)
 			if !ok {
-				return fmt.Errorf("failed to parse root certificate from %s", CACertFile)
+				return fmt.Errorf("failed to parse root certificate from %s", c.cfg.CACertPath)
 			}
 
-			cert, err = tls.LoadX509KeyPair(TLSCertFile, TLSKeyFile)
-			if err != nil {
-				return fmt.Errorf("nats: error loading client certificate: %v", err)
-			}
+			// cert, err = tls.LoadX509KeyPair(certFile, keyFile)
+			// if err != nil {
+			// 	return fmt.Errorf("nats: error loading client certificate: %v", err)
+			// }
 
 		} else {
 			c.log.Debugf("reading tls certs from kubernetes secret")
-			cert, pool, err = utils.GetCertFromSecret(namespace, platform.NATSCertSecret)
+			pool, err = utils.GetCAFromSecret(ktyps.NamespacedName{
+				Namespace: c.cfg.Namespace,
+				Name:      fmt.Sprintf("%s-%s", c.cfg.Platform, platform.RootCASecret),
+			})
 			if err != nil {
 				return err
 			}
 		}
 
-		cert.Leaf, err = x509.ParseCertificate(cert.Certificate[0])
-		if err != nil {
-			return err
-		}
+		// cert.Leaf, err = x509.ParseCertificate(cert.Certificate[0])
+		// if err != nil {
+		// 	return err
+		// }
 
 		if o.TLSConfig == nil {
 			o.TLSConfig = &tls.Config{MinVersion: tls.VersionTLS12}
 		}
-		o.TLSConfig.Certificates = []tls.Certificate{cert}
+		// o.TLSConfig.Certificates = []tls.Certificate{cert}
 		o.TLSConfig.RootCAs = pool
 		o.Secure = true
 

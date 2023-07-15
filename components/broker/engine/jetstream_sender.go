@@ -30,7 +30,6 @@ func (js *JetStreamSender) Start() {
 	js.mutex.Lock()
 
 	if js.started {
-		// already subscribed
 		return
 	}
 
@@ -61,7 +60,6 @@ func (js *JetStreamSender) Shutdown() {
 	js.mutex.Lock()
 
 	if !js.started {
-		// not started
 		return
 	}
 

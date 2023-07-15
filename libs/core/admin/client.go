@@ -19,6 +19,7 @@ const (
 	APIPath         = "api/kubefox/v0"
 	JSONContentType = "application/json; charset=utf-8"
 	TextContentType = "text/plain; charset=utf-8"
+	DefaultTimeout  = time.Second * 10
 )
 
 type Client interface {
@@ -48,15 +49,20 @@ type client struct {
 }
 
 func NewClient(cfg ClientConfig) Client {
+	if cfg.Timeout == 0 {
+		cfg.Timeout = DefaultTimeout
+	}
 	if cfg.HTTPClient == nil {
 		cfg.HTTPClient = &http.Client{
+			Timeout: cfg.Timeout,
 			Transport: &http.Transport{
 				TLSClientConfig: &tls.Config{InsecureSkipVerify: cfg.Insecure},
 			},
-			Timeout: cfg.Timeout,
 		}
 	}
-
+	if cfg.HTTPClient.Timeout == 0 {
+		cfg.HTTPClient.Timeout = cfg.Timeout
+	}
 	if cfg.Log == nil {
 		cfg.Log = logger.ProdLogger()
 	}

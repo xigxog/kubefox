@@ -5,6 +5,12 @@ import (
 	"github.com/xigxog/kubefox/libs/core/grpc"
 )
 
+// Injected at build time
+var (
+	GitRef  string
+	GitHash string
+)
+
 type Config struct {
 	Flags
 
@@ -17,15 +23,19 @@ type Flags struct {
 
 	// Organization      string
 	Platform    string
+	Namespace   string
 	System      string
 	CompName    string
 	CompGitHash string
-	Namespace   string
+
+	CACertPath       string
+	GRPCCertsDir     string
+	OperatorCertsDir string
 
 	EventTimeout    uint8
 	MetricsInterval uint8
 
-	IsRuntimeSrv  bool
+	IsOperator    bool
 	SkipBootstrap bool
 
 	DevEnv    string
@@ -36,11 +46,11 @@ type Flags struct {
 }
 
 type Addrs struct {
-	RuntimeSrvAddr     string
+	OperatorAddr       string
 	GRPCSrvAddr        string
 	DevHTTPSrvAddr     string
 	HTTPSrvAddr        string
-	NatsAddr           string
+	NATSAddr           string
 	TelemetryAgentAddr string
 	HealthSrvAddr      string
 }

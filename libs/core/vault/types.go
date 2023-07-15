@@ -7,13 +7,33 @@ import (
 )
 
 const (
-	SysKVPrefix = "kfs"
+	SystemKVPrefix = "system"
 
-	BrkPolicy      = "kfp-broker-policy"
-	BrkRole        = "kfp-broker-role"
-	PlatformPolicy = "kfp-platform-policy"
-	PlatformRole   = "kfp-platform-role"
+	APISrvRole   = "kubefox-api-server"
+	BrokerRole   = "kubefox-broker"
+	OperatorRole = "kubefox-operator"
 )
+
+const (
+	Create UpdateOp = iota
+	Put
+	Patch
+)
+
+type UpdateOp uint8
+
+func (o UpdateOp) String() string {
+	switch o {
+	case Create:
+		return "creating"
+	case Put:
+		return "putting"
+	case Patch:
+		return "patching"
+	default:
+		return "shrugging"
+	}
+}
 
 type Index map[string]*IndexEntry
 
@@ -43,5 +63,5 @@ func MountPath(platform string) string {
 		return ""
 	}
 
-	return fmt.Sprintf(SysKVPrefix+"/%s", platform)
+	return fmt.Sprintf(SystemKVPrefix+"/%s", platform)
 }

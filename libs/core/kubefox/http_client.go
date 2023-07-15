@@ -11,7 +11,7 @@ func NewHTTPClient() *http.Client {
 }
 
 func (rt *KitRoundTripper) RoundTrip(httpReq *http.Request) (*http.Response, error) {
-	kitCtx := httpReq.Context().Value(KitContextKey).(*kitContext)
+	kitCtx := httpReq.Context().Value(ReqCtxKey).(*reqCtx)
 	kit := kitCtx.kit
 
 	req := kit.req.ChildEvent()

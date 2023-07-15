@@ -11,7 +11,7 @@ type ComponentSvc struct {
 	kit  *kit
 }
 
-type kitContext struct {
+type reqCtx struct {
 	kit    *kit
 	target *grpc.Component
 }

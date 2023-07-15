@@ -72,7 +72,9 @@ message ConfigRequest {}
 message ComponentConfig {
   // string organization = 1;
   string platform = 2;
-  bool dev_mode = 3;
+  string namespace = 3;
+  
+  bool dev_mode = 13;
 
   Component component = 14;
 }

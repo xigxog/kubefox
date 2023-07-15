@@ -17,6 +17,35 @@
         "--namespace=kubefox-system",
         "--metrics-interval=5"
       ]
+    },
+    {
+      "name": "brk-opr",
+      "type": "go",
+      "request": "launch",
+      "mode": "auto",
+      "program": "components/broker/main.go",
+      "args": [
+        "operator",
+        "--dev",
+        "--platform=kubefox",
+        "--system=kubefox",
+        "--component=opeator",
+        "--namespace=kubefox-system",
+        "--operator-addr=0.0.0.0:7070",
+        "--http-addr=0.0.0.0:8080",
+        "--metrics-interval=5"
+      ]
+    },
+    {
+      "name": "opr",
+      "type": "go",
+      "request": "launch",
+      "mode": "auto",
+      "program": "components/operator/main.go",
+      "args": [
+        "-dev",
+        "-vault=https://127.0.0.1:8200",
+      ]
     }
   ]
 }

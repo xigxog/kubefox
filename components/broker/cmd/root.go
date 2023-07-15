@@ -10,6 +10,7 @@ import (
 	"github.com/spf13/viper"
 	"github.com/xigxog/kubefox/components/broker/config"
 	"github.com/xigxog/kubefox/libs/core/logger"
+	"github.com/xigxog/kubefox/libs/core/platform"
 )
 
 var (
@@ -23,18 +24,6 @@ var (
 		Long:             ``,
 		PersistentPreRun: initViper,
 	}
-
-	adaptCmd = &cobra.Command{
-		Use:   "adapter",
-		Short: "",
-		Long:  ``,
-	}
-
-	bootstrapCmd = &cobra.Command{
-		Use:   "bootstrap",
-		Short: "",
-		Long:  ``,
-	}
 )
 
 func Execute() {
@@ -42,11 +31,6 @@ func Execute() {
 	if err != nil {
 		os.Exit(1)
 	}
-}
-
-func init() {
-	rootCmd.AddCommand(adaptCmd)
-	rootCmd.AddCommand(bootstrapCmd)
 }
 
 func initViper(cmd *cobra.Command, args []string) {
@@ -62,43 +46,28 @@ func initViper(cmd *cobra.Command, args []string) {
 	})
 }
 
-// initCommonFlags is called by each subcommand. This is used instead of
+// initCommonFlags should called by each subcommand. This is used instead of
 // persistent flags on root so that completion, docs, and help can be called
-// with required flags being set.
+// without required flags being set.
 func initCommonFlags(cmd *cobra.Command) {
 	f := cmd.Flags()
-	f.StringVarP(&flags.Platform, "platform", "p", "", "platform instance the component runs on (required)")
-	f.StringVarP(&flags.System, "system", "s", "", "system the component belongs to (required)")
-	f.StringVarP(&flags.CompName, "component", "c", "", "component's short but unique and descriptive name (required)")
-	f.StringVarP(&flags.CompGitHash, "component-hash", "a", "", "hash of the component (required if \"dev\" flag not set)")
-	f.StringVarP(&flags.RuntimeSrvAddr, "runtime-srv-addr", "k", "127.0.0.1:6060", "address and port of gRPC server for KubeFox Runtime Server")
-	f.StringVarP(&flags.NatsAddr, "nats-addr", "n", "127.0.0.1:4222", "address and port of NATS server, JetStream must be enabled on NATS server")
-	f.StringVarP(&flags.HealthSrvAddr, "health-srv-addr", "m", "0.0.0.0:1111", "address and port of the brokers's HTTP health server, set to \"false\" to disable")
-	f.StringVarP(&flags.TelemetryAgentAddr, "telemetry-agent-addr", "e", "127.0.0.1:4318", "address and port of the telemetry agent, set to \"false\" to disable")
-	f.StringVarP(&flags.Namespace, "namespace", "l", "", "Kubernetes namespace containing the KubeFox Platform")
+	f.StringVarP(&flags.Platform, "platform", "p", "", "platform instance component runs on (required)")
+	f.StringVarP(&flags.Namespace, "platform-namespace", "l", "", "namespace containing platform instance (required)")
+	f.StringVarP(&flags.CACertPath, "ca-cert-path", "f", platform.CACertPath, "path of file containing KubeFox root CA certificate")
+	f.StringVarP(&flags.OperatorAddr, "operator-addr", "k", "127.0.0.1:7070", "address and port of operator gRPC server")
+	f.StringVarP(&flags.NATSAddr, "nats-addr", "n", "127.0.0.1:4222", "address and port of NATS JetStream server")
+	f.StringVarP(&flags.HealthSrvAddr, "health-addr", "m", "0.0.0.0:1111", "address and port of brokers HTTP health server, set to \"false\" to disable")
+	f.StringVarP(&flags.TelemetryAgentAddr, "telemetry-agent-addr", "e", "127.0.0.1:4318", "address and port of telemetry agent, set to \"false\" to disable")
 	f.Uint8VarP(&flags.EventTimeout, "timeout", "t", 30, "timeout in seconds for processing an event")
 	f.Uint8VarP(&flags.MetricsInterval, "metrics-interval", "i", 60, "interval in seconds to report metrics")
 	f.BoolVar(&flags.IsDevMode, "dev", false, "enable dev mode")
 
 	cmd.MarkFlagRequired("platform")
-	cmd.MarkFlagRequired("system")
-	cmd.MarkFlagRequired("component")
+	cmd.MarkFlagRequired("namespace")
 }
 
 func validate(cmd *cobra.Command, args []string) error {
-	fmt.Printf("VALIDATE CALLED\n\n")
-	if flags.IsDevMode {
-		if flags.CompGitHash == "" {
-			flags.CompGitHash = "0000000"
-		}
-
-	} else {
-		if flags.CompGitHash == "" {
-			return fmt.Errorf("required flag(s) \"component-hash\" not set")
-		}
-		if flags.DevHTTPSrvAddr != "" {
-			return fmt.Errorf("flag \"dev-http-ingress-addr\" set without flag \"dev\" set")
-		}
+	if !flags.IsDevMode {
 		if flags.DevEnv != "" {
 			return fmt.Errorf("flag \"dev-env\" set without flag \"dev\" set")
 		}

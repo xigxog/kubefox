@@ -50,8 +50,7 @@ func NewSpan(ctx context.Context, timeout time.Duration, req kubefox.DataEvent) 
 			}))
 	}
 
-	ctx, otelSpan := otelTracer.Start(ctx,
-		fmt.Sprintf("%s event", typ),
+	ctx, otelSpan := otelTracer.Start(ctx, fmt.Sprintf("%s event", typ),
 		trace.WithAttributes(traceAttrs(req)...),
 	)
 	req.UpdateSpan(otelSpan)

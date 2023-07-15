@@ -93,7 +93,7 @@ jobs:
 
       - name: Build and push component
         run: |
-          make push/${{ matrix.component }} IMAGE_TAG="${{ github.ref_name }}"
+          make push/${{ matrix.component }} GIT_REF="${{ github.ref_name }}"
 
   release:
     name: Release

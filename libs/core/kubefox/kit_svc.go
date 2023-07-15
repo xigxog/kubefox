@@ -8,61 +8,80 @@ import (
 	"os"
 	"regexp"
 	"sort"
-	"time"
 
 	"github.com/google/uuid"
-
 	"github.com/xigxog/kubefox/libs/core/grpc"
 	"github.com/xigxog/kubefox/libs/core/logger"
 	"github.com/xigxog/kubefox/libs/core/platform"
 	"github.com/xigxog/kubefox/libs/core/utils"
 	gogrpc "google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
+	ktyps "k8s.io/apimachinery/pkg/types"
 )
 
 const (
-	KitContextKey ContextKey = "KitContext"
+	ReqCtxKey ContextKey = "KitRequestContext"
 )
 
 var (
-	argRegexp     = regexp.MustCompile(`{\w*}`)
-	brokerTimeout = 5 * time.Second
+	argRegexp = regexp.MustCompile(`{\w*}`)
 )
 
+type KitContext interface {
+	context.Context
+
+	// Organization() string
+	Platform() string
+	PlatformNamespace() string
+	CACertPath() string
+	DevMode() bool
+
+	Log() *logger.Log
+}
+
 type KitSvc interface {
+	KitContext
+
 	Start()
+	OnStart(StartHandler)
+
 	Http(string, Entrypoint)
 	Kubernetes(string, Entrypoint)
 	MatchEvent(string, Entrypoint)
 	DefaultEntrypoint(Entrypoint)
 
-	// Organization() string
-	Platform() string
-	Namespace() string
-	DevMode() bool
-
 	Fatal(err error)
-	Log() *logger.Log
 }
 
 type kitSvc struct {
-	brk grpc.ComponentServiceClient
+	context.Context
 
-	cfg       *grpc.ComponentConfig
-	namespace string
+	platform   string
+	namespace  string
+	brokerAddr string
+	caCertPath string
+	devMode    bool
+
+	cfg *grpc.ComponentConfig
+
+	startHandler StartHandler
 
 	defEntrypoint Entrypoint
 	entrypoints   []*EntrypointMatcher
 
-	log *logger.Log
+	cancel context.CancelFunc
+	log    *logger.Log
 }
 
 func New() KitSvc {
-	var namespace, brokerAddr string
-	var devMode, help bool
-	flag.StringVar(&namespace, "namespace", "", "Kubernetes namespace of KubeFox Platform. Environment variable 'KUBEFOX_NAMESPACE' (default 'kubefox-system')")
-	flag.StringVar(&brokerAddr, "broker", "127.0.0.1:7070", "Address of the broker's gRPC server. Environment variable 'KUBEFOX_BROKER_ADDR' (default '127.0.0.1:7070')")
-	flag.BoolVar(&devMode, "dev", false, "Run component in dev mode. Environment variable 'KUBEFOX_DEV'")
+	svc := &kitSvc{cfg: &grpc.ComponentConfig{}}
+
+	var help bool
+	flag.StringVar(&svc.platform, "platform", "", "Platform instance component runs on; environment variable 'KUBEFOX_PLATFORM' (required)")
+	flag.StringVar(&svc.namespace, "platform-namespace", "", "Namespace containing platform instance; environment variable 'KUBEFOX_PLATFORM_NAMESPACE' (required)")
+	flag.StringVar(&svc.brokerAddr, "broker", "127.0.0.1:6060", "Address of the broker gRPC server; environment variable 'KUBEFOX_BROKER_ADDR' (default '127.0.0.1:6060')")
+	flag.StringVar(&svc.caCertPath, "ca-cert-path", platform.CACertPath, "Path of file containing KubeFox root CA certificate; environment variable 'KUBEFOX_CA_CERT_PATH' (default '"+platform.CACertPath+"')")
+	flag.BoolVar(&svc.devMode, "dev", false, "Run component in dev mode; environment variable 'KUBEFOX_DEV'")
 	flag.BoolVar(&help, "help", false, "Show usage for component")
 	flag.Parse()
 
@@ -76,74 +95,23 @@ Flags:
 		os.Exit(0)
 	}
 
-	namespace = utils.ResolveFlag(namespace, "KUBEFOX_NAMESPACE", "kubefox-system")
-	brokerAddr = utils.ResolveFlag(brokerAddr, "KUBEFOX_BROKER_ADDR", "127.0.0.1:7070")
-	devMode = utils.ResolveFlagBool(devMode, "KUBEFOX_DEV", false)
+	svc.platform = utils.ResolveFlag(svc.platform, "KUBEFOX_PLATFORM", "")
+	svc.namespace = utils.ResolveFlag(svc.namespace, "KUBEFOX_PLATFORM_NAMESPACE", "")
+	svc.brokerAddr = utils.ResolveFlag(svc.brokerAddr, "KUBEFOX_BROKER_ADDR", "127.0.0.1:6060")
+	svc.caCertPath = utils.ResolveFlag(svc.caCertPath, "KUBEFOX_CA_CERT_PATH", platform.CACertPath)
+	svc.devMode = utils.ResolveFlagBool(svc.devMode, "KUBEFOX_DEV", false)
 
-	var log *logger.Log
-	if devMode {
-		log = logger.DevLogger()
-		log.Warn("dev mode enabled")
+	if svc.devMode {
+		svc.log = logger.DevLogger()
+		svc.log.Warn("dev mode enabled")
 	} else {
-		log = logger.ProdLogger()
+		svc.log = logger.ProdLogger()
 	}
 
-	creds, err := platform.NewGRPCClientCreds(namespace)
-	if err != nil {
-		if devMode {
-			log.Warnf("error reading certificate: %v", err)
-			log.Warn("dev mode enabled, using insecure connection")
-			creds = insecure.NewCredentials()
-		} else {
-			log.Errorf("error reading certificate: %v", err)
-			os.Exit(RpcServerErrorCode)
-		}
-	}
+	svc.Context, svc.cancel = context.WithTimeout(context.Background(), platform.StartupTimeout)
+	svc.log.Info("kit service created 👍")
 
-	conn, err := gogrpc.Dial(brokerAddr, gogrpc.WithTransportCredentials(creds))
-	if err != nil {
-		log.Errorf("unable to connect to broker: %v", err)
-		os.Exit(RpcServerErrorCode)
-
-	}
-	broker := grpc.NewComponentServiceClient(conn)
-	log.Debugf("connected to broker at %s", brokerAddr)
-
-	ctx, cancel := context.WithTimeout(context.Background(), brokerTimeout)
-	defer cancel()
-
-	cfg, err := broker.GetConfig(ctx, &grpc.ConfigRequest{})
-	if err != nil {
-		log.Errorf("unable to get config from broker: %v", err)
-		os.Exit(RpcServerErrorCode)
-	}
-
-	if cfg.DevMode && !devMode {
-		log.Errorf("dev mode active on broker but not component")
-		os.Exit(RpcServerErrorCode)
-	} else if !cfg.DevMode && devMode {
-		log.Errorf("dev mode active on component but not broker")
-		os.Exit(RpcServerErrorCode)
-	}
-
-	if devMode {
-		log = log.Named(cfg.Component.Name)
-	} else {
-		log = log.
-			// WithOrganization(cfg.Organization).
-			WithPlatform(cfg.Platform).
-			WithComponent(cfg.Component)
-	}
-
-	log.Info("kit service created 👍")
-	log.DebugInterface(cfg, "component config:")
-
-	return &kitSvc{
-		brk:       broker,
-		namespace: namespace,
-		cfg:       cfg,
-		log:       log,
-	}
+	return svc
 }
 
 func (svc *kitSvc) Fatal(err error) {
@@ -155,15 +123,19 @@ func (svc *kitSvc) Fatal(err error) {
 // }
 
 func (svc *kitSvc) Platform() string {
-	return svc.cfg.Platform
+	return svc.platform
 }
 
-func (svc *kitSvc) Namespace() string {
+func (svc *kitSvc) PlatformNamespace() string {
 	return svc.namespace
 }
 
+func (svc *kitSvc) CACertPath() string {
+	return svc.caCertPath
+}
+
 func (svc *kitSvc) DevMode() bool {
-	return svc.cfg.DevMode
+	return svc.devMode
 }
 
 func (svc *kitSvc) Log() *logger.Log {
@@ -203,14 +175,85 @@ func (svc *kitSvc) DefaultEntrypoint(entrypoint Entrypoint) {
 	svc.defEntrypoint = entrypoint
 }
 
+func (svc *kitSvc) OnStart(h StartHandler) {
+	svc.startHandler = h
+}
+
 func (svc *kitSvc) Start() {
+	defer svc.cancel()
+
+	// creds, err := creds.NewClientTLSFromFile(svc.caCertFile, "")
+	creds, err := platform.NewGRPCClientCreds(svc.caCertPath, ktyps.NamespacedName{
+		Namespace: svc.namespace,
+		Name:      fmt.Sprintf("%s-%s", svc.Platform(), platform.RootCASecret),
+	})
+	if err != nil {
+		if svc.devMode {
+			svc.log.Warnf("error reading certificate: %v", err)
+			svc.log.Warn("dev mode enabled, using insecure connection")
+			creds = insecure.NewCredentials()
+		} else {
+			svc.log.Errorf("error reading certificate: %v", err)
+			os.Exit(RpcServerErrorCode)
+		}
+	}
+
+	conn, err := gogrpc.Dial(svc.brokerAddr,
+		gogrpc.WithTransportCredentials(creds),
+		gogrpc.WithDefaultServiceConfig(platform.GRPCServiceCfg),
+	)
+	if err != nil {
+		svc.log.Errorf("unable to connect to broker: %v", err)
+		os.Exit(RpcServerErrorCode)
+
+	}
+	brk := grpc.NewComponentServiceClient(conn)
+	svc.log.Debugf("connected to broker at %s", svc.brokerAddr)
+
+	cfg, err := brk.GetConfig(svc, &grpc.ConfigRequest{})
+	if err != nil {
+		svc.log.Errorf("unable to get config from broker: %v", err)
+		os.Exit(RpcServerErrorCode)
+	}
+
+	if cfg.Platform != svc.platform {
+		svc.log.Errorf("broker belongs to an different platform instance")
+		os.Exit(RpcServerErrorCode)
+	}
+	if cfg.DevMode && !svc.devMode {
+		svc.log.Errorf("dev mode active on broker but not component")
+		os.Exit(RpcServerErrorCode)
+	} else if !cfg.DevMode && svc.devMode {
+		svc.log.Errorf("dev mode active on component but not broker")
+		os.Exit(RpcServerErrorCode)
+	}
+
+	if svc.devMode {
+		svc.log.SugaredLogger = svc.log.
+			Named(cfg.Component.Name).
+			SugaredLogger
+	} else {
+		svc.log.SugaredLogger = svc.log.
+			// WithOrganization(cfg.Organization).
+			WithPlatform(cfg.Platform).
+			WithComponent(cfg.Component).
+			SugaredLogger
+	}
+
 	subId := uuid.NewString()
-	stream, err := svc.brk.Subscribe(context.Background(), &grpc.SubscribeRequest{Id: subId})
+	stream, err := brk.Subscribe(context.Background(), &grpc.SubscribeRequest{Id: subId})
 	if err != nil {
 		svc.log.Fatal(err)
 		return
 	}
 	svc.log.Infof("subscribed to broker; subscription: %s", subId)
+
+	if svc.startHandler != nil {
+		svc.log.Debug("invoking registered start handler")
+		if err := svc.startHandler(svc); err != nil {
+			svc.Fatal(err)
+		}
+	}
 
 	for {
 		reqData, err := stream.Recv()
@@ -232,13 +275,13 @@ func (svc *kitSvc) Start() {
 			}
 
 			kit := &kit{
-				req:    req,
-				resp:   resp,
-				kitSvc: svc,
-				ctx:    stream.Context(),
-				log:    log,
+				Context: stream.Context(),
+				req:     req,
+				resp:    resp,
+				kitSvc:  svc,
+				log:     log,
 			}
-			kit.broker = kitBroker{kit: kit, broker: svc.brk}
+			kit.broker = kitBroker{kit: kit, broker: brk}
 
 			var entrypoint Entrypoint
 			switch reqData.Type {
@@ -267,12 +310,13 @@ func (svc *kitSvc) Start() {
 
 			if compErr != nil {
 				log.Errorf("error calling entrypoint: %v", compErr)
+				log.DebugInterface(req, "request:")
 				resp.SetError(compErr)
 			}
 
 			// FIXME should this be using background context? Need timeout from
 			// stream context? Add a timeout to event so it can be passed around?
-			svc.brk.SendResponse(context.Background(), resp.GetData())
+			brk.SendResponse(context.Background(), resp.GetData())
 		}()
 	}
 }

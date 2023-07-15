@@ -1,0 +1,75 @@
+apiVersion: apps/v1
+kind: StatefulSet
+{{ include "metadata" . }}
+spec:
+  serviceName: {{ include "fullname" . }}
+  replicas: 1
+  podManagementPolicy: Parallel
+  selector:
+    matchLabels:
+      {{- include "selectors" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "labels" . | nindent 8 }}
+    spec:
+      serviceAccountName: {{ include "fullname" . }}
+      {{- with .System.ImagePullSecret }}
+      imagePullSecrets:
+        - name: {{ . }}
+      {{- end }}
+      containers:
+        - name: {{ .Component.Name }}
+          image: {{ .Component.Image | default (printf "%s/%s:%v" .System.ContainerRegistry .Component.Name .System.GitRef) | quote }}
+          imagePullPolicy: {{ .Component.ImagePullPolicy | default "IfNotPresent" }}
+          env:
+            - name: KUBEFOX_PLATFORM
+              value: {{ .Platform.Name }}
+            - name: KUBEFOX_PLATFORM_NAMESPACE
+              value: {{ .Platform.Namespace }}
+            - name: VAULT_LOG_FORMAT
+              value: {{ .Values.logFormat | default "json" }}
+          ports:
+            - name: https
+              containerPort: 8200
+              protocol: TCP
+          readinessProbe:
+            exec:
+              command:
+                - /bin/sh
+                - -ec
+                - vault status -tls-skip-verify
+            failureThreshold: 2
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            successThreshold: 1
+            timeoutSeconds: 3
+          volumeMounts:
+            - name: entrypoint
+              mountPath: /usr/local/bin/docker-entrypoint.sh
+              subPath: entrypoint.sh
+            - name: home
+              mountPath: /home/vault
+            - name: data
+              mountPath: /vault/data
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 100
+        runAsGroup: 1000
+        fsGroup: 1000
+      volumes:
+        - name: entrypoint
+          configMap:
+            defaultMode: 0777
+            name: {{ include "fullname" . }}-entrypoint
+        - name: home
+          emptyDir: {}
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes:
+          - ReadWriteOnce
+        resources:
+          requests:
+            storage: {{ .Values.volumeSize | default "1Gi" }}
