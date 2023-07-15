@@ -20,6 +20,7 @@ DOCS_OUT := $(abspath $(ROOT)/site)
 COMPONENTS := api-server broker operator
 PUSHES := $(addprefix push/,$(COMPONENTS))
 IMAGES := $(addprefix image/,$(COMPONENTS))
+KINDS := $(addprefix kind/,$(COMPONENTS))
 BINS := $(addprefix bin/,$(COMPONENTS))
 INSPECTS := $(addprefix inspect/,$(COMPONENTS))
 
@@ -49,6 +50,12 @@ $(IMAGES):
 	buildah add $(container) "$(TARGET_DIR)/$(component)"
 	buildah config --entrypoint '["./$(component)"]' $(container) 
 	buildah commit $(container) "$(IMAGE):$(GIT_REF)"
+
+.PHONY: $(KINDS)
+$(KINDS):
+	$(eval component=$(notdir $@))
+	$(eval container=$(shell buildah from gcr.io/distroless/static))
+	$(MAKE) bin/$(component)
 
 	docker build . -t "$(IMAGE):$(GIT_REF)" --build-arg component=$(component)
 	kind load docker-image --name kubefox "$(IMAGE):$(GIT_REF)"
