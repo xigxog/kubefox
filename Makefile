@@ -54,10 +54,9 @@ $(IMAGES):
 .PHONY: $(KINDS)
 $(KINDS):
 	$(eval component=$(notdir $@))
-	$(eval container=$(shell buildah from gcr.io/distroless/static))
 	$(MAKE) bin/$(component)
 
-	docker build . -t "$(IMAGE):$(GIT_REF)" --build-arg component=$(component)
+	docker buildx build . -t "$(IMAGE):$(GIT_REF)" --build-arg component=$(component)
 	kind load docker-image --name kubefox "$(IMAGE):$(GIT_REF)"
 
 .PHONY: $(BINS)
