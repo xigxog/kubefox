@@ -26,6 +26,8 @@ import (
 )
 
 func New(ctx kubefox.KitContext) (*operator, error) {
+	var err error
+
 	// init kubernetes client
 	if err := kfv1a1.SchemeBuilder.AddToScheme(scheme.Scheme); err != nil {
 		return nil, err
@@ -43,17 +45,12 @@ func New(ctx kubefox.KitContext) (*operator, error) {
 		k8sCli: k8sCli,
 	}
 
-	return op, op.init(ctx)
-}
+	if _, err := op.applyTemplate(ctx, "crds", nil); err != nil {
+		return nil, err
+	}
 
-func (op *operator) init(ctx kubefox.KitContext) error {
-	var err error
 	pName := ctx.Platform()
 	pNS := ctx.PlatformNamespace()
-
-	if _, err := op.applyTemplate(ctx, "crds", nil); err != nil {
-		return err
-	}
 
 	p := &kfv1a1.Platform{
 		TypeMeta: metav1.TypeMeta{
@@ -75,14 +72,15 @@ func (op *operator) init(ctx kubefox.KitContext) error {
 		},
 	}
 	if err := op.apply(ctx, p, true); err != nil {
-		return err
+		return nil, err
 	}
 
 	data := &templates.Data{
-		DevMode: true,
+		DevMode: ctx.DevMode(),
 		Platform: templates.Platform{
-			Name:    pName,
-			Version: GitRef,
+			Name:      pName,
+			Namespace: pNS,
+			Version:   GitRef,
 		},
 		System: templates.System{
 			Name:              platform.System,
@@ -99,12 +97,13 @@ func (op *operator) init(ctx kubefox.KitContext) error {
 		},
 	}
 
+	// TODO move image to arg or const
 	data.Component = templates.Component{
 		Name:  "vault",
 		Image: "ghcr.io/xigxog/vault:1.13.3-v0.0.1",
 	}
 	if _, err := op.applyTemplate(ctx, "vault", data); err != nil {
-		return err
+		return nil, err
 	}
 
 	key := ktyps.NamespacedName{Namespace: pNS, Name: pName + "-vault"}
@@ -113,31 +112,31 @@ func (op *operator) init(ctx kubefox.KitContext) error {
 	for {
 		// ctx will eventually timeout ensuring this is not infinite
 		if err := op.k8sCli.Get(ctx, key, vaultSS); err != nil {
-			return err
+			return nil, err
 		}
 		if vaultSS.Status.ReadyReplicas > 0 {
 			break
 		}
 		ctx.Log().Debug("Vault is not ready, waiting...")
-		time.Sleep(10 * time.Second)
+		time.Sleep(3 * time.Second)
 	}
 
 	key = ktyps.NamespacedName{Namespace: pNS, Name: fmt.Sprintf("%s-%s", pName, platform.RootCASecret)}
 	caCertSec := &corev1.Secret{}
 	if err := op.k8sCli.Get(ctx, key, caCertSec); err != nil {
-		return err
+		return nil, err
 	}
 	if err := os.MkdirAll(filepath.Dir(ctx.CACertPath()), os.ModePerm); err != nil {
-		return err
+		return nil, err
 	}
 	if err := os.WriteFile(ctx.CACertPath(), caCertSec.Data["ca.crt"], 0600); err != nil {
-		return err
+		return nil, err
 	}
 
 	vaultURL := fmt.Sprintf("https://%s-vault:8200", pName)
 	op.vaultCli, err = vault.NewClient(ctx, vault.OperatorRole, vaultURL, caCertSec.Data["ca.crt"])
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	opCertSec, err := op.vaultCli.Logical().WriteWithContext(ctx, "pki_int/issue/operator", map[string]interface{}{
@@ -147,10 +146,10 @@ func (op *operator) init(ctx kubefox.KitContext) error {
 		"ttl":         tenYears,
 	})
 	if err != nil {
-		return err
+		return nil, err
 	}
 	if err := writeCert(opCertSec, platform.OperatorCertsDir); err != nil {
-		return err
+		return nil, err
 	}
 
 	brkCertSec, err := op.vaultCli.Logical().WriteWithContext(ctx, "pki_int/issue/broker", map[string]interface{}{
@@ -159,10 +158,10 @@ func (op *operator) init(ctx kubefox.KitContext) error {
 		"ttl":         tenYears,
 	})
 	if err != nil {
-		return err
+		return nil, err
 	}
 	if err := writeCert(brkCertSec, platform.BrokerCertsDir); err != nil {
-		return err
+		return nil, err
 	}
 
 	data.Component = templates.Component{
@@ -170,10 +169,10 @@ func (op *operator) init(ctx kubefox.KitContext) error {
 		Image: "metacontrollerio/metacontroller:v4.10.3",
 	}
 	if _, err := op.applyTemplate(ctx, "metacontroller", data); err != nil {
-		return err
+		return nil, err
 	}
 
-	return nil
+	return op, nil
 }
 
 func (op *operator) applyTemplate(ctx kubefox.KitContext, name string, data *templates.Data) ([]*unstructured.Unstructured, error) {

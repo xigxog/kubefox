@@ -4,9 +4,15 @@
 
 {{- define "labels" -}}
 {{ include "selectors" . }}
-app.kubernetes.io/part-of: {{ .System.Name }}
-app.kubernetes.io/managed-by: {{ .Platform.Name }}-operator
-k8s.kubefox.io/component: {{ .Component.Name }}
+{{- with .System.Name }}
+app.kubernetes.io/part-of: {{ . }}
+{{- end }}
+{{- with .Platform.Name }}
+app.kubernetes.io/managed-by: {{ . }}-operator
+{{- end }}
+{{- with .Component.Name }}
+k8s.kubefox.io/component: {{ . }}
+{{- end }}
 {{- with .Component.GitHash }}
 app.kubernetes.io/version: {{ . }}
 k8s.kubefox.io/component-git-hash: {{ . }}
@@ -48,8 +54,12 @@ k8s.kubefox.io/config-ref: {{ . }}
 {{- end }}
 
 {{- define "selectors" -}}
+{{- if .Component.Name }}
 app.kubernetes.io/name: {{ .Component.Name }}
+{{- if .Platform.Name }}
 app.kubernetes.io/instance: {{ .Component.Name }}-{{ .Platform.Name }}
+{{- end }}
+{{- end }}
 {{- end }}
 
 {{- define "metadata" -}}

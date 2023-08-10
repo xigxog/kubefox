@@ -212,7 +212,7 @@ EOF
     rm -f "$VAULT_TEMP_DIR/ca.yaml"
 
     vault write pki/roles/global allow_any_name=true >/dev/null
-    echo "Root CA created, cert written to Kubernetes ConfigMap $KUBEFOX_ROOT_CA_SECRET."
+    echo "Root CA created, cert written to Kubernetes Secret $KUBEFOX_ROOT_CA_SECRET."
 
     vault secrets enable -path=pki_int pki
     vault secrets tune -max-lease-ttl="$hundred_yrs" pki_int

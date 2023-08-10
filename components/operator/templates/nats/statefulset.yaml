@@ -1,0 +1,88 @@
+apiVersion: apps/v1
+kind: StatefulSet
+{{ include "metadata" . }}
+spec:
+  serviceName: {{ include "fullname" . }}
+  replicas: 1
+  podManagementPolicy: Parallel
+  selector:
+    matchLabels:
+      {{- include "selectors" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "labels" . | nindent 8 }}
+      annotations:
+        checksum/config: {{ file "nats/nats.conf" | sha256sum }}
+    spec:
+      serviceAccountName: {{ include "fullname" . }}
+      shareProcessNamespace: true
+      {{- with .System.ImagePullSecret }}
+      imagePullSecrets:
+        - name: {{ . }}
+      {{- end }}
+      containers:
+        - name: {{ .Component.Name }}
+          image: {{ .Component.Image | default (printf "%s/%s:%v" .System.ContainerRegistry .Component.Name .System.GitRef) | quote }}
+          imagePullPolicy: {{ .Component.ImagePullPolicy | default "IfNotPresent" }}
+          command:
+            - "nats-server"
+            - "--config"
+            - "/etc/nats-config/nats.conf"
+          env:
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: SERVER_NAME
+              value: $(POD_NAME)
+            - name: POD_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: CLUSTER_ADVERTISE
+              value: {{- printf "$(POD_NAME).%s.$(POD_NAMESPACE)" (include "fullname" . ) }}
+          ports:
+            - name: client
+              containerPort: 4222
+            - name: cluster
+              containerPort: 6222
+            - name: monitor
+              containerPort: 8222
+            - name: metrics
+              containerPort: 7777
+            - name: leafnodes
+              containerPort: 7422
+            - name: gateways
+              containerPort: 7522
+          volumeMounts:
+            - name: config-volume
+              mountPath: /etc/nats-config
+            - name: pid
+              mountPath: /var/run/nats
+            - name: {{ include "fullname" . }}-js-pvc
+              mountPath: /data
+          lifecycle:
+            preStop:
+              exec:
+                # Send the lame duck shutdown signal to trigger a graceful
+                # shutdown nats-server will ignore the TERM signal it receives
+                # after this.
+                command:
+                  - "nats-server"
+                  - "-sl=ldm=/var/run/nats/nats.pid"
+      volumes:
+        - name: config-volume
+          configMap:
+            name: {{ include "fullname" . }}-config
+        - name: pid
+          emptyDir: {}
+  volumeClaimTemplates:
+    - metadata:
+        name: {{ include "fullname" . }}-js-pvc
+      spec:
+        accessModes:
+          - ReadWriteOnce
+        resources:
+          requests:
+            storage: {{ .Values.volumeSize | default "8Gi" }}

@@ -1,0 +1,8 @@
+apiVersion: k8s.kubefox.io/v1alpha1
+kind: ComponentSet
+metadata:
+  name: {{ .System.Name }}
+  namespace: {{ .System.Namespace }}
+  labels:
+    {{- include "labels" . | nindent 4 }}
+spec: {}

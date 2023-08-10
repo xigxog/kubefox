@@ -12,7 +12,8 @@ type PlatformSpec struct {
 }
 
 type PlatformSystem struct {
-	ImagePullSecret string `json:"imagePullSecret,omitempty"`
+	ContainerRegistry string `json:"containerRegistry,omitempty"`
+	ImagePullSecret   string `json:"imagePullSecret,omitempty"`
 }
 
 type PlatformStatus struct {

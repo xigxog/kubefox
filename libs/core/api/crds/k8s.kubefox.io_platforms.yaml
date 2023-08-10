@@ -36,6 +36,8 @@ spec:
               systems:
                 additionalProperties:
                   properties:
+                    containerRegistry:
+                      type: string
                     imagePullSecret:
                       type: string
                   type: object

@@ -79,3 +79,59 @@ func TestRenderTraefik(t *testing.T) {
 		t.Logf("\n%s", s)
 	}
 }
+
+func TestRenderNATS(t *testing.T) {
+	d := &Data{
+		Platform: Platform{
+			Name:      "dev",
+			Version:   "v0.0.1",
+			Namespace: "kubefox-system",
+		},
+		System: System{
+			Name:      platform.System,
+			Namespace: "kubefox-system",
+			Ref:       "main",
+			GitHash:   "abcdef",
+		},
+		Broker: Broker{
+			Type: HTTPServerType,
+		},
+		Component: Component{
+			Name:  "nats",
+			Image: "nats:2.9.21-alpine",
+		},
+		Owner: &metav1.OwnerReference{
+			APIVersion: "k8s.kubefox.io/v1alpha1",
+			Kind:       "Platform",
+			UID:        "123",
+			Name:       "kubefox-dev",
+		},
+	}
+	if s, err := renderStr("nats", d); err != nil {
+		t.Errorf("%v", err)
+	} else {
+		t.Logf("\n%s", s)
+	}
+}
+
+func TestRenderSystem(t *testing.T) {
+	d := &Data{
+		Platform: Platform{
+			Name:      "dev",
+			Namespace: "kubefox-system",
+			Version:   "v0.0.1",
+			RootCA:    "abc",
+		},
+		System: System{
+			Name:              "demo",
+			Namespace:         "kfs-dev-demo",
+			ContainerRegistry: "test.io",
+			ImagePullSecret:   "abc",
+		},
+	}
+	if s, err := renderStr("system", d); err != nil {
+		t.Errorf("%v", err)
+	} else {
+		t.Logf("\n%s", s)
+	}
+}

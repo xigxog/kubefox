@@ -1,14 +1,16 @@
 package operator
 
 import (
+	"encoding/base64"
 	"fmt"
 
+	"github.com/xigxog/kubefox/components/operator/templates"
 	"github.com/xigxog/kubefox/libs/core/api/common"
 	kube "github.com/xigxog/kubefox/libs/core/api/kubernetes"
 	kubev1a1 "github.com/xigxog/kubefox/libs/core/api/kubernetes/v1alpha1"
 	"github.com/xigxog/kubefox/libs/core/api/uri"
 	"github.com/xigxog/kubefox/libs/core/kubefox"
-	"github.com/xigxog/kubefox/libs/core/platform"
+	"github.com/xigxog/kubefox/libs/core/utils"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -21,145 +23,81 @@ func (op *operator) ProcessPlatform(kit kubefox.Kit) error {
 	if err := k.Unmarshal(req); err != nil {
 		return ErrEvent(kit, err)
 	}
+	pName := req.GetObject().GetName()
+	pNamespace := req.GetObject().GetNamespace()
+
 	kit.Log().Infof("processing %s hook for %s", k.GetHook(), req.GetObject())
 
 	switch k.GetHook() {
 	case kubefox.Customize:
-		// will send vault pod during sync, if 'not ready' should run init again
-		inst := req.GetObject().GetLabels()[kube.InstanceLabel]
 		vaultPod := &RelatedResourceRule{
 			APIVersion: "v1",
 			Resource:   "pods",
+			Namespace:  pNamespace,
 			LabelSelector: &metav1.LabelSelector{
 				MatchLabels: map[string]string{
-					kube.InstanceLabel: inst,
+					kube.InstanceLabel: pName,
 					kube.NameLabel:     "vault",
 				},
 			},
 		}
-		tlsSecs := &RelatedResourceRule{
+		rootCASec := &RelatedResourceRule{
 			APIVersion: "v1",
 			Resource:   "secrets",
-			Namespace:  kit.PlatformNamespace(),
-			Names:      []string{
-				// platform.BrokerTLSSecret,
-				// platform.NATSTLSSecret,
-				// platform.OperatorTLSSecret,
-				// platform.TelemetryTLSSecret,
-			},
-		}
-		// env := &RelatedResourceRule{
-		// 	APIVersion: "v1",
-		// 	Resource:   "configmaps",
-		// 	Namespace:  kit.PlatformNamespace(),
-		// 	Names:      []string{platform.EnvConfigMap},
-		// }
-		brkSvc := &RelatedResourceRule{
-			APIVersion: "v1",
-			Resource:   "services",
-			Namespace:  kit.PlatformNamespace(),
-			Names:      []string{platform.BrokerService},
+			Namespace:  pNamespace,
+			Names:      []string{pName + "-root-ca"},
 		}
 
-		// return CustomizeEvent(kit, vaultPod, certs, env, brkSvc)
-		return CustomizeEvent(kit, vaultPod, tlsSecs, brkSvc)
+		return CustomizeEvent(kit, vaultPod, rootCASec)
 
 	case kubefox.Sync:
-		// orgName := req.GetObject().GetOrganization()
-		// inst := req.GetObject().GetLabels()[kube.InstanceLabel]
+		rootCA := ""
+		rootCASec := req.Attachments.Secrets[fmt.Sprintf("%s/%s-root-ca", pNamespace, pName)]
+		if rootCASec != nil {
+			rootCABytes := []byte{}
+			if _, err := base64.StdEncoding.Decode(rootCABytes, rootCASec.Data["ca.crt"]); err != nil {
+				return ErrEvent(kit, err)
+			}
+			rootCA = string(rootCABytes)
+		}
+
+		attachments := []runtime.Object{}
 		status := &common.PlatformStatus{
 			Healthy: isPlatformHealthy(kit, req.Related),
 			Systems: map[uri.Key]*common.PlatformSystemStatus{},
 		}
 
-		attachments := []runtime.Object{}
-		// for sysName, sys := range req.GetObject().Spec.Systems {
-		// ns := maker.New[corev1.Namespace](maker.Props{
-		// 	Group: "core",
-		// 	Name:  utils.SystemNamespace(inst, string(sysName)),
-		// 	// Organization: orgName,
-		// 	Instance: inst,
-		// 	System:   string(sysName),
-		// })
-		// attachments = append(attachments, ns)
+		for sysName, sys := range req.GetObject().Spec.Systems {
+			nsName := utils.SystemNamespace(pName, string(sysName))
 
-		// compSet := maker.New[kubev1a1.ComponentSet](maker.Props{
-		// 	Name:      string(sysName),
-		// 	Namespace: ns.GetName(),
-		// 	// Organization: orgName,
-		// 	Instance: inst,
-		// 	System:   string(sysName),
-		// })
-		// attachments = append(attachments, compSet)
+			data := &templates.Data{
+				DevMode: kit.DevMode(),
+				Platform: templates.Platform{
+					Name:      pName,
+					Namespace: pNamespace,
+					Version:   GitRef,
+					RootCA:    rootCA,
+				},
+				System: templates.System{
+					Name:              string(sysName),
+					Namespace:         nsName,
+					ContainerRegistry: sys.ContainerRegistry,
+					ImagePullSecret:   sys.ImagePullSecret,
+				},
+			}
 
-		// sec := maker.New[corev1.Secret](maker.Props{
-		// 	Group:     "core",
-		// 	Name:      platform.ImagePullSecret,
-		// 	Namespace: ns.GetName(),
-		// 	// Organization: orgName,
-		// 	Instance: inst,
-		// 	System:   string(sysName),
-		// })
-		// sec.Type = "kubernetes.io/dockerconfigjson"
-		// config := "{}"
-		// if sys.ImagePullSecret != "" {
-		// 	config = fmt.Sprintf(`{"auths":{"ghcr.io":{"auth":"%s"}}}`, sys.ImagePullSecret)
-		// }
-		// sec.StringData = map[string]string{".dockerconfigjson": config}
-		// attachments = append(attachments, sec)
+			objs, err := templates.Render("system", data)
+			if err != nil {
+				return ErrEvent(kit, err)
+			}
+			for _, obj := range objs {
+				attachments = append(attachments, obj)
+			}
 
-		// brkSA := maker.New[corev1.ServiceAccount](maker.Props{
-		// 	Group:     "core",
-		// 	Name:      platform.BrokerSvcAccount,
-		// 	Namespace: ns.GetName(),
-		// 	// Organization: orgName,
-		// 	Instance: inst,
-		// 	System:   string(sysName),
-		// })
-		// attachments = append(attachments, brkSA)
-
-		// for _, r := range req.Related.Secrets {
-		// 	sec := maker.New[corev1.Secret](maker.Props{
-		// 		Group:     "core",
-		// 		Name:      r.Name,
-		// 		Namespace: ns.GetName(),
-		// 		// Organization: orgName,
-		// 		Instance: inst,
-		// 		System:   string(sysName),
-		// 	})
-		// 	sec.Type = r.Type
-		// 	sec.Data = r.Data
-		// 	attachments = append(attachments, sec)
-		// }
-		// for _, r := range req.Related.ConfigMaps {
-		// 	cm := maker.New[corev1.ConfigMap](maker.Props{
-		// 		Group:     "core",
-		// 		Name:      r.Name,
-		// 		Namespace: ns.GetName(),
-		// 		// Organization: orgName,
-		// 		Instance: inst,
-		// 		System:   string(sysName),
-		// 	})
-		// 	cm.Data = r.Data
-		// 	attachments = append(attachments, cm)
-		// }
-		// for _, r := range req.Related.Services {
-		// 	svc := maker.New[corev1.Service](maker.Props{
-		// 		Group:     "core",
-		// 		Name:      r.Name,
-		// 		Namespace: ns.GetName(),
-		// 		// Organization: orgName,
-		// 		Instance: inst,
-		// 		System:   string(sysName),
-		// 	})
-		// 	svc.Spec = r.Spec
-		// 	attachments = append(attachments, svc)
-		// }
-
-		// status.Systems[sysName] = &common.PlatformSystemStatus{
-		// 	Healthy: isSystemHealthy(req.Attachments, ns.GetName(), compSet.GetName()),
-		// }
-		// }
+			status.Systems[sysName] = &common.PlatformSystemStatus{
+				Healthy: isSystemHealthy(req.Attachments, nsName, string(sysName)),
+			}
+		}
 
 		return SyncEvent(kit, status, attachments...)
 

@@ -28,6 +28,7 @@ type Platform struct {
 	Name      string
 	Version   string
 	Namespace string
+	RootCA    string
 }
 
 type System struct {

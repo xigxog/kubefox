@@ -34,6 +34,9 @@ push-all: clean generate $(PUSHES)
 .PHONY: image-all
 image-all: clean generate $(IMAGES)
 
+.PHONY: kind-all
+kind-all: clean generate $(KINDS)
+
 .PHONY: $(PUSHES)
 $(PUSHES):
 	$(eval component=$(notdir $@))
