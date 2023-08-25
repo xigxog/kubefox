@@ -3,24 +3,28 @@
 
 ## Prerequisites
 
-The following tools must be installed for this quickstart:
+The following tools are used in this quickstart:
 
-- [Docker](https://docs.docker.com/engine/install/) - A container toolset and
-  runtime. Used to build KubeFox Components' OCI images and run a local
-  Kubernetes cluster via Kind.
+- [Github](https://github.com/) - Code Repository and CI/CD Platform. Used as the repository for code and container images. A valid user with access to a GitHub Organization is required.
+- [Docker](https://docs.docker.com/engine/install/) - A container toolset and runtime. Used to build KubeFox Components' OCI images and run a local Kubernetes cluster via Kind.
 - [Fox CLI](https://github.com/xigxog/kubefox-cli/releases/) -
   CLI for communicating with the KubeFox Platform. Download the latest release
   and put the binary on your path.
 - [Helm](https://helm.sh/docs/intro/install/) - Package manager for Kubernetes.
-  Used to install the KubeFox Platform on Kubernetes.
-- [Kind](https://kind.sigs.k8s.io/docs/user/quick-start/) - **K**uberentes
+- [Kubectl](https://kubernetes.io/docs/tasks/tools/) - CLI for communicating with a Kubernetes cluster's control plane, using the Kubernetes API. Used to install the KubeFox Platform on Kubernetes.
+- [Kind](https://kind.sigs.k8s.io/docs/user/quick-start/) (optional) - **K**uberentes
   **in** **D**ocker. A tool for running local Kubernetes clusters using Docker
   container "nodes".
-- [Kubectl](https://kubernetes.io/docs/tasks/tools/) - CLI for communicating
-  with a Kubernetes cluster's control plane, using the Kubernetes API.
+- [Azure CLI](https://learn.microsoft.com/en-us/cli/azure/install-azure-cli) (optional) - CLI for communicating
+  with the Azure control plane.
 
-## Install KubeFox Platform
+---
 
+## Setup Kubernetes Infrastructure
+
+<details>
+<summary>Option A: Local Kubernetes environment using Kind</summary>
+<br>
 Let's start with setting up a local Kubernetes cluster using Kind. The following
 command can be used to create the cluster. It exposes some extra ports to the
 local host that allows communicating with the KubeFox Platform easier.
@@ -41,25 +45,71 @@ nodes:
 kind create cluster --config /tmp/kind-cluster.yaml --wait 5m
 ```
 
-??? example "Output"
+  <details>
+  <summary>Example Output</summary>
+      ```text
+      Creating cluster "kubefox" ...
+      ✓ Ensuring node image (kindest/node:v1.26.3) 🖼
+      ✓ Preparing nodes 📦
+      ✓ Writing configuration 📜
+      ✓ Starting control-plane 🕹️
+      ✓ Installing CNI 🔌
+      ✓ Installing StorageClass 💾
+      ✓ Waiting ≤ 5m0s for control-plane = Ready ⏳
+      • Ready after 15s 💚
+      Set kubectl context to "kind-kubefox"
+      You can now use your cluster with:
 
-    ```text
-    Creating cluster "kubefox" ...
-    ✓ Ensuring node image (kindest/node:v1.26.3) 🖼
-    ✓ Preparing nodes 📦
-    ✓ Writing configuration 📜
-    ✓ Starting control-plane 🕹️
-    ✓ Installing CNI 🔌
-    ✓ Installing StorageClass 💾
-    ✓ Waiting ≤ 5m0s for control-plane = Ready ⏳
-    • Ready after 15s 💚
-    Set kubectl context to "kind-kubefox"
-    You can now use your cluster with:
+      kubectl cluster-info --context kind-kubefox
 
-    kubectl cluster-info --context kind-kubefox
+      Have a nice day! 👋
+      ```
+  </details>
+</details>
+<details>
+<summary>Option B: Remote Kubernetes environment using Azure AKS</summary>
+<br>
+Let's start with setting up a remote Kubernetes cluster using the Azure CLI. The following commands can be used to create and interact with the cluster.
 
-    Have a nice day! 👋
-    ```
+<br>
+
+First you need to login to Azure and select your proper subscription where you want to deploy Kubernetes using the below commands.
+
+```shell
+az login
+az account show
+az account set --subscription <subscription ID here>
+```
+
+<br>
+
+Next you need to create a resource Group for the AKS cluster, and deploy AKS. The below example is using EASTUS2 as the region and an example free tier AKS cluster. Note: This command will take > 5 minutes to complete.
+
+```shell
+az group create --location eastus2 --name kf-quickstart-infra-eus2-rg
+
+az aks create \
+    --resource-group kf-quickstart-infra-eus2-rg \
+    --tier free \
+    --name kf-quickstart-eus2-aks-01 \
+    --location eastus2 \
+    --node-count 1 \
+    --node-vm-size "Standard_B2s"
+```
+
+Once your AKS cluster is ready, you can use the below command to add the cluster to your kubectl configuration using the following command.
+
+```shell
+az aks get-credentials \
+--resource-group kf-quickstart-infra-eus2-rg  \
+--name kf-quickstart-eus2-aks-01 \
+```
+
+</details>
+
+---
+
+## Install KubeFox Platform
 
 Next we need to add the XigXog Helm Repo and install the KubeFox Helm Chart.
 
@@ -83,13 +133,20 @@ helm install kubefox xigxog/kubefox --create-namespace --namespace kubefox-syste
     REVISION: 1
     ```
 
+---
+
 ## Deploy KubeFox System
 
 Great now we're ready to create your first KubeFox System and deploy it to the
-Platform running on the local Kind Cluster. We'll be using a local Git repo for
-the demo. To get things started let's create a new directory and use the Fox CLI
-to initialize a "hello world" System. You'll want to run all the remaining
-commands from this directory.
+Platform running on your Kubernetes cluster. 
+
+Before you can interact with KubeFox, you need to expose the KubeFox API endpoint. For the quickstart we will use the built in port-forward feature of kubectl, but in production you would use your cloud providers load balancer. Please open a separate shell session to run the below command, leave it running in the foreground for the remainder of this quickstart.
+
+```shell
+kubectl port-forward svc/kubefox-traefik -n kubefox-system 8443:443
+```
+
+We'll be using a local Git repo for the demo. To get things started please open a new terminal session. Let's create a new directory and use the Fox CLI to initialize a "hello world" System. You'll want to run all the remaining commands from this session in this directory.
 
 ```shell
 mkdir kubefox-demo
