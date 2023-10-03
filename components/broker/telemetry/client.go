@@ -2,17 +2,10 @@ package telemetry
 
 import (
 	"context"
-	"crypto/tls"
-	"crypto/x509"
-	"fmt"
-	"os"
 	"time"
 
 	"github.com/xigxog/kubefox/components/broker/config"
-	"github.com/xigxog/kubefox/libs/core/kubefox"
-	"github.com/xigxog/kubefox/libs/core/logger"
-	"github.com/xigxog/kubefox/libs/core/platform"
-	"github.com/xigxog/kubefox/libs/core/utils"
+	"github.com/xigxog/kubefox/libs/core/logkf"
 	"go.opentelemetry.io/contrib/instrumentation/host"
 	"go.opentelemetry.io/contrib/instrumentation/runtime"
 	"go.opentelemetry.io/otel"
@@ -25,7 +18,6 @@ import (
 	"go.opentelemetry.io/otel/sdk/resource"
 	"go.opentelemetry.io/otel/sdk/trace"
 	semconv "go.opentelemetry.io/otel/semconv/v1.4.0"
-	ktyps "k8s.io/apimachinery/pkg/types"
 )
 
 const (
@@ -38,20 +30,28 @@ type Client struct {
 	meterProvider *metric.MeterProvider
 	traceProvider *trace.TracerProvider
 
-	cfg *config.Config
-	log *logger.Log
+	log *logkf.Logger
 }
 
-func NewClient(cfg *config.Config, log *logger.Log) *Client {
-	otel.SetErrorHandler(OTELErrorHandler{Log: log})
+type OTELErrorHandler struct {
+	Log *logkf.Logger
+}
 
+func (h OTELErrorHandler) Handle(err error) {
+	h.Log.Warn(err)
+}
+
+func NewClient() *Client {
 	return &Client{
-		cfg: cfg,
-		log: log,
+		log: logkf.Global,
 	}
 }
 
-func (cl *Client) Start(ctx context.Context) {
+func (c *Client) Start(ctx context.Context) error {
+	c.log.Debug("telemetry client starting")
+
+	otel.SetErrorHandler(OTELErrorHandler{Log: c.log})
+
 	// tlsCfg, err := cl.tls()
 	// if err != nil {
 	// 	cl.log.Error(err)
@@ -60,34 +60,30 @@ func (cl *Client) Start(ctx context.Context) {
 
 	res := resource.NewWithAttributes(
 		semconv.SchemaURL,
-		semconv.ServiceNameKey.String(cl.cfg.Comp.GetName()),
-		attribute.String("kubefox.component.id", cl.cfg.Comp.GetId()),
-		attribute.String("kubefox.component.git-hash", cl.cfg.Comp.GetGitHash()),
-		attribute.String("kubefox.component.name", cl.cfg.Comp.GetName()),
+		attribute.String("kubefox.cluster", config.Instance),
+		attribute.String("kubefox.platform", config.Platform),
+		attribute.String("kubefox.service", "broker"),
 	)
 
 	metricExp, err := otlpmetrichttp.New(ctx,
 		// otlpmetrichttp.WithTLSClientConfig(tlsCfg),
 		otlpmetrichttp.WithInsecure(),
-		otlpmetrichttp.WithEndpoint(cl.cfg.TelemetryAgentAddr))
+		otlpmetrichttp.WithEndpoint(config.TelemetryAddr))
 	if err != nil {
-		cl.log.Error(err)
-		os.Exit(kubefox.TelemetryErrorCode)
+		return c.log.ErrorN("%v", err)
 	}
 
-	intSecs := time.Duration(cl.cfg.MetricsInterval) * time.Second
-	cl.meterProvider = metric.NewMeterProvider(
+	interval := time.Duration(config.TelemetryInterval) * time.Second
+	c.meterProvider = metric.NewMeterProvider(
 		metric.WithResource(res),
-		metric.WithReader(metric.NewPeriodicReader(metricExp, metric.WithInterval(intSecs))))
-	global.SetMeterProvider(cl.meterProvider)
+		metric.WithReader(metric.NewPeriodicReader(metricExp, metric.WithInterval(interval))))
+	global.SetMeterProvider(c.meterProvider)
 
 	if err := host.Start(); err != nil {
-		cl.log.Error(err)
-		os.Exit(kubefox.TelemetryErrorCode)
+		return c.log.ErrorN("%v", err)
 	}
-	if err := runtime.Start(runtime.WithMinimumReadMemStatsInterval(intSecs)); err != nil {
-		cl.log.Error(err)
-		os.Exit(kubefox.TelemetryErrorCode)
+	if err := runtime.Start(runtime.WithMinimumReadMemStatsInterval(interval)); err != nil {
+		return c.log.ErrorN("%v", err)
 	}
 
 	// TODO do not exit if cannot connect, just show warnings it should keep
@@ -98,27 +94,31 @@ func (cl *Client) Start(ctx context.Context) {
 	trClient := otlptracehttp.NewClient(
 		// otlptracehttp.WithTLSClientConfig(tlsCfg),
 		otlptracehttp.WithInsecure(),
-		otlptracehttp.WithEndpoint(cl.cfg.TelemetryAgentAddr),
+		otlptracehttp.WithEndpoint(config.TelemetryAddr),
 	)
 	trExp, err := otlptrace.New(ctx, trClient)
 	if err != nil {
-		cl.log.Error(err)
-		os.Exit(kubefox.TelemetryErrorCode)
+		return c.log.ErrorN("%v", err)
 	}
 
-	cl.traceProvider = trace.NewTracerProvider(
+	c.traceProvider = trace.NewTracerProvider(
 		// TODO sample setup? just rely on outside request to determine if to sample?
 		// trace.WithSampler(trace.AlwaysSample()),
 		trace.WithResource(res),
 		trace.WithBatcher(trExp),
 	)
-	otel.SetTracerProvider(cl.traceProvider)
+	otel.SetTracerProvider(c.traceProvider)
 
-	cl.log.Infof("telemetry client started; addr: %s", cl.cfg.TelemetryAgentAddr)
+	c.log.Info("telemetry client started")
+	return nil
 }
 
-func (cl *Client) Shutdown(ctx context.Context) {
+func (cl *Client) Shutdown(timeout time.Duration) {
+	// log from context
 	cl.log.Info("telemetry client shutting down")
+
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
 
 	if cl.meterProvider != nil {
 		if err := cl.meterProvider.Shutdown(ctx); err != nil {
@@ -133,26 +133,26 @@ func (cl *Client) Shutdown(ctx context.Context) {
 	}
 }
 
-func (cl *Client) tls() (*tls.Config, error) {
-	var pool *x509.CertPool
+// func (cl *Client) tls() (*tls.Config, error) {
+// 	var pool *x509.CertPool
 
-	if pem, err := os.ReadFile(CACertFile); err == nil {
-		cl.log.Debugf("reading tls certs from file")
-		pool = x509.NewCertPool()
-		if ok := pool.AppendCertsFromPEM(pem); !ok {
-			return nil, fmt.Errorf("failed to parse root certificate from %s", CACertFile)
-		}
+// 	if pem, err := os.ReadFile(CACertFile); err == nil {
+// 		// cl.log.Debugf("reading tls certs from file")
+// 		pool = x509.NewCertPool()
+// 		if ok := pool.AppendCertsFromPEM(pem); !ok {
+// 			return nil, fmt.Errorf("failed to parse root certificate from %s", CACertFile)
+// 		}
 
-	} else {
-		cl.log.Debugf("reading tls certs from kubernetes secret")
-		pool, err = utils.GetCAFromSecret(ktyps.NamespacedName{
-			Namespace: cl.cfg.Namespace,
-			Name:      fmt.Sprintf("%s-%s", cl.cfg.Platform, platform.RootCASecret),
-		})
-		if err != nil {
-			return nil, fmt.Errorf("failed to read cert from kubernetes secret: %v", err)
-		}
-	}
+// 	} else {
+// 		// cl.log.Debugf("reading tls certs from kubernetes secret")
+// 		pool, err = utils.GetCAFromSecret(ktyps.NamespacedName{
+// 			// Namespace: cl.cfg.Namespace,
+// 			// Name:      fmt.Sprintf("%s-%s", cl.cfg.Platform, kfp.RootCASecret),
+// 		})
+// 		if err != nil {
+// 			return nil, fmt.Errorf("failed to read cert from kubernetes secret: %v", err)
+// 		}
+// 	}
 
-	return &tls.Config{RootCAs: pool}, nil
-}
+// 	return &tls.Config{RootCAs: pool}, nil
+// }

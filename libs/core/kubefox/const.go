@@ -1,70 +1,85 @@
 package kubefox
 
-type ContextKey string
-
-const (
-	LogContextKey ContextKey = "LogContext"
+import (
+	"path"
+	"regexp"
 )
 
-// OS status codes
-const (
-	ConfigurationErrorCode = 10
-	JetStreamErrorCode     = 11
-	RpcServerErrorCode     = 12
-	HTTPServerErrorCode    = 13
-	TelemetryErrorCode     = 14
-	InterruptCode          = 130
-)
+type EventType string
 
 // Component event types
 const (
-	ComponentRequestType   = "io.kubefox.component_request"
-	ComponentResponseType  = "io.kubefox.component_response"
-	CronRequestType        = "io.kubefox.cron_request"
-	CronResponseType       = "io.kubefox.cron_response"
-	DaprRequestType        = "io.kubefox.dapr_request"
-	DaprResponseType       = "io.kubefox.dapr_response"
-	HTTPRequestType        = "io.kubefox.http_request"
-	HTTPResponseType       = "io.kubefox.http_response"
-	KubernetesRequestType  = "io.kubefox.kubernetes_request"
-	KubernetesResponseType = "io.kubefox.kubernetes_response"
+	ComponentRequestType   EventType = "io.kubefox.component_request"
+	ComponentResponseType  EventType = "io.kubefox.component_response"
+	CronRequestType        EventType = "io.kubefox.cron_request"
+	CronResponseType       EventType = "io.kubefox.cron_response"
+	DaprRequestType        EventType = "io.kubefox.dapr_request"
+	DaprResponseType       EventType = "io.kubefox.dapr_response"
+	HTTPRequestType        EventType = "io.kubefox.http_request"
+	HTTPResponseType       EventType = "io.kubefox.http_response"
+	KubernetesRequestType  EventType = "io.kubefox.kubernetes_request"
+	KubernetesResponseType EventType = "io.kubefox.kubernetes_response"
 )
 
 // Platform event types
-//
-// Update `IsPlatformEvent()` in event.go if changes are made.
 const (
-	BootstrapRequestType  = "io.kubefox.bootstrap_request"
-	BootstrapResponseType = "io.kubefox.bootstrap_response"
-	FabricRequestType     = "io.kubefox.fabric_request"
-	FabricResponseType    = "io.kubefox.fabric_response"
+	BootstrapRequestType  EventType = "io.kubefox.bootstrap_request"
+	BootstrapResponseType EventType = "io.kubefox.bootstrap_response"
+	HealthRequestType     EventType = "io.kubefox.health_request"
+	HealthResponseType    EventType = "io.kubefox.health_response"
+	MetricsRequestType    EventType = "io.kubefox.metrics_request"
+	MetricsResponseType   EventType = "io.kubefox.metrics_response"
+	TelemetryRequestType  EventType = "io.kubefox.telemetry_request"
+	TelemetryResponseType EventType = "io.kubefox.telemetry_response"
+
+	AckEventType      EventType = "io.kubefox.ack"
+	ErrorEventType    EventType = "io.kubefox.error"
+	NackEventType     EventType = "io.kubefox.nack"
+	RegisterType      EventType = "io.kubefox.register"
+	RejectedEventType EventType = "io.kubefox.rejected"
+	UnknownEventType  EventType = "io.kubefox.unknown"
 )
 
-// Internal event types
+// Keys for well known values.
 const (
-	HealthRequestType     = "io.kubefox.health_request"
-	HealthResponseType    = "io.kubefox.health_response"
-	MetricsRequestType    = "io.kubefox.metrics_request"
-	MetricsResponseType   = "io.kubefox.metrics_response"
-	TelemetryRequestType  = "io.kubefox.telemetry_request"
-	TelemetryResponseType = "io.kubefox.telemetry_response"
-
-	ErrorEventType    = "io.kubefox.error"
-	RejectedEventType = "io.kubefox.rejected"
-	UnknownEventType  = "io.kubefox.unknown"
+	HeaderValKey     = "header"
+	HostValKey       = "host"
+	MethodValKey     = "method"
+	PathValKey       = "path"
+	QueryValKey      = "queryParam"
+	StatusCodeValKey = "statusCode"
+	StatusValKey     = "status"
+	URLValKey        = "url"
+	// ValKey = ""
 )
 
-// KubeFox headers/query params
+// Headers and query params.
 const (
 	EnvHeader       = "kf-environment"
 	EnvHeaderShort  = "kf-env"
-	SysHeader       = "kf-system"
-	SysHeaderShort  = "kf-sys"
-	TargetHeader    = "kf-target"
-	EventTypeHeader = "kf-event-type"
+	DepHeader       = "kf-deployment"
+	DepHeaderShort  = "kf-dep"
+	EventTypeHeader = "kf-type"
+)
 
-	RelEnvHeader       = "kf-release-environment"
-	RelSysHeader       = "kf-release-system"
-	RelTargetHeader    = "kf-release-target"
-	RelEventTypeHeader = "kf-release-event-type"
+var (
+	CommitRegexp = regexp.MustCompile(`^[0-9a-f]{40}$`)
+	ImageRegexp  = regexp.MustCompile(`^.*:[a-z0-9-]{7}$`)
+	// TODO use SHA256, switch pattern to ^.*@sha256:[a-z0-9]{64}$
+	NameRegexp        = regexp.MustCompile(`^[a-z0-9][a-z0-9-]{0,28}[a-z0-9]$`)
+	TagOrBranchRegexp = regexp.MustCompile(`^[a-z0-9][a-z0-9-\\.]{0,28}[a-z0-9]$`)
+	UUIDRegexp        = regexp.MustCompile(`^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`)
+)
+
+// Certificate paths.
+const (
+	TLSCertFile     = "tls.crt"
+	TLSKeyFile      = "tls.key"
+	CACertFile      = "ca.crt"
+	SvcAccTokenFile = "/var/run/secrets/kubernetes.io/serviceaccount/token"
+)
+
+var (
+	KubeFoxHome = path.Join("/", "tmp", "kubefox")
+	CACertPath  = path.Join(KubeFoxHome, CACertFile)
 )

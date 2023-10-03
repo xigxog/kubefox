@@ -2,667 +2,418 @@ package engine
 
 import (
 	"context"
-	"errors"
 	"fmt"
-	"math/rand"
 	"os"
 	"os/signal"
+	"sync"
+	"syscall"
 	"time"
 
-	"github.com/xigxog/kubefox/components/broker/blocker"
 	"github.com/xigxog/kubefox/components/broker/config"
-	"github.com/xigxog/kubefox/components/broker/fabric"
-	"github.com/xigxog/kubefox/components/broker/jetstream"
 	"github.com/xigxog/kubefox/components/broker/telemetry"
-	"github.com/xigxog/kubefox/libs/core/component"
-	"github.com/xigxog/kubefox/libs/core/grpc"
 	"github.com/xigxog/kubefox/libs/core/kubefox"
-	"github.com/xigxog/kubefox/libs/core/logger"
-	"github.com/xigxog/kubefox/libs/core/platform"
+	"github.com/xigxog/kubefox/libs/core/logkf"
 	"github.com/xigxog/kubefox/libs/core/utils"
 	"google.golang.org/protobuf/types/known/structpb"
 )
 
-var (
-	letters = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
-
-	shutdownTimeout = 30 * time.Second
-
-	platformEvtErr    = fmt.Errorf("event is a platform event but local component is not operator")
-	localNotTargetErr = fmt.Errorf("local component is not the event target")
-	outOfCtxErr       = fmt.Errorf("local component does not exist in the event context")
+// OS status codes
+const (
+	ConfigurationExitCode = 10
+	JetStreamExitCode     = 11
+	GRPCServerExitCode    = 12
+	HTTPServerExitCode    = 13
+	TelemetryExitCode     = 14
+	ResourceStoreExitCode = 15
+	InterruptCode         = 130
 )
 
-type Broker interface {
-	Config() *config.Config
-	Component() component.Component
-	EventTimeout() time.Duration
-	ConnectTimeout() time.Duration
+var (
+	timeout    = 30 * time.Second
+	NoopCancel = func(err error) {}
+)
 
-	InvokeLocalComponent(context.Context, kubefox.DataEvent) kubefox.DataEvent
-	InvokeRemoteComponent(context.Context, kubefox.DataEvent) kubefox.DataEvent
-	InvokeOperator(context.Context, kubefox.DataEvent) kubefox.DataEvent
-
-	StartComponent()
-	StartOperator()
-	StartHTTPClient()
-	StartHTTPSrv()
-
-	JetStreamClient() *jetstream.Client
-	Blocker() *blocker.Blocker
-
-	IsHealthy(context.Context) bool
-	Log() *logger.Log
+type Engine interface {
+	Start()
 }
 
-type EventSender interface {
-	SendEvent(ctx context.Context, req kubefox.DataEvent) kubefox.DataEvent
+type Broker interface {
+	AuthorizeComponent(*kubefox.Component, string) error
+	Subscribe(context.Context, *SubscriptionConf) (ReplicaSubscription, error)
+	RecvEvent(*ReceivedEvent) error
 }
 
 type broker struct {
-	cfg *config.Config
+	grpcSrv *GRPCServer
+	httpSrv *HTTPServer
 
-	remoteSender EventSender
-	localSender  EventSender
+	jsClient *JetStreamClient
+	// httpClient *HTTPClient
 
-	oprClient EventSender
-
-	grpcSrv     *GRPCServer
-	oprSrv      *OperatorServer
-	httpClient  *HTTPClient
-	httpSrv     *HTTPServer
-	jetSender   *JetStreamSender
-	jetListener *JetStreamListener
-
+	healthSrv *telemetry.HealthServer
 	telClient *telemetry.Client
-	healthSrv *HealthServer
 
-	jetClient *jetstream.Client
-	fabStore  *fabric.Store
+	subMgr     SubscriptionManager
+	recvCh     chan *ReceivedEvent
+	archiveCh  chan *ReceivedEvent
+	kvUpdateCh chan *IdSeq
 
-	blocker *blocker.Blocker
+	store *Store
 
-	log *logger.Log
+	ctx    context.Context
+	cancel context.CancelFunc
+
+	wg sync.WaitGroup
+
+	log *logkf.Logger
 }
 
-func New(flags config.Flags) *broker {
-	comp := component.New(component.Fields{
-		Name:    flags.CompName,
-		GitHash: flags.CompGitHash,
-		Id:      genId(),
-	})
-
-	var log *logger.Log
-	if flags.IsDevMode {
-		log = logger.DevLogger().Named(comp.GetName())
-		log.Warn("dev mode enabled")
-	} else {
-		log = logger.ProdLogger().WithComponent(comp)
+func New() Engine {
+	ctx, cancel := context.WithCancel(context.Background())
+	brk := &broker{
+		healthSrv:  telemetry.NewHealthServer(),
+		telClient:  telemetry.NewClient(),
+		subMgr:     NewManager(),
+		recvCh:     make(chan *ReceivedEvent),
+		archiveCh:  make(chan *ReceivedEvent),
+		kvUpdateCh: make(chan *IdSeq),
+		store:      NewStore(config.Namespace),
+		ctx:        ctx,
+		cancel:     cancel,
+		log:        logkf.Global,
 	}
+	brk.grpcSrv = NewGRPCServer(brk)
+	brk.httpSrv = NewHTTPServer(brk)
+	brk.jsClient = NewJetStreamClient(brk)
+	// brk.httpClient = NewHTTPClient(brk)
 
-	log.Infof("broker starting; gitRef: %s, gitHash: %s", config.GitRef, config.GitHash)
-	log.DebugInterface(flags, "config:")
-
-	if flags.Namespace == "" {
-		flags.Namespace = utils.SystemNamespace(flags.Platform, flags.System)
-	}
-
-	return &broker{
-		cfg: &config.Config{
-			Flags: flags,
-			Comp:  comp,
-		},
-		blocker: blocker.NewBlocker(log),
-		log:     log,
-	}
+	return brk
 }
 
-func (brk *broker) InvokeLocalComponent(ctx context.Context, req kubefox.DataEvent) (resp kubefox.DataEvent) {
-	ctx, span := telemetry.NewSpan(ctx, brk.EventTimeout(), req)
-	defer span.End(resp)
+func (brk *broker) Start() {
+	// TODO log config
+	// TODO start bg process to republish sub'd comp's routes to reset ttl on
+	// kv. run every 6 hrs.
 
-	brk.Log().Debugf("invoking local component; evtType: %s, traceId: %s", req.GetType(), req.GetSpan().TraceId)
+	brk.log.Debug("broker starting")
 
-	if err := brk.checkEvent(req); err != nil {
-		resp = brk.invokeErr(req, err)
-		return
-	}
-	if kubefox.IsPlatformEvent(req) {
-		if !brk.Config().IsOperator {
-			resp = brk.invokeErr(req, platformEvtErr)
-			return
-		}
+	ctx, cancel := context.WithTimeout(brk.ctx, timeout)
+	defer cancel()
 
-		if !component.Equal(platform.OperatorComp, req.GetTarget()) {
-			resp = brk.invokeErr(req, localNotTargetErr)
-			return
-		}
-
-	} else {
-		fab, err := brk.fabStore.Get(ctx, req)
-		if err != nil {
-			resp = brk.invokeErr(req, localNotTargetErr)
-			return
-		}
-
-		fabSrcComp := fab.System.App.Components[brk.Component().GetName()]
-		if fabSrcComp == nil || fabSrcComp.GitHash != brk.Component().GetGitHash() {
-			resp = brk.invokeErr(req, outOfCtxErr)
-			return
-		}
-
-		if !component.Equal(brk.Component(), req.GetTarget()) {
-			resp = brk.invokeErr(req, localNotTargetErr)
-			return
-		}
-
-		gFab := &grpc.Fabric{
-			Config:  map[string]*structpb.Value{},
-			Secrets: map[string]*structpb.Value{},
-			EnvVars: map[string]*structpb.Value{},
-		}
-		for k, v := range fab.Env.Config {
-			gFab.Config[k] = v.Value()
-		}
-		for k, v := range fab.Env.Secrets {
-			gFab.Secrets[k] = v.Value()
-		}
-		for k, v := range fab.Env.EnvVars {
-			gFab.EnvVars[k] = v.Value()
-		}
-		req.SetFabric(gFab)
-	}
-
-	resp = brk.localSender.SendEvent(ctx, req)
-	resp.SetFabric(nil)
-	resp.SetSource(brk.Component(), req.GetContext().App)
-	resp.SetTarget(req.GetSource())
-	if resp.GetType() == kubefox.ErrorEventType {
-		if resp.GetError() == nil {
-			resp.SetError(errors.New(resp.GetErrorMsg()))
-		}
-		brk.Log().Error(resp.GetError())
-		return
-	}
-
-	if resp.GetType() == "" || resp.GetType() == kubefox.UnknownEventType {
-		switch req.GetType() {
-		case kubefox.BootstrapRequestType:
-			resp.SetType(kubefox.BootstrapResponseType)
-
-		case kubefox.ComponentRequestType:
-			resp.SetType(kubefox.ComponentResponseType)
-
-		case kubefox.CronRequestType:
-			resp.SetType(kubefox.CronResponseType)
-
-		case kubefox.DaprRequestType:
-			resp.SetType(kubefox.DaprResponseType)
-
-		case kubefox.FabricRequestType:
-			resp.SetType(kubefox.FabricResponseType)
-
-		case kubefox.HealthRequestType:
-			resp.SetType(kubefox.HealthResponseType)
-
-		case kubefox.HTTPRequestType:
-			resp.SetType(kubefox.HTTPResponseType)
-
-		case kubefox.KubernetesRequestType:
-			resp.SetType(kubefox.KubernetesResponseType)
-
-		case kubefox.MetricsRequestType:
-			resp.SetType(kubefox.TelemetryResponseType)
-
-		case kubefox.TelemetryRequestType:
-			resp.SetType(kubefox.TelemetryResponseType)
+	if config.HealthSrvAddr != "false" {
+		if err := brk.healthSrv.Start(); err != nil {
+			brk.shutdown(TelemetryExitCode)
 		}
 	}
 
-	return resp
+	if config.TelemetryAddr != "false" {
+		if err := brk.telClient.Start(ctx); err != nil {
+			brk.shutdown(TelemetryExitCode)
+		}
+	}
+
+	if err := brk.jsClient.Connect(); err != nil {
+		brk.shutdown(JetStreamExitCode)
+	}
+	brk.healthSrv.Register(brk.jsClient)
+
+	if err := brk.store.Open(brk.jsClient.RoutesKV()); err != nil {
+		brk.shutdown(ResourceStoreExitCode)
+	}
+
+	if err := brk.grpcSrv.Start(ctx, brk.jsClient.RoutesKV()); err != nil {
+		brk.shutdown(GRPCServerExitCode)
+	}
+
+	if config.HTTPSrvAddr != "false" {
+		if err := brk.httpSrv.Start(); err != nil {
+			brk.shutdown(HTTPServerExitCode)
+		}
+	}
+
+	brk.log.Infof("starting %d workers", config.NumWorkers)
+	brk.wg.Add(config.NumWorkers + 2) // +2 for archiver and kv-updater
+	go brk.startKVUpdater()
+	go brk.startArchiver()
+	for i := 0; i < config.NumWorkers; i++ {
+		go brk.startWorker(i)
+	}
+
+	brk.log.Info("broker started")
+
+	ch := make(chan os.Signal, 1)
+	signal.Notify(ch, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
+	<-ch
+
+	brk.shutdown(0)
 }
 
-func (brk *broker) InvokeRemoteComponent(ctx context.Context, req kubefox.DataEvent) (resp kubefox.DataEvent) {
-	ctx, span := telemetry.NewSpan(ctx, brk.EventTimeout(), req)
-	defer span.End(resp)
-
-	if req.GetData() != nil && req.GetContext() != nil {
-		brk.Log().Debugf("invoking remote component; target: %s, evtType: %s, traceId: %s",
-			req.GetTarget(), req.GetType(), req.GetSpan().TraceId)
-
-		req.SetSource(brk.Component(), req.GetContext().App)
-		// req.GetContext().Organization = brk.Config().Organization
-		req.GetContext().Platform = brk.Config().Platform
-	}
-
-	if err := brk.checkEvent(req); err != nil {
-		resp = brk.invokeErr(req, err)
-		return
-	}
-
-	fab, err := brk.fabStore.Get(ctx, req)
+func (brk *broker) Subscribe(ctx context.Context, conf *SubscriptionConf) (ReplicaSubscription, error) {
+	sub, err := brk.subMgr.Create(ctx, conf, brk.recvCh)
 	if err != nil {
-		resp = brk.invokeErr(req, err)
-		return
+		return nil, err
 	}
 
-	fabTgtComp := fab.GetAppComponent(req.GetTarget().GetName())
-	if fabTgtComp == nil {
-		resp = brk.invokeErr(req, outOfCtxErr)
-		return
-	}
-	req.GetTarget().SetGitHash(fabTgtComp.GitHash)
-
-	fabSrcComp := fab.GetAppComponent(req.GetSource().GetName())
-	if fabSrcComp == nil || fabSrcComp.GitHash != req.GetSource().GetGitHash() {
-		resp = brk.invokeErr(req, outOfCtxErr)
-		return
-	}
-
-	// ensure fabric not sent to target
-	req.SetFabric(nil)
-
-	resp = brk.remoteSender.SendEvent(ctx, req)
-	resp.SetFabric(nil)
-	if resp.GetType() == kubefox.ErrorEventType {
-		if resp.GetError() == nil {
-			resp.SetError(errors.New(resp.GetErrorMsg()))
-		}
-		brk.Log().Error(resp.GetError())
-		return
-	}
-
-	return
-}
-
-func (brk *broker) InvokeOperator(ctx context.Context, req kubefox.DataEvent) (resp kubefox.DataEvent) {
-	ctx, span := telemetry.NewSpan(ctx, brk.EventTimeout(), req)
-	defer span.End(resp)
-
-	brk.Log().Debugf("invoking operator; target: %s, evtType: %s, traceId: %s",
-		req.GetTarget(), req.GetType(), req.GetSpan().TraceId)
-
-	req.SetSource(brk.Component(), req.GetContext().App)
-	req.SetTarget(platform.OperatorComp)
-
-	// TODO cache token and only refresh when needed
-	token, err := utils.GetSvcAccountToken(brk.Config().Namespace, platform.BrokerSvcAccount)
+	err = brk.jsClient.PullEvents(sub)
 	if err != nil {
-		resp = brk.invokeErr(req, err)
-		return
-	}
-	req.SetArg(platform.SvcAccountTokenArg, token)
-
-	if err := brk.checkEvent(req); err != nil {
-		resp = brk.invokeErr(req, err)
-		return
+		return nil, err
 	}
 
-	resp = brk.oprClient.SendEvent(ctx, req)
-	resp.SetFabric(nil)
-	if resp.GetType() == kubefox.ErrorEventType {
-		if resp.GetError() == nil {
-			resp.SetError(errors.New(resp.GetErrorMsg()))
-		}
-		brk.Log().Error(resp.GetError())
-		return
-	}
+	// TODO record comp routes in kv
 
-	return
+	// TODO deal with health checks
+
+	return sub, nil
 }
 
-func (brk *broker) invokeErr(req kubefox.DataEvent, err error) kubefox.DataEvent {
-	resp := req.ChildErrorEvent(err)
-	resp.SetSource(brk.Component(), req.GetContext().App)
-	resp.SetTarget(req.GetSource())
-
-	brk.Log().Error(resp.GetError())
-
-	return resp
+func (brk *broker) AuthorizeComponent(comp *kubefox.Component, authToken string) error {
+	// TODO call vault to ensure valid token and get comp info to compare
+	// or just confirm SA token with K8s directly, easier
+	return nil
 }
 
-// TODO switch to use validation
-func (brk *broker) checkEvent(req kubefox.DataEvent) error {
-	if req == nil {
-		return fmt.Errorf("event empty")
+func (brk *broker) RecvEvent(rEvt *ReceivedEvent) error {
+	if rEvt == nil || rEvt.Event == nil {
+		return ErrEventInvalid
 	}
-	if req.GetData() == nil {
-		return fmt.Errorf("event data empty")
+	if rEvt.Event.Ttl <= 0 {
+		return ErrEventTimeout
 	}
-	if req.GetType() == kubefox.ErrorEventType {
-		return req.GetError()
-	}
-	if req.GetType() == "" {
-		return fmt.Errorf("event type missing")
-	}
-	if req.GetId() == "" {
-		return fmt.Errorf("event id missing")
+	if rEvt.Subscription != nil && !rEvt.Subscription.IsActive() {
+		return ErrSubCanceled
 	}
 
-	if req.GetContext() == nil {
-		return fmt.Errorf("event context missing")
+	if rEvt.Context == nil {
+		rEvt.Context = context.Background()
 	}
-	// if req.GetContext().GetOrganization() != brk.Config().Organization {
-	// 	return fmt.Errorf("event organization context invalid")
-	// }
-	if req.GetContext().GetPlatform() != brk.Config().Platform {
-		return fmt.Errorf("event platform context invalid")
-	}
-	if req.GetContext().GetEnvironment() == "" {
-		return fmt.Errorf("event environment context missing")
-	}
+	rEvt.RecvTime = time.Now().UnixMicro()
 
-	if req.GetSource() == nil {
-		return fmt.Errorf("event source missing")
-	}
-	if req.GetSource().GetName() == "" {
-		return fmt.Errorf("event source name missing")
-	}
-	if req.GetSource().GetApp() == "" {
-		return fmt.Errorf("event source app missing")
-	}
-	if req.GetSource().GetGitHash() == "" {
-		return fmt.Errorf("event source git hash missing")
-	}
-
-	if req.GetTarget() == nil {
-		return fmt.Errorf("event target missing")
-	}
-	if req.GetTarget().GetName() == "" {
-		return fmt.Errorf("event target name missing")
-	}
-	if req.GetTarget().GetApp() == "" {
-		return fmt.Errorf("event target app missing")
-	}
+	brk.recvCh <- rEvt
 
 	return nil
 }
 
-func (brk *broker) StartComponent() {
-	defer brk.shutdown()
+func (brk *broker) startWorker(id int) {
+	log := brk.log.With("worker", fmt.Sprintf("worker-%d", id))
+	defer func() {
+		log.Info("worker stopped")
+		brk.wg.Done()
+	}()
 
-	ctx, cancel := brk.start()
-	defer cancel()
-
-	brk.jetSender = NewJetStreamSender(brk)
-	brk.jetSender.Start()
-	brk.remoteSender = brk.jetSender
-
-	brk.grpcSrv = NewGRPCServer(ctx, brk)
-	brk.grpcSrv.Start()
-	brk.localSender = brk.grpcSrv
-
-	brk.jetListener = NewJetStreamListener(brk)
-	brk.jetListener.Start()
-
-	brk.notify()
-}
-
-func (brk *broker) StartOperator() {
-	defer brk.shutdown()
-
-	brk.Config().IsOperator = true
-	brk.Config().SkipBootstrap = true
-
-	ctx, cancel := brk.start()
-	defer cancel()
-
-	brk.Config().Comp.SetApp(platform.App)
-
-	brk.grpcSrv = NewGRPCServer(ctx, brk)
-	brk.grpcSrv.Start()
-	brk.localSender = brk.grpcSrv
-	brk.remoteSender = brk.grpcSrv
-	brk.oprClient = brk.grpcSrv
-
-	brk.httpSrv = NewHTTPServer(brk)
-	brk.httpSrv.Start()
-
-	brk.oprSrv = NewOperatorServer(ctx, brk)
-	brk.oprSrv.Start()
-
-	brk.notify()
-}
-
-func (brk *broker) StartHTTPClient() {
-	defer brk.shutdown()
-
-	_, cancel := brk.start()
-	defer cancel()
-
-	brk.Config().Comp.SetApp(platform.App)
-
-	brk.httpClient = NewHTTPClient(brk)
-	brk.localSender = brk.httpClient
-
-	brk.jetListener = NewJetStreamListener(brk)
-	brk.jetListener.Start()
-
-	brk.notify()
-}
-
-func (brk *broker) StartHTTPSrv() {
-	defer brk.shutdown()
-
-	brk.Config().System = platform.System
-
-	_, cancel := brk.start()
-	defer cancel()
-
-	brk.Config().Comp.SetApp(platform.App)
-
-	brk.jetSender = NewJetStreamSender(brk)
-	brk.jetSender.Start()
-	brk.remoteSender = brk.jetSender
-
-	brk.httpSrv = NewHTTPServer(brk)
-	brk.httpSrv.Start()
-
-	brk.notify()
-}
-
-func (brk *broker) start() (context.Context, context.CancelFunc) {
-	ctx, cancel := context.WithTimeout(context.Background(), platform.StartupTimeout)
-
-	brk.fabStore = fabric.NewStore(brk)
-
-	if brk.Config().HealthSrvAddr != "false" {
-		brk.healthSrv = NewHealthServer(brk)
-		brk.healthSrv.Start()
-	}
-
-	if brk.Config().TelemetryAgentAddr != "false" {
-		brk.telClient = telemetry.NewClient(brk.Config(), brk.Log())
-		brk.telClient.Start(ctx)
-	}
-
-	// Only try to connect to Platform Operator's gRPC server if this broker is
-	// not managing the Operator.
-	if !brk.Config().IsOperator {
-		brk.oprClient = NewOperatorClient(brk)
-		brk.bootstrap(ctx)
-
-		brk.jetClient = jetstream.NewClient(brk.Config(), brk.Log())
-		if err := brk.jetClient.Connect(); err != nil {
-			brk.Log().Errorf("error connecting to nats: %v", err)
-			os.Exit(kubefox.JetStreamErrorCode)
+	for {
+		select {
+		case evt := <-brk.recvCh:
+			brk.routeEvt(log, evt)
+		case <-brk.ctx.Done():
+			return
 		}
 	}
-
-	if brk.Config().IsDevMode {
-		brk.startDevServices()
-	}
-
-	return ctx, cancel
 }
 
-func (brk *broker) bootstrap(ctx context.Context) {
-	if brk.cfg.SkipBootstrap {
+func (brk *broker) routeEvt(log *logkf.Logger, rEvt *ReceivedEvent) {
+	evt := rEvt.Event
+	evt.Ttl = evt.Ttl - (time.Now().UnixMicro() - rEvt.RecvTime)
+	if rEvt.Event.Ttl <= 0 {
+		log.DebugEw("event timed out while waiting for worker", evt)
+		rEvt.Err(ErrEventTimeout)
 		return
 	}
 
-	brk.Log().Debug("bootstrapping component")
+	log = log.WithEvent(evt)
+	log.Debug("routing event from work queue")
+	start := time.Now().UnixMicro()
 
-	req := kubefox.NewDataEvent(kubefox.BootstrapRequestType)
-	req.SetContext(&grpc.EventContext{
-		// Organization: brk.Config().Organization,
-		Platform:    brk.Config().Platform,
-		System:      brk.Config().System,
-		Environment: platform.Env,
-		App:         platform.App,
-	})
-
-	resp := brk.InvokeOperator(ctx, req)
-	if resp.GetType() == kubefox.ErrorEventType {
-		if resp.GetError() == nil {
-			resp.SetError(errors.New(resp.GetErrorMsg()))
+	var (
+		matcher Matcher
+		mEvt    *kubefox.MatchedEvent
+		err     error
+	)
+	switch {
+	case evt.Target != nil:
+		mEvt = &kubefox.MatchedEvent{
+			Event: rEvt.Event,
 		}
-		brk.Log().Errorf("error bootstrapping: %v", resp.GetError())
-		os.Exit(kubefox.RpcServerErrorCode)
+
+	case evt.Deployment == "" && evt.Environment == "" && evt.Release == "":
+		matcher, err = brk.store.GetReleaseMatchers()
+
+	case evt.Deployment != "" && evt.Environment != "" && evt.Release == "":
+		matcher, err = brk.store.GetDeploymentMatcher(evt.Deployment, evt.Environment)
+
+	default:
+		err = fmt.Errorf("%w: missing deployment or environment", ErrEventInvalid)
 	}
 
-	// TODO deal with bootstrap
-}
+	switch {
+	case err != nil:
+		log.Debug(err)
+		rEvt.Err(err)
+		return
 
-func (brk *broker) startDevServices() {
-	if brk.Config().DevHTTPSrvAddr != "" {
-		devFlags := brk.Config().Flags // copy
-		devFlags.CompName = platform.HTTPIngressAdapt.GetName()
-		devFlags.IsOperator = false
-		devFlags.SkipBootstrap = true
-		devFlags.HTTPSrvAddr = brk.Config().DevHTTPSrvAddr
-		devFlags.DevHTTPSrvAddr = "" // ensure devBrk doesn't start another dev http server
+	case matcher != nil:
+		if mEvt = matcher.Match(evt); mEvt == nil {
+			log.Debug(ErrRouteNotFound)
+			rEvt.Err(ErrRouteNotFound)
+			return
+		}
 
-		brk.Log().Infof("starting dev http ingress adapter %s on %s", devFlags.CompName, devFlags.HTTPSrvAddr)
+		if env, err := brk.store.GetEnvironment(evt.Environment); err != nil {
+			log.Debug(ErrRouteNotFound)
+			rEvt.Err(ErrRouteNotFound)
+			return
 
-		devBrk := New(devFlags)
-		if brk.Config().DevApp != "" {
-			devTarget := component.Copy(brk.Component())
-			devTarget.SetApp(devFlags.DevApp)
-
-			devBrk.Config().Dev = config.DevContext{
-				Target: devTarget,
-				EventContext: &grpc.EventContext{
-					// Organization: devFlags.Organization,
-					Platform:    devFlags.Platform,
-					System:      devFlags.System,
-					Environment: devFlags.DevEnv,
-					App:         devFlags.DevApp,
-				},
-			}
 		} else {
-			// to prevent NPE
-			devBrk.Config().Dev = config.DevContext{
-				EventContext: &grpc.EventContext{},
-				Target:       component.New(component.Fields{}),
+			mEvt.Env = make(map[string]*structpb.Value, len(env.Spec.Vars))
+			for k, v := range env.Spec.Vars {
+				mEvt.Env[k] = v.Value()
 			}
 		}
+	}
 
-		go devBrk.StartHTTPSrv()
+	log = log.WithComponent(evt.Target)
+	log.Debug("found target component")
+
+	// TODO add policy hook
+
+	var sub Subscription
+	switch {
+	case rEvt.Subscription != nil:
+		sub = rEvt.Subscription
+
+	case evt.Target.Equal(brk.httpSrv.Component()):
+		sub = brk.httpSrv.Subscription()
+
+	case evt.Target.Id != "":
+		sub, _ = brk.subMgr.ReplicaSubscription(evt.Target)
+
+	case evt.Target.Id == "":
+		sub, _ = brk.subMgr.GroupSubscription(evt.Target)
+	}
+
+	var sendEvent SendEvent
+	switch {
+	case sub != nil:
+		sendEvent = func(mEvt *kubefox.MatchedEvent) error {
+			log.Debug("subscription found, sending event directly")
+			err := sub.SendEvent(mEvt)
+			brk.archiveCh <- rEvt
+			return err
+		}
+
+	default:
+		// Subscriptions not found, publish to JetStream.
+		sendEvent = func(mEvt *kubefox.MatchedEvent) error {
+			log.Debug("subscription not found, sending event to JetStream")
+			ack, err := brk.jsClient.Publish(evt.Target.Subject(), mEvt.Event)
+			if err != nil {
+				return err
+			}
+
+			go func() {
+				select {
+				case pubAck := <-ack.Ok():
+					brk.kvUpdateCh <- &IdSeq{EventId: rEvt.Event.Id, Sequence: pubAck.Sequence}
+				case err := <-ack.Err():
+					rEvt.Err(log.ErrorN("%w: %v", ErrUnexpected, err))
+				}
+			}()
+
+			return nil
+		}
+	}
+
+	evt.Ttl = evt.Ttl - (time.Now().UnixMicro() - start)
+	if rEvt.Event.Ttl <= 0 {
+		log.Debug("event timed out while routing it")
+		rEvt.Err(ErrEventTimeout)
+		return
+	}
+
+	if err := sendEvent(mEvt); err != nil {
+		rEvt.Err(log.ErrorN("%w: %v", ErrUnexpected, err))
 	}
 }
 
-func (brk *broker) shutdown() {
-	brk.Log().Info("broker shutting down")
+func (brk *broker) startArchiver() {
+	log := brk.log.With("worker", "archiver")
+	defer func() {
+		log.Info("archiver stopped")
+		brk.wg.Done()
+	}()
 
-	ctx, cancel := context.WithTimeout(context.Background(), shutdownTimeout)
-	defer cancel()
+	errMsg := "unable to publish event to JetStream, event not archived: %v"
+	for {
+		select {
+		case rEvt := <-brk.archiveCh:
+			log.Debug("publishing event to JetStream for archiving")
 
-	// Order is important here, listeners should almost always be shutdown
-	// before servers.
+			ack, err := brk.jsClient.Publish(rEvt.Event.Target.DirectSubject(), rEvt.Event)
+			if err != nil {
+				// This event will be lost in time, never to be seen again :(
+				log.ErrorEw(errMsg, rEvt.Event, err)
+			}
+			go func() {
+				select {
+				case pubAck := <-ack.Ok():
+					brk.kvUpdateCh <- &IdSeq{EventId: rEvt.Event.Id, Sequence: pubAck.Sequence}
+					return
+				case err := <-ack.Err():
+					// This event will be lost in time, never to be seen again :(
+					log.ErrorEw(errMsg, rEvt.Event, err)
+				}
+			}()
 
-	if brk.jetListener != nil {
-		brk.jetListener.Shutdown()
+		case <-brk.ctx.Done():
+			return
+		}
 	}
-
-	if brk.oprSrv != nil {
-		brk.oprSrv.Shutdown()
-	}
-
-	if brk.httpSrv != nil {
-		brk.httpSrv.Shutdown(ctx)
-	}
-
-	if brk.grpcSrv != nil {
-		brk.grpcSrv.Shutdown()
-	}
-
-	if brk.jetSender != nil {
-		brk.jetSender.Shutdown()
-	}
-
-	if brk.jetClient != nil {
-		brk.jetClient.Close()
-	}
-
-	if brk.telClient != nil {
-		brk.telClient.Shutdown(ctx)
-	}
-
-	if brk.healthSrv != nil {
-		brk.healthSrv.Shutdown(ctx)
-	}
-
-	brk.Log().Sync()
 }
 
-func (brk *broker) IsHealthy(ctx context.Context) bool {
-	healthy := true
-	if brk.jetClient != nil {
-		healthy = healthy && brk.jetClient.Healthy(ctx)
+func (brk *broker) startKVUpdater() {
+	log := brk.log.With("worker", "kv-updater")
+	defer func() {
+		log.Info("kv-updater stopped")
+		brk.wg.Done()
+	}()
+
+	for {
+		select {
+		case idSeq := <-brk.kvUpdateCh:
+			log.Debug("updating event kv with event id and sequence for easy event lookup")
+
+			k := idSeq.EventId
+			v := utils.UIntToByteArray(idSeq.Sequence)
+			go func() {
+				if _, err := brk.jsClient.EventsKV().Put(k, v); err != nil {
+					log.With("eventId", idSeq.EventId).Errorf("unable to update event kv: %v")
+				}
+			}()
+
+		case <-brk.ctx.Done():
+			return
+		}
 	}
-	if brk.grpcSrv != nil {
-		healthy = healthy && brk.grpcSrv.Healthy(ctx)
-	}
-
-	brk.Log().Debugf("health check called; healthy: %t", healthy)
-
-	return healthy
 }
 
-func (brk *broker) Log() *logger.Log {
-	return brk.log
-}
+func (brk *broker) shutdown(code int) {
+	// TODO deal with inflight events when shutdown occurs
 
-func (brk *broker) EventTimeout() time.Duration {
-	return time.Duration(brk.cfg.EventTimeout) * time.Second
-}
+	brk.log.Info("broker shutting down")
 
-func (brk *broker) ConnectTimeout() time.Duration {
-	if brk.cfg.IsDevMode {
-		return 5 * time.Second
-	}
+	brk.healthSrv.Shutdown(timeout)
+	brk.httpSrv.Shutdown(timeout)
 
-	return 2 * time.Minute
-}
+	brk.subMgr.Close()
+	brk.grpcSrv.Shutdown(timeout)
 
-func (brk *broker) Config() *config.Config {
-	return brk.cfg
-}
+	// Stops workers.
+	brk.cancel()
+	brk.wg.Wait()
 
-func (brk *broker) Component() component.Component {
-	return brk.Config().Comp
-}
+	brk.store.Close()
 
-func (brk *broker) Blocker() *blocker.Blocker {
-	return brk.blocker
-}
+	brk.jsClient.Close()
+	brk.telClient.Shutdown(timeout)
 
-func (brk *broker) JetStreamClient() *jetstream.Client {
-	return brk.jetClient
-}
-
-func (brk *broker) notify() {
-	ch := make(chan os.Signal, 1)
-	signal.Notify(ch, os.Interrupt)
-	<-ch
-}
-
-func genId() string {
-	b := make([]rune, 5)
-	for i := range b {
-		b[i] = letters[rand.Intn(len(letters))]
-	}
-
-	return string(b)
+	os.Exit(code)
 }

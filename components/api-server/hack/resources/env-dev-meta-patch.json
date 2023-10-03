@@ -1,7 +1,0 @@
-{
-  "kind": "Environment",
-  "apiVersion": "admin.kubefox.io/v1alpha1",
-  "metadata": {
-    "description": "PATCHED"
-  }
-}

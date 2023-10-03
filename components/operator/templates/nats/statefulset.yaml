@@ -2,7 +2,7 @@ apiVersion: apps/v1
 kind: StatefulSet
 {{ include "metadata" . }}
 spec:
-  serviceName: {{ include "fullname" . }}
+  serviceName: {{ componentName }}
   replicas: 1
   podManagementPolicy: Parallel
   selector:
@@ -15,20 +15,20 @@ spec:
       annotations:
         checksum/config: {{ file "nats/nats.conf" | sha256sum }}
     spec:
-      serviceAccountName: {{ include "fullname" . }}
+      serviceAccountName: {{ componentName }}
       shareProcessNamespace: true
-      {{- with .System.ImagePullSecret }}
+      {{- with .App.ImagePullSecret }}
       imagePullSecrets:
         - name: {{ . }}
       {{- end }}
       containers:
         - name: {{ .Component.Name }}
-          image: {{ .Component.Image | default (printf "%s/%s:%v" .System.ContainerRegistry .Component.Name .System.GitRef) | quote }}
+          image: {{ .Component.Image | default (printf "%s/%s:%v" .App.Registry .Component.Name .Component.Commit) | quote }}
           imagePullPolicy: {{ .Component.ImagePullPolicy | default "IfNotPresent" }}
           command:
             - "nats-server"
             - "--config"
-            - "/etc/nats-config/nats.conf"
+            - "/etc/nats/nats.conf"
           env:
             - name: POD_NAME
               valueFrom:
@@ -41,7 +41,7 @@ spec:
                 fieldRef:
                   fieldPath: metadata.namespace
             - name: CLUSTER_ADVERTISE
-              value: {{- printf "$(POD_NAME).%s.$(POD_NAMESPACE)" (include "fullname" . ) }}
+              value: {{ printf "$(POD_NAME).%s.$(POD_NAMESPACE)" (componentName ) }}
           ports:
             - name: client
               containerPort: 4222
@@ -56,12 +56,17 @@ spec:
             - name: gateways
               containerPort: 7522
           volumeMounts:
-            - name: config-volume
-              mountPath: /etc/nats-config
+            - name: config
+              mountPath: /etc/nats
             - name: pid
               mountPath: /var/run/nats
-            - name: {{ include "fullname" . }}-js-pvc
+            - name: jetstream
               mountPath: /data
+            - name: root-ca
+              mountPath: /kubefox/ca.crt
+              subPath: ca.crt
+            - name: kubefox
+              mountPath: /kubefox
           lifecycle:
             preStop:
               exec:
@@ -72,14 +77,19 @@ spec:
                   - "nats-server"
                   - "-sl=ldm=/var/run/nats/nats.pid"
       volumes:
-        - name: config-volume
+        - name: config
           configMap:
-            name: {{ include "fullname" . }}-config
+            name: {{ componentName }}-config
         - name: pid
+          emptyDir: {}
+        - name: root-ca
+          configMap:
+            name: {{ instanceName }}-root-ca
+        - name: kubefox
           emptyDir: {}
   volumeClaimTemplates:
     - metadata:
-        name: {{ include "fullname" . }}-js-pvc
+        name: jetstream
       spec:
         accessModes:
           - ReadWriteOnce

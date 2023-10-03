@@ -1,0 +1,39 @@
+apiVersion: apps/v1
+kind: Deployment
+{{ include "metadata" . }}
+spec:
+  selector:
+    matchLabels:
+      {{- include "selectors" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "labels" . | nindent 8 }}
+    spec:
+      serviceAccountName: {{ componentName }}
+      #hostNetwork: true
+      {{- with .App.ImagePullSecret }}
+      imagePullSecrets:
+        - name: {{ . }}
+      {{- end }}
+      containers:
+        - name: {{ .Component.Name }}
+          image: {{ .Component.Image | default (printf "%s/%s:%v" .App.Registry .Component.Name .Component.Commit) | quote }}
+          imagePullPolicy: {{ .Component.ImagePullPolicy | default "IfNotPresent" }}
+          args:
+            - -name={{ .Component.Name }}
+            - -commit={{ .Component.Commit }}
+            - -broker-addr=$(BROKER_HOST):6060
+          env:
+            - name: BROKER_HOST
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.hostIP
+          volumeMounts:
+            - name: root-ca
+              mountPath: /tmp/kubefox/broker/ca.crt
+              subPath: ca.crt
+      volumes:
+        - name: root-ca
+          configMap:
+            name: {{ instanceName }}-root-ca

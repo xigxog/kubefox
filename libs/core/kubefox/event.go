@@ -1,266 +1,337 @@
 package kubefox
 
 import (
-	"sync"
+	"bytes"
+	context "context"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"io"
+	"net/http"
+	"strings"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/lestrrat-go/jwx/jwt"
-	"github.com/xigxog/kubefox/libs/core/api/common"
-	"github.com/xigxog/kubefox/libs/core/component"
-	"github.com/xigxog/kubefox/libs/core/grpc"
-	"go.opentelemetry.io/otel/trace"
+	"google.golang.org/protobuf/types/known/structpb"
 )
 
-// TODO create interfaces for grpc stuff
-type Event interface {
-	GetId() string
-	GetParentId() string
+const (
+	JSONContentType = "application/json"
+)
 
-	GetType() string
-	SetType(string)
+var (
+	ErrUnknownContentType = errors.New("unknown content type")
+)
 
-	GetToken() *grpc.Token
-	GetSpan() *grpc.Span
-	GetTraceId() string
-	GetSource() component.Component
-	GetTarget() component.Component
-	GetContext() *grpc.EventContext
-
-	GetArg(string) string
-	GetArgVar(string) *common.Var
-	SetArg(string, string)
-	SetArgNumber(string, float64)
-	GetValue(string) string
-	GetValueVar(string) *common.Var
-
-	GetContentType() string
-	SetContentType(string)
-	GetContent() []byte
-	SetContent([]byte)
-	Marshal(any) error
-	Unmarshal(any) error
-	UnmarshalStrict(any) error
-
-	HTTP() HTTPEvent
-	Kube() KubeEvent
-}
-
-type DataEvent interface {
-	Event
-
-	GetData() *grpc.Data
-
-	ChildEvent() DataEvent
-	ChildErrorEvent(error) DataEvent
-
-	SetParent(Event)
-	SetParentId(string)
-
-	SetSource(component.Component, string)
-	SetTarget(component.Component)
-
-	SetContext(*grpc.EventContext)
-
-	GetFabric() *grpc.Fabric
-	SetFabric(*grpc.Fabric)
-
-	SetSpan(*grpc.Span)
-	UpdateSpan(trace.Span)
-
-	SetToken(jwt.Token)
-	SetValue(string, string)
-	SetValueNumber(string, float64)
-
-	HTTPData() HTTPDataEvent
-	KubeData() KubeDataEvent
-
-	SetError(error)
-	GetError() error
-	GetErrorMsg() string
-}
-
-type event struct {
-	*grpc.Data
-
-	http       *httpEvent
-	kubernetes *kubeEvent
-
-	err error
-
-	// used to lock when changing private fields
-	mutex sync.RWMutex
-}
-
-func IsPlatformEvent(evt DataEvent) bool {
-	t := evt.GetType()
-	return t == BootstrapRequestType || t == BootstrapResponseType ||
-		t == FabricRequestType || t == FabricResponseType
-}
-
-func NewEvent(eventType string) Event {
-	return NewDataEvent(eventType)
-}
-
-func NewErrorEvent(err error) DataEvent {
-	evt := NewDataEvent(ErrorEventType)
-	evt.SetError(err)
-
-	return evt
-}
-
-func NewDataEvent(eventType string) DataEvent {
-	evt := EmptyDataEvent()
-	evt.SetType(eventType)
-
-	return evt
-}
-
-func EmptyDataEvent() DataEvent {
-	return newEvent(nil)
-}
-
-func EventFromData(data *grpc.Data) DataEvent {
-	return newEvent(data)
-}
-
-func newEvent(data *grpc.Data) *event {
-	evt := &event{}
-	evt.Data = data
-
-	if evt.Data == nil {
-		evt.Data = &grpc.Data{}
-	}
-	if evt.Data.Id == "" {
-		evt.Data.Id = uuid.NewString()
-	}
-	if evt.Data.Type == "" {
-		evt.Data.Type = UnknownEventType
-	}
-
-	evt.http = &httpEvent{event: evt}
-	evt.kubernetes = &kubeEvent{event: evt}
-
-	return evt
-}
-
-func (evt *event) HTTP() HTTPEvent {
-	return evt.http
-}
-
-func (evt *event) HTTPData() HTTPDataEvent {
-	return evt.http
-}
-
-func (evt *event) Kube() KubeEvent {
-	return evt.kubernetes
-}
-
-func (evt *event) KubeData() KubeDataEvent {
-	return evt.kubernetes
-}
-
-func (evt *event) GetData() *grpc.Data {
-	if evt != nil {
-		return evt.Data
-	}
-	return nil
-}
-
-func (evt *event) ChildEvent() DataEvent {
-	child := EmptyDataEvent()
-	if evt == nil {
-		return child
-	}
-	child.SetParent(evt)
-
-	return child
-}
-
-func (evt *event) ChildErrorEvent(err error) DataEvent {
-	if evt != nil && evt.GetType() == ErrorEventType && evt.GetError() == err {
-		return evt
-	}
-
-	errEvent := evt.ChildEvent()
-	errEvent.SetError(err)
-
-	return errEvent
-}
-
-func (evt *event) SetParent(parent Event) {
-	if parent == nil {
-		evt.SetParentId("")
-	} else {
-		evt.SetParentId(parent.GetId())
-		evt.SetContext(parent.GetContext())
-		evt.SetSpan(parent.GetSpan())
+func NewEvent() *Event {
+	return &Event{
+		Id:         uuid.NewString(),
+		CreateTime: time.Now().UnixMicro(),
+		Params:     make(map[string]*structpb.Value),
+		Values:     make(map[string]*structpb.Value),
 	}
 }
 
-func (evt *event) GetSource() component.Component {
-	if evt.GetData() == nil || evt.GetData().GetSource() == nil {
-		return nil
-	}
-
-	return evt.GetData().GetSource()
+func (evt *Event) SetParent(parent *Event) {
+	evt.ParentId = parent.Id
+	evt.Ttl = parent.Ttl
+	evt.Deployment = parent.Deployment
+	evt.Environment = parent.Environment
+	evt.Release = parent.Release
+	evt.SetTraceId(parent.GetTraceId())
+	evt.SetSpanId(parent.GetSpanId())
+	evt.SetTraceFlags(parent.GetTraceFlags())
 }
 
-// SetSource creates copy
-func (evt *event) SetSource(src component.Component, app string) {
-	if src == nil {
-		evt.GetData().SetSource(nil)
-	} else {
-		evt.GetData().SetSource(&grpc.Component{
-			App:     app,
-			Name:    src.GetName(),
-			GitHash: src.GetGitHash(),
-			Id:      src.GetId(),
-		})
-	}
+func (evt *Event) GetParam(key string) string {
+	return evt.GetParamVar(key).String()
 }
 
-func (evt *event) GetTarget() component.Component {
-	// avoid returning non-nil interface
-	if evt.GetData() == nil || evt.GetData().GetTarget() == nil {
-		return nil
-	}
-
-	return evt.GetData().GetTarget()
+func (evt *Event) GetParamVar(key string) *Var {
+	v, _ := VarFromValue(evt.GetParamProto(key))
+	return v
 }
 
-func (evt *event) SetTarget(trgt component.Component) {
-	if trgt == nil {
-		evt.GetData().SetTarget(nil)
-	} else {
-		evt.GetData().SetTarget(&grpc.Component{
-			App:     trgt.GetApp(),
-			Name:    trgt.GetName(),
-			GitHash: trgt.GetGitHash(),
-			Id:      trgt.GetId(),
-		})
-	}
+func (evt *Event) GetParamProto(key string) *structpb.Value {
+	return evt.Params[key]
 }
 
-func (evt *event) GetTraceId() string {
-	if evt.GetSpan() != nil {
-		return evt.GetSpan().GetTraceId()
-	}
-	return ""
+func (evt *Event) SetParam(key string, val string) {
+	evt.SetParamProto(key, structpb.NewStringValue(val))
 }
 
-func (evt *event) GetError() error {
-	if evt != nil {
-		return evt.err
-	}
-	return nil
+func (evt *Event) SetParamVar(key string, val *Var) {
+	evt.SetParamProto(key, val.Value())
 }
 
-func (evt *event) SetError(err error) {
-	evt.err = err
+func (evt *Event) SetParamNumber(key string, val float64) {
+	evt.SetParamProto(key, structpb.NewNumberValue(val))
+}
+
+func (evt *Event) SetParamProto(key string, val *structpb.Value) {
+	if val == nil {
+		delete(evt.Params, key)
+		return
+	}
+	evt.Params[key] = val
+}
+
+func (evt *Event) GetValue(key string) string {
+	return evt.GetValueVar(key).String()
+}
+
+func (evt *Event) GetValueVar(key string) *Var {
+	v, _ := VarFromValue(evt.GetValueProto(key))
+	return v
+}
+
+func (evt *Event) GetValueMap(key string) map[string][]string {
+	m := make(map[string][]string)
+	p := evt.GetValueProto(key).GetStructValue()
+	if p == nil {
+		return m
+	}
+
+	for k, v := range p.Fields {
+		for _, h := range v.GetListValue().Values {
+			m[k] = append(m[k], h.GetStringValue())
+		}
+	}
+
+	return m
+}
+
+func (evt *Event) GetValueProto(key string) *structpb.Value {
+	return evt.Values[key]
+}
+
+func (evt *Event) SetValue(key string, val string) {
+	evt.SetValueProto(key, structpb.NewStringValue(val))
+}
+
+func (evt *Event) SetValueVar(key string, val *Var) {
+	evt.SetValueProto(key, val.Value())
+}
+
+func (evt *Event) SetValueNumber(key string, val float64) {
+	evt.SetValueProto(key, structpb.NewNumberValue(val))
+}
+
+func (evt *Event) SetValueMap(key string, m map[string][]string) {
+	mapAny := make(map[string]interface{}, len(m))
+	for k, v := range m {
+		l := make([]interface{}, len(v))
+		for i, h := range v {
+			l[i] = h
+		}
+		mapAny[k] = l
+	}
+
+	v, _ := structpb.NewValue(mapAny)
+	evt.SetValueProto(key, v)
+}
+
+func (evt *Event) SetValueProto(key string, val *structpb.Value) {
+	if val == nil {
+		delete(evt.Values, key)
+		return
+	}
+	evt.Values[key] = val
+}
+
+func (evt *Event) GetTraceId() string {
+	return evt.GetValue("traceId")
+}
+
+func (evt *Event) SetTraceId(val string) {
+	evt.SetValue("traceId", val)
+}
+
+func (evt *Event) GetSpanId() string {
+	return evt.GetValue("spanId")
+}
+
+func (evt *Event) SetSpanId(val string) {
+	evt.SetValue("spanId", val)
+}
+
+func (evt *Event) GetTraceFlags() byte {
+	return byte(evt.GetValueVar("traceFlags").Float())
+}
+
+func (evt *Event) SetTraceFlags(val byte) {
+	evt.SetValueNumber("traceFlags", float64(val))
+}
+
+func (evt *Event) Marshal(v any) error {
+	if v == nil {
+		v = make(map[string]any)
+
+	}
+	if evt.ContentType == "" {
+		evt.ContentType = JSONContentType + "; charset=utf-8"
+	}
+
+	var content []byte
+	var err error
+	contType := strings.ToLower(evt.ContentType)
+	switch {
+	case strings.Contains(contType, JSONContentType):
+		content, err = json.Marshal(v)
+	default:
+		return ErrUnknownContentType
+	}
 	if err != nil {
-		evt.SetType(ErrorEventType)
-		evt.SetErrorMsg(err.Error())
-	} else {
-		evt.SetErrorMsg("")
+		return err
 	}
+
+	evt.Content = content
+
+	return nil
+}
+
+func (evt *Event) Unmarshal(v any) error {
+	return evt.unmarshal(v, false)
+}
+
+func (evt *Event) UnmarshalStrict(v any) error {
+	return evt.unmarshal(v, true)
+}
+
+func (evt *Event) unmarshal(v any, strict bool) error {
+	contType := strings.ToLower(evt.ContentType)
+	switch {
+	case strings.Contains(contType, JSONContentType):
+		dec := json.NewDecoder(bytes.NewReader(evt.Content))
+		if strict {
+			dec.DisallowUnknownFields()
+		}
+		return dec.Decode(v)
+	default:
+		return fmt.Errorf("%w: %s", ErrUnknownContentType, evt.ContentType)
+	}
+}
+
+func (evt *Event) ToHTTPRequest(ctx context.Context) (*http.Request, error) {
+	body := bytes.NewReader(evt.Content)
+	req, err := http.NewRequestWithContext(ctx, evt.GetValue(MethodValKey), evt.GetValue(URLValKey), body)
+	if err != nil {
+		return nil, err
+	}
+	req.Header = evt.GetValueMap(HeaderValKey)
+
+	return req, nil
+}
+
+func (evt *Event) ToHTTPResponse() *http.Response {
+	code := evt.GetValueVar(StatusCodeValKey).Int()
+	if code == 0 {
+		code = http.StatusOK
+	}
+	return &http.Response{
+		Status:     evt.GetValue("status"),
+		StatusCode: code,
+		Header:     evt.GetValueMap(HeaderValKey),
+		Body:       io.NopCloser(bytes.NewReader(evt.Content)),
+	}
+}
+
+func (evt *Event) ParseHTTPRequest(httpReq *http.Request) error {
+	content, err := io.ReadAll(httpReq.Body)
+	if err != nil {
+		return err
+	}
+	evt.Content = content
+	evt.ContentType = httpReq.Header.Get("Content-Type")
+
+	if evt.Environment == "" {
+		evt.Environment = GetParamOrHeader(httpReq, EnvHeader, EnvHeaderShort)
+	}
+
+	if evt.Deployment == "" {
+		evt.Deployment = GetParamOrHeader(httpReq, DepHeader, DepHeaderShort)
+	}
+
+	if evt.Type == "" || evt.Type == string(UnknownEventType) {
+		evtType := GetParamOrHeader(httpReq, EventTypeHeader)
+		if evtType != "" {
+			evt.Type = evtType
+		} else {
+			evt.Type = string(HTTPRequestType)
+		}
+	}
+
+	token, err := jwt.ParseRequest(httpReq, jwt.WithValidate(true))
+	if err == nil {
+		b, _ := jwt.NewSerializer().Serialize(token)
+		evt.SetValue("authToken", string(b))
+	}
+
+	url := httpReq.URL
+	if host := httpReq.Header.Get("X-Forwarded-Host"); host != "" {
+		if port := httpReq.Header.Get("X-Forwarded-Port"); port != "" {
+			url.Host = fmt.Sprintf("%s:%s", host, port)
+		} else {
+			url.Host = host
+		}
+		if scheme := httpReq.Header.Get("X-Forwarded-Proto"); scheme != "" {
+			url.Scheme = scheme
+		}
+	}
+	if url.Scheme == "" {
+		url.Scheme = "http"
+		if httpReq.TLS != nil {
+			url.Scheme = "https"
+		}
+	}
+	if url.Host == "" {
+		url.Host = httpReq.Host
+	}
+
+	evt.SetValue(URLValKey, url.String())
+	evt.SetValue(HostValKey, strings.ToLower(url.Host))
+	evt.SetValue(PathValKey, url.Path)
+	evt.SetValue(MethodValKey, httpReq.Method)
+	evt.SetValueMap(HeaderValKey, httpReq.Header)
+	evt.SetValueMap(QueryValKey, url.Query())
+
+	return nil
+}
+
+func (evt *Event) ParseHTTPResponse(httpResp *http.Response) error {
+	defer httpResp.Body.Close()
+	content, err := io.ReadAll(httpResp.Body)
+	if err != nil {
+		return err
+	}
+	evt.Content = content
+	evt.ContentType = httpResp.Header.Get("Content-Type")
+
+	if evt.Type == "" || evt.Type == string(UnknownEventType) {
+		evt.Type = string(HTTPResponseType)
+	}
+
+	evt.SetValue("status", httpResp.Status)
+	evt.SetValueNumber(StatusCodeValKey, float64(httpResp.StatusCode))
+	evt.SetValueMap(HeaderValKey, httpResp.Header)
+
+	return nil
+}
+
+// GetParamOrHeader looks for query parameters and headers for the provided
+// keys. Keys are checked in order. Query parameters take precedence over
+// headers.
+func GetParamOrHeader(httpReq *http.Request, keys ...string) string {
+	for _, key := range keys {
+		val := httpReq.URL.Query().Get(strings.ToLower(key))
+		if val == "" {
+			val = httpReq.Header.Get(key)
+		}
+		if val != "" {
+			return val
+		}
+	}
+
+	return ""
 }

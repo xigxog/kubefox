@@ -19,6 +19,8 @@ func Render(name string, data *Data) ([]*unstructured.Unstructured, error) {
 		return nil, err
 	}
 
+	// fmt.Println(string(rendered))
+
 	resList := &ResourceList{}
 	if err := yaml.Unmarshal([]byte(rendered), resList); err != nil {
 		return nil, err
@@ -29,7 +31,7 @@ func Render(name string, data *Data) ([]*unstructured.Unstructured, error) {
 
 func renderStr(name string, data *Data) (string, error) {
 	tpl := template.New("list.tpl").Option("missingkey=zero")
-	initFuncs(tpl)
+	initFuncs(tpl, data)
 
 	if _, err := tpl.ParseFS(EFS, "helpers.tpl", name+"/*"); err != nil {
 		return "", err
@@ -43,7 +45,7 @@ func renderStr(name string, data *Data) (string, error) {
 	return strings.ReplaceAll(buf.String(), "<no value>", ""), nil
 }
 
-func initFuncs(tpl *template.Template) {
+func initFuncs(tpl *template.Template, data *Data) {
 	funcMap := sprig.FuncMap()
 
 	funcMap["include"] = func(name string, data interface{}) (string, error) {
@@ -71,6 +73,12 @@ func initFuncs(tpl *template.Template) {
 		}
 		return string(b)
 	}
+
+	funcMap["namespace"] = data.Namespace
+	funcMap["instanceName"] = data.InstanceName
+	funcMap["platformName"] = data.PlatformName
+	funcMap["appName"] = data.AppName
+	funcMap["componentName"] = data.ComponentName
 
 	tpl.Funcs(funcMap)
 }

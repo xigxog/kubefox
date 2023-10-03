@@ -1,0 +1,52 @@
+syntax = "proto3";
+
+package kubefox.proto.v1;
+
+import "google/protobuf/struct.proto";
+
+option go_package = "github.com/xigxog/kubefox/libs/core/kubefox";
+
+enum Category {
+  CATEGORY_UNKNOWN = 0;
+  CATEGORY_SINGLE = 1;
+  CATEGORY_REQUEST = 2;
+  CATEGORY_RESPONSE = 3;
+}
+
+message Component {
+  string name = 1;
+  string commit = 2;
+  string id = 3;
+}
+
+message Event {
+  string id = 1;
+  string parent_id = 2;
+
+  string type = 3;
+  Category category = 4;
+
+  // Unix time in µs
+  int64 create_time = 5;
+  // TTL in µs
+  int64 ttl = 6;
+
+  string deployment = 7;
+  string environment = 8;
+  string release = 9;
+
+  Component source = 10;
+  Component target = 11;
+
+  map<string, google.protobuf.Value> params = 12;
+  map<string, google.protobuf.Value> values = 13;
+
+  string content_type = 14;
+  bytes content = 15;
+}
+
+message MatchedEvent {
+  Event event = 1;
+  map<string, google.protobuf.Value> env = 2;
+  int64 route_id = 3;
+}

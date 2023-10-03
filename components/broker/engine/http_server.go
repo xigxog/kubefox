@@ -3,107 +3,216 @@ package engine
 import (
 	"context"
 	"errors"
+	"fmt"
+	"net"
 	"net/http"
 	"os"
 	"strconv"
+	"sync"
+	"time"
 
+	"github.com/google/uuid"
+	"github.com/xigxog/kubefox/components/broker/config"
 	"github.com/xigxog/kubefox/libs/core/kubefox"
-	"github.com/xigxog/kubefox/libs/core/utils"
+	"github.com/xigxog/kubefox/libs/core/logkf"
 	"go.opentelemetry.io/contrib/propagators/b3"
 	"go.opentelemetry.io/contrib/propagators/jaeger"
 	"go.opentelemetry.io/otel/propagation"
 )
 
 type HTTPServer struct {
-	Broker
+	wrapped *http.Server
 
-	httpSrv    *http.Server
+	brk    Broker
+	comp   *kubefox.Component
+	sub    ReplicaSubscription
+	reqMap map[string]chan *kubefox.Event
+
+	mutex sync.Mutex
+
 	propagator propagation.TextMapPropagator
+
+	log *logkf.Logger
 }
 
 func NewHTTPServer(brk Broker) *HTTPServer {
+	comp := &kubefox.Component{
+		Name:   "kf-http-srv-adapt",
+		Commit: config.GitCommit,
+		Id:     uuid.NewString(),
+	}
 	return &HTTPServer{
-		Broker:     brk,
+		brk:        brk,
+		comp:       comp,
+		reqMap:     make(map[string]chan *kubefox.Event),
 		propagator: propagation.NewCompositeTextMapPropagator(jaeger.Jaeger{}, b3.New()),
+		log:        logkf.Global,
 	}
 }
 
-func (srv *HTTPServer) Start() {
-	srv.httpSrv = &http.Server{
-		Addr:         srv.Config().HTTPSrvAddr,
-		WriteTimeout: srv.EventTimeout(),
-		ReadTimeout:  srv.EventTimeout(),
-		IdleTimeout:  srv.EventTimeout(),
-		Handler:      srv,
+func (srv *HTTPServer) Start() error {
+	srv.log.WithComponent(srv.comp).Debug("http server starting")
+
+	srv.wrapped = &http.Server{
+		Handler: srv,
+	}
+
+	ln, err := net.Listen("tcp", config.HTTPSrvAddr)
+	if err != nil {
+		return srv.log.ErrorN("%v", err)
+	}
+
+	srv.sub, err = srv.brk.Subscribe(context.Background(), &SubscriptionConf{
+		Component:   srv.comp,
+		SendFunc:    srv.sendEvent,
+		EnableGroup: false,
+	})
+	if err != nil {
+		return srv.log.ErrorN("%v", err)
 	}
 
 	go func() {
-		err := srv.httpSrv.ListenAndServe()
+		err := srv.wrapped.Serve(ln)
 		if err != nil && !errors.Is(err, http.ErrServerClosed) {
-			srv.Log().Error(err)
-			os.Exit(kubefox.HTTPServerErrorCode)
+			srv.log.Error(err)
+			os.Exit(HTTPServerExitCode)
 		}
 	}()
 
-	srv.Log().Infof("http server started on %s", srv.Config().HTTPSrvAddr)
+	srv.log.Info("http server started")
+	return nil
 }
 
-func (srv *HTTPServer) Shutdown(ctx context.Context) {
-	srv.Log().Info("HTTP server shutting down")
+func (srv *HTTPServer) Shutdown(timeout time.Duration) {
+	srv.log.Info("http server shutting down")
 
-	if srv.httpSrv != nil {
-		if err := srv.httpSrv.Shutdown(ctx); err != nil {
-			srv.Log().Error(err)
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+
+	if srv.wrapped != nil {
+		if err := srv.wrapped.Shutdown(ctx); err != nil {
+			srv.log.Error(err)
 		}
+	}
+
+	if srv.sub != nil {
+		srv.sub.Cancel(nil)
 	}
 }
 
 func (srv *HTTPServer) ServeHTTP(resWriter http.ResponseWriter, httpReq *http.Request) {
-	ctx := srv.propagator.Extract(httpReq.Context(), propagation.HeaderCarrier(httpReq.Header))
-	resWriter.Header().Set("Kf-Adapter", srv.Component().GetURI())
+	// ctx := srv.propagator.Extract(httpReq.Context(), propagation.HeaderCarrier(httpReq.Header))
 
-	req := kubefox.EmptyDataEvent()
-	cfg := srv.Config()
-	if cfg.IsDevMode && cfg.Dev.EventContext != nil {
-		if h := utils.GetParamOrHeader(httpReq, kubefox.EnvHeader, kubefox.EnvHeaderShort); h == "" {
-			httpReq.Header.Add(kubefox.EnvHeaderShort, cfg.Dev.Environment)
-		}
-		if h := utils.GetParamOrHeader(httpReq, kubefox.SysHeader, kubefox.SysHeaderShort); h == "" {
-			httpReq.Header.Add(kubefox.SysHeaderShort, cfg.Dev.System)
-		}
-	}
-	if cfg.IsDevMode && cfg.Dev.Target != nil {
-		if h := utils.GetParamOrHeader(httpReq, kubefox.TargetHeader); h == "" {
-			httpReq.Header.Add(kubefox.TargetHeader, cfg.Dev.Target.GetKey())
-		}
-	}
+	ctx, cancel := context.WithTimeoutCause(httpReq.Context(), config.EventTTL, ErrEventTimeout)
+	defer func() {
+		cancel()
+	}()
 
-	if err := req.HTTPData().ParseRequest(httpReq); err != nil {
-		srv.Log().Errorf("error parsing event from http req: %v", err)
+	req := kubefox.NewEvent()
+	req.Ttl = config.EventTTL.Microseconds()
+	req.Category = kubefox.Category_CATEGORY_REQUEST
+	req.Source = srv.comp
+	if err := req.ParseHTTPRequest(httpReq); err != nil {
+		srv.log.Debugf("error parsing event from http request: %v", err)
 		resWriter.WriteHeader(http.StatusBadRequest)
 		resWriter.Write([]byte(err.Error()))
 		return
 	}
 
-	resp := srv.InvokeRemoteComponent(ctx, req).HTTPData()
-	if resp != nil && resp.GetSpan() != nil {
-		resWriter.Header().Set("Kf-Trace-Id", resp.GetTraceId())
+	log := srv.log.WithEvent(req)
+
+	srv.mutex.Lock()
+	respCh := make(chan *kubefox.Event)
+	srv.reqMap[req.Id] = respCh
+	srv.mutex.Unlock()
+
+	rEvt := &ReceivedEvent{
+		Event:    req,
+		Receiver: HTTPSrvSvc,
+		ErrCh:    make(chan error),
 	}
-	if resp.GetError() != nil {
-		// TODO check accept header and respond with correct format
-		resWriter.WriteHeader(http.StatusInternalServerError)
-		resWriter.Write([]byte(resp.GetError().Error()))
+	if err := srv.brk.RecvEvent(rEvt); err != nil {
+		writeError(resWriter, context.Cause(ctx), log)
 		return
 	}
 
-	for _, key := range resp.GetHeaderKeys() {
-		for _, val := range resp.GetHeaderValues(key) {
-			resWriter.Header().Add(key, val)
+	var resp *kubefox.Event
+	select {
+	case resp = <-respCh:
+		log.DebugEw("received response", resp)
+
+	case err := <-rEvt.ErrCh:
+		writeError(resWriter, err, log)
+		return
+
+	case <-ctx.Done():
+		writeError(resWriter, context.Cause(ctx), log)
+		return
+	}
+
+	resWriter.Header().Set("Kf-Adapter", srv.comp.Key())
+	if resp.GetTraceId() != "" {
+		resWriter.Header().Set("Kf-Trace-Id", resp.GetTraceId())
+	}
+
+	var statusCode int
+	switch {
+	case resp.Type == string(kubefox.ErrorEventType):
+		statusCode = http.StatusInternalServerError
+
+	default:
+		httpResp := resp.ToHTTPResponse()
+		statusCode = httpResp.StatusCode
+		for key, val := range httpResp.Header {
+			for _, h := range val {
+				resWriter.Header().Add(key, h)
+			}
 		}
 	}
 
-	resWriter.Header().Set("Content-Type", resp.GetContentType())
-	resWriter.Header().Set("Content-Length", strconv.Itoa(len(resp.GetContent())))
-	resWriter.WriteHeader(resp.GetStatusCode())
-	resWriter.Write(resp.GetContent())
+	resWriter.Header().Set("Content-Type", resp.ContentType)
+	resWriter.Header().Set("Content-Length", strconv.Itoa(len(resp.Content)))
+	resWriter.WriteHeader(statusCode)
+	resWriter.Write(resp.Content)
+}
+
+func (srv *HTTPServer) Component() *kubefox.Component {
+	return srv.comp
+}
+
+func (srv *HTTPServer) Subscription() Subscription {
+	return srv.sub
+}
+
+func (srv *HTTPServer) sendEvent(mEvt *kubefox.MatchedEvent) error {
+	resp := mEvt.Event
+	srv.mutex.Lock()
+	respCh, found := srv.reqMap[resp.ParentId]
+	delete(srv.reqMap, resp.ParentId)
+	srv.mutex.Unlock()
+
+	if !found {
+		err := fmt.Errorf("matching request not found for response")
+		srv.log.DebugEw(err.Error(), resp)
+		return err
+	}
+
+	respCh <- resp
+
+	return nil
+}
+
+func writeError(resWriter http.ResponseWriter, err error, log *logkf.Logger) {
+	log.Debugf("sending event failed: %v", err)
+	switch {
+	case errors.Is(err, ErrEventTimeout):
+		resWriter.WriteHeader(http.StatusGatewayTimeout)
+	case errors.Is(err, ErrEventInvalid):
+		resWriter.WriteHeader(http.StatusBadRequest)
+	case errors.Is(err, ErrRouteNotFound):
+		resWriter.WriteHeader(http.StatusNotFound)
+	default:
+		resWriter.WriteHeader(http.StatusInternalServerError)
+	}
+	resWriter.Write([]byte(err.Error()))
 }

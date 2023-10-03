@@ -1,0 +1,19 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: {{ componentName }}-auth
+  namespace: {{ namespace }}
+  labels:
+    {{- include "labels" . | nindent 4 }}
+  {{- with .Owner }}
+  ownerReferences:
+    - {{- . | toYaml | nindent 6 }}
+  {{- end }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: system:auth-delegator
+subjects:
+  - kind: ServiceAccount
+    name: {{ componentName }}
+    namespace: {{ namespace }}

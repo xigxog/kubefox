@@ -3,40 +3,18 @@ package templates
 import (
 	"testing"
 
-	"github.com/xigxog/kubefox/libs/core/platform"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func TestRenderCRDs(t *testing.T) {
-	if s, err := renderStr("crds", nil); err != nil {
-		t.Errorf("%v", err)
-	} else {
-		t.Log(s)
-	}
-}
-
 func TestRenderVault(t *testing.T) {
 	d := &Data{
-		Platform: Platform{
-			Name:      "dev",
-			Version:   "v0.0.1",
+		Instance: Instance{
+			Name:      "kubefox",
 			Namespace: "kubefox-system",
-		},
-		System: System{
-			Name:      platform.System,
-			Namespace: "kubefox-system",
-			Ref:       "main",
-			GitHash:   "abcdef",
 		},
 		Component: Component{
 			Name:  "vault",
 			Image: "ghcr.io/xigxog/vault:1.13.3-v0.0.1",
-		},
-		Owner: &metav1.OwnerReference{
-			APIVersion: "k8s.kubefox.io/v1alpha1",
-			Kind:       "Platform",
-			UID:        "123",
-			Name:       "kubefox-dev",
 		},
 	}
 	if s, err := renderStr("vault", d); err != nil {
@@ -46,34 +24,24 @@ func TestRenderVault(t *testing.T) {
 	}
 }
 
-func TestRenderTraefik(t *testing.T) {
+func TestRenderPlatform(t *testing.T) {
 	d := &Data{
+		Instance: Instance{
+			Name:      "kubefox",
+			Namespace: "kubefox-system",
+		},
 		Platform: Platform{
 			Name:      "dev",
-			Version:   "v0.0.1",
-			Namespace: "kubefox-system",
-		},
-		System: System{
-			Name:      platform.System,
-			Namespace: "kubefox-system",
-			Ref:       "main",
-			GitHash:   "abcdef",
-		},
-		Broker: Broker{
-			Type: HTTPServerType,
-		},
-		Component: Component{
-			Name:  "traefik",
-			Image: "traefik:v2.10",
+			Namespace: "kubefox-platform",
 		},
 		Owner: &metav1.OwnerReference{
-			APIVersion: "k8s.kubefox.io/v1alpha1",
+			APIVersion: "kubefox.xigxog.io/v1alpha1",
 			Kind:       "Platform",
 			UID:        "123",
 			Name:       "kubefox-dev",
 		},
 	}
-	if s, err := renderStr("traefik", d); err != nil {
+	if s, err := renderStr("platform", d); err != nil {
 		t.Errorf("%v", err)
 	} else {
 		t.Logf("\n%s", s)
@@ -82,26 +50,20 @@ func TestRenderTraefik(t *testing.T) {
 
 func TestRenderNATS(t *testing.T) {
 	d := &Data{
+		Instance: Instance{
+			Name:      "kubefox",
+			Namespace: "kubefox-system",
+		},
 		Platform: Platform{
 			Name:      "dev",
-			Version:   "v0.0.1",
-			Namespace: "kubefox-system",
-		},
-		System: System{
-			Name:      platform.System,
-			Namespace: "kubefox-system",
-			Ref:       "main",
-			GitHash:   "abcdef",
-		},
-		Broker: Broker{
-			Type: HTTPServerType,
+			Namespace: "kubefox-platform",
 		},
 		Component: Component{
 			Name:  "nats",
 			Image: "nats:2.9.21-alpine",
 		},
 		Owner: &metav1.OwnerReference{
-			APIVersion: "k8s.kubefox.io/v1alpha1",
+			APIVersion: "kubefox.xigxog.io/v1alpha1",
 			Kind:       "Platform",
 			UID:        "123",
 			Name:       "kubefox-dev",
@@ -114,22 +76,28 @@ func TestRenderNATS(t *testing.T) {
 	}
 }
 
-func TestRenderSystem(t *testing.T) {
+func TestRenderBroker(t *testing.T) {
 	d := &Data{
+		Instance: Instance{
+			Name:      "kubefox",
+			Namespace: "kubefox-system",
+		},
 		Platform: Platform{
 			Name:      "dev",
-			Namespace: "kubefox-system",
-			Version:   "v0.0.1",
-			RootCA:    "abc",
+			Namespace: "kubefox-platform",
 		},
-		System: System{
-			Name:              "demo",
-			Namespace:         "kfs-dev-demo",
-			ContainerRegistry: "test.io",
-			ImagePullSecret:   "abc",
+		Component: Component{
+			Name:  "broker",
+			Image: "ghcr.io/xigxog/kubefox/broker:v0.0.1",
+		},
+		Owner: &metav1.OwnerReference{
+			APIVersion: "kubefox.xigxog.io/v1alpha1",
+			Kind:       "Platform",
+			UID:        "123",
+			Name:       "kubefox-dev",
 		},
 	}
-	if s, err := renderStr("system", d); err != nil {
+	if s, err := renderStr("broker", d); err != nil {
 		t.Errorf("%v", err)
 	} else {
 		t.Logf("\n%s", s)

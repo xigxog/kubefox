@@ -1,112 +1,42 @@
-{{- define "fullname" -}}
-{{ printf "%s-%s" .Platform.Name .Component.Name }}
-{{- end }}
-
 {{- define "labels" -}}
 {{ include "selectors" . }}
-{{- with .System.Name }}
-app.kubernetes.io/part-of: {{ . }}
+app.kubernetes.io/version: {{ .Component.GitRef | default .Component.Commit }}
+{{- with .Component.GitRef }}
+kubefox.xigxog.io/component-git-ref: {{ . }}
 {{- end }}
-{{- with .Platform.Name }}
-app.kubernetes.io/managed-by: {{ . }}-operator
+{{- with .App.Commit }}
+kubefox.xigxog.io/app-commit: {{ . }}
 {{- end }}
-{{- with .Component.Name }}
-k8s.kubefox.io/component: {{ . }}
+{{- with .App.GitRef }}
+kubefox.xigxog.io/app-git-ref: {{ . }}
 {{- end }}
-{{- with .Component.GitHash }}
-app.kubernetes.io/version: {{ . }}
-k8s.kubefox.io/component-git-hash: {{ . }}
-{{- end }}
-{{- with .System.Name }}
-k8s.kubefox.io/system: {{ . }}
-{{- end }}
-{{- with .System.Id }}
-k8s.kubefox.io/system-id: {{ . }}
-{{- end }}
-{{- with .System.Ref }}
-k8s.kubefox.io/system-ref: {{ . }}
-{{- end }}
-{{- with .System.GitHash }}
-k8s.kubefox.io/system-git-hash: {{ . }}
-{{- end }}
-{{- with .System.GitRef }}
-k8s.kubefox.io/system-git-ref: {{ . }}
-{{- end }}
-{{- with .Environment.Name }}
-k8s.kubefox.io/environment: {{ . }}
-{{- end }}
-{{- with .Environment.Id }}
-k8s.kubefox.io/environment-id: {{ . }}
-{{- end }}
-{{- with .Environment.Ref }}
-k8s.kubefox.io/environment-ref: {{ . }}
-{{- end }}
-{{- with .Config.Name }}
-k8s.kubefox.io/config: {{ . }}
-{{- end }}
-{{- with .Config.Id }}
-k8s.kubefox.io/config-id: {{ . }}
-{{- end }}
-{{- with .Config.Ref }}
-k8s.kubefox.io/config-ref: {{ . }}
-{{- end }}
+app.kubernetes.io/managed-by: {{ .Instance.Name }}-operator
 {{ .Labels | toYaml }}
 {{- end }}
 
 {{- define "selectors" -}}
-{{- if .Component.Name }}
-app.kubernetes.io/name: {{ .Component.Name }}
-{{- if .Platform.Name }}
-app.kubernetes.io/instance: {{ .Component.Name }}-{{ .Platform.Name }}
+app.kubernetes.io/instance: {{ .Instance.Name }}
+{{- with .Platform.Name }}
+kubefox.xigxog.io/platform: {{ . }}
 {{- end }}
+{{- with .App.Name }}
+app.kubernetes.io/name: {{ . }} 
 {{- end }}
+app.kubernetes.io/component: {{ .Component.Name }}
+kubefox.xigxog.io/component: {{ .Component.Name }}
+kubefox.xigxog.io/component-commit: {{ .Component.Commit }}
 {{- end }}
 
 {{- define "metadata" -}}
 metadata:
-  name: {{ include "fullname" . }}
-  namespace: {{ .System.Namespace }}
+  name: {{ componentName }}
+  namespace: {{ namespace }}
   labels:
     {{- include "labels" . | nindent 4 }}
   {{- with .Owner }}
   ownerReferences:
     - {{- . | toYaml | nindent 6 }}
   {{- end }}
-{{- end }}
-
-{{- define "broker" -}}
-name: broker
-image: {{ .Broker.Image | default (printf "ghcr.io/xigxog/kubefox/broker:%v" .Platform.Version) }}
-imagePullPolicy: {{ .Broker.ImagePullPolicy | default "IfNotPresent" }}
-args:
-  - {{ .Broker.Type | default "component" }}
-  - --platform={{ .Platform.Name }}
-  - --system={{ .System.Name }}
-  - --component={{ .Component.Name }}
-  {{- with .Component.GitHash }}
-  - --component-hash={{ . }}
-  {{- end }}
-  - --operator-addr={{ printf "%s-operator.%s:7070" .Platform.Name .Platform.Namespace }}
-  - --nats-addr={{ printf "%s-nats.%s:4222" .Platform.Name .Platform.Namespace }}
-  - --namespace={{ .Platform.Namespace }}
-  - --telemetry-agent-addr=$(HOST_IP):4318
-  - --health-addr=0.0.0.0:1111
-  {{- if .DevMode }}
-  - --dev
-  {{- end }}
-env:
-  - name: HOST_IP
-    valueFrom:
-      fieldRef:
-        apiVersion: v1
-        fieldPath: status.hostIP
-ports:
-  - name: health
-    containerPort: 1111
-    protocol: TCP
-livenessProbe:
-  httpGet:
-    port: health
 {{- end }}
 
 {{- define "roleBinding" -}}
@@ -116,11 +46,11 @@ kind: RoleBinding
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: Role
-  name: {{ include "fullname" . }}
+  name: {{ componentName }}
 subjects:
   - kind: ServiceAccount
-    name: {{ include "fullname" . }}
-    namespace: {{ .System.Namespace }}
+    name: {{ componentName }}
+    namespace: {{ namespace }}
 {{- end }}
 
 {{- define "clusterRoleBinding" -}}
@@ -130,11 +60,11 @@ kind: ClusterRoleBinding
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
-  name: {{ include "fullname" . }}
+  name: {{ componentName }}
 subjects:
   - kind: ServiceAccount
-    name: {{ include "fullname" . }}
-    namespace: {{ .System.Namespace }}
+    name: {{ componentName }}
+    namespace: {{ namespace }}
 {{- end }}
 
 {{- define "serviceAccount" -}}

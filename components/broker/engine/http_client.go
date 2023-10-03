@@ -1,49 +1,52 @@
 package engine
 
 import (
-	"context"
 	"net/http"
-	"time"
 
 	"github.com/xigxog/kubefox/libs/core/kubefox"
+	"github.com/xigxog/kubefox/libs/core/logkf"
 )
 
 type HTTPClient struct {
-	Broker
+	wrapped *http.Client
+	brk     Broker
 
-	httpClient *http.Client
+	log *logkf.Logger
 }
 
 func NewHTTPClient(brk Broker) *HTTPClient {
 	return &HTTPClient{
-		Broker: brk,
-		httpClient: &http.Client{
-			Timeout: time.Second * 3,
-		},
+		wrapped: &http.Client{},
+		brk:     brk,
+		log:     logkf.Global,
 	}
 }
 
-func (cl *HTTPClient) SendEvent(ctx context.Context, req kubefox.DataEvent) (resp kubefox.DataEvent) {
-	httpReq, err := req.HTTPData().GetHTTPRequest(ctx)
+func (c *HTTPClient) SendEvent(req ReceivedEvent) error {
+	httpReq, err := req.Event.ToHTTPRequest(req.Context)
 	if err != nil {
-		resp = req.ChildErrorEvent(err)
-		cl.Log().Error(resp.GetError())
-		return
+		return err
 	}
 
-	httpResp, err := cl.httpClient.Do(httpReq)
+	httpResp, err := c.wrapped.Do(httpReq)
 	if err != nil {
-		resp = req.ChildErrorEvent(err)
-		cl.Log().Error(resp.GetError())
-		return
+		return err
 	}
 
-	resp = req.ChildEvent()
-	if err = resp.HTTPData().ParseResponse(httpResp); err != nil {
-		resp = req.ChildErrorEvent(err)
-		cl.Log().Error(resp.GetError())
-		return
+	resp := kubefox.NewEvent()
+	if err = resp.ParseHTTPResponse(httpResp); err != nil {
+		return err
+	}
+	resp.SetParent(req.Event)
+
+	rEvt := &ReceivedEvent{
+		Event:        resp,
+		Receiver:     HTTPClientSvc,
+		Subscription: req.Subscription,
+	}
+	if err := c.brk.RecvEvent(rEvt); err != nil {
+		return err
 	}
 
-	return
+	return nil
 }

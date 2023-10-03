@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name:  {{ instanceName }}-root-ca
+  namespace: {{ namespace }}
+  labels:
+    app.kubernetes.io/instance: {{ .Instance.Name }}
+    app.kubernetes.io/managed-by: {{ .Instance.Name }}-operator
+    kubefox.xigxog.io/platform: {{ .Platform.Name }}
+  {{- with .Owner }}
+  ownerReferences:
+    - {{- . | toYaml | nindent 6 }}
+  {{- end }}
+data:
+  ca.crt: |
+    {{- .Instance.RootCA | nindent 4 }}

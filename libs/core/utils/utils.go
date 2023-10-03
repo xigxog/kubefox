@@ -1,32 +1,11 @@
 package utils
 
 import (
-	"context"
-	"crypto/x509"
+	"flag"
 	"fmt"
-	"net/http"
 	"os"
 	"strconv"
-	"strings"
-	"sync"
-	"time"
-
-	authv1 "k8s.io/api/authentication/v1"
-	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	ktyps "k8s.io/apimachinery/pkg/types"
-	k8s "sigs.k8s.io/controller-runtime/pkg/client"
-	k8scfg "sigs.k8s.io/controller-runtime/pkg/client/config"
-)
-
-const (
-	svcAccTokenFile = "/var/run/secrets/kubernetes.io/serviceaccount/token"
-)
-
-var (
-	mutex     sync.Mutex
-	k8sClient k8s.Client
-	timeout   = 10 * time.Second
+	"unsafe"
 )
 
 type Comparable[T any] interface {
@@ -66,105 +45,31 @@ func ResolveFlagBool(curr bool, envVar string, def bool) bool {
 	}
 }
 
-// GetParamOrHeader looks for query parameters and headers for the provided
-// keys. Keys are checked in order. Query parameters take precedence over
-// headers.
-func GetParamOrHeader(httpReq *http.Request, keys ...string) string {
-	for _, key := range keys {
-		val := httpReq.URL.Query().Get(strings.ToLower(key))
-		if val == "" {
-			val = httpReq.Header.Get(key)
-		}
-		if val != "" {
-			return val
-		}
+func ResolveFlagInt(curr int, envVar string, def int) int {
+	if curr != def {
+		return curr
 	}
 
-	return ""
+	if e, err := strconv.ParseInt(os.Getenv(envVar), 10, 0); err == nil {
+		return int(e)
+	} else {
+		return def
+	}
 }
 
-// SystemNamespace returns the name of the Kubernetes Namespace that contains
-// all System objects. The format is 'kfs-{Instance}-{System}'. The 'kfs' prefix
-// stands for 'KubeFox System'.
-//
-// If any arg is empty an empty string is returned.
-func SystemNamespace(platform, system string) string {
-	if platform == "" || system == "" {
-		return ""
+func CheckRequiredFlag(n, p string) {
+	if p == "" {
+		fmt.Fprintf(os.Stderr, "The flag \"%s\" is required.\n\n", n)
+		flag.Usage()
+		os.Exit(1)
 	}
-
-	return fmt.Sprintf("kfs-%s-%s", platform, system)
 }
 
-func GetSvcAccountToken(namespace, svcAccount string) (string, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), timeout)
-	defer cancel()
-
-	if b, err := os.ReadFile(svcAccTokenFile); err == nil {
-		return string(b), nil
-	}
-
-	client, err := getK8sClient()
-	if err != nil {
-		return "", err
-	}
-
-	tr := &authv1.TokenRequest{}
-	sa := &corev1.ServiceAccount{
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: namespace, Name: svcAccount,
-		},
-	}
-	if err := client.SubResource("token").Create(ctx, sa, tr); err != nil {
-		return "", err
-	}
-	if tr.Status.Token == "" {
-		return "", fmt.Errorf("no token was returned by kubernetes token request")
-	}
-
-	return tr.Status.Token, nil
+func UIntToByteArray(i uint64) []byte {
+	data := *(*[unsafe.Sizeof(i)]byte)(unsafe.Pointer(&i))
+	return data[:]
 }
 
-func GetCAFromSecret(key ktyps.NamespacedName) (*x509.CertPool, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), timeout)
-	defer cancel()
-
-	client, err := getK8sClient()
-	if err != nil {
-		return nil, err
-	}
-
-	sec := &corev1.Secret{}
-	if err = client.Get(ctx, key, sec); err != nil {
-		return nil, err
-	}
-
-	cp := x509.NewCertPool()
-	if !cp.AppendCertsFromPEM(sec.Data["ca.crt"]) {
-		err = fmt.Errorf("credentials: failed to append certificates")
-		return nil, err
-	}
-
-	return cp, nil
-}
-
-func getK8sClient() (k8s.Client, error) {
-	mutex.Lock()
-	defer mutex.Unlock()
-
-	if k8sClient != nil {
-		return k8sClient, nil
-	}
-
-	cfg, err := k8scfg.GetConfig()
-	if err != nil {
-		return nil, err
-	}
-
-	k8sClient, err = k8s.New(cfg, k8s.Options{})
-	if err != nil {
-		return nil, err
-	}
-
-	return k8sClient, nil
+func ByteArrayToUInt(b []byte) uint64 {
+	return *(*uint64)(unsafe.Pointer(&b[0]))
 }

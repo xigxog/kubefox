@@ -3,214 +3,282 @@ package engine
 import (
 	"context"
 	"fmt"
+	"io"
 	"net"
 	"os"
+	"sync"
+	"time"
 
+	"github.com/lestrrat-go/jwx/jwt"
+	"github.com/nats-io/nats.go"
+	"github.com/xigxog/kubefox/components/broker/config"
 	"github.com/xigxog/kubefox/libs/core/grpc"
 	"github.com/xigxog/kubefox/libs/core/kubefox"
-	"github.com/xigxog/kubefox/libs/core/platform"
+	"github.com/xigxog/kubefox/libs/core/logkf"
 	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
 
 	gogrpc "google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/reflection"
+	"google.golang.org/grpc/status"
 )
 
 type GRPCServer struct {
-	Broker
-	grpc.UnimplementedComponentServiceServer
+	grpc.UnimplementedBrokerServer
 
-	server *gogrpc.Server
+	wrapped  *gogrpc.Server
+	brk      Broker
+	routesKV nats.KeyValue
 
-	subMap  map[string]*context.CancelFunc
-	eventCh chan kubefox.DataEvent
+	log *logkf.Logger
 }
 
-func NewGRPCServer(ctx context.Context, brk Broker) *GRPCServer {
-	creds, err := platform.NewGPRCSrvCreds(ctx, platform.BrokerCertsDir)
+type gRPCEvent struct {
+	evt *kubefox.Event
+	err error
+}
+
+func NewGRPCServer(brk Broker) *GRPCServer {
+	return &GRPCServer{
+		brk: brk,
+		log: logkf.Global,
+	}
+}
+
+func (srv *GRPCServer) Start(ctx context.Context, routesKV nats.KeyValue) error {
+	srv.log.Debug("grpc server starting")
+	srv.routesKV = routesKV
+
+	// creds, err := kfp.NewGPRCSrvCreds(ctx, kfp.BrokerCertsDir)
+	// if err != nil {
+	// 	srv.log.Errorf("error reading cert: %v", err)
+	// 	os.Exit(model.RpcServerErrorCode)
+	// }
+
+	srv.wrapped = gogrpc.NewServer(gogrpc.Creds(insecure.NewCredentials()),
+		gogrpc.StreamInterceptor(otelgrpc.StreamServerInterceptor()),
+	)
+
+	grpc.RegisterBrokerServer(srv.wrapped, srv)
+	reflection.Register(srv.wrapped)
+
+	lis, err := net.Listen("tcp", config.GRPCSrvAddr)
 	if err != nil {
-		if brk.Config().IsDevMode {
-			brk.Log().Warnf("error reading cert: %v", err)
-			brk.Log().Warn("dev mode enabled, using insecure connection")
-			creds = insecure.NewCredentials()
-		} else {
-			brk.Log().Errorf("error reading cert: %v", err)
-			os.Exit(kubefox.RpcServerErrorCode)
+		return srv.log.ErrorN("%v", err)
+	}
+
+	go func() {
+		if err = srv.wrapped.Serve(lis); err != nil {
+			srv.log.Error(err)
+			os.Exit(1)
+		}
+	}()
+
+	srv.log.Info("grpc server started")
+	return nil
+}
+
+func (srv *GRPCServer) Shutdown(timeout time.Duration) {
+	if srv.wrapped == nil {
+		return
+	}
+	srv.log.Info("grpc server shutting down")
+
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+
+	stoppedCh := make(chan struct{})
+	go func() {
+		srv.wrapped.GracefulStop()
+		stoppedCh <- struct{}{}
+	}()
+
+	// wait for graceful shutdown or context to timeout
+	select {
+	case <-stoppedCh:
+		srv.log.Debug("grpc server gracefully stopped")
+	case <-ctx.Done():
+		srv.log.Warn("unable to stop grpc server gracefully, forcing stop")
+		srv.wrapped.Stop()
+	}
+}
+
+func (srv *GRPCServer) Subscribe(stream grpc.Broker_SubscribeServer) error {
+	var (
+		err       error
+		authToken string
+		comp      *kubefox.Component
+		sub       ReplicaSubscription
+		sendMutex sync.Mutex
+	)
+
+	if authToken, comp, err = parseMD(stream); err != nil {
+		return srv.log.ErrorN("%v", err)
+	}
+	log := srv.log.WithComponent(comp)
+
+	if err := srv.brk.AuthorizeComponent(comp, authToken); err != nil {
+		return log.ErrorN("%v", err)
+	}
+
+	// The first event sent should be to register the component.
+	regEvt, err := stream.Recv()
+	if err != nil {
+		return log.ErrorN("component registration failed: %v", err)
+	}
+	if regEvt.Type != string(kubefox.RegisterType) {
+		return log.ErrorN("component registration failed: expected event of type %s but got %s", kubefox.RegisterType, regEvt.Type)
+	}
+	// TODO check registration is valid
+	if _, err := srv.routesKV.Put(comp.GroupKey(), regEvt.Content); err != nil {
+		return log.ErrorN("component registration failed: %v", err)
+	}
+
+	sendEvt := func(mEvt *kubefox.MatchedEvent) error {
+		// Protect the stream from being called by multiple threads.
+		sendMutex.Lock()
+		defer sendMutex.Unlock()
+
+		log.DebugEw("send event", mEvt.Event)
+
+		return stream.Send(mEvt)
+	}
+
+	sub, err = srv.brk.Subscribe(stream.Context(), &SubscriptionConf{
+		Component:   comp,
+		SendFunc:    sendEvt,
+		EnableGroup: true,
+	})
+	if err != nil {
+		return log.ErrorN("%v", err)
+	}
+
+	log.Info("component subscribed")
+	defer func() {
+		sub.Cancel(err)
+		log.Info("component unsubscribed")
+	}()
+
+	// This simply receives events from the gRPC stream and places them on a
+	// channel. This makes checking for the context to be done easier by using a
+	// select in the next code block.
+	recvCh := make(chan *gRPCEvent)
+	go func() {
+		for {
+			evt, err := stream.Recv()
+			recvCh <- &gRPCEvent{evt: evt, err: err}
+		}
+	}()
+
+	for {
+		select {
+		case gRPCEvt := <-recvCh:
+			err := gRPCEvt.err
+			evt := gRPCEvt.evt
+			if err != nil {
+				status, _ := status.FromError(err)
+				switch {
+				case err == io.EOF || evt == nil:
+					log.Debug("send stream closed")
+				case status.Code() == codes.Canceled:
+					log.Debug("context canceled")
+				default:
+					log.Error(err)
+				}
+				return err
+			}
+
+			log.DebugEw("receive event", evt)
+			err = srv.brk.RecvEvent(&ReceivedEvent{
+				Event:    evt,
+				Receiver: GRPCSvc,
+			})
+			if err != nil {
+				log.DebugEw("receive event failed", evt, err)
+			}
+
+		case <-sub.Context().Done():
+			if sub.Err() != nil {
+				log.Error(sub.Err())
+			}
+
+			return sub.Err()
 		}
 	}
-
-	return &GRPCServer{
-		Broker:  brk,
-		subMap:  make(map[string]*context.CancelFunc),
-		eventCh: make(chan kubefox.DataEvent, 512),
-		server: gogrpc.NewServer(gogrpc.Creds(creds),
-			gogrpc.UnaryInterceptor(otelgrpc.UnaryServerInterceptor()),
-			gogrpc.StreamInterceptor(otelgrpc.StreamServerInterceptor()),
-		),
-	}
 }
 
-func (srv *GRPCServer) Start() {
-	grpc.RegisterComponentServiceServer(srv.server, srv)
-	go srv.serve(srv.server, srv.Config().GRPCSrvAddr)
-	srv.Log().Infof("component gRPC server started on %s", srv.Config().GRPCSrvAddr)
-}
-
-func (srv *GRPCServer) serve(server *gogrpc.Server, addr string) {
-	reflection.Register(server)
-
-	lis, err := net.Listen("tcp", addr)
-	if err != nil {
-		srv.Log().Error(err)
-		os.Exit(kubefox.RpcServerErrorCode)
-
-	}
-	defer lis.Close()
-
-	err = server.Serve(lis)
-	if err != nil {
-		srv.Log().Error(err)
-		os.Exit(kubefox.RpcServerErrorCode)
-	}
-}
-
-func (srv *GRPCServer) Shutdown() {
-	srv.Log().Info("component gRPC server shutting down")
-	for id := range srv.subMap {
-		srv.Unsubscribe(context.Background(), &grpc.SubscribeRequest{Id: id})
-	}
-	close(srv.eventCh)
-
-	srv.server.GracefulStop()
-}
-
-func (srv *GRPCServer) SendEvent(ctx context.Context, req kubefox.DataEvent) (resp kubefox.DataEvent) {
-	if len(srv.subMap) == 0 {
-		resp = req.ChildErrorEvent(fmt.Errorf("request failed: no components subscribed"))
-		srv.Log().Error(resp.GetError())
+func parseMD(stream grpc.Broker_SubscribeServer) (authToken string, comp *kubefox.Component, err error) {
+	md, found := metadata.FromIncomingContext(stream.Context())
+	if !found {
+		err = fmt.Errorf("gRPC metadata missing")
 		return
 	}
 
-	ing, err := srv.Blocker().NewRespListener(ctx, req.GetId())
+	var compId, compCommit, compName, accId string
+	compId, err = getMD(md, "componentId")
 	if err != nil {
-		resp = req.ChildErrorEvent(fmt.Errorf("request failed: no components subscribed"))
-		srv.Log().Error(resp.GetError())
+		return
+	}
+	compCommit, err = getMD(md, "componentCommit")
+	if err != nil {
+		return
+	}
+	compName, err = getMD(md, "componentName")
+	if err != nil {
+		return
+	}
+	accId, err = getMD(md, "accountId")
+	if err != nil {
 		return
 	}
 
-	// Send request to component.
-	select {
-	case srv.eventCh <- req:
-		break
-	case <-ctx.Done():
-		resp = req.ChildErrorEvent(ctx.Err())
-		srv.Log().Error(resp.GetError())
+	authToken, err = getMD(md, "authToken")
+	if err != nil {
 		return
+	}
+	t, err := jwt.ParseString(authToken)
+	if err != nil {
+		return
+	}
+	var accIdClaim string
+	if k, ok := t.PrivateClaims()["kubernetes.io"].(map[string]interface{}); ok {
+		if sa, ok := k["serviceaccount"].(map[string]interface{}); ok {
+			if sat, ok := sa["uid"].(string); ok {
+				accIdClaim = sat
+			}
+		}
+	}
+	if accIdClaim == "" {
+		err = fmt.Errorf("account id claim not provided")
+		return
+	}
+	if accId != accIdClaim {
+		err = fmt.Errorf("account id metadata does not match token claim")
 	}
 
-	// Wait for the response.
-	resp, err = ing.Wait()
-	if err != nil {
-		resp = req.ChildErrorEvent(err)
-		srv.Log().Error(resp.GetError())
-		return
+	comp = &kubefox.Component{
+		Id:     compId,
+		Commit: compCommit,
+		Name:   compName,
 	}
-	resp.SetParent(req)
 
 	return
 }
 
-func (srv *GRPCServer) InvokeTarget(ctx context.Context, req *grpc.Data) (*grpc.Data, error) {
-	resp := srv.InvokeRemoteComponent(ctx, kubefox.EventFromData(req))
-	return resp.GetData(), resp.GetError()
-}
-
-func (srv *GRPCServer) SendResponse(ctx context.Context, resp *grpc.Data) (*grpc.Ack, error) {
-	err := srv.Blocker().SendResponse(resp.ParentId, kubefox.EventFromData(resp))
-	if err != nil {
-		return nil, err
-	}
-
-	return &grpc.Ack{}, nil
-}
-
-func (srv *GRPCServer) Subscribe(subReq *grpc.SubscribeRequest, stream grpc.ComponentService_SubscribeServer) error {
-	if subReq.Id == "" {
-		return kubefox.ErrMissingId
-	}
-
-	srv.Log().Infof("component subscribed; subscription: %s", subReq.Id)
-
-	ctx, cancel := context.WithCancel(stream.Context())
-	srv.subMap[subReq.Id] = &cancel
-
-	for {
-		select {
-		case req := <-srv.eventCh:
-			select {
-			case <-ctx.Done():
-				srv.Log().Warnf("ignoring canceled request %s for subscription %s", req.GetId(), subReq.Id)
-				continue
-			default:
-				l := srv.Log()
-				if req.GetTraceId() != "" {
-					l = srv.Log().With("traceId", req.GetTraceId())
-				}
-				l.Debugf("sending request %s to subscription %s", req.GetId(), subReq.Id)
-
-				stream.Send(req.GetData())
-			}
-
-		case <-ctx.Done():
-			delete(srv.subMap, subReq.Id)
-			srv.Log().Infof("subscription %s closed", subReq.Id)
-			return nil
+func getMD(md metadata.MD, key string) (string, error) {
+	arr := md.Get(key)
+	switch len(arr) {
+	case 1:
+		v := arr[0]
+		if v == "" {
+			return "", fmt.Errorf("%s not provided", key)
 		}
+		return v, nil
+	case 0:
+		return "", fmt.Errorf("%s not provided", key)
+	default:
+		return "", fmt.Errorf("more than one %s provided", key)
 	}
-}
-
-func (srv *GRPCServer) Unsubscribe(ctx context.Context, req *grpc.SubscribeRequest) (*grpc.Ack, error) {
-	if req.Id == "" {
-		return nil, kubefox.ErrMissingId
-	}
-
-	cancel := srv.subMap[req.Id]
-	delete(srv.subMap, req.Id)
-	if cancel != nil {
-		(*cancel)()
-	}
-
-	srv.Log().Infof("component unsubscribed; subscription: %s", req.Id)
-
-	return &grpc.Ack{}, nil
-}
-
-func (srv *GRPCServer) GetConfig(ctx context.Context, req *grpc.ConfigRequest) (*grpc.ComponentConfig, error) {
-	return &grpc.ComponentConfig{
-		// Organization: srv.Config().Organization,
-		Platform: srv.Config().Platform,
-		DevMode:  srv.Config().IsDevMode,
-		Component: &grpc.Component{
-			Id:      srv.Component().GetId(),
-			GitHash: srv.Component().GetGitHash(),
-			Name:    srv.Component().GetName(),
-		},
-	}, nil
-}
-
-// Healthy determines if the gRPC server on the broker and the client on the
-// component are still communicating by sending a health request and waiting for
-// response.
-func (srv *GRPCServer) Healthy(ctx context.Context) bool {
-	// this purposefully bypasses the broker to avoid attaching traces
-	resp := srv.SendEvent(ctx, kubefox.NewDataEvent(kubefox.HealthRequestType))
-	if resp.GetError() != nil {
-		return false
-	}
-
-	return resp.GetType() == kubefox.HealthResponseType
-}
-
-func (srv *GRPCServer) Name() string {
-	return "component-grpc-server"
 }

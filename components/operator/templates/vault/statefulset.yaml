@@ -2,7 +2,7 @@ apiVersion: apps/v1
 kind: StatefulSet
 {{ include "metadata" . }}
 spec:
-  serviceName: {{ include "fullname" . }}
+  serviceName: {{ componentName }}
   replicas: 1
   podManagementPolicy: Parallel
   selector:
@@ -13,20 +13,20 @@ spec:
       labels:
         {{- include "labels" . | nindent 8 }}
     spec:
-      serviceAccountName: {{ include "fullname" . }}
-      {{- with .System.ImagePullSecret }}
+      serviceAccountName: {{ componentName }}
+      {{- with .App.ImagePullSecret }}
       imagePullSecrets:
         - name: {{ . }}
       {{- end }}
       containers:
         - name: {{ .Component.Name }}
-          image: {{ .Component.Image | default (printf "%s/%s:%v" .System.ContainerRegistry .Component.Name .System.GitRef) | quote }}
+          image: {{ .Component.Image | default (printf "%s/%s:%v" .App.Registry .Component.Name .Component.Commit) | quote }}
           imagePullPolicy: {{ .Component.ImagePullPolicy | default "IfNotPresent" }}
           env:
-            - name: KUBEFOX_PLATFORM
-              value: {{ .Platform.Name }}
-            - name: KUBEFOX_PLATFORM_NAMESPACE
-              value: {{ .Platform.Namespace }}
+            - name: KUBEFOX_INSTANCE
+              value: {{ instanceName }}
+            - name: KUBEFOX_NAMESPACE
+              value: {{ namespace }}
             - name: VAULT_LOG_FORMAT
               value: {{ .Values.logFormat | default "json" }}
           ports:
@@ -61,7 +61,7 @@ spec:
         - name: entrypoint
           configMap:
             defaultMode: 0777
-            name: {{ include "fullname" . }}-entrypoint
+            name: {{ componentName }}-entrypoint
         - name: home
           emptyDir: {}
   volumeClaimTemplates:

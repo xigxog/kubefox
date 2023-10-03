@@ -1,7 +1,7 @@
 # Note recursive assignment. The expression is evaluated at usage to ensure
 # $(component) has been set.
 SRC_DIR = $(abspath $(ROOT)/components/$(component))
-GIT_HASH = $(shell git log -n 1 --format="%h" -- components/$(component)/)
+GIT_COMMIT = $(shell git log -n 1 --format="%h" -- components/$(component)/)
 IMAGE = $(IMAGE_REGISTRY)/kubefox/$(component)
 
 GIT_REF := $(shell git symbolic-ref -q --short HEAD || git describe --tags --exact-match)
@@ -11,17 +11,18 @@ ROOT := $(dir $(abspath $(lastword $(MAKEFILE_LIST))))
 TARGET_DIR := $(abspath $(ROOT)/bin)
 
 API_DIR := $(abspath $(ROOT)/libs/core/api)
-CRDS_DIR := $(abspath $(ROOT)/libs/core/api/crds)
-CRDS_BOOTSTRAP := $(CRDS_DIR)/bootstrap
-PROTO_SRC := $(abspath $(ROOT)/libs/core/api/protobuf)
-PROTO_OUT := $(abspath $(ROOT)/libs/core/grpc)
+CRDS_DIR := $(abspath $(API_DIR)/crds)
+PROTO_SRC := $(abspath $(API_DIR)/protobuf)
+KUBEFOX_DIR := $(abspath $(ROOT)/libs/core/kubefox)
+GRPC_OUT := $(abspath $(ROOT)/libs/core/grpc)
 DOCS_OUT := $(abspath $(ROOT)/site)
 
-COMPONENTS := api-server broker operator
+COMPONENTS := broker hello-world operator
 PUSHES := $(addprefix push/,$(COMPONENTS))
 IMAGES := $(addprefix image/,$(COMPONENTS))
 KINDS := $(addprefix kind/,$(COMPONENTS))
 BINS := $(addprefix bin/,$(COMPONENTS))
+TIDIES := $(addprefix tidy/,$(COMPONENTS))
 INSPECTS := $(addprefix inspect/,$(COMPONENTS))
 
 
@@ -36,6 +37,9 @@ image-all: clean generate $(IMAGES)
 
 .PHONY: kind-all
 kind-all: clean generate $(KINDS)
+
+.PHONY: tidy-all
+tidy-all: $(TIDIES)
 
 .PHONY: $(PUSHES)
 $(PUSHES):
@@ -69,8 +73,14 @@ $(BINS):
 	mkdir -p "$(dir $@)"
 	CGO_ENABLED=0 go build \
 		-C "$(SRC_DIR)/" -o "$(TARGET_DIR)/$(component)" \
-		-ldflags "-X main.GitRef=$(GIT_REF) -X main.GitHash=$(GIT_HASH)" \
+		-ldflags "-X main.GitRef=$(GIT_REF) -X main.GitCommit=$(GIT_COMMIT)" \
 		main.go
+
+.PHONY: $(TIDIES)
+$(TIDIES):
+	$(eval component=$(notdir $@))
+
+	cd components/$(component) && go mod tidy
 
 .PHONY: docs
 docs:
@@ -96,23 +106,39 @@ generate: protobuf crds
 protobuf:
 	protoc \
 		--proto_path=$(PROTO_SRC) \
-		--go_out=$(PROTO_OUT) \
+		--go_out=$(KUBEFOX_DIR) \
 		--go_opt=paths=source_relative \
-		--go-grpc_out=$(PROTO_OUT) \
+		protobuf_msgs.proto
+	protoc \
+		--proto_path=$(PROTO_SRC) \
+		--go-grpc_out=$(GRPC_OUT) \
 		--go-grpc_opt=paths=source_relative \
-		kubefox.proto
+		broker_svc.proto
 
 # Generate code containing DeepCopy, DeepCopyInto, and DeepCopyObject method implementations.
 .PHONY: crds
-crds:
+crds: controller-gen
 	mkdir -p $(CRDS_DIR)
-	@# A file needs to be present in dir for api/embed.go to compile
-	touch $(CRDS_BOOTSTRAP)
-	$(ROOT)/utils/controller-gen paths="$(API_DIR)/..." object crd output:crd:artifacts:config="$(CRDS_DIR)"
-	rm -f $(CRDS_BOOTSTRAP)
+	$(CONTROLLER_GEN) paths="{$(KUBEFOX_DIR)/..., $(API_DIR)/kubernetes/...}" object crd output:crd:artifacts:config="$(CRDS_DIR)"
 
 .PHONY: clean
 clean:
 	rm -rf $(TARGET_DIR)/
 	rm -rf $(CRDS_DIR)/
 	rm -rf $(DOCS_OUT)/
+
+##@ Build Dependencies
+
+## Location to install dependencies to
+LOCALBIN ?= $(shell pwd)/bin
+$(LOCALBIN):
+	mkdir -p $(LOCALBIN)
+
+CONTROLLER_GEN ?= $(LOCALBIN)/controller-gen
+CONTROLLER_TOOLS_VERSION ?= v0.13.0
+
+.PHONY: controller-gen
+controller-gen: $(CONTROLLER_GEN) ## Download controller-gen locally if necessary. If wrong version is installed, it will be overwritten.
+$(CONTROLLER_GEN): $(LOCALBIN)
+	test -s $(LOCALBIN)/controller-gen && $(LOCALBIN)/controller-gen --version | grep -q $(CONTROLLER_TOOLS_VERSION) || \
+	GOBIN=$(LOCALBIN) go install sigs.k8s.io/controller-tools/cmd/controller-gen@$(CONTROLLER_TOOLS_VERSION)
