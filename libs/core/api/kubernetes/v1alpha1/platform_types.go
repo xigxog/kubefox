@@ -19,6 +19,7 @@ type PlatformSpec struct {
 
 // PlatformStatus defines the observed state of Platform
 type PlatformStatus struct {
+	Ready bool `json:"ready"`
 }
 
 //+kubebuilder:object:root=true

@@ -75,9 +75,6 @@ func initFuncs(tpl *template.Template, data *Data) {
 	}
 
 	funcMap["namespace"] = data.Namespace
-	funcMap["instanceName"] = data.InstanceName
-	funcMap["platformName"] = data.PlatformName
-	funcMap["appName"] = data.AppName
 	funcMap["componentName"] = data.ComponentName
 
 	tpl.Funcs(funcMap)

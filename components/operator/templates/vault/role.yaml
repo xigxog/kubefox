@@ -14,7 +14,7 @@ rules:
     resources:
       - secrets
     resourceNames:
-      - {{ instanceName }}-unseal-key
+      - {{ .Instance.Name }}-unseal-key
     verbs:
       - get
       - update
@@ -24,7 +24,7 @@ rules:
     resources:
       - configmaps
     resourceNames:
-      - {{ instanceName }}-root-ca
+      - {{ .Instance.Name }}-root-ca
     verbs:
       - get
       - update

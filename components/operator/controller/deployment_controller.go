@@ -62,7 +62,10 @@ func (r *DeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 	)
 	log.Debug("reconciling deployment")
 
-	r.cm.ReconcileComponents(ctx, req.Namespace)
+	// No need to check for ready as platform controller will reconcile.
+	if _, err := r.cm.ReconcileComponents(ctx, req.Namespace); err != nil {
+		return ctrl.Result{}, err
+	}
 
 	log.Debug("deployment reconciled")
 	return ctrl.Result{}, nil

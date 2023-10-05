@@ -35,7 +35,7 @@ metadata:
     {{- include "labels" . | nindent 4 }}
   {{- with .Owner }}
   ownerReferences:
-    - {{- . | toYaml | nindent 6 }}
+    {{- . | toYaml | nindent 4 }}
   {{- end }}
 {{- end }}
 

@@ -2,11 +2,13 @@ package main
 
 import (
 	"flag"
-	"fmt"
-	"os"
 	"path"
 	"runtime"
 	"time"
+
+	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
+	// to ensure that exec-entrypoint and run can make use of them.
+	_ "k8s.io/client-go/plugin/pkg/client/auth"
 
 	"github.com/xigxog/kubefox/components/broker/config"
 	"github.com/xigxog/kubefox/components/broker/engine"
@@ -25,9 +27,9 @@ func main() {
 	flag.StringVar(&config.Instance, "instance", "", "KubeFox instance Broker is part of. (required)")
 	flag.StringVar(&config.Platform, "platform", "", "Platform instance Broker if part of. (required)")
 	flag.StringVar(&config.Namespace, "namespace", "", "Namespace of Platform instance. (required)")
-	flag.StringVar(&config.GRPCSrvAddr, "grpc-addr", "127.0.0.1:6060", "Address and port of gRPC server.")
-	flag.StringVar(&config.HTTPSrvAddr, "http-addr", "127.0.0.1:8080", `Address and port of HTTP server, set to "false" to disable.`)
-	flag.StringVar(&config.HealthSrvAddr, "health-addr", "0.0.0.0:1111", `Address and port of HTTP health server, set to "false" to disable.`)
+	flag.StringVar(&config.GRPCSrvAddr, "grpc-addr", "127.0.0.1:6060", "Address and port the gRPC server should bind to.")
+	flag.StringVar(&config.HTTPSrvAddr, "http-addr", "127.0.0.1:8080", `Address and port the HTTP server should bind to, set to "false" to disable.`)
+	flag.StringVar(&config.HealthSrvAddr, "health-addr", "0.0.0.0:1111", `Address and port the HTTP health server should bind to, set to "false" to disable.`)
 	flag.StringVar(&config.CertDir, "cert-dir", path.Join(kubefox.KubeFoxHome, "broker"), "Path of dir containing TLS certificate, private key, and root CA certificate.")
 	flag.StringVar(&config.VaultAddr, "vault-addr", "127.0.0.1:8200", "Address and port of Vault server.")
 	flag.StringVar(&config.NATSAddr, "nats-addr", "127.0.0.1:4222", "Address and port of NATS JetStream server.")
@@ -52,11 +54,7 @@ func main() {
 	config.GitRef = GitRef
 	config.GitCommit = GitCommit
 
-	l, err := logkf.BuildLogger(config.LogFormat, config.LogLevel)
-	if err != nil {
-		fmt.Println(err)
-		os.Exit(1)
-	}
+	l := logkf.BuildLoggerOrDie(config.LogFormat, config.LogLevel)
 	defer l.Sync()
 	logkf.Global = l.
 		WithInstance(config.Instance).

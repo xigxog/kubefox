@@ -6,10 +6,11 @@ IMAGE = $(IMAGE_REGISTRY)/kubefox/$(component)
 
 GIT_REF := $(shell git symbolic-ref -q --short HEAD || git describe --tags --exact-match)
 IMAGE_REGISTRY := ghcr.io/xigxog
+KIND_NAME := kubefox
+KIND_LOAD := false
 
 ROOT := $(dir $(abspath $(lastword $(MAKEFILE_LIST))))
 TARGET_DIR := $(abspath $(ROOT)/bin)
-
 API_DIR := $(abspath $(ROOT)/libs/core/api)
 CRDS_DIR := $(abspath $(API_DIR)/crds)
 PROTO_SRC := $(abspath $(API_DIR)/protobuf)
@@ -17,10 +18,13 @@ KUBEFOX_DIR := $(abspath $(ROOT)/libs/core/kubefox)
 GRPC_OUT := $(abspath $(ROOT)/libs/core/grpc)
 DOCS_OUT := $(abspath $(ROOT)/site)
 
-COMPONENTS := broker hello-world operator
+TOOLS_DIR := $(abspath $(ROOT)/tools)
+CONTROLLER_GEN := $(TOOLS_DIR)/controller-gen
+CONTROLLER_TOOLS_VERSION := v0.13.0
+
+COMPONENTS := broker operator
 PUSHES := $(addprefix push/,$(COMPONENTS))
 IMAGES := $(addprefix image/,$(COMPONENTS))
-KINDS := $(addprefix kind/,$(COMPONENTS))
 BINS := $(addprefix bin/,$(COMPONENTS))
 TIDIES := $(addprefix tidy/,$(COMPONENTS))
 INSPECTS := $(addprefix inspect/,$(COMPONENTS))
@@ -35,9 +39,6 @@ push-all: clean generate $(PUSHES)
 .PHONY: image-all
 image-all: clean generate $(IMAGES)
 
-.PHONY: kind-all
-kind-all: clean generate $(KINDS)
-
 .PHONY: tidy-all
 tidy-all: $(TIDIES)
 
@@ -51,20 +52,13 @@ $(PUSHES):
 .PHONY: $(IMAGES)
 $(IMAGES):
 	$(eval component=$(notdir $@))
-	$(eval container=$(shell buildah from gcr.io/distroless/static))
 	$(MAKE) bin/$(component)
 
-	buildah add $(container) "$(TARGET_DIR)/$(component)"
-	buildah config --entrypoint '["./$(component)"]' $(container) 
-	buildah commit $(container) "$(IMAGE):$(GIT_REF)"
-
-.PHONY: $(KINDS)
-$(KINDS):
-	$(eval component=$(notdir $@))
-	$(MAKE) bin/$(component)
-
-	docker buildx build . -t "$(IMAGE):$(GIT_REF)" --build-arg component=$(component)
-	kind load docker-image --name kubefox "$(IMAGE):$(GIT_REF)"
+	buildah bud --build-arg COMPONENT="$(component)" --tag "$(IMAGE):$(GIT_REF)"
+	if $(KIND_LOAD); then \
+		buildah push "$(IMAGE):$(GIT_REF)" "docker-daemon:$(IMAGE):$(GIT_REF)"; \
+		kind load docker-image --name "$(KIND_NAME)" "$(IMAGE):$(GIT_REF)"; \
+	fi
 
 .PHONY: $(BINS)
 $(BINS):
@@ -131,19 +125,11 @@ clean:
 	rm -rf $(TARGET_DIR)/
 	rm -rf $(CRDS_DIR)/
 	rm -rf $(DOCS_OUT)/
+	rm -rf $(TOOLS_DIR)/
 
-##@ Build Dependencies
-
-## Location to install dependencies to
-LOCALBIN ?= $(shell pwd)/bin
-$(LOCALBIN):
-	mkdir -p $(LOCALBIN)
-
-CONTROLLER_GEN ?= $(LOCALBIN)/controller-gen
-CONTROLLER_TOOLS_VERSION ?= v0.13.0
-
+# Download controller-gen locally if necessary. If wrong version is installed, it will be overwritten.
 .PHONY: controller-gen
-controller-gen: $(CONTROLLER_GEN) ## Download controller-gen locally if necessary. If wrong version is installed, it will be overwritten.
-$(CONTROLLER_GEN): $(LOCALBIN)
-	test -s $(LOCALBIN)/controller-gen && $(LOCALBIN)/controller-gen --version | grep -q $(CONTROLLER_TOOLS_VERSION) || \
-	GOBIN=$(LOCALBIN) go install sigs.k8s.io/controller-tools/cmd/controller-gen@$(CONTROLLER_TOOLS_VERSION)
+controller-gen:
+	mkdir -p $(TOOLS_DIR)
+	test -s $(CONTROLLER_GEN) && $(CONTROLLER_GEN) --version | grep -q $(CONTROLLER_TOOLS_VERSION) || \
+	GOBIN=$(TOOLS_DIR) go install sigs.k8s.io/controller-tools/cmd/controller-gen@$(CONTROLLER_TOOLS_VERSION)

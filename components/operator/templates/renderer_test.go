@@ -34,11 +34,13 @@ func TestRenderPlatform(t *testing.T) {
 			Name:      "dev",
 			Namespace: "kubefox-platform",
 		},
-		Owner: &metav1.OwnerReference{
-			APIVersion: "kubefox.xigxog.io/v1alpha1",
-			Kind:       "Platform",
-			UID:        "123",
-			Name:       "kubefox-dev",
+		Owner: []*metav1.OwnerReference{
+			{
+				APIVersion: "kubefox.xigxog.io/v1alpha1",
+				Kind:       "Platform",
+				UID:        "123",
+				Name:       "kubefox-dev",
+			},
 		},
 	}
 	if s, err := renderStr("platform", d); err != nil {
@@ -62,11 +64,13 @@ func TestRenderNATS(t *testing.T) {
 			Name:  "nats",
 			Image: "nats:2.9.21-alpine",
 		},
-		Owner: &metav1.OwnerReference{
-			APIVersion: "kubefox.xigxog.io/v1alpha1",
-			Kind:       "Platform",
-			UID:        "123",
-			Name:       "kubefox-dev",
+		Owner: []*metav1.OwnerReference{
+			{
+				APIVersion: "kubefox.xigxog.io/v1alpha1",
+				Kind:       "Platform",
+				UID:        "123",
+				Name:       "kubefox-dev",
+			},
 		},
 	}
 	if s, err := renderStr("nats", d); err != nil {
@@ -90,14 +94,52 @@ func TestRenderBroker(t *testing.T) {
 			Name:  "broker",
 			Image: "ghcr.io/xigxog/kubefox/broker:v0.0.1",
 		},
-		Owner: &metav1.OwnerReference{
-			APIVersion: "kubefox.xigxog.io/v1alpha1",
-			Kind:       "Platform",
-			UID:        "123",
-			Name:       "kubefox-dev",
+		Owner: []*metav1.OwnerReference{
+			{
+				APIVersion: "kubefox.xigxog.io/v1alpha1",
+				Kind:       "Platform",
+				UID:        "123",
+				Name:       "kubefox-dev",
+			},
 		},
 	}
 	if s, err := renderStr("broker", d); err != nil {
+		t.Errorf("%v", err)
+	} else {
+		t.Logf("\n%s", s)
+	}
+}
+
+func TestRenderComponent(t *testing.T) {
+	d := &Data{
+		Instance: Instance{
+			Name:      "kubefox",
+			Namespace: "kubefox-system",
+		},
+		Platform: Platform{
+			Name:      "dev",
+			Namespace: "kubefox-platform",
+		},
+		Component: Component{
+			Name:  "hello",
+			Image: "ghcr.io/xigxog/kubefox/hello:v0.0.1",
+		},
+		Owner: []*metav1.OwnerReference{
+			{
+				APIVersion: "kubefox.xigxog.io/v1alpha1",
+				Kind:       "Platform",
+				UID:        "123",
+				Name:       "kubefox-dev",
+			},
+			{
+				APIVersion: "kubefox.xigxog.io/v1alpha1",
+				Kind:       "Deployment",
+				UID:        "123",
+				Name:       "kubefox-dev",
+			},
+		},
+	}
+	if s, err := renderStr("component", d); err != nil {
 		t.Errorf("%v", err)
 	} else {
 		t.Logf("\n%s", s)

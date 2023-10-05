@@ -1,9 +1,5 @@
-FROM alpine
+FROM gcr.io/distroless/static:nonroot
+ARG COMPONENT
 
-ARG component
-ENV KUBEFOX_COMPONENT=${component}
-
-COPY ./bin/${KUBEFOX_COMPONENT} .
-RUN mv ${KUBEFOX_COMPONENT} component
-
-ENTRYPOINT [ "./component" ]
+COPY ./bin/${COMPONENT} /component
+ENTRYPOINT [ "/component" ]

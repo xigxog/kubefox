@@ -16,7 +16,7 @@ type Data struct {
 	Component Component
 
 	Labels map[string]string
-	Owner  *metav1.OwnerReference
+	Owner  []*metav1.OwnerReference
 
 	Values map[string]any
 }
@@ -60,31 +60,24 @@ func (d Data) Namespace() string {
 	return d.Instance.Namespace
 }
 
-func (d Data) InstanceName() string {
-	return d.Instance.Name
-}
-
-func (d Data) PlatformName() string {
+func (d Data) PlatformFullName() string {
 	if d.Platform.Name == "" {
-		return d.InstanceName()
+		return d.Instance.Name
 	}
-	if strings.HasPrefix(d.Platform.Name, d.InstanceName()) {
+	if strings.HasPrefix(d.Platform.Name, d.Instance.Name) {
 		return d.Platform.Name
 	}
-	return fmt.Sprintf("%s-%s", d.InstanceName(), d.Platform.Name)
-}
-
-func (d Data) AppName() string {
-	if d.App.Name == "" {
-		return d.PlatformName()
-	}
-	if strings.HasPrefix(d.App.Name, d.PlatformName()) {
-		return d.App.Name
-	}
-	return fmt.Sprintf("%s-%s", d.PlatformName(), d.App.Name)
+	return fmt.Sprintf("%s-%s", d.Instance.Name, d.Platform.Name)
 }
 
 func (d Data) ComponentName() string {
-	n := fmt.Sprintf("%s-%s-%s", d.AppName(), d.Component.Name, d.Component.Commit)
-	return strings.TrimSuffix(n, "-")
+	prefix := d.App.Name
+	if prefix == "" {
+		prefix = d.Platform.Name
+	}
+	if prefix == "" {
+		prefix = d.Instance.Name
+	}
+	name := fmt.Sprintf("%s-%s-%s", prefix, d.Component.Name, d.Component.Commit)
+	return strings.TrimSuffix(name, "-")
 }

@@ -26,7 +26,6 @@ import (
 
 	"github.com/xigxog/kubefox/components/operator/templates"
 	"github.com/xigxog/kubefox/libs/core/api/kubernetes/v1alpha1"
-	"github.com/xigxog/kubefox/libs/core/kubefox"
 	"github.com/xigxog/kubefox/libs/core/logkf"
 	"github.com/xigxog/kubefox/libs/core/utils"
 )
@@ -56,6 +55,7 @@ func (r *PlatformReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&v1alpha1.Platform{}).
 		Owns(&appsv1.DaemonSet{}).
+		Owns(&appsv1.Deployment{}).
 		Owns(&appsv1.StatefulSet{}).
 		Complete(r)
 }
@@ -70,6 +70,7 @@ func (r *PlatformReconciler) SetupWithManager(mgr ctrl.Manager) error {
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.15.0/pkg/reconcile
 func (r *PlatformReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+
 	log := r.log.With(
 		"namespace", req.Namespace,
 		"name", req.Name,
@@ -93,6 +94,12 @@ func (r *PlatformReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		}
 		return ctrl.Result{}, nil
 	}
+
+	platformReady := false
+	defer func() {
+		p.Status.Ready = platformReady
+		r.Status().Update(ctx, p)
+	}()
 
 	// TODO move to admission webhook
 	if lbl, found := ns.Labels[LabelPlatform]; found && lbl != req.Name {
@@ -122,6 +129,10 @@ func (r *PlatformReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	if rdy, err := r.cm.SetupComponent(ctx, td); !rdy || err != nil {
 		return ctrl.Result{RequeueAfter: time.Second * 15}, err
 	}
+	vaultURL := fmt.Sprintf("https://%s.%s:8200", td.ComponentName(), td.Instance.Namespace)
+	if r.VaultAddr != "" {
+		vaultURL = fmt.Sprintf("https://%s", r.VaultAddr)
+	}
 
 	cm := &v1.ConfigMap{}
 	if err := r.Get(ctx, nn(r.Namespace, r.Instance+"-root-ca"), cm); err != nil {
@@ -139,13 +150,8 @@ func (r *PlatformReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 				Name:      p.Name,
 				Namespace: p.Namespace,
 			},
-			Owner: metav1.NewControllerRef(p, p.GroupVersionKind()),
+			Owner: []*metav1.OwnerReference{metav1.NewControllerRef(p, p.GroupVersionKind())},
 		},
-	}
-
-	vaultURL := fmt.Sprintf("https://%s.%s:8200", td.ComponentName(), td.Namespace())
-	if r.VaultAddr != "" {
-		vaultURL = fmt.Sprintf("https://%s", r.VaultAddr)
 	}
 	if err := r.setupVault(ctx, td, vaultURL); err != nil {
 		return ctrl.Result{}, log.ErrorN("problem setting up vault: %w", err)
@@ -175,18 +181,26 @@ func (r *PlatformReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		return ctrl.Result{}, err
 	}
 
+	platformReady = true
+
+	if rdy, err := r.cm.ReconcileComponents(ctx, req.Namespace); err != nil {
+		return ctrl.Result{}, err
+	} else if !rdy {
+		return ctrl.Result{RequeueAfter: time.Second * 3}, nil
+	}
+
 	log.Debug("platform reconciled")
 
 	return ctrl.Result{}, nil
 }
 
 func (r *PlatformReconciler) setupVault(ctx context.Context, td *TemplateData, url string) error {
-	vault, err := r.vaultClient(ctx, url)
+	vault, err := r.vaultClient(ctx, url, []byte(td.Instance.RootCA))
 	if err != nil {
 		return err
 	}
 
-	uName := fmt.Sprintf("%s-%s", td.PlatformName(), td.Platform.Namespace)
+	uName := fmt.Sprintf("%s-%s", td.PlatformFullName(), td.Platform.Namespace)
 	if !strings.HasPrefix(uName, "kubefox") {
 		uName = "kubefox-" + uName
 	}
@@ -210,8 +224,8 @@ func (r *PlatformReconciler) setupVault(ctx context.Context, td *TemplateData, u
 			return err
 		}
 		s, err := vault.Logical().Write(pkiPath+"/intermediate/generate/internal", map[string]interface{}{
-			"common_name": "KubeFox Platform " + td.PlatformName() + " Intermediate CA",
-			"issuer_name": td.PlatformName() + "-intermediate",
+			"common_name": "KubeFox Platform " + td.PlatformFullName() + " Intermediate CA",
+			"issuer_name": td.PlatformFullName() + "-intermediate",
 		})
 		if err != nil {
 			return err
@@ -234,7 +248,7 @@ func (r *PlatformReconciler) setupVault(ctx context.Context, td *TemplateData, u
 	_, err = vault.Logical().Write(pkiPath+"/roles/nats", map[string]interface{}{
 		"issuer_ref":         "default",
 		"allow_localhost":    true,
-		"allowed_domains":    td.PlatformName() + "-nats," + td.PlatformName() + "-nats." + td.Namespace(),
+		"allowed_domains":    td.PlatformFullName() + "-nats," + td.PlatformFullName() + "-nats." + td.Namespace(),
 		"allow_bare_domains": true,
 		"max_ttl":            TenYears,
 	})
@@ -260,7 +274,7 @@ func (r *PlatformReconciler) setupVault(ctx context.Context, td *TemplateData, u
 			return err
 		}
 		_, err := vault.Logical().Write(natsPath+"/config", map[string]interface{}{
-			"service_url": "nats://" + td.PlatformName() + "-nats." + td.Namespace() + ":4222",
+			"service_url": "nats://" + td.PlatformFullName() + "-nats." + td.Namespace() + ":4222",
 		})
 		if err != nil {
 			return err
@@ -289,7 +303,7 @@ path "`+natsPath+`/jwt/*" {
 	}
 
 	_, err = vault.Logical().Write("auth/kubernetes/role/"+uName+"-broker", map[string]interface{}{
-		"bound_service_account_names":      td.PlatformName() + "-broker",
+		"bound_service_account_names":      td.PlatformFullName() + "-broker",
 		"bound_service_account_namespaces": td.Namespace(),
 		"token_policies":                   uName + "-broker,kv-kubefox-reader",
 	})
@@ -300,13 +314,13 @@ path "`+natsPath+`/jwt/*" {
 	return nil
 }
 
-func (r *PlatformReconciler) vaultClient(ctx context.Context, url string) (*vapi.Client, error) {
+func (r *PlatformReconciler) vaultClient(ctx context.Context, url string, caCert []byte) (*vapi.Client, error) {
 	cfg := vapi.DefaultConfig()
 	cfg.Address = url
 	cfg.MaxRetries = 3
 	cfg.HttpClient.Timeout = time.Minute
 	cfg.ConfigureTLS(&vapi.TLSConfig{
-		CACert: kubefox.CACertPath,
+		CACertBytes: caCert,
 	})
 
 	vault, err := vapi.NewClient(cfg)

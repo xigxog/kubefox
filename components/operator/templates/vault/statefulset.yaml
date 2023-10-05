@@ -24,7 +24,7 @@ spec:
           imagePullPolicy: {{ .Component.ImagePullPolicy | default "IfNotPresent" }}
           env:
             - name: KUBEFOX_INSTANCE
-              value: {{ instanceName }}
+              value: {{ .Instance.Name }}
             - name: KUBEFOX_NAMESPACE
               value: {{ namespace }}
             - name: VAULT_LOG_FORMAT

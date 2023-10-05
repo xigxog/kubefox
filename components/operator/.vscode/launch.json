@@ -6,11 +6,12 @@
       "type": "go",
       "request": "launch",
       "mode": "auto",
-      "program": "cmd/main.go",
+      "program": "main.go",
       "args": [
         "-instance=kubefox",
         "-namespace=kubefox-system",
-        "-vault-addr=127.0.0.1:8200"
+        "-vault-addr=127.0.0.1:8200",
+        "-leader-elect=false"
       ]
     }
   ]

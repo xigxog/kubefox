@@ -9,6 +9,10 @@ import (
 	"sync"
 	"time"
 
+	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
+	// to ensure that exec-entrypoint and run can make use of them.
+	_ "k8s.io/client-go/plugin/pkg/client/auth"
+
 	"github.com/google/uuid"
 	"github.com/xigxog/kubefox/libs/core/grpc"
 	"github.com/xigxog/kubefox/libs/core/kubefox"
@@ -94,24 +98,11 @@ Flags:
 	logFormat = utils.ResolveFlag(logFormat, "KUBEFOX_LOG_FORMAT", "console")
 	logLevel = utils.ResolveFlag(logLevel, "KUBEFOX_LOG_LEVEL", "debug")
 
-	if svc.comp.Name == "" {
-		fmt.Fprintf(os.Stderr, "The flag 'name' is required.\n\n")
-		flag.Usage()
-		os.Exit(1)
-	}
-	if svc.comp.Commit == "" {
-		fmt.Fprintf(os.Stderr, "The flag 'commit' is required.\n\n")
-		flag.Usage()
-		os.Exit(1)
-	}
+	utils.CheckRequiredFlag("name", svc.comp.Name)
+	utils.CheckRequiredFlag("commit", svc.comp.Commit)
 
-	l, err := logkf.BuildLogger(logFormat, logLevel)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Invalid log setting: %v\n\n", err)
-		flag.Usage()
-		os.Exit(1)
-	}
-
+	l := logkf.BuildLoggerOrDie(logFormat, logLevel)
+	defer l.Sync()
 	svc.log = l.WithComponent(svc.comp)
 	svc.Context, svc.cancel = context.WithCancel(context.Background())
 	svc.log.Info("kit service created 🦊")
@@ -231,12 +222,12 @@ func (svc *kit) recvReq(req *kubefox.MatchedEvent) {
 	resp.Target = req.Event.Source
 
 	k := &kontext{
-		kitSvc: svc,
-		req:    req.Event,
-		resp:   resp,
-		env:    req.Env,
-		start:  start,
-		log:    log,
+		kit:   svc,
+		req:   req.Event,
+		resp:  resp,
+		env:   req.Env,
+		start: start,
+		log:   log,
 	}
 
 	var err error

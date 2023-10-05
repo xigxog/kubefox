@@ -10,8 +10,6 @@ package main
 
 import (
 	"flag"
-	"fmt"
-	"os"
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
@@ -23,7 +21,6 @@ import (
 	kscheme "k8s.io/client-go/kubernetes/scheme"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
-	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
 	"github.com/xigxog/kubefox/components/operator/controller"
 	"github.com/xigxog/kubefox/libs/core/api/kubernetes/v1alpha1"
@@ -50,14 +47,17 @@ func init() {
 }
 
 func main() {
-	var instance, namespace, vaultAddr, metricsAddr, probeAddr, logFormat, logLevel string
-	var leaderElection bool
+	var (
+		instance, namespace   string
+		vaultAddr, healthAddr string
+		logFormat, logLevel   string
+		leaderElection        bool
+	)
 	flag.StringVar(&instance, "instance", "", "The name of the KubeFox instance. (required)")
 	flag.StringVar(&namespace, "namespace", "", "The Kubernetes Namespace of the Operator. (required)")
 	flag.StringVar(&vaultAddr, "vault-addr", "", "The host and port of Vault server.")
-	flag.StringVar(&metricsAddr, "metrics-bind-address", ":8080", "The address the metric endpoint binds to.")
-	flag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
-	flag.BoolVar(&leaderElection, "leader-elect", false, "Enable leader election for controller manager. Enabling this will ensure there is only one active controller manager.")
+	flag.StringVar(&healthAddr, "health-addr", "0.0.0.0:1111", "Address and port the HTTP health server should bind to.")
+	flag.BoolVar(&leaderElection, "leader-elect", true, "Enable leader election for controller manager. Enabling this will ensure there is only one active controller manager.")
 	flag.StringVar(&logFormat, "log-format", "console", `Log format; one of ["json", "console"].`)
 	flag.StringVar(&logLevel, "log-level", "debug", `Log level; one of ["debug", "info", "warn", "error"].`)
 	flag.Parse()
@@ -65,38 +65,28 @@ func main() {
 	utils.CheckRequiredFlag("instance", instance)
 	utils.CheckRequiredFlag("namespace", namespace)
 
-	log, err := logkf.BuildLogger(logFormat, logLevel)
-	if err != nil {
-		fmt.Println(err)
-		os.Exit(1)
-	}
-	logkf.Global = log
-	ctrl.SetLogger(zapr.NewLogger(log.Unwrap().Desugar()))
+	l := logkf.BuildLoggerOrDie(logFormat, logLevel)
+	logkf.Global = l.WithService("operator")
+	ctrl.SetLogger(zapr.NewLogger(l.Unwrap().Desugar()))
 
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
 		Scheme:                 scheme,
-		MetricsBindAddress:     metricsAddr,
-		Port:                   9443,
-		HealthProbeBindAddress: probeAddr,
-		WebhookServer: webhook.NewServer(webhook.Options{
-			CertDir: "/kubefox/operator/",
-		}),
-		LeaderElection:   leaderElection,
-		LeaderElectionID: "a2e4163f.xigxog.io",
-		// LeaderElectionReleaseOnCancel defines if the leader should step down voluntarily
-		// when the Manager ends. This requires the binary to immediately end when the
-		// Manager is stopped, otherwise, this setting is unsafe. Setting this significantly
-		// speeds up voluntary leader transitions as the new leader don't have to wait
-		// LeaseDuration time first.
-		//
+		MetricsBindAddress:     "0",
+		HealthProbeBindAddress: healthAddr,
+		// WebhookServer: webhook.NewServer(webhook.Options{
+		// 	CertDir: "/kubefox/operator/",
+		// }),
+		LeaderElection:          leaderElection,
+		LeaderElectionID:        "a2e4163f.kubefox.xigxog.io",
+		LeaderElectionNamespace: namespace,
 		// In the default scaffold provided, the program ends immediately after
 		// the manager stops, so would be fine to enable this option. However,
 		// if you are doing or is intended to do any operation such as perform cleanups
 		// after the manager stops then its usage might be unsafe.
-		// LeaderElectionReleaseOnCancel: true,
+		LeaderElectionReleaseOnCancel: true,
 	})
 	if err != nil {
-		log.Fatal("unable to start manager", err)
+		l.Fatal("unable to start manager", err)
 	}
 
 	if err = (&controller.PlatformReconciler{
@@ -106,21 +96,21 @@ func main() {
 		VaultAddr: vaultAddr,
 		Scheme:    mgr.GetScheme(),
 	}).SetupWithManager(mgr); err != nil {
-		log.Fatalf("unable to create platform controller", err)
+		l.Fatalf("unable to create platform controller", err)
 	}
 	if err = (&controller.DeploymentReconciler{
 		Client:   &controller.Client{Client: mgr.GetClient()},
 		Instance: instance,
 		Scheme:   mgr.GetScheme(),
 	}).SetupWithManager(mgr); err != nil {
-		log.Fatalf("unable to create deployment controller", err)
+		l.Fatalf("unable to create deployment controller", err)
 	}
 	if err = (&controller.ReleaseReconciler{
 		Client:   &controller.Client{Client: mgr.GetClient()},
 		Instance: instance,
 		Scheme:   mgr.GetScheme(),
 	}).SetupWithManager(mgr); err != nil {
-		log.Fatalf("unable to create release controller", err)
+		l.Fatalf("unable to create release controller", err)
 	}
 
 	// if err = (&kubefoxv1alpha1.Platform{}).SetupWebhookWithManager(mgr); err != nil {
@@ -129,14 +119,14 @@ func main() {
 	// }
 
 	if err := mgr.AddHealthzCheck("healthz", healthz.Ping); err != nil {
-		log.Fatal("unable to set up health check", err)
+		l.Fatal("unable to set up health check", err)
 	}
 	if err := mgr.AddReadyzCheck("readyz", healthz.Ping); err != nil {
-		log.Fatal("unable to set up ready check", err)
+		l.Fatal("unable to set up ready check", err)
 	}
 
-	log.Info("starting manager")
+	l.Info("starting manager")
 	if err := mgr.Start(ctrl.SetupSignalHandler()); err != nil {
-		log.Fatal("problem running manager", err)
+		l.Fatal("problem running manager", err)
 	}
 }

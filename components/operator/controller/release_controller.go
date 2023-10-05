@@ -93,7 +93,10 @@ func (r *ReleaseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		}
 	}
 
-	r.cm.ReconcileComponents(ctx, req.Namespace)
+	// No need to check for ready as platform controller will reconcile.
+	if _, err := r.cm.ReconcileComponents(ctx, req.Namespace); err != nil {
+		return ctrl.Result{}, err
+	}
 
 	log.Debug("release reconciled")
 	return ctrl.Result{}, nil

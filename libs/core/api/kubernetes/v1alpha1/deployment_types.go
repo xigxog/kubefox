@@ -75,3 +75,7 @@ type DeploymentList struct {
 func init() {
 	SchemeBuilder.Register(&Deployment{}, &DeploymentList{})
 }
+
+func (d *Deployment) GetSpec() DeploymentSpec {
+	return d.Spec
+}

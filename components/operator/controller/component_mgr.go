@@ -59,10 +59,10 @@ func (cm *ComponentManager) SetupComponent(ctx context.Context, td *TemplateData
 	return true, nil
 }
 
-func (cm *ComponentManager) ReconcileComponents(ctx context.Context, namespace string) error {
+func (cm *ComponentManager) ReconcileComponents(ctx context.Context, namespace string) (bool, error) {
 	platform, err := cm.Client.GetPlatform(ctx, namespace)
 	if err != nil {
-		return err
+		return false, err
 	}
 
 	log := cm.Log.With(
@@ -70,13 +70,18 @@ func (cm *ComponentManager) ReconcileComponents(ctx context.Context, namespace s
 		logkf.Platform, platform.Name,
 	)
 
+	if !platform.Status.Ready {
+		log.Debug("platform not ready")
+		return false, nil
+	}
+
 	relList := &v1alpha1.ReleaseList{}
 	if err := cm.Client.List(ctx, relList, client.InNamespace(platform.Namespace)); err != nil {
-		return err
+		return false, err
 	}
 	depList := &v1alpha1.DeploymentList{}
 	if err := cm.Client.List(ctx, depList, client.InNamespace(platform.Namespace)); err != nil {
-		return err
+		return false, err
 	}
 
 	specs := make([]v1alpha1.DeploymentSpec, 0, len(relList.Items)+len(depList.Items))
@@ -93,39 +98,39 @@ func (cm *ComponentManager) ReconcileComponents(ctx context.Context, namespace s
 		client.InNamespace(platform.Namespace),
 		client.HasLabels{LabelComponent},
 	); err != nil {
-		return err
+		return false, err
 	}
 
-	td := &TemplateData{
-		Data: templates.Data{
-			Instance: templates.Instance{
-				Name: cm.Instance,
-			},
-			Platform: templates.Platform{
-				Name:      platform.Name,
-				Namespace: platform.Namespace,
-			},
-			Owner: metav1.NewControllerRef(platform, platform.GroupVersionKind()),
-		},
-		Template: "component",
-	}
 	compMap := make(map[string]TemplateData)
 	for _, d := range specs {
-		td.App = templates.App{
-			Name:     d.App.Name,
-			Commit:   d.App.Commit,
-			GitRef:   d.App.GitRef,
-			Registry: d.App.Registry,
-		}
 		for n, c := range d.Components {
-			td.Obj = &appsv1.Deployment{}
-			td.Component = templates.Component{
-				Name:   n,
-				Commit: c.Commit,
-				GitRef: c.GitRef,
-				Image:  c.Image,
+			td := TemplateData{
+				Data: templates.Data{
+					Instance: templates.Instance{
+						Name: cm.Instance,
+					},
+					Platform: templates.Platform{
+						Name:      platform.Name,
+						Namespace: platform.Namespace,
+					},
+					App: templates.App{
+						Name:     d.App.Name,
+						Commit:   d.App.Commit,
+						GitRef:   d.App.GitRef,
+						Registry: d.App.Registry,
+					},
+					Component: templates.Component{
+						Name:   n,
+						Commit: c.Commit,
+						GitRef: c.GitRef,
+						Image:  c.Image,
+					},
+					Owner: []*metav1.OwnerReference{metav1.NewControllerRef(platform, platform.GroupVersionKind())},
+				},
+				Template: "component",
+				Obj:      &appsv1.Deployment{},
 			}
-			compMap[td.ComponentName()] = *td
+			compMap[td.ComponentName()] = td
 		}
 	}
 	log.Debugf("found %d unique components", len(compMap))
@@ -134,16 +139,19 @@ func (cm *ComponentManager) ReconcileComponents(ctx context.Context, namespace s
 		if _, found := compMap[d.Name]; !found {
 			log.Debugw("deleting component", logkf.ComponentName, d.Name)
 			if err := cm.Client.Delete(ctx, &d); err != nil {
-				return err
+				return false, err
 			}
 		}
 	}
 
+	rdy := true
 	for _, compTD := range compMap {
-		if _, err := cm.SetupComponent(ctx, &compTD); err != nil {
-			return err
+		if r, err := cm.SetupComponent(ctx, &compTD); err != nil {
+			return false, err
+		} else {
+			rdy = rdy && r
 		}
 	}
 
-	return nil
+	return rdy, nil
 }

@@ -13,6 +13,7 @@ __debug_bin
 # Build output
 bin/
 site/
+tools/
 
 # Misc
 workstation/

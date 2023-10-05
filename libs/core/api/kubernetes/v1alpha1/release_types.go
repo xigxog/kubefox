@@ -61,3 +61,7 @@ type ReleaseList struct {
 func init() {
 	SchemeBuilder.Register(&Release{}, &ReleaseList{})
 }
+
+func (r *Release) GetSpec() DeploymentSpec {
+	return r.Spec.Deployment
+}

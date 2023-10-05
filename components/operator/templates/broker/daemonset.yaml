@@ -10,6 +10,8 @@ spec:
       labels:
         {{- include "labels" . | nindent 8 }}
     spec:
+      securityContext:
+        runAsNonRoot: true
       serviceAccountName: {{ componentName }}
       hostNetwork: true
       dnsPolicy: ClusterFirstWithHostNet
@@ -26,12 +28,12 @@ spec:
             - -platform={{ .Platform.Name }}
             - -namespace={{ .Platform.Namespace }}
             - -grpc-addr=$(BROKER_HOST):6060
-            - -vault-addr={{ instanceName }}-vault.{{ .Instance.Namespace }}
-            - -nats-addr={{ platformName }}-nats.{{ .Platform.Namespace }}
+            - -vault-addr={{ .Instance.Name }}-vault.{{ .Instance.Namespace }}
+            - -nats-addr={{ .Platform.Name }}-nats.{{ .Platform.Namespace }}
             - -http-addr=0.0.0.0:8080
             - -telemetry-addr=false
             - -health-addr=0.0.0.0:1111
-            - -log-format=console
+            - -log-format=json
             - -log-level=info
           env:
             - name: BROKER_HOST
@@ -70,7 +72,12 @@ spec:
             - name: root-ca
               mountPath: /tmp/kubefox/broker/ca.crt
               subPath: ca.crt
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - "ALL"
       volumes:
         - name: root-ca
           configMap:
-            name: {{ instanceName }}-root-ca
+            name: {{ .Instance.Name }}-root-ca

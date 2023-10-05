@@ -16,7 +16,6 @@ type Kontext interface {
 	//
 	// Retrieve from request event.
 	//
-
 	Env(name string) string
 	EnvVar(name string) *kubefox.Var
 	EnvOrDefault(key string, def string) string
@@ -38,13 +37,11 @@ type Kontext interface {
 	//
 	// Modify response event.
 	//
-
 	Status(code int)
 
 	//
 	// Send response event.
 	//
-
 	String(s string) error
 	JSON(v any) error
 	Bytes(contentType string, b []byte) error
@@ -54,7 +51,7 @@ type Kontext interface {
 	//
 
 	//
-	// Other
+	// Other.
 	//
 	Log() *logkf.Logger
 }
@@ -62,10 +59,10 @@ type Kontext interface {
 type kontext struct {
 	context.Context
 
-	kitSvc *kit
-	req    *kubefox.Event
-	resp   *kubefox.Event
-	env    map[string]*structpb.Value
+	kit  *kit
+	req  *kubefox.Event
+	resp *kubefox.Event
+	env  map[string]*structpb.Value
 
 	start int64
 
@@ -189,5 +186,5 @@ func (k *kontext) Bytes(contentType string, b []byte) error {
 
 	k.resp.Ttl = k.req.Ttl - (time.Now().UnixMicro() - k.start)
 
-	return k.kitSvc.sendEvent(k.resp, k.start)
+	return k.kit.sendEvent(k.resp, k.start)
 }

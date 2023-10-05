@@ -84,7 +84,7 @@ spec:
           emptyDir: {}
         - name: root-ca
           configMap:
-            name: {{ instanceName }}-root-ca
+            name: {{ .Instance.Name }}-root-ca
         - name: kubefox
           emptyDir: {}
   volumeClaimTemplates:

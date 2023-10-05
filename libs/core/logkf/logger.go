@@ -2,7 +2,9 @@ package logkf
 
 import (
 	"encoding/json"
+	"flag"
 	"fmt"
+	"os"
 
 	"github.com/xigxog/kubefox/libs/core/kubefox"
 	"go.uber.org/zap"
@@ -36,6 +38,18 @@ type Logger struct {
 
 func init() {
 	Global, _ = BuildLogger("console", "debug")
+}
+
+func BuildLoggerOrDie(format, level string) *Logger {
+	if l, err := BuildLogger(format, level); err != nil {
+		fmt.Fprintf(os.Stderr, "Invalid log setting: %v\n\n", err)
+		flag.Usage()
+		os.Exit(1)
+		return nil
+
+	} else {
+		return l
+	}
 }
 
 func BuildLogger(format, level string) (*Logger, error) {

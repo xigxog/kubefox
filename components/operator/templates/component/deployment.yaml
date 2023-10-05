@@ -11,6 +11,8 @@ spec:
         {{- include "labels" . | nindent 8 }}
     spec:
       serviceAccountName: {{ componentName }}
+      securityContext:
+        runAsNonRoot: true
       #hostNetwork: true
       {{- with .App.ImagePullSecret }}
       imagePullSecrets:
@@ -24,6 +26,8 @@ spec:
             - -name={{ .Component.Name }}
             - -commit={{ .Component.Commit }}
             - -broker-addr=$(BROKER_HOST):6060
+            - -log-format=json
+            - -log-level=info
           env:
             - name: BROKER_HOST
               valueFrom:
@@ -33,7 +37,12 @@ spec:
             - name: root-ca
               mountPath: /tmp/kubefox/broker/ca.crt
               subPath: ca.crt
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - "ALL"
       volumes:
         - name: root-ca
           configMap:
-            name: {{ instanceName }}-root-ca
+            name: {{ .Instance.Name }}-root-ca
