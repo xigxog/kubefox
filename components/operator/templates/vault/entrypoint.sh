@@ -304,7 +304,7 @@ echo "Vault initialized."
 export VAULT_ADDR="https://127.0.0.1:8200"
 
 cat >"$VAULT_CONF_FILE" <<EOF
-ui = true
+ui = false
 
 disable_mlock = true
 disable_clustering = true

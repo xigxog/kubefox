@@ -8,13 +8,13 @@
       "mode": "auto",
       "program": "main.go",
       "args": [
-        "-cluster=main",
+        "-instance=kubefox",
         "-platform=dev",
         "-http-addr=127.0.0.1:8080",
         "-telemetry-addr=false",
         "-health-addr=false",
         "-grpc-addr=127.0.0.1:6060",
-        "-namespace=kfp-dev",
+        "-namespace=kubefox-dev",
         "-log-level=debug",
         "-num-workers=1"
       ]
@@ -32,6 +32,7 @@
         "-telemetry-addr=false",
         "-health-addr=false",
         "-grpc-addr=127.0.0.1:6061",
+        "-namespace=kubefox-dev",
         "-log-level=debug",
         "-num-workers=1"
       ]

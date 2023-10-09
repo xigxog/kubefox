@@ -2,7 +2,7 @@ apiVersion: apps/v1
 kind: StatefulSet
 {{ include "metadata" . }}
 spec:
-  serviceName: {{ componentName }}
+  serviceName: {{ componentFullName }}
   replicas: 1
   podManagementPolicy: Parallel
   selector:
@@ -13,15 +13,17 @@ spec:
       labels:
         {{- include "labels" . | nindent 8 }}
     spec:
-      serviceAccountName: {{ componentName }}
+      serviceAccountName: {{ componentFullName }}
       {{- with .App.ImagePullSecret }}
       imagePullSecrets:
         - name: {{ . }}
       {{- end }}
+      {{- include "podSecurityContext" . | nindent 6 }}
       containers:
         - name: {{ .Component.Name }}
           image: {{ .Component.Image | default (printf "%s/%s:%v" .App.Registry .Component.Name .Component.Commit) | quote }}
           imagePullPolicy: {{ .Component.ImagePullPolicy | default "IfNotPresent" }}
+          {{- include "containerSecurityContext" . | nindent 10 }}
           env:
             - name: KUBEFOX_INSTANCE
               value: {{ .Instance.Name }}
@@ -52,16 +54,11 @@ spec:
               mountPath: /home/vault
             - name: data
               mountPath: /vault/data
-      securityContext:
-        runAsNonRoot: true
-        runAsUser: 100
-        runAsGroup: 1000
-        fsGroup: 1000
       volumes:
         - name: entrypoint
           configMap:
             defaultMode: 0777
-            name: {{ componentName }}-entrypoint
+            name: {{ componentFullName }}-entrypoint
         - name: home
           emptyDir: {}
   volumeClaimTemplates:

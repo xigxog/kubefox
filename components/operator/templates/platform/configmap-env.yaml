@@ -1,0 +1,20 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Platform.Name }}-env
+  namespace: {{ namespace }}
+  labels:
+    {{- include "labels" . | nindent 4 }}
+  {{- with .Owner }}
+  ownerReferences:
+    {{- . | toYaml | nindent 4 }}
+  {{- end }}
+data:
+  KUBEFOX_HOME: /tmp/kubefox
+  KUBEFOX_NAMESPACE: {{ namespace }}
+  KUBEFOX_INSTANCE: {{ .Instance.Name }}
+  KUBEFOX_INSTANCE_NAMESPACE: {{ .Instance.Namespace }}
+  KUBEFOX_PLATFORM: {{ .Platform.Name }}
+  KUBEFOX_PLATFORM_NAMESPACE: {{ .Platform.Namespace }}
+  KUBEFOX_PLATFORM_FULL_NAME: {{ platformFullName }}
+  KUBEFOX_PLATFORM_VAULT_NAME: {{ platformVaultName }}

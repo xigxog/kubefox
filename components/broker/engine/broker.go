@@ -9,12 +9,18 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/lestrrat-go/jwx/jwt"
 	"github.com/xigxog/kubefox/components/broker/config"
 	"github.com/xigxog/kubefox/components/broker/telemetry"
 	"github.com/xigxog/kubefox/libs/core/kubefox"
 	"github.com/xigxog/kubefox/libs/core/logkf"
 	"github.com/xigxog/kubefox/libs/core/utils"
+
 	"google.golang.org/protobuf/types/known/structpb"
+	authv1 "k8s.io/api/authentication/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 // OS status codes
@@ -25,6 +31,7 @@ const (
 	HTTPServerExitCode    = 13
 	TelemetryExitCode     = 14
 	ResourceStoreExitCode = 15
+	kubernetesExitCode    = 16
 	InterruptCode         = 130
 )
 
@@ -38,7 +45,7 @@ type Engine interface {
 }
 
 type Broker interface {
-	AuthorizeComponent(*kubefox.Component, string) error
+	AuthorizeComponent(context.Context, *kubefox.Component, string) error
 	Subscribe(context.Context, *SubscriptionConf) (ReplicaSubscription, error)
 	RecvEvent(*ReceivedEvent) error
 }
@@ -49,6 +56,7 @@ type broker struct {
 
 	jsClient *JetStreamClient
 	// httpClient *HTTPClient
+	k8sClient client.Client
 
 	healthSrv *telemetry.HealthServer
 	telClient *telemetry.Client
@@ -100,6 +108,18 @@ func (brk *broker) Start() {
 	ctx, cancel := context.WithTimeout(brk.ctx, timeout)
 	defer cancel()
 
+	cfg, err := ctrl.GetConfig()
+	if err != nil {
+		brk.log.Errorf("connecting to kubernetes failed: %v", err)
+		brk.shutdown(kubernetesExitCode)
+	}
+	k8s, err := client.New(cfg, client.Options{})
+	if err != nil {
+		brk.log.Errorf("connecting to kubernetes failed: %v", err)
+		brk.shutdown(kubernetesExitCode)
+	}
+	brk.k8sClient = k8s
+
 	if config.HealthSrvAddr != "false" {
 		if err := brk.healthSrv.Start(); err != nil {
 			brk.shutdown(TelemetryExitCode)
@@ -125,10 +145,8 @@ func (brk *broker) Start() {
 		brk.shutdown(GRPCServerExitCode)
 	}
 
-	if config.HTTPSrvAddr != "false" {
-		if err := brk.httpSrv.Start(); err != nil {
-			brk.shutdown(HTTPServerExitCode)
-		}
+	if err := brk.httpSrv.Start(); err != nil {
+		brk.shutdown(HTTPServerExitCode)
 	}
 
 	brk.log.Infof("starting %d workers", config.NumWorkers)
@@ -159,16 +177,45 @@ func (brk *broker) Subscribe(ctx context.Context, conf *SubscriptionConf) (Repli
 		return nil, err
 	}
 
-	// TODO record comp routes in kv
-
 	// TODO deal with health checks
 
 	return sub, nil
 }
 
-func (brk *broker) AuthorizeComponent(comp *kubefox.Component, authToken string) error {
-	// TODO call vault to ensure valid token and get comp info to compare
-	// or just confirm SA token with K8s directly, easier
+func (brk *broker) AuthorizeComponent(ctx context.Context, comp *kubefox.Component, authToken string) error {
+	svcAccName := config.Platform + "-" + comp.GroupKey()
+
+	parsed, err := jwt.ParseString(authToken)
+	if err != nil {
+		return err
+	}
+	var jwtSvcAccName string
+	if k, ok := parsed.PrivateClaims()["kubernetes.io"].(map[string]interface{}); ok {
+		if sa, ok := k["serviceaccount"].(map[string]interface{}); ok {
+			if n, ok := sa["name"].(string); ok {
+				jwtSvcAccName = n
+			}
+		}
+	}
+	if jwtSvcAccName != svcAccName {
+		return fmt.Errorf("service account name does not match component")
+	}
+
+	review := authv1.TokenReview{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: svcAccName,
+		},
+		Spec: authv1.TokenReviewSpec{
+			Token: authToken,
+		},
+	}
+	if err := brk.k8sClient.Create(ctx, &review); err != nil {
+		return err
+	}
+	if !review.Status.Authenticated {
+		return fmt.Errorf("unauthorized component: %s", review.Status.Error)
+	}
+
 	return nil
 }
 

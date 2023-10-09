@@ -7,5 +7,5 @@ roleRef:
   name: system:auth-delegator
 subjects:
   - kind: ServiceAccount
-    name: {{ componentName }}
+    name: {{ componentFullName }}
     namespace: {{ namespace }}

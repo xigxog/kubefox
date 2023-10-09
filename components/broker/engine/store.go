@@ -15,6 +15,8 @@ import (
 	"github.com/xigxog/kubefox/libs/core/logkf"
 	"github.com/xigxog/kubefox/libs/core/matcher"
 
+	appsv1 "k8s.io/api/apps/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes/scheme"
 	k8scache "k8s.io/client-go/tools/cache"
@@ -22,10 +24,6 @@ import (
 	ctrlcache "sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
-
-type Matcher interface {
-	Match(evt *kubefox.Event) *kubefox.MatchedEvent
-}
 
 type Store struct {
 	namespace string
@@ -41,6 +39,7 @@ type Store struct {
 	envInf ctrlcache.Informer
 	depInf ctrlcache.Informer
 	relInf ctrlcache.Informer
+	dsInf  ctrlcache.Informer
 
 	ctx    context.Context
 	cancel context.CancelFunc
@@ -48,21 +47,6 @@ type Store struct {
 	mutex sync.Mutex
 
 	log *logkf.Logger
-}
-
-type DeploymentMatcher struct {
-	Deployment  string
-	Environment string
-	Matchers    []*matcher.EventMatcher
-	Error       error
-}
-
-type ReleaseMatchers map[string]*ReleaseMatcher
-
-type ReleaseMatcher struct {
-	Release  string
-	Matchers []*matcher.EventMatcher
-	Error    error
 }
 
 func NewStore(namespace string) *Store {
@@ -126,6 +110,12 @@ func (str *Store) Open(routesKV nats.KeyValue) error {
 		k8scache.WaitForCacheSync(str.ctx.Done(), inf.HasSynced)
 		inf.AddEventHandler(str)
 	}
+	if inf, err := c.GetInformer(str.ctx, &appsv1.DaemonSet{}); err != nil {
+		return str.log.ErrorN("release informer failed: %v", err)
+	} else {
+		str.dsInf = inf
+		k8scache.WaitForCacheSync(str.ctx.Done(), inf.HasSynced)
+	}
 
 	return nil
 }
@@ -147,6 +137,28 @@ func (str *Store) GetEnvironment(name string) (*v1alpha1.Environment, error) {
 func (str *Store) GetRelease(name string) (*v1alpha1.Release, error) {
 	obj := new(v1alpha1.Release)
 	return obj, str.get(name, obj, false)
+}
+
+// TODO return a map of node names to broker pod id. This will allow running
+// broker without host network. Broker just sends back correct ip during
+// subscribe.
+func (str *Store) GetBrokerMap() (map[string]string, error) {
+	ctx, cancel := context.WithTimeout(str.ctx, time.Minute)
+	defer cancel()
+
+	ls := labels.NewSelector()
+	// r, err := labels.NewRequirement()
+	// ls.Add()
+
+	dsList := new(appsv1.DaemonSetList)
+	if err := str.resCache.List(ctx, dsList, &client.ListOptions{
+		Namespace:     str.namespace,
+		LabelSelector: ls,
+	}); err != nil {
+		return nil, err
+	}
+
+	return map[string]string{}, nil
 }
 
 func (str *Store) GetReleaseMatchers() (ReleaseMatchers, error) {
@@ -225,44 +237,6 @@ func (str *Store) GetDeploymentMatcher(depName, envName string) (*DeploymentMatc
 	}
 
 	return depMatcher, nil
-}
-
-func (rms ReleaseMatchers) Match(evt *kubefox.Event) *kubefox.MatchedEvent {
-	for _, rm := range rms {
-		if rm.Error != nil {
-			continue
-		}
-		for _, m := range rm.Matchers {
-			if comp, rt, match := m.Match(evt); match {
-				evt.Release = rm.Release
-				evt.Target = comp
-				return &kubefox.MatchedEvent{
-					Event:   evt,
-					RouteId: int64(rt.Id),
-				}
-			}
-		}
-	}
-
-	return nil
-}
-
-func (dm *DeploymentMatcher) Match(evt *kubefox.Event) *kubefox.MatchedEvent {
-	if dm.Error != nil {
-		return nil
-	}
-
-	for _, m := range dm.Matchers {
-		if comp, rt, match := m.Match(evt); match {
-			evt.Target = comp
-			return &kubefox.MatchedEvent{
-				Event:   evt,
-				RouteId: int64(rt.Id),
-			}
-		}
-	}
-
-	return nil
 }
 
 func (str *Store) OnAdd(obj interface{}, isInInitialList bool) {

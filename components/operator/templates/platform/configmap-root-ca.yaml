@@ -1,7 +1,7 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name:  {{ .Instance.Name }}-root-ca
+  name: {{ .Instance.Name }}-root-ca
   namespace: {{ namespace }}
   labels:
     app.kubernetes.io/instance: {{ .Instance.Name }}

@@ -15,6 +15,9 @@ import (
 	"github.com/xigxog/kubefox/libs/core/kubefox"
 	"github.com/xigxog/kubefox/libs/core/logkf"
 	"github.com/xigxog/kubefox/libs/core/utils"
+
+	"github.com/go-logr/zapr"
+	ctrl "sigs.k8s.io/controller-runtime"
 )
 
 // Injected at build time
@@ -29,7 +32,8 @@ func main() {
 	flag.StringVar(&config.Namespace, "namespace", "", "Namespace of Platform instance. (required)")
 	flag.StringVar(&config.GRPCSrvAddr, "grpc-addr", "127.0.0.1:6060", "Address and port the gRPC server should bind to.")
 	flag.StringVar(&config.HTTPSrvAddr, "http-addr", "127.0.0.1:8080", `Address and port the HTTP server should bind to, set to "false" to disable.`)
-	flag.StringVar(&config.HealthSrvAddr, "health-addr", "0.0.0.0:1111", `Address and port the HTTP health server should bind to, set to "false" to disable.`)
+	flag.StringVar(&config.HTTPSSrvAddr, "https-addr", "127.0.0.1:8443", `Address and port the HTTPS server should bind to, set to "false" to disable.`)
+	flag.StringVar(&config.HealthSrvAddr, "health-addr", "127.0.0.1:1111", `Address and port the HTTP health server should bind to, set to "false" to disable.`)
 	flag.StringVar(&config.CertDir, "cert-dir", path.Join(kubefox.KubeFoxHome, "broker"), "Path of dir containing TLS certificate, private key, and root CA certificate.")
 	flag.StringVar(&config.VaultAddr, "vault-addr", "127.0.0.1:8200", "Address and port of Vault server.")
 	flag.StringVar(&config.NATSAddr, "nats-addr", "127.0.0.1:4222", "Address and port of NATS JetStream server.")
@@ -54,12 +58,14 @@ func main() {
 	config.GitRef = GitRef
 	config.GitCommit = GitCommit
 
-	l := logkf.BuildLoggerOrDie(config.LogFormat, config.LogLevel)
-	defer l.Sync()
-	logkf.Global = l.
+	logkf.Global = logkf.
+		BuildLoggerOrDie(config.LogFormat, config.LogLevel).
 		WithInstance(config.Instance).
 		WithPlatform(config.Platform).
 		WithService("broker")
+	defer logkf.Global.Sync()
+
+	ctrl.SetLogger(zapr.NewLogger(logkf.Global.Unwrap().Desugar()))
 
 	engine.New().Start()
 

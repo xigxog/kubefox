@@ -13,15 +13,18 @@ import (
 	// to ensure that exec-entrypoint and run can make use of them.
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 
-	"github.com/google/uuid"
 	"github.com/xigxog/kubefox/libs/core/grpc"
 	"github.com/xigxog/kubefox/libs/core/kubefox"
 	"github.com/xigxog/kubefox/libs/core/logkf"
 	"github.com/xigxog/kubefox/libs/core/utils"
+
+	"github.com/go-logr/zapr"
+	"github.com/google/uuid"
 	gogrpc "google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/status"
+	ctrl "sigs.k8s.io/controller-runtime"
 )
 
 type EventHandlerFunc func(kit Kontext) error
@@ -41,6 +44,8 @@ type kit struct {
 
 	brokerAddr string
 	caCertPath string
+	platform   string
+	namespace  string
 
 	routes []*route
 
@@ -74,6 +79,8 @@ func New() Kit {
 	//-tls-skip-verify
 	flag.StringVar(&svc.comp.Name, "name", "", "Component name; environment variable 'KUBEFOX_COMPONENT_NAME'. (required)")
 	flag.StringVar(&svc.comp.Commit, "commit", "", "Commit the Component was built from; environment variable 'KUBEFOX_COMPONENT_COMMIT'. (required)")
+	flag.StringVar(&svc.platform, "platform", "", "Platform the Component is part of; environment variable 'KUBEFOX_PLATFORM'.")
+	flag.StringVar(&svc.namespace, "namespace", "", "Kubernetes namespace of the Component; environment variable 'KUBEFOX_NAMESPACE'.")
 	flag.StringVar(&svc.brokerAddr, "broker-addr", "127.0.0.1:6060", "Address of the Broker gRPC server; environment variable 'KUBEFOX_BROKER_GRPC_ADDR'.")
 	flag.StringVar(&svc.caCertPath, "ca-cert-path", kubefox.CACertPath, "Path of file containing KubeFox root CA certificate; environment variable 'KUBEFOX_CA_CERT_PATH'.")
 	flag.StringVar(&logFormat, "log-format", "console", "Log format; environment variable 'KUBEFOX_LOG_FORMAT'. [options 'json', 'console']")
@@ -101,9 +108,14 @@ Flags:
 	utils.CheckRequiredFlag("name", svc.comp.Name)
 	utils.CheckRequiredFlag("commit", svc.comp.Commit)
 
-	l := logkf.BuildLoggerOrDie(logFormat, logLevel)
-	defer l.Sync()
-	svc.log = l.WithComponent(svc.comp)
+	logkf.Global = logkf.
+		BuildLoggerOrDie(logFormat, logLevel).
+		WithComponent(svc.comp)
+	defer logkf.Global.Sync()
+
+	svc.log = logkf.Global
+	ctrl.SetLogger(zapr.NewLogger(logkf.Global.Unwrap().Desugar()))
+
 	svc.Context, svc.cancel = context.WithCancel(context.Background())
 	svc.log.Info("kit service created 🦊")
 
@@ -147,10 +159,13 @@ func (svc *kit) Start() {
 			  "RetryableStatusCodes": [ "UNAVAILABLE" ]
 		  }
 		}]}`
-
-	conn, err := gogrpc.Dial(svc.brokerAddr,
+	creds, err := credentials.NewClientTLSFromFile(kubefox.CACertPath, "")
+	if err != nil {
+		svc.log.Fatalf("unable to load root CA certificate: %v", err)
+	}
+	conn, err = gogrpc.Dial(svc.brokerAddr,
 		gogrpc.WithPerRPCCredentials(svc),
-		gogrpc.WithTransportCredentials(insecure.NewCredentials()),
+		gogrpc.WithTransportCredentials(creds),
 		gogrpc.WithDefaultServiceConfig(grpcCfg),
 	)
 	if err != nil {
@@ -294,17 +309,21 @@ func (svc *kit) recvResp(resp *kubefox.Event) {
 
 // TODO
 func (svc *kit) GetRequestMetadata(ctx context.Context, uri ...string) (map[string]string, error) {
+	saToken, err := utils.GetSvcAccountToken(svc.namespace, svc.platform+"-"+svc.comp.GroupKey())
+	if err != nil {
+		return nil, err
+	}
+
 	return map[string]string{
 		"componentId":     svc.comp.Id,
 		"componentName":   svc.comp.Name,
 		"componentCommit": svc.comp.Commit,
-		"accountId":       "392db620-1828-423f-a457-4c5680fb7787",
-		"authToken":       "eyJhbGciOiJSUzI1NiIsImtpZCI6IlFZNDJITzZZcGl0c3kzTjQ0Wl9DWkxfR3R0TmJRMkE2SkhZeW9wU3NQcWcifQ.eyJhdWQiOlsiaHR0cHM6Ly9rdWJlcm5ldGVzLmRlZmF1bHQuc3ZjLmNsdXN0ZXIubG9jYWwiXSwiZXhwIjoxNjkzMzI2MDI4LCJpYXQiOjE2OTMzMjI0MjgsImlzcyI6Imh0dHBzOi8va3ViZXJuZXRlcy5kZWZhdWx0LnN2Yy5jbHVzdGVyLmxvY2FsIiwia3ViZXJuZXRlcy5pbyI6eyJuYW1lc3BhY2UiOiJrdWJlZm94LXN5c3RlbSIsInNlcnZpY2VhY2NvdW50Ijp7Im5hbWUiOiJtYWluLXZhdWx0IiwidWlkIjoiMzkyZGI2MjAtMTgyOC00MjNmLWE0NTctNGM1NjgwZmI3Nzg3In19LCJuYmYiOjE2OTMzMjI0MjgsInN1YiI6InN5c3RlbTpzZXJ2aWNlYWNjb3VudDprdWJlZm94LXN5c3RlbTptYWluLXZhdWx0In0.ufIurFiQPplxMrprERvU4QMNj7C7tmwZa52JDWCzV4Fz48C3VIV2NwIgs1ygmp_MSthWVOA53CCTEjaZB3VSDKd8yWZJXs-lx1-szuQoAS5y9BMPSA6vHxJBXaVLqw0dlwazJDDq-OvDxKjfIwiBiSq-3DvjZtMTDnvni4SC8ttWbXcDRRSrrOX9XdnzOEffmYnPQxkC8G9WEiPCa4BflKRB1ZvIX04ixzPou09U5qMwcBGvTX3kh4thkm3BVo6nsyLYeRM4HyjsjVKuEcYrzZcKh6jwSMviHkX7sO9Vill3TKxvx5HPvkgNjjctfk1N6eAwvTfn5wVZZegYcxhWFQ",
+		"authToken":       saToken,
 	}, nil
 }
 
 func (svc *kit) RequireTransportSecurity() bool {
-	return false
+	return true
 }
 
 func (svc *kit) sendEvent(evt *kubefox.Event, start int64) error {

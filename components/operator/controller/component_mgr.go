@@ -34,7 +34,7 @@ func (cm *ComponentManager) SetupComponent(ctx context.Context, td *TemplateData
 
 	log.Debug("setting up component")
 
-	name := nn(td.Namespace(), td.ComponentName())
+	name := nn(td.Namespace(), td.ComponentFullName())
 	if err := cm.Client.Get(ctx, name, td.Obj); client.IgnoreNotFound(err) != nil {
 		return false, log.ErrorN("unable to fetch component workload: %w", err)
 	}
@@ -130,7 +130,7 @@ func (cm *ComponentManager) ReconcileComponents(ctx context.Context, namespace s
 				Template: "component",
 				Obj:      &appsv1.Deployment{},
 			}
-			compMap[td.ComponentName()] = td
+			compMap[td.ComponentFullName()] = td
 		}
 	}
 	log.Debugf("found %d unique components", len(compMap))

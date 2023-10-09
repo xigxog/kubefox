@@ -1,7 +1,7 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: {{ componentFullName }}-entrypoint
+  name: {{ .Platform.Name }}-pki-init
   namespace: {{ namespace }}
   labels:
     {{- include "labels" . | nindent 4 }}
@@ -10,5 +10,5 @@ metadata:
     {{- . | toYaml | nindent 4 }}
   {{- end }}
 data:
-  entrypoint.sh: |
-    {{- file "vault/entrypoint.sh" | nindent 4 }}
+  pki-init.sh: |
+    {{- file "platform/pki-init.sh" | nindent 4 }}

@@ -246,15 +246,15 @@ func (evt *Event) ParseHTTPRequest(httpReq *http.Request) error {
 	evt.ContentType = httpReq.Header.Get("Content-Type")
 
 	if evt.Environment == "" {
-		evt.Environment = GetParamOrHeader(httpReq, EnvHeader, EnvHeaderShort)
+		evt.Environment = GetParamOrHeader(httpReq, EnvHeader, EnvHeaderShort, EnvHeaderAbbrv)
 	}
 
 	if evt.Deployment == "" {
-		evt.Deployment = GetParamOrHeader(httpReq, DepHeader, DepHeaderShort)
+		evt.Deployment = GetParamOrHeader(httpReq, DepHeader, DepHeaderShort, DepHeaderAbbrv)
 	}
 
 	if evt.Type == "" || evt.Type == string(UnknownEventType) {
-		evtType := GetParamOrHeader(httpReq, EventTypeHeader)
+		evtType := GetParamOrHeader(httpReq, EventTypeHeader, EventTypeHeaderAbbrv)
 		if evtType != "" {
 			evt.Type = evtType
 		} else {

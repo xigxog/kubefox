@@ -70,14 +70,26 @@ func (d Data) PlatformFullName() string {
 	return fmt.Sprintf("%s-%s", d.Instance.Name, d.Platform.Name)
 }
 
-func (d Data) ComponentName() string {
-	prefix := d.App.Name
-	if prefix == "" {
-		prefix = d.Platform.Name
+func (d Data) PlatformVaultName() string {
+	name := fmt.Sprintf("%s-%s", d.Platform.Namespace, d.Platform.Name)
+	if !strings.HasPrefix(name, "kubefox") {
+		name = "kubefox-" + name
 	}
-	if prefix == "" {
-		prefix = d.Instance.Name
+	return name
+}
+
+func (d Data) ComponentFullName() string {
+	if d.Component.Name == "" {
+		return ""
 	}
-	name := fmt.Sprintf("%s-%s-%s", prefix, d.Component.Name, d.Component.Commit)
+
+	name := d.App.Name
+	if name == "" {
+		name = d.Platform.Name
+	}
+	if name == "" {
+		name = d.Instance.Name
+	}
+	name = fmt.Sprintf("%s-%s-%s", name, d.Component.Name, d.Component.Commit)
 	return strings.TrimSuffix(name, "-")
 }

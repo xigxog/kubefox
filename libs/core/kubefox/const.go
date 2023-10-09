@@ -55,11 +55,14 @@ const (
 
 // Headers and query params.
 const (
-	EnvHeader       = "kf-environment"
-	EnvHeaderShort  = "kf-env"
-	DepHeader       = "kf-deployment"
-	DepHeaderShort  = "kf-dep"
-	EventTypeHeader = "kf-type"
+	EnvHeader            = "kf-environment"
+	EnvHeaderShort       = "kf-env"
+	EnvHeaderAbbrv       = "kfe"
+	DepHeader            = "kf-deployment"
+	DepHeaderShort       = "kf-dep"
+	DepHeaderAbbrv       = "kfd"
+	EventTypeHeader      = "kf-type"
+	EventTypeHeaderAbbrv = "kft"
 )
 
 var (
@@ -73,13 +76,17 @@ var (
 
 // Certificate paths.
 const (
-	TLSCertFile     = "tls.crt"
-	TLSKeyFile      = "tls.key"
-	CACertFile      = "ca.crt"
+	CACertFile  = "ca.crt"
+	TLSCertFile = "tls.crt"
+	TLSKeyFile  = "tls.key"
+
 	SvcAccTokenFile = "/var/run/secrets/kubernetes.io/serviceaccount/token"
 )
 
 var (
 	KubeFoxHome = path.Join("/", "tmp", "kubefox")
+
 	CACertPath  = path.Join(KubeFoxHome, CACertFile)
+	TLSCertPath = path.Join(KubeFoxHome, TLSCertFile)
+	TLSKeyPath  = path.Join(KubeFoxHome, TLSKeyFile)
 )

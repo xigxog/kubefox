@@ -11,7 +11,7 @@ package controller
 import (
 	"context"
 	"fmt"
-	"strings"
+	"sync"
 	"time"
 
 	vapi "github.com/hashicorp/vault/api"
@@ -40,8 +40,11 @@ type PlatformReconciler struct {
 
 	Scheme *runtime.Scheme
 
-	cm  *ComponentManager
-	log *logkf.Logger
+	vClient *vapi.Client
+	cm      *ComponentManager
+	log     *logkf.Logger
+
+	mutex sync.Mutex
 }
 
 // SetupWithManager sets up the controller with the Manager.
@@ -120,16 +123,16 @@ func (r *PlatformReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 			},
 			Component: templates.Component{
 				Name:  "vault",
-				Image: "ghcr.io/xigxog/vault:1.14.1-v0.0.1", // TODO move image to arg or const
+				Image: "ghcr.io/xigxog/vault:1.14.1-v0.2.1-alpha", // TODO move image to arg or const
 			},
 		},
 		Obj:      &appsv1.StatefulSet{},
 		Template: "vault",
 	}
 	if rdy, err := r.cm.SetupComponent(ctx, td); !rdy || err != nil {
-		return ctrl.Result{RequeueAfter: time.Second * 15}, err
+		return ctrl.Result{RequeueAfter: time.Second * 5}, err
 	}
-	vaultURL := fmt.Sprintf("https://%s.%s:8200", td.ComponentName(), td.Instance.Namespace)
+	vaultURL := fmt.Sprintf("https://%s.%s:8200", td.ComponentFullName(), td.Instance.Namespace)
 	if r.VaultAddr != "" {
 		vaultURL = fmt.Sprintf("https://%s", r.VaultAddr)
 	}
@@ -150,6 +153,9 @@ func (r *PlatformReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 				Name:      p.Name,
 				Namespace: p.Namespace,
 			},
+			Values: map[string]any{
+				"pkiInitImage": "ghcr.io/xigxog/vault:1.14.1-v0.2.1-alpha", // TODO move image to arg or const
+			},
 			Owner: []*metav1.OwnerReference{metav1.NewControllerRef(p, p.GroupVersionKind())},
 		},
 	}
@@ -165,10 +171,10 @@ func (r *PlatformReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	td.Obj = &appsv1.StatefulSet{}
 	td.Component = templates.Component{
 		Name:  "nats",
-		Image: "nats:2.9.21-alpine",
+		Image: "ghcr.io/xigxog/nats:2.10.1",
 	}
 	if rdy, err := r.cm.SetupComponent(ctx, td); !rdy || err != nil {
-		return ctrl.Result{}, err
+		return ctrl.Result{RequeueAfter: time.Second * 5}, err
 	}
 
 	td.Template = "broker"
@@ -200,12 +206,9 @@ func (r *PlatformReconciler) setupVault(ctx context.Context, td *TemplateData, u
 		return err
 	}
 
-	uName := fmt.Sprintf("%s-%s", td.PlatformFullName(), td.Platform.Namespace)
-	if !strings.HasPrefix(uName, "kubefox") {
-		uName = "kubefox-" + uName
-	}
-	pkiPath := "pki/int/platform/" + uName
-	natsPath := "nats/platform/" + uName
+	vName := td.PlatformVaultName()
+	pkiPath := "pki/int/platform/" + vName
+	natsPath := "nats/platform/" + vName
 	if cfg, _ := vault.Sys().MountConfig(pkiPath); cfg == nil {
 		err = vault.Sys().Mount(pkiPath, &vapi.MountInput{
 			Type: "pki",
@@ -247,8 +250,8 @@ func (r *PlatformReconciler) setupVault(ctx context.Context, td *TemplateData, u
 	}
 	_, err = vault.Logical().Write(pkiPath+"/roles/nats", map[string]interface{}{
 		"issuer_ref":         "default",
+		"allowed_domains":    td.Platform.Name + "-nats." + td.Platform.Namespace,
 		"allow_localhost":    true,
-		"allowed_domains":    td.PlatformFullName() + "-nats," + td.PlatformFullName() + "-nats." + td.Namespace(),
 		"allow_bare_domains": true,
 		"max_ttl":            TenYears,
 	})
@@ -257,8 +260,8 @@ func (r *PlatformReconciler) setupVault(ctx context.Context, td *TemplateData, u
 	}
 	_, err = vault.Logical().Write(pkiPath+"/roles/broker", map[string]interface{}{
 		"issuer_ref":         "default",
+		"allowed_domains":    td.Platform.Name + "-broker." + td.Platform.Namespace,
 		"allow_localhost":    true,
-		"allowed_domains":    "localhost",
 		"allow_bare_domains": true,
 		"max_ttl":            TenYears,
 	})
@@ -274,18 +277,14 @@ func (r *PlatformReconciler) setupVault(ctx context.Context, td *TemplateData, u
 			return err
 		}
 		_, err := vault.Logical().Write(natsPath+"/config", map[string]interface{}{
-			"service_url": "nats://" + td.PlatformFullName() + "-nats." + td.Namespace() + ":4222",
+			"service_url": "nats://" + td.Platform.Name + "-nats." + td.Platform.Namespace + ":4222",
 		})
 		if err != nil {
 			return err
 		}
 	}
 
-	err = vault.Sys().PutPolicyWithContext(ctx, uName+"-broker", `
-// issue nats certs
-path "`+pkiPath+`/issue/nats" {
-	capabilities = ["create", "update"]
-}
+	err = vault.Sys().PutPolicyWithContext(ctx, vName+"-broker", `
 // issue broker certs
 path "`+pkiPath+`/issue/broker" {
 	capabilities = ["create", "update"]
@@ -302,10 +301,36 @@ path "`+natsPath+`/jwt/*" {
 		return err
 	}
 
-	_, err = vault.Logical().Write("auth/kubernetes/role/"+uName+"-broker", map[string]interface{}{
-		"bound_service_account_names":      td.PlatformFullName() + "-broker",
-		"bound_service_account_namespaces": td.Namespace(),
-		"token_policies":                   uName + "-broker,kv-kubefox-reader",
+	err = vault.Sys().PutPolicyWithContext(ctx, vName+"-nats", `
+// issue nats certs
+path "`+pkiPath+`/issue/nats" {
+	capabilities = ["create", "update"]
+}
+// issue NATS JWTs
+path "`+natsPath+`/config" {
+	capabilities = ["read"]
+}
+path "`+natsPath+`/jwt/*" {
+	capabilities = ["create"]
+}
+	`)
+	if err != nil {
+		return err
+	}
+
+	_, err = vault.Logical().Write("auth/kubernetes/role/"+vName+"-broker", map[string]interface{}{
+		"bound_service_account_names":      td.Platform.Name + "-broker",
+		"bound_service_account_namespaces": td.Platform.Namespace,
+		"token_policies":                   vName + "-broker,kv-kubefox-reader",
+	})
+	if err != nil {
+		return err
+	}
+
+	_, err = vault.Logical().Write("auth/kubernetes/role/"+vName+"-nats", map[string]interface{}{
+		"bound_service_account_names":      td.Platform.Name + "-nats",
+		"bound_service_account_namespaces": td.Platform.Namespace,
+		"token_policies":                   vName + "-nats",
 	})
 	if err != nil {
 		return err
@@ -315,6 +340,13 @@ path "`+natsPath+`/jwt/*" {
 }
 
 func (r *PlatformReconciler) vaultClient(ctx context.Context, url string, caCert []byte) (*vapi.Client, error) {
+	r.mutex.Lock()
+	defer r.mutex.Unlock()
+
+	if r.vClient != nil {
+		return r.vClient, nil
+	}
+
 	cfg := vapi.DefaultConfig()
 	cfg.Address = url
 	cfg.MaxRetries = 3
@@ -343,6 +375,7 @@ func (r *PlatformReconciler) vaultClient(ctx context.Context, url string, caCert
 	if authInfo == nil {
 		return nil, fmt.Errorf("error logging in with kubernetes auth: no auth info was returned")
 	}
+	r.vClient = vault
 
 	watcher, err := vault.NewLifetimeWatcher(&vapi.LifetimeWatcherInput{Secret: authInfo})
 	if err != nil {

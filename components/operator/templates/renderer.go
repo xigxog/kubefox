@@ -2,6 +2,7 @@ package templates
 
 import (
 	"embed"
+	"path"
 	"strings"
 	"text/template"
 
@@ -14,7 +15,7 @@ import (
 var EFS embed.FS
 
 func Render(name string, data *Data) ([]*unstructured.Unstructured, error) {
-	rendered, err := renderStr(name, data)
+	rendered, err := renderStr("list.tpl", name+"/*", data)
 	if err != nil {
 		return nil, err
 	}
@@ -29,11 +30,11 @@ func Render(name string, data *Data) ([]*unstructured.Unstructured, error) {
 	return resList.Items, nil
 }
 
-func renderStr(name string, data *Data) (string, error) {
-	tpl := template.New("list.tpl").Option("missingkey=zero")
+func renderStr(tplFile, path string, data *Data) (string, error) {
+	tpl := template.New(tplFile).Option("missingkey=zero")
 	initFuncs(tpl, data)
 
-	if _, err := tpl.ParseFS(EFS, "helpers.tpl", name+"/*"); err != nil {
+	if _, err := tpl.ParseFS(EFS, "helpers.tpl", path); err != nil {
 		return "", err
 	}
 
@@ -67,15 +68,22 @@ func initFuncs(tpl *template.Template, data *Data) {
 	}
 
 	funcMap["file"] = func(name string) string {
-		b, err := EFS.ReadFile(name)
-		if err != nil {
+		if s, err := renderStr(path.Base(name), name, data); err != nil {
 			return ""
+		} else {
+			return s
 		}
-		return string(b)
+		// b, err := EFS.ReadFile(name)
+		// if err != nil {
+		// 	return ""
+		// }
+		// return string(b)
 	}
 
 	funcMap["namespace"] = data.Namespace
-	funcMap["componentName"] = data.ComponentName
+	funcMap["platformFullName"] = data.PlatformFullName
+	funcMap["platformVaultName"] = data.PlatformVaultName
+	funcMap["componentFullName"] = data.ComponentFullName
 
 	tpl.Funcs(funcMap)
 }

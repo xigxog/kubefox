@@ -1,7 +1,7 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: {{ componentName }}-config
+  name: {{ componentFullName }}-config
   namespace: {{ namespace }}
   labels:
     {{- include "labels" . | nindent 4 }}

@@ -10,18 +10,17 @@ spec:
       labels:
         {{- include "labels" . | nindent 8 }}
     spec:
-      serviceAccountName: {{ componentName }}
-      securityContext:
-        runAsNonRoot: true
-      #hostNetwork: true
+      serviceAccountName: {{ componentFullName }}
       {{- with .App.ImagePullSecret }}
       imagePullSecrets:
         - name: {{ . }}
       {{- end }}
+      {{- include "podSecurityContext" . | nindent 6 }}
       containers:
         - name: {{ .Component.Name }}
           image: {{ .Component.Image | default (printf "%s/%s:%v" .App.Registry .Component.Name .Component.Commit) | quote }}
           imagePullPolicy: {{ .Component.ImagePullPolicy | default "IfNotPresent" }}
+          {{- include "containerSecurityContext" . | nindent 10 }}
           args:
             - -name={{ .Component.Name }}
             - -commit={{ .Component.Commit }}
@@ -33,15 +32,13 @@ spec:
               valueFrom:
                 fieldRef:
                   fieldPath: status.hostIP
+          envFrom:
+            - configMapRef:
+                name: {{ .Platform.Name }}-env
           volumeMounts:
             - name: root-ca
               mountPath: /tmp/kubefox/broker/ca.crt
               subPath: ca.crt
-          securityContext:
-            allowPrivilegeEscalation: false
-            capabilities:
-              drop:
-                - "ALL"
       volumes:
         - name: root-ca
           configMap:

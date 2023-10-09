@@ -29,7 +29,7 @@ kubefox.xigxog.io/component-commit: {{ .Component.Commit }}
 
 {{- define "metadata" -}}
 metadata:
-  name: {{ componentName }}
+  name: {{ componentFullName }}
   namespace: {{ namespace }}
   labels:
     {{- include "labels" . | nindent 4 }}
@@ -46,10 +46,10 @@ kind: RoleBinding
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: Role
-  name: {{ componentName }}
+  name: {{ componentFullName }}
 subjects:
   - kind: ServiceAccount
-    name: {{ componentName }}
+    name: {{ componentFullName }}
     namespace: {{ namespace }}
 {{- end }}
 
@@ -60,10 +60,10 @@ kind: ClusterRoleBinding
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
-  name: {{ componentName }}
+  name: {{ componentFullName }}
 subjects:
   - kind: ServiceAccount
-    name: {{ componentName }}
+    name: {{ componentFullName }}
     namespace: {{ namespace }}
 {{- end }}
 
@@ -71,4 +71,21 @@ subjects:
 apiVersion: v1
 kind: ServiceAccount
 {{ include "metadata" . }}
+{{- end }}
+
+{{- define "podSecurityContext" -}}
+securityContext:
+  runAsNonRoot: true
+  runAsUser: 100
+  runAsGroup: 1000
+  fsGroup: 1000
+  fsGroupChangePolicy: OnRootMismatch
+{{- end }}
+
+{{- define "containerSecurityContext" -}}
+securityContext:
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop:
+      - ALL
 {{- end }}

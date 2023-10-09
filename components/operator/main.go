@@ -65,9 +65,13 @@ func main() {
 	utils.CheckRequiredFlag("instance", instance)
 	utils.CheckRequiredFlag("namespace", namespace)
 
-	l := logkf.BuildLoggerOrDie(logFormat, logLevel)
-	logkf.Global = l.WithService("operator")
-	ctrl.SetLogger(zapr.NewLogger(l.Unwrap().Desugar()))
+	logkf.Global = logkf.
+		BuildLoggerOrDie(logFormat, logLevel).
+		WithService("operator")
+	defer logkf.Global.Sync()
+
+	log := logkf.Global
+	ctrl.SetLogger(zapr.NewLogger(logkf.Global.Unwrap().Desugar()))
 
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
 		Scheme:                 scheme,
@@ -86,7 +90,7 @@ func main() {
 		LeaderElectionReleaseOnCancel: true,
 	})
 	if err != nil {
-		l.Fatal("unable to start manager", err)
+		log.Fatal("unable to start manager", err)
 	}
 
 	if err = (&controller.PlatformReconciler{
@@ -96,21 +100,21 @@ func main() {
 		VaultAddr: vaultAddr,
 		Scheme:    mgr.GetScheme(),
 	}).SetupWithManager(mgr); err != nil {
-		l.Fatalf("unable to create platform controller", err)
+		log.Fatalf("unable to create platform controller", err)
 	}
 	if err = (&controller.DeploymentReconciler{
 		Client:   &controller.Client{Client: mgr.GetClient()},
 		Instance: instance,
 		Scheme:   mgr.GetScheme(),
 	}).SetupWithManager(mgr); err != nil {
-		l.Fatalf("unable to create deployment controller", err)
+		log.Fatalf("unable to create deployment controller", err)
 	}
 	if err = (&controller.ReleaseReconciler{
 		Client:   &controller.Client{Client: mgr.GetClient()},
 		Instance: instance,
 		Scheme:   mgr.GetScheme(),
 	}).SetupWithManager(mgr); err != nil {
-		l.Fatalf("unable to create release controller", err)
+		log.Fatalf("unable to create release controller", err)
 	}
 
 	// if err = (&kubefoxv1alpha1.Platform{}).SetupWebhookWithManager(mgr); err != nil {
@@ -119,14 +123,14 @@ func main() {
 	// }
 
 	if err := mgr.AddHealthzCheck("healthz", healthz.Ping); err != nil {
-		l.Fatal("unable to set up health check", err)
+		log.Fatal("unable to set up health check", err)
 	}
 	if err := mgr.AddReadyzCheck("readyz", healthz.Ping); err != nil {
-		l.Fatal("unable to set up ready check", err)
+		log.Fatal("unable to set up ready check", err)
 	}
 
-	l.Info("starting manager")
+	log.Info("starting manager")
 	if err := mgr.Start(ctrl.SetupSignalHandler()); err != nil {
-		l.Fatal("problem running manager", err)
+		log.Fatal("problem running manager", err)
 	}
 }

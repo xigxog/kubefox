@@ -9,7 +9,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/lestrrat-go/jwx/jwt"
 	"github.com/nats-io/nats.go"
 	"github.com/xigxog/kubefox/components/broker/config"
 	"github.com/xigxog/kubefox/libs/core/grpc"
@@ -19,7 +18,7 @@ import (
 
 	gogrpc "google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/reflection"
 	"google.golang.org/grpc/status"
@@ -56,8 +55,12 @@ func (srv *GRPCServer) Start(ctx context.Context, routesKV nats.KeyValue) error 
 	// 	srv.log.Errorf("error reading cert: %v", err)
 	// 	os.Exit(model.RpcServerErrorCode)
 	// }
-
-	srv.wrapped = gogrpc.NewServer(gogrpc.Creds(insecure.NewCredentials()),
+	creds, err := credentials.NewServerTLSFromFile(kubefox.TLSCertPath, kubefox.TLSKeyPath)
+	if err != nil {
+		return srv.log.ErrorN("%v", err)
+	}
+	srv.wrapped = gogrpc.NewServer(
+		gogrpc.Creds(creds),
 		gogrpc.StreamInterceptor(otelgrpc.StreamServerInterceptor()),
 	)
 
@@ -119,8 +122,9 @@ func (srv *GRPCServer) Subscribe(stream grpc.Broker_SubscribeServer) error {
 	}
 	log := srv.log.WithComponent(comp)
 
-	if err := srv.brk.AuthorizeComponent(comp, authToken); err != nil {
-		return log.ErrorN("%v", err)
+	if err := srv.brk.AuthorizeComponent(stream.Context(), comp, authToken); err != nil {
+		log.Error(err)
+		return fmt.Errorf("unauthorized")
 	}
 
 	// The first event sent should be to register the component.
@@ -216,7 +220,7 @@ func parseMD(stream grpc.Broker_SubscribeServer) (authToken string, comp *kubefo
 		return
 	}
 
-	var compId, compCommit, compName, accId string
+	var compId, compCommit, compName string
 	compId, err = getMD(md, "componentId")
 	if err != nil {
 		return
@@ -229,33 +233,9 @@ func parseMD(stream grpc.Broker_SubscribeServer) (authToken string, comp *kubefo
 	if err != nil {
 		return
 	}
-	accId, err = getMD(md, "accountId")
-	if err != nil {
-		return
-	}
-
 	authToken, err = getMD(md, "authToken")
 	if err != nil {
 		return
-	}
-	t, err := jwt.ParseString(authToken)
-	if err != nil {
-		return
-	}
-	var accIdClaim string
-	if k, ok := t.PrivateClaims()["kubernetes.io"].(map[string]interface{}); ok {
-		if sa, ok := k["serviceaccount"].(map[string]interface{}); ok {
-			if sat, ok := sa["uid"].(string); ok {
-				accIdClaim = sat
-			}
-		}
-	}
-	if accIdClaim == "" {
-		err = fmt.Errorf("account id claim not provided")
-		return
-	}
-	if accId != accIdClaim {
-		err = fmt.Errorf("account id metadata does not match token claim")
 	}
 
 	comp = &kubefox.Component{

@@ -14,10 +14,10 @@ func TestRenderVault(t *testing.T) {
 		},
 		Component: Component{
 			Name:  "vault",
-			Image: "ghcr.io/xigxog/vault:1.13.3-v0.0.1",
+			Image: "ghcr.io/xigxog/vault:1.14.1-v0.2.1-alpha",
 		},
 	}
-	if s, err := renderStr("vault", d); err != nil {
+	if s, err := renderStr("list.tpl", "vault/*", d); err != nil {
 		t.Errorf("%v", err)
 	} else {
 		t.Log(s)
@@ -43,7 +43,7 @@ func TestRenderPlatform(t *testing.T) {
 			},
 		},
 	}
-	if s, err := renderStr("platform", d); err != nil {
+	if s, err := renderStr("list.tpl", "platform/*", d); err != nil {
 		t.Errorf("%v", err)
 	} else {
 		t.Logf("\n%s", s)
@@ -73,7 +73,7 @@ func TestRenderNATS(t *testing.T) {
 			},
 		},
 	}
-	if s, err := renderStr("nats", d); err != nil {
+	if s, err := renderStr("list.tpl", "nats/*", d); err != nil {
 		t.Errorf("%v", err)
 	} else {
 		t.Logf("\n%s", s)
@@ -103,7 +103,7 @@ func TestRenderBroker(t *testing.T) {
 			},
 		},
 	}
-	if s, err := renderStr("broker", d); err != nil {
+	if s, err := renderStr("list.tpl", "broker/*", d); err != nil {
 		t.Errorf("%v", err)
 	} else {
 		t.Logf("\n%s", s)
@@ -139,7 +139,7 @@ func TestRenderComponent(t *testing.T) {
 			},
 		},
 	}
-	if s, err := renderStr("component", d); err != nil {
+	if s, err := renderStr("list.tpl", "component/*", d); err != nil {
 		t.Errorf("%v", err)
 	} else {
 		t.Logf("\n%s", s)

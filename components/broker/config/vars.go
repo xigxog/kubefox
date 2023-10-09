@@ -24,6 +24,7 @@ var (
 
 	GRPCSrvAddr   string
 	HTTPSrvAddr   string
+	HTTPSSrvAddr  string
 	HealthSrvAddr string
 
 	VaultAddr     string

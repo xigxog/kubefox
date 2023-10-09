@@ -84,6 +84,12 @@ func (log *Logger) Unwrap() *zap.SugaredLogger {
 	return log.wrapped
 }
 
+// IncreaseLevel increase the level of the logger. It has no effect if the
+// passed in level tries to decrease the level of the logger.
+func (log *Logger) IncreaseLevel(lvl zapcore.LevelEnabler) *Logger {
+	return &Logger{wrapped: log.wrapped.WithOptions(zap.IncreaseLevel(lvl))}
+}
+
 func (log *Logger) Named(name string) *Logger {
 	return &Logger{wrapped: log.wrapped.Named(name)}
 }

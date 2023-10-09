@@ -2,6 +2,7 @@ package engine
 
 import (
 	"context"
+	"crypto/tls"
 	"errors"
 	"fmt"
 	"net"
@@ -50,16 +51,16 @@ func NewHTTPServer(brk Broker) *HTTPServer {
 	}
 }
 
-func (srv *HTTPServer) Start() error {
-	srv.log.WithComponent(srv.comp).Debug("http server starting")
+func (srv *HTTPServer) Start() (err error) {
+	if config.HTTPSrvAddr == "false" && config.HTTPSSrvAddr == "false" {
+		return nil
+	}
 
 	srv.wrapped = &http.Server{
 		Handler: srv,
-	}
-
-	ln, err := net.Listen("tcp", config.HTTPSrvAddr)
-	if err != nil {
-		return srv.log.ErrorN("%v", err)
+		TLSConfig: &tls.Config{
+			MinVersion: tls.VersionTLS12,
+		},
 	}
 
 	srv.sub, err = srv.brk.Subscribe(context.Background(), &SubscriptionConf{
@@ -71,15 +72,37 @@ func (srv *HTTPServer) Start() error {
 		return srv.log.ErrorN("%v", err)
 	}
 
-	go func() {
-		err := srv.wrapped.Serve(ln)
-		if err != nil && !errors.Is(err, http.ErrServerClosed) {
-			srv.log.Error(err)
-			os.Exit(HTTPServerExitCode)
+	// Start listener outside of goroutine to deal with address and port issues.
+	if config.HTTPSrvAddr != "false" {
+		srv.log.WithComponent(srv.comp).Debug("http server starting")
+		ln, err := net.Listen("tcp", config.HTTPSrvAddr)
+		if err != nil {
+			return srv.log.ErrorN("%v", err)
 		}
-	}()
+		go func() {
+			err := srv.wrapped.Serve(ln)
+			if err != nil && !errors.Is(err, http.ErrServerClosed) {
+				srv.log.Error(err)
+				os.Exit(HTTPServerExitCode)
+			}
+		}()
+	}
+	if config.HTTPSSrvAddr != "false" {
+		srv.log.WithComponent(srv.comp).Debug("https server starting")
+		lns, err := net.Listen("tcp", config.HTTPSSrvAddr)
+		if err != nil {
+			return srv.log.ErrorN("%v", err)
+		}
+		go func() {
+			err := srv.wrapped.ServeTLS(lns, kubefox.TLSCertPath, kubefox.TLSKeyPath)
+			if err != nil && !errors.Is(err, http.ErrServerClosed) {
+				srv.log.Error(err)
+				os.Exit(HTTPServerExitCode)
+			}
+		}()
+	}
 
-	srv.log.Info("http server started")
+	srv.log.Info("http servers started")
 	return nil
 }
 

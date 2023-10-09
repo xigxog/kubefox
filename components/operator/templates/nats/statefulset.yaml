@@ -2,7 +2,7 @@ apiVersion: apps/v1
 kind: StatefulSet
 {{ include "metadata" . }}
 spec:
-  serviceName: {{ componentName }}
+  serviceName: {{ componentFullName }}
   replicas: 1
   podManagementPolicy: Parallel
   selector:
@@ -15,16 +15,54 @@ spec:
       annotations:
         checksum/config: {{ file "nats/nats.conf" | sha256sum }}
     spec:
-      serviceAccountName: {{ componentName }}
+      serviceAccountName: {{ componentFullName }}
       shareProcessNamespace: true
       {{- with .App.ImagePullSecret }}
       imagePullSecrets:
         - name: {{ . }}
       {{- end }}
+      {{- include "podSecurityContext" . | nindent 6 }}
+      initContainers:
+        - name: pki-init
+          image: {{ .Values.pkiInitImage | quote }}
+          imagePullPolicy: {{ .Component.ImagePullPolicy | default "IfNotPresent" }}
+          {{- include "containerSecurityContext" . | nindent 10 }}
+          command:
+            - /pki-init.sh
+          env:
+            - name: KUBEFOX_HOME
+              value: /tmp/kubefox
+            - name: KUBEFOX_COMPONENT
+              value: {{ .Component.Name }}
+            - name: KUBEFOX_COMPONENT_IP
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.podIP
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: POD_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+          envFrom:
+            - configMapRef:
+                name: {{ .Platform.Name }}-env
+          volumeMounts:
+            - name: pki-init
+              mountPath: /pki-init.sh
+              subPath: pki-init.sh
+            - name: root-ca
+              mountPath: /tmp/kubefox/ca.crt
+              subPath: ca.crt
+            - name: kubefox
+              mountPath: /tmp/kubefox
       containers:
         - name: {{ .Component.Name }}
           image: {{ .Component.Image | default (printf "%s/%s:%v" .App.Registry .Component.Name .Component.Commit) | quote }}
           imagePullPolicy: {{ .Component.ImagePullPolicy | default "IfNotPresent" }}
+          {{- include "containerSecurityContext" . | nindent 10 }}
           command:
             - "nats-server"
             - "--config"
@@ -34,27 +72,14 @@ spec:
               valueFrom:
                 fieldRef:
                   fieldPath: metadata.name
-            - name: SERVER_NAME
-              value: $(POD_NAME)
-            - name: POD_NAMESPACE
-              valueFrom:
-                fieldRef:
-                  fieldPath: metadata.namespace
-            - name: CLUSTER_ADVERTISE
-              value: {{ printf "$(POD_NAME).%s.$(POD_NAMESPACE)" (componentName ) }}
+          envFrom:
+            - configMapRef:
+                name: {{ .Platform.Name }}-env
           ports:
             - name: client
               containerPort: 4222
-            - name: cluster
-              containerPort: 6222
             - name: monitor
               containerPort: 8222
-            - name: metrics
-              containerPort: 7777
-            - name: leafnodes
-              containerPort: 7422
-            - name: gateways
-              containerPort: 7522
           volumeMounts:
             - name: config
               mountPath: /etc/nats
@@ -63,10 +88,37 @@ spec:
             - name: jetstream
               mountPath: /data
             - name: root-ca
-              mountPath: /kubefox/ca.crt
+              mountPath: /tmp/kubefox/ca.crt
               subPath: ca.crt
             - name: kubefox
-              mountPath: /kubefox
+              mountPath: /tmp/kubefox
+          startupProbe:
+            httpGet:
+              path: /healthz
+              port: monitor
+            initialDelaySeconds: 0
+            timeoutSeconds: 3
+            periodSeconds: 10
+            successThreshold: 1
+            failureThreshold: 90
+          readinessProbe:
+            httpGet:
+              path: /healthz?js-server-only=true
+              port: monitor
+            initialDelaySeconds: 5
+            timeoutSeconds: 5
+            periodSeconds: 10
+            successThreshold: 1
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: /healthz?js-enabled-only=true
+              port: monitor
+            initialDelaySeconds: 5
+            timeoutSeconds: 5
+            periodSeconds: 30
+            successThreshold: 1
+            failureThreshold: 3
           lifecycle:
             preStop:
               exec:
@@ -79,12 +131,16 @@ spec:
       volumes:
         - name: config
           configMap:
-            name: {{ componentName }}-config
+            name: {{ componentFullName }}-config
         - name: pid
           emptyDir: {}
         - name: root-ca
           configMap:
             name: {{ .Instance.Name }}-root-ca
+        - name: pki-init
+          configMap:
+            name: {{ .Platform.Name }}-pki-init
+            defaultMode: 0777
         - name: kubefox
           emptyDir: {}
   volumeClaimTemplates:

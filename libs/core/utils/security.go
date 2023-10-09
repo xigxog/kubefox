@@ -62,7 +62,12 @@ func GetSvcAccountToken(namespace, svcAccount string) (string, error) {
 	defer cancel()
 
 	if b, err := os.ReadFile(SvcAccTokenFile); err == nil {
+		// Return token from file is it was successfully read.
 		return string(b), nil
+	}
+
+	if namespace == "" {
+		return "", fmt.Errorf("service account token not found at '%s'", SvcAccTokenFile)
 	}
 
 	client, err := k8sClient()

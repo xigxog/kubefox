@@ -86,6 +86,8 @@ func (c *JetStreamClient) Connect() error {
 		// nats.NoReconnect(),
 		// nats.MaxReconnects(3),
 		// c.natsTLS(c.cfg.Namespace),
+		nats.RootCAs(kubefox.CACertPath),
+		nats.ClientCert(kubefox.TLSCertPath, kubefox.TLSKeyPath),
 	)
 	if err != nil {
 		return c.log.ErrorN("connecting to NATS failed: %v", err)
