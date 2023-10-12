@@ -25,9 +25,10 @@ type App struct {
 	Name        string `json:"name"`
 	GitRef      string `json:"gitRef,omitempty"`
 	// +kubebuilder:validation:Pattern="^[a-z0-9]{7}$"
-	Commit   string `json:"commit"`
-	RepoURL  string `json:"repoURL"`
-	Registry string `json:"registry"`
+	Commit            string `json:"commit"`
+	GitRepo           string `json:"gitRepo,omitempty"`
+	ContainerRegistry string `json:"containerRegistry"`
+	ImagePullSecret   string `json:"imagePullSecret,omitempty"`
 }
 
 type Component struct {

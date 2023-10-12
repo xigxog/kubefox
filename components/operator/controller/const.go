@@ -15,8 +15,6 @@ var (
 )
 
 const (
-	LabelPlatform  string = "kubefox.xigxog.io/platform"
-	LabelComponent string = "kubefox.xigxog.io/component"
-	TenYears       string = "87600h"
-	HundredYears   string = "876000h"
+	TenYears     string = "87600h"
+	HundredYears string = "876000h"
 )

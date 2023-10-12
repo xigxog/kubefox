@@ -21,7 +21,7 @@ spec:
       {{- include "podSecurityContext" . | nindent 6 }}
       containers:
         - name: {{ .Component.Name }}
-          image: {{ .Component.Image | default (printf "%s/%s:%v" .App.Registry .Component.Name .Component.Commit) | quote }}
+          image: {{ .Component.Image | default (printf "%s/%s:%s" .App.Registry .Component.Name .Component.Commit) | quote }}
           imagePullPolicy: {{ .Component.ImagePullPolicy | default "IfNotPresent" }}
           {{- include "containerSecurityContext" . | nindent 10 }}
           env:

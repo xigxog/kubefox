@@ -53,23 +53,24 @@ spec:
                   commit:
                     pattern: ^[a-z0-9]{7}$
                     type: string
+                  containerRegistry:
+                    type: string
                   description:
                     type: string
                   gitRef:
                     type: string
+                  gitRepo:
+                    type: string
+                  imagePullSecret:
+                    type: string
                   name:
-                    type: string
-                  registry:
-                    type: string
-                  repoURL:
                     type: string
                   title:
                     type: string
                 required:
                 - commit
+                - containerRegistry
                 - name
-                - registry
-                - repoURL
                 type: object
               components:
                 additionalProperties:

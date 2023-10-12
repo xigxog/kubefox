@@ -1,30 +1,24 @@
 {{- define "labels" -}}
 {{ include "selectors" . }}
-app.kubernetes.io/version: {{ .Component.GitRef | default .Component.Commit }}
-{{- with .Component.GitRef }}
-kubefox.xigxog.io/component-git-ref: {{ . }}
-{{- end }}
+app.kubernetes.io/component: {{ .Component.Name | quote }}
+app.kubernetes.io/version: {{ .Component.Commit | quote }}
 {{- with .App.Commit }}
-kubefox.xigxog.io/app-commit: {{ . }}
+kubefox.xigxog.io/app-commit: {{ . | quote }}
 {{- end }}
-{{- with .App.GitRef }}
-kubefox.xigxog.io/app-git-ref: {{ . }}
-{{- end }}
-app.kubernetes.io/managed-by: {{ .Instance.Name }}-operator
+app.kubernetes.io/managed-by: {{ printf "%s-operator" .Instance.Name | quote }}
 {{ .Labels | toYaml }}
 {{- end }}
 
 {{- define "selectors" -}}
-app.kubernetes.io/instance: {{ .Instance.Name }}
+app.kubernetes.io/instance: {{ .Instance.Name | quote }}
 {{- with .Platform.Name }}
-kubefox.xigxog.io/platform: {{ . }}
+kubefox.xigxog.io/platform: {{ . | quote }}
 {{- end }}
 {{- with .App.Name }}
-app.kubernetes.io/name: {{ . }} 
+app.kubernetes.io/name: {{ . | quote }} 
 {{- end }}
-app.kubernetes.io/component: {{ .Component.Name }}
-kubefox.xigxog.io/component: {{ .Component.Name }}
-kubefox.xigxog.io/component-commit: {{ .Component.Commit }}
+kubefox.xigxog.io/component: {{ .Component.Name | quote }}
+kubefox.xigxog.io/component-commit: {{ .Component.Commit | quote }}
 {{- end }}
 
 {{- define "metadata" -}}

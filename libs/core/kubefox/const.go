@@ -40,6 +40,12 @@ const (
 	UnknownEventType  EventType = "io.kubefox.unknown"
 )
 
+// Kubernetes labels.
+const (
+	PlatformLabel  string = "kubefox.xigxog.io/platform"
+	ComponentLabel string = "kubefox.xigxog.io/component"
+)
+
 // Keys for well known values.
 const (
 	HeaderValKey     = "header"

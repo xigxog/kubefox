@@ -53,14 +53,28 @@ func BuildLoggerOrDie(format, level string) *Logger {
 }
 
 func BuildLogger(format, level string) (*Logger, error) {
-	var cfg zap.Config
+	var (
+		cfg  zap.Config
+		skip int
+	)
 	switch format {
+	case "json":
+		cfg = zap.NewProductionConfig()
+		skip = 1
 	case "console":
 		cfg = zap.NewDevelopmentConfig()
 		cfg.EncoderConfig.EncodeLevel = zapcore.LowercaseColorLevelEncoder
 		cfg.EncoderConfig.EncodeTime = zapcore.TimeEncoderOfLayout("2006-01-02 15:04.05")
-	case "json":
-		cfg = zap.NewProductionConfig()
+		skip = 1
+	case "cli":
+		cfg = zap.NewDevelopmentConfig()
+		cfg.Development = false
+		cfg.EncoderConfig.EncodeLevel = zapcore.LowercaseColorLevelEncoder
+		cfg.EncoderConfig.TimeKey = zapcore.OmitKey
+		cfg.EncoderConfig.NameKey = zapcore.OmitKey
+		cfg.EncoderConfig.CallerKey = zapcore.OmitKey
+		cfg.EncoderConfig.StacktraceKey = zapcore.OmitKey
+		skip = 2
 	default:
 		return nil, fmt.Errorf("unrecognized log format: %s", format)
 	}
@@ -75,7 +89,7 @@ func BuildLogger(format, level string) (*Logger, error) {
 		return nil, err
 	}
 	// ensures log messages are shown to be from caller instead of this logger
-	z = z.WithOptions(zap.AddCallerSkip(1))
+	z = z.WithOptions(zap.AddCallerSkip(skip))
 
 	return &Logger{wrapped: z.Sugar()}, nil
 }
@@ -88,6 +102,11 @@ func (log *Logger) Unwrap() *zap.SugaredLogger {
 // passed in level tries to decrease the level of the logger.
 func (log *Logger) IncreaseLevel(lvl zapcore.LevelEnabler) *Logger {
 	return &Logger{wrapped: log.wrapped.WithOptions(zap.IncreaseLevel(lvl))}
+}
+
+// DisableStacktrace disables writing of stack traces except at panic level.
+func (log *Logger) DisableStacktrace() *Logger {
+	return &Logger{wrapped: log.wrapped.WithOptions(zap.AddStacktrace(zapcore.PanicLevel))}
 }
 
 func (log *Logger) Named(name string) *Logger {

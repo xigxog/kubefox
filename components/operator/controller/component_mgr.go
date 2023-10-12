@@ -4,11 +4,13 @@ import (
 	"context"
 
 	appsv1 "k8s.io/api/apps/v1"
+	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/xigxog/kubefox/components/operator/templates"
 	"github.com/xigxog/kubefox/libs/core/api/kubernetes/v1alpha1"
+	"github.com/xigxog/kubefox/libs/core/kubefox"
 	"github.com/xigxog/kubefox/libs/core/logkf"
 )
 
@@ -96,7 +98,7 @@ func (cm *ComponentManager) ReconcileComponents(ctx context.Context, namespace s
 	compDepList := &appsv1.DeploymentList{}
 	if err := cm.Client.List(ctx, compDepList,
 		client.InNamespace(platform.Namespace),
-		client.HasLabels{LabelComponent},
+		client.HasLabels{kubefox.ComponentLabel},
 	); err != nil {
 		return false, err
 	}
@@ -114,10 +116,11 @@ func (cm *ComponentManager) ReconcileComponents(ctx context.Context, namespace s
 						Namespace: platform.Namespace,
 					},
 					App: templates.App{
-						Name:     d.App.Name,
-						Commit:   d.App.Commit,
-						GitRef:   d.App.GitRef,
-						Registry: d.App.Registry,
+						Name:            d.App.Name,
+						Commit:          d.App.Commit,
+						GitRef:          d.App.GitRef,
+						Registry:        d.App.ContainerRegistry,
+						ImagePullSecret: d.App.ImagePullSecret,
 					},
 					Component: templates.Component{
 						Name:   n,
@@ -140,6 +143,15 @@ func (cm *ComponentManager) ReconcileComponents(ctx context.Context, namespace s
 			log.Debugw("deleting component", logkf.ComponentName, d.Name)
 			if err := cm.Client.Delete(ctx, &d); err != nil {
 				return false, err
+			}
+			// Clean up ServiceAccount.
+			if err := cm.Client.Delete(ctx, &v1.ServiceAccount{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: d.Namespace,
+					Name:      d.Name,
+				},
+			}); err != nil {
+				log.Debug(err)
 			}
 		}
 	}

@@ -10,6 +10,7 @@ import (
 
 	"github.com/xigxog/kubefox/components/operator/templates"
 	"github.com/xigxog/kubefox/libs/core/api/kubernetes/v1alpha1"
+	"github.com/xigxog/kubefox/libs/core/kubefox"
 )
 
 const (
@@ -48,9 +49,9 @@ func (r *Client) GetPlatform(ctx context.Context, namespace string) (*v1alpha1.P
 	if err := r.Get(ctx, nn("", namespace), ns); err != nil {
 		return nil, fmt.Errorf("unable to fetch namespace: %w", err)
 	}
-	pName, found := ns.Labels[LabelPlatform]
+	pName, found := ns.Labels[kubefox.PlatformLabel]
 	if !found {
-		return nil, fmt.Errorf("namespace does not have '%s' label", LabelPlatform)
+		return nil, fmt.Errorf("namespace does not have '%s' label", kubefox.PlatformLabel)
 	}
 	p := &v1alpha1.Platform{}
 	if err := r.Get(ctx, nn(namespace, pName), p); err != nil {

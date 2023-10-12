@@ -26,6 +26,7 @@ import (
 
 	"github.com/xigxog/kubefox/components/operator/templates"
 	"github.com/xigxog/kubefox/libs/core/api/kubernetes/v1alpha1"
+	"github.com/xigxog/kubefox/libs/core/kubefox"
 	"github.com/xigxog/kubefox/libs/core/logkf"
 	"github.com/xigxog/kubefox/libs/core/utils"
 )
@@ -69,11 +70,7 @@ func (r *PlatformReconciler) SetupWithManager(mgr ctrl.Manager) error {
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
-//
-// For more details, check Reconcile and its Result here:
-// - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.15.0/pkg/reconcile
 func (r *PlatformReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-
 	log := r.log.With(
 		"namespace", req.Namespace,
 		"name", req.Name,
@@ -91,11 +88,8 @@ func (r *PlatformReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 
 	} else if apierrors.IsNotFound(err) {
 		log.Debug("platform was deleted, removing namespace label")
-		delete(ns.Labels, LabelPlatform)
-		if err := r.Update(ctx, ns); err != nil {
-			return ctrl.Result{}, err
-		}
-		return ctrl.Result{}, nil
+		delete(ns.Labels, kubefox.PlatformLabel)
+		return ctrl.Result{}, r.Update(ctx, ns)
 	}
 
 	platformReady := false
@@ -105,11 +99,11 @@ func (r *PlatformReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	}()
 
 	// TODO move to admission webhook
-	if lbl, found := ns.Labels[LabelPlatform]; found && lbl != req.Name {
+	if lbl, found := ns.Labels[kubefox.PlatformLabel]; found && lbl != req.Name {
 		return ctrl.Result{}, log.ErrorN("namespace belongs to platform '%s'", lbl)
 
 	} else if !found {
-		ns.Labels[LabelPlatform] = p.Name
+		ns.Labels[kubefox.PlatformLabel] = p.Name
 		if err := r.Update(ctx, ns); err != nil {
 			return ctrl.Result{}, err
 		}
@@ -171,7 +165,7 @@ func (r *PlatformReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	td.Obj = &appsv1.StatefulSet{}
 	td.Component = templates.Component{
 		Name:  "nats",
-		Image: "ghcr.io/xigxog/nats:2.10.1",
+		Image: "ghcr.io/xigxog/nats:2.10.1", // TODO move image to arg or const
 	}
 	if rdy, err := r.cm.SetupComponent(ctx, td); !rdy || err != nil {
 		return ctrl.Result{RequeueAfter: time.Second * 5}, err
@@ -181,7 +175,7 @@ func (r *PlatformReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	td.Obj = &appsv1.DaemonSet{}
 	td.Component = templates.Component{
 		Name:  "broker",
-		Image: "ghcr.io/xigxog/kubefox/broker:v0.0.1",
+		Image: "ghcr.io/xigxog/kubefox/broker:v0.0.1", // TODO move image to arg or const
 	}
 	if rdy, err := r.cm.SetupComponent(ctx, td); !rdy || err != nil {
 		return ctrl.Result{}, err

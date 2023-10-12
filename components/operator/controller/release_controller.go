@@ -51,13 +51,6 @@ func (r *ReleaseReconciler) SetupWithManager(mgr ctrl.Manager) error {
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
-// TODO(user): Modify the Reconcile function to compare the state specified by
-// the Release object against the actual cluster state, and then
-// perform operations to make the cluster state reflect the state specified by
-// the user.
-//
-// For more details, check Reconcile and its Result here:
-// - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.15.0/pkg/reconcile
 func (r *ReleaseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	log := r.log.With(
 		"namespace", req.Namespace,
@@ -66,10 +59,11 @@ func (r *ReleaseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	log.Debug("reconciling release")
 
 	rel := &v1alpha1.Release{}
-	if err := r.Get(ctx, req.NamespacedName, rel); client.IgnoreNotFound(err) != nil {
+	err := r.Get(ctx, req.NamespacedName, rel)
+	if client.IgnoreNotFound(err) != nil {
 		return ctrl.Result{}, err
-
-	} else if !apierrors.IsNotFound(err) {
+	}
+	if !apierrors.IsNotFound(err) {
 		// TODO move to mutating/admission webhook
 		relEnv := &rel.Spec.Environment
 		if relEnv.Vars == nil {
