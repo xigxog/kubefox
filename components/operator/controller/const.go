@@ -8,12 +8,6 @@ one at https://mozilla.org/MPL/2.0/.
 
 package controller
 
-// Set by main at init.
-var (
-	GitRef    string
-	GitCommit string
-)
-
 const (
 	TenYears     string = "87600h"
 	HundredYears string = "876000h"

@@ -39,7 +39,7 @@ type HTTPServer struct {
 func NewHTTPServer(brk Broker) *HTTPServer {
 	comp := &kubefox.Component{
 		Name:   "kf-http-srv-adapt",
-		Commit: config.GitCommit,
+		Commit: kubefox.GitCommit,
 		Id:     uuid.NewString(),
 	}
 	return &HTTPServer{
@@ -135,7 +135,7 @@ func (srv *HTTPServer) ServeHTTP(resWriter http.ResponseWriter, httpReq *http.Re
 	req.Ttl = config.EventTTL.Microseconds()
 	req.Category = kubefox.Category_CATEGORY_REQUEST
 	req.Source = srv.comp
-	if err := req.ParseHTTPRequest(httpReq); err != nil {
+	if err := req.SetHTTPRequest(httpReq); err != nil {
 		srv.log.Debugf("error parsing event from http request: %v", err)
 		resWriter.WriteHeader(http.StatusBadRequest)
 		resWriter.Write([]byte(err.Error()))
@@ -174,8 +174,8 @@ func (srv *HTTPServer) ServeHTTP(resWriter http.ResponseWriter, httpReq *http.Re
 	}
 
 	resWriter.Header().Set("Kf-Adapter", srv.comp.Key())
-	if resp.GetTraceId() != "" {
-		resWriter.Header().Set("Kf-Trace-Id", resp.GetTraceId())
+	if resp.TraceId() != "" {
+		resWriter.Header().Set("Kf-Trace-Id", resp.TraceId())
 	}
 
 	var statusCode int
@@ -184,7 +184,7 @@ func (srv *HTTPServer) ServeHTTP(resWriter http.ResponseWriter, httpReq *http.Re
 		statusCode = http.StatusInternalServerError
 
 	default:
-		httpResp := resp.ToHTTPResponse()
+		httpResp := resp.HTTPResponse()
 		statusCode = httpResp.StatusCode
 		for key, val := range httpResp.Header {
 			for _, h := range val {

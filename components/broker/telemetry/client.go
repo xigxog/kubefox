@@ -13,7 +13,6 @@ import (
 	"go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetrichttp"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp"
-	"go.opentelemetry.io/otel/metric/global"
 	"go.opentelemetry.io/otel/sdk/metric"
 	"go.opentelemetry.io/otel/sdk/resource"
 	"go.opentelemetry.io/otel/sdk/trace"
@@ -77,7 +76,7 @@ func (c *Client) Start(ctx context.Context) error {
 	c.meterProvider = metric.NewMeterProvider(
 		metric.WithResource(res),
 		metric.WithReader(metric.NewPeriodicReader(metricExp, metric.WithInterval(interval))))
-	global.SetMeterProvider(c.meterProvider)
+	// global.SetMeterProvider(c.meterProvider)
 
 	if err := host.Start(); err != nil {
 		return c.log.ErrorN("%v", err)

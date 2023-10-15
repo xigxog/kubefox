@@ -10,11 +10,11 @@ import (
 	"google.golang.org/protobuf/types/known/structpb"
 )
 
-// VarType represents the stored type of Var.
-type VarType int
+// ValType represents the stored type of Var.
+type ValType int
 
 const (
-	Unknown     VarType = iota // holds an unknown
+	Unknown     ValType = iota // holds an unknown
 	Nil                        // holds a null
 	Bool                       // holds a boolean
 	Number                     // holds an int or float
@@ -24,27 +24,27 @@ const (
 )
 
 // +kubebuilder:object:generate=true
-type Var struct {
+type Val struct {
 	booVal      bool      `json:"-"`
 	numVal      float64   `json:"-"`
 	strVal      string    `json:"-"`
 	arrayNumVal []float64 `json:"-"`
 	arrayStrVal []string  `json:"-"`
-	Type        VarType   `json:"-"`
+	Type        ValType   `json:"-"`
 }
 
-func VarFromValue(val *structpb.Value) (*Var, error) {
+func ValProto(val *structpb.Value) (*Val, error) {
 	if val == nil {
-		return &Var{Type: Nil}, nil
+		return &Val{Type: Nil}, nil
 	}
 	if v, ok := val.GetKind().(*structpb.Value_BoolValue); ok {
-		return NewVarBool(v.BoolValue), nil
+		return ValBool(v.BoolValue), nil
 	}
 	if v, ok := val.GetKind().(*structpb.Value_NumberValue); ok {
-		return NewVarFloat(v.NumberValue), nil
+		return ValFloat(v.NumberValue), nil
 	}
 	if v, ok := val.GetKind().(*structpb.Value_StringValue); ok {
-		return NewVarString(v.StringValue), nil
+		return ValString(v.StringValue), nil
 	}
 	if l, ok := val.GetKind().(*structpb.Value_ListValue); ok && l.ListValue != nil && len(l.ListValue.Values) > 0 {
 		var numArr []float64
@@ -56,15 +56,15 @@ func VarFromValue(val *structpb.Value) (*Var, error) {
 		} else if _, ok := k.(*structpb.Value_StringValue); ok {
 			strArr = make([]string, len(l.ListValue.Values))
 		} else {
-			return &Var{}, fmt.Errorf("list contains values of unsupported types")
+			return &Val{}, fmt.Errorf("list contains values of unsupported types")
 		}
 
 		for i, v := range l.ListValue.Values {
 			if v == nil {
-				return &Var{}, fmt.Errorf("list contains a nil value")
+				return &Val{}, fmt.Errorf("list contains a nil value")
 			}
 			if v.GetKind() != k {
-				return &Var{}, fmt.Errorf("list contains values of mixed types")
+				return &Val{}, fmt.Errorf("list contains values of mixed types")
 			}
 			if numArr != nil {
 				numArr[i] = v.GetNumberValue()
@@ -74,47 +74,51 @@ func VarFromValue(val *structpb.Value) (*Var, error) {
 		}
 
 		if numArr != nil {
-			return NewVarArrayFloat(numArr), nil
+			return ValArrayFloat(numArr), nil
 		} else {
-			return NewVarArrayString(strArr), nil
+			return ValArrayString(strArr), nil
 		}
 	}
 
-	return &Var{}, fmt.Errorf("value is of unsupported type %v", val.GetKind())
+	return &Val{}, fmt.Errorf("value is of unsupported type %v", val.GetKind())
 }
 
-func NewVarBool(val bool) *Var {
-	return &Var{Type: Bool, booVal: val}
+func ValNil() *Val {
+	return &Val{Type: Nil}
 }
 
-func NewVarInt(val int) *Var {
-	return &Var{Type: Number, numVal: float64(val)}
+func ValBool(val bool) *Val {
+	return &Val{Type: Bool, booVal: val}
 }
 
-func NewVarFloat(val float64) *Var {
-	return &Var{Type: Number, numVal: val}
+func ValInt(val int) *Val {
+	return &Val{Type: Number, numVal: float64(val)}
 }
 
-func NewVarString(val string) *Var {
-	return &Var{Type: String, strVal: val}
+func ValFloat(val float64) *Val {
+	return &Val{Type: Number, numVal: val}
 }
 
-func NewVarArrayInt(val []int) *Var {
+func ValString(val string) *Val {
+	return &Val{Type: String, strVal: val}
+}
+
+func ValArrayInt(val []int) *Val {
 	arr := make([]float64, len(val))
 	for i, v := range val {
 		arr[i] = float64(v)
 	}
-	return &Var{Type: ArrayNumber, arrayNumVal: arr}
+	return &Val{Type: ArrayNumber, arrayNumVal: arr}
 }
-func NewVarArrayFloat(val []float64) *Var {
-	return &Var{Type: ArrayNumber, arrayNumVal: val}
-}
-
-func NewVarArrayString(val []string) *Var {
-	return &Var{Type: ArrayString, arrayStrVal: val}
+func ValArrayFloat(val []float64) *Val {
+	return &Val{Type: ArrayNumber, arrayNumVal: val}
 }
 
-func (val *Var) Any() any {
+func ValArrayString(val []string) *Val {
+	return &Val{Type: ArrayString, arrayStrVal: val}
+}
+
+func (val *Val) Any() any {
 	switch val.Type {
 	case Bool:
 		return val.booVal
@@ -131,7 +135,7 @@ func (val *Var) Any() any {
 	}
 }
 
-func (val *Var) Value() *structpb.Value {
+func (val *Val) Proto() *structpb.Value {
 	switch val.Type {
 	case Bool:
 		return structpb.NewBoolValue(val.booVal)
@@ -156,7 +160,7 @@ func (val *Var) Value() *structpb.Value {
 // be returned if value is 0, otherwise true is returned. If type is String, an
 // attempt to parse the boolean value will be made. If parsing fails or type is
 // Array false will be returned.
-func (val *Var) Bool() bool {
+func (val *Val) Bool() bool {
 	switch val.Type {
 	case Bool:
 		return val.booVal
@@ -174,7 +178,7 @@ func (val *Var) Bool() bool {
 	}
 }
 
-func (val *Var) BoolOrDefault(def bool) bool {
+func (val *Val) BoolDef(def bool) bool {
 	if val.Type != Bool {
 		return def
 	}
@@ -185,11 +189,11 @@ func (val *Var) BoolOrDefault(def bool) bool {
 // returned if true, otherwise 0 is returned. If type is String an attempt to
 // parse the number will be made. If parsing fails or type is Array 0 will be
 // returned.
-func (val *Var) Int() int {
+func (val *Val) Int() int {
 	return int(val.Float())
 }
 
-func (val *Var) IntOrDefault(def int) int {
+func (val *Val) IntDef(def int) int {
 	if val.Type != Number {
 		return def
 	}
@@ -200,7 +204,7 @@ func (val *Var) IntOrDefault(def int) int {
 // returned if true, otherwise 0 is returned. If  type is String an attempt to
 // parse the number will be made. If parsing fails or type is Array 0 will be
 // returned.
-func (val *Var) Float() float64 {
+func (val *Val) Float() float64 {
 	switch val.Type {
 	case Bool:
 		if val.booVal {
@@ -218,7 +222,7 @@ func (val *Var) Float() float64 {
 	}
 }
 
-func (val *Var) FloatOrDefault(def float64) float64 {
+func (val *Val) FloatDef(def float64) float64 {
 	if val.Type != Number {
 		return def
 	}
@@ -229,7 +233,7 @@ func (val *Var) FloatOrDefault(def float64) float64 {
 // `fmt.Sprintf("%t", bool)` of the bool value is returned. If type is Number
 // the `fmt.Sprintf("%f", float)` of the number value is returned.
 // If type is Array the JSON representation of the array is returned.
-func (val *Var) String() string {
+func (val *Val) String() string {
 	switch val.Type {
 	case Bool:
 		return fmt.Sprintf("%t", val.booVal)
@@ -248,7 +252,7 @@ func (val *Var) String() string {
 	}
 }
 
-func (val *Var) StringOrDefault(def string) string {
+func (val *Val) StringDef(def string) string {
 	if val.Type != String {
 		return def
 	}
@@ -257,7 +261,7 @@ func (val *Var) StringOrDefault(def string) string {
 
 // ArrayInt returns the array value if type is ArrayNumber. Otherwise nil is
 // returned.
-func (val *Var) ArrayInt() []int {
+func (val *Val) ArrayInt() []int {
 	if val.Type != ArrayNumber {
 		return nil
 	}
@@ -271,7 +275,7 @@ func (val *Var) ArrayInt() []int {
 
 // ArrayFloat returns the array value if type is ArrayNumber. Otherwise nil is
 // returned.
-func (val *Var) ArrayFloat() []float64 {
+func (val *Val) ArrayFloat() []float64 {
 	if val.Type != ArrayNumber {
 		return nil
 	}
@@ -280,7 +284,7 @@ func (val *Var) ArrayFloat() []float64 {
 
 // ArrayString returns the array value if type is ArrayString or ArrayNumber.
 // Otherwise nil is returned.
-func (val *Var) ArrayString() []string {
+func (val *Val) ArrayString() []string {
 	if val.Type == ArrayString {
 		return val.arrayStrVal
 	}
@@ -296,36 +300,36 @@ func (val *Var) ArrayString() []string {
 	return nil
 }
 
-func (val *Var) IsUnknown() bool {
+func (val *Val) IsUnknown() bool {
 	return val.Type == Unknown
 }
 
-func (val *Var) IsNil() bool {
+func (val *Val) IsNil() bool {
 	return val.Type == Nil
 }
 
-func (val *Var) IsBool() bool {
+func (val *Val) IsBool() bool {
 	return val.Type == Bool
 }
 
-func (val *Var) IsString() bool {
+func (val *Val) IsString() bool {
 	return val.Type == String
 }
 
-func (val *Var) IsNumber() bool {
+func (val *Val) IsNumber() bool {
 	return val.Type == Number
 }
 
-func (val *Var) IsArrayNumber() bool {
+func (val *Val) IsArrayNumber() bool {
 	return val.Type == ArrayNumber
 }
 
-func (val *Var) IsArrayString() bool {
+func (val *Val) IsArrayString() bool {
 	return val.Type == ArrayString
 }
 
 // UnmarshalJSON implements the json.Unmarshaller interface.
-func (val *Var) UnmarshalJSON(value []byte) error {
+func (val *Val) UnmarshalJSON(value []byte) error {
 	defErr := errors.New("value must be type boolean, number, string, []number, or []string; nested objects are not supported")
 
 	if value[0] == '{' {
@@ -380,7 +384,7 @@ func (val *Var) UnmarshalJSON(value []byte) error {
 }
 
 // MarshalJSON implements the json.Marshaller interface.
-func (val *Var) MarshalJSON() ([]byte, error) {
+func (val *Val) MarshalJSON() ([]byte, error) {
 	switch val.Type {
 	case Unknown:
 		return json.Marshal(nil)

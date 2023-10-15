@@ -5,6 +5,13 @@ import (
 	"regexp"
 )
 
+// Injected at build time
+var (
+	ComponentName string
+	GitCommit     string
+	GitRef        string
+)
+
 type EventType string
 
 // Component event types
@@ -56,6 +63,9 @@ const (
 	StatusCodeValKey = "statusCode"
 	StatusValKey     = "status"
 	URLValKey        = "url"
+	TraceIdValKey    = "traceId"
+	SpanIdValKey     = "spanId"
+	TraceFlagsValKey = "traceFlags"
 	// ValKey = ""
 )
 
@@ -69,6 +79,10 @@ const (
 	DepHeaderAbbrv       = "kfd"
 	EventTypeHeader      = "kf-type"
 	EventTypeHeaderAbbrv = "kft"
+)
+
+const (
+	JSONContentType = "application/json"
 )
 
 var (

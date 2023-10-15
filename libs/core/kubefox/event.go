@@ -16,10 +16,6 @@ import (
 	"google.golang.org/protobuf/types/known/structpb"
 )
 
-const (
-	JSONContentType = "application/json"
-)
-
 var (
 	ErrUnknownContentType = errors.New("unknown content type")
 )
@@ -39,21 +35,25 @@ func (evt *Event) SetParent(parent *Event) {
 	evt.Deployment = parent.Deployment
 	evt.Environment = parent.Environment
 	evt.Release = parent.Release
-	evt.SetTraceId(parent.GetTraceId())
-	evt.SetSpanId(parent.GetSpanId())
-	evt.SetTraceFlags(parent.GetTraceFlags())
+	evt.SetTraceId(parent.TraceId())
+	evt.SetSpanId(parent.SpanId())
+	evt.SetTraceFlags(parent.TraceFlags())
 }
 
-func (evt *Event) GetParam(key string) string {
-	return evt.GetParamVar(key).String()
+func (evt *Event) EventType() EventType {
+	return EventType(evt.Type)
 }
 
-func (evt *Event) GetParamVar(key string) *Var {
-	v, _ := VarFromValue(evt.GetParamProto(key))
+func (evt *Event) Param(key string) string {
+	return evt.ParamV(key).String()
+}
+
+func (evt *Event) ParamV(key string) *Val {
+	v, _ := ValProto(evt.ParamProto(key))
 	return v
 }
 
-func (evt *Event) GetParamProto(key string) *structpb.Value {
+func (evt *Event) ParamProto(key string) *structpb.Value {
 	return evt.Params[key]
 }
 
@@ -61,12 +61,8 @@ func (evt *Event) SetParam(key string, val string) {
 	evt.SetParamProto(key, structpb.NewStringValue(val))
 }
 
-func (evt *Event) SetParamVar(key string, val *Var) {
-	evt.SetParamProto(key, val.Value())
-}
-
-func (evt *Event) SetParamNumber(key string, val float64) {
-	evt.SetParamProto(key, structpb.NewNumberValue(val))
+func (evt *Event) SetParamV(key string, val *Val) {
+	evt.SetParamProto(key, val.Proto())
 }
 
 func (evt *Event) SetParamProto(key string, val *structpb.Value) {
@@ -77,18 +73,18 @@ func (evt *Event) SetParamProto(key string, val *structpb.Value) {
 	evt.Params[key] = val
 }
 
-func (evt *Event) GetValue(key string) string {
-	return evt.GetValueVar(key).String()
+func (evt *Event) Value(key string) string {
+	return evt.ValueV(key).String()
 }
 
-func (evt *Event) GetValueVar(key string) *Var {
-	v, _ := VarFromValue(evt.GetValueProto(key))
+func (evt *Event) ValueV(key string) *Val {
+	v, _ := ValProto(evt.ValueProto(key))
 	return v
 }
 
-func (evt *Event) GetValueMap(key string) map[string][]string {
+func (evt *Event) ValueMap(key string) map[string][]string {
 	m := make(map[string][]string)
-	p := evt.GetValueProto(key).GetStructValue()
+	p := evt.ValueProto(key).GetStructValue()
 	if p == nil {
 		return m
 	}
@@ -102,7 +98,7 @@ func (evt *Event) GetValueMap(key string) map[string][]string {
 	return m
 }
 
-func (evt *Event) GetValueProto(key string) *structpb.Value {
+func (evt *Event) ValueProto(key string) *structpb.Value {
 	return evt.Values[key]
 }
 
@@ -110,12 +106,8 @@ func (evt *Event) SetValue(key string, val string) {
 	evt.SetValueProto(key, structpb.NewStringValue(val))
 }
 
-func (evt *Event) SetValueVar(key string, val *Var) {
-	evt.SetValueProto(key, val.Value())
-}
-
-func (evt *Event) SetValueNumber(key string, val float64) {
-	evt.SetValueProto(key, structpb.NewNumberValue(val))
+func (evt *Event) SetValueV(key string, val *Val) {
+	evt.SetValueProto(key, val.Proto())
 }
 
 func (evt *Event) SetValueMap(key string, m map[string][]string) {
@@ -140,66 +132,80 @@ func (evt *Event) SetValueProto(key string, val *structpb.Value) {
 	evt.Values[key] = val
 }
 
-func (evt *Event) GetTraceId() string {
-	return evt.GetValue("traceId")
+func (evt *Event) TTL() time.Duration {
+	return time.Microsecond * time.Duration(evt.Ttl)
+}
+
+func (evt *Event) ReduceTTL(start time.Time) {
+	evt.Ttl = evt.Ttl - time.Since(start).Microseconds()
+}
+
+func (evt *Event) Status() int {
+	return evt.ValueV(StatusCodeValKey).Int()
+}
+
+func (evt *Event) StatusV() *Val {
+	return evt.ValueV(StatusCodeValKey)
+}
+
+func (evt *Event) SetStatus(code int) {
+	evt.SetValueV(StatusCodeValKey, ValInt(code))
+}
+
+func (evt *Event) SetStatusV(val *Val) {
+	evt.SetValueV(StatusCodeValKey, val)
+}
+
+func (evt *Event) TraceId() string {
+	return evt.Value(TraceIdValKey)
 }
 
 func (evt *Event) SetTraceId(val string) {
-	evt.SetValue("traceId", val)
+	evt.SetValue(TraceIdValKey, val)
 }
 
-func (evt *Event) GetSpanId() string {
-	return evt.GetValue("spanId")
+func (evt *Event) SpanId() string {
+	return evt.Value(SpanIdValKey)
 }
 
 func (evt *Event) SetSpanId(val string) {
-	evt.SetValue("spanId", val)
+	evt.SetValue(SpanIdValKey, val)
 }
 
-func (evt *Event) GetTraceFlags() byte {
-	return byte(evt.GetValueVar("traceFlags").Float())
+func (evt *Event) TraceFlags() byte {
+	return byte(evt.ValueV(TraceFlagsValKey).Float())
 }
 
 func (evt *Event) SetTraceFlags(val byte) {
-	evt.SetValueNumber("traceFlags", float64(val))
+	evt.SetValueV(TraceFlagsValKey, ValInt(int(val)))
 }
 
-func (evt *Event) Marshal(v any) error {
+func (evt *Event) SetJSON(v any) error {
 	if v == nil {
 		v = make(map[string]any)
 
 	}
-	if evt.ContentType == "" {
-		evt.ContentType = JSONContentType + "; charset=utf-8"
-	}
 
-	var content []byte
-	var err error
-	contType := strings.ToLower(evt.ContentType)
-	switch {
-	case strings.Contains(contType, JSONContentType):
-		content, err = json.Marshal(v)
-	default:
-		return ErrUnknownContentType
-	}
+	b, err := json.Marshal(v)
 	if err != nil {
 		return err
 	}
 
-	evt.Content = content
+	evt.ContentType = JSONContentType + "; charset=utf-8"
+	evt.Content = b
 
 	return nil
 }
 
-func (evt *Event) Unmarshal(v any) error {
-	return evt.unmarshal(v, false)
+func (evt *Event) Bind(v any) error {
+	return evt.bind(v, false)
 }
 
-func (evt *Event) UnmarshalStrict(v any) error {
-	return evt.unmarshal(v, true)
+func (evt *Event) BindStrict(v any) error {
+	return evt.bind(v, true)
 }
 
-func (evt *Event) unmarshal(v any, strict bool) error {
+func (evt *Event) bind(v any, strict bool) error {
 	contType := strings.ToLower(evt.ContentType)
 	switch {
 	case strings.Contains(contType, JSONContentType):
@@ -213,31 +219,31 @@ func (evt *Event) unmarshal(v any, strict bool) error {
 	}
 }
 
-func (evt *Event) ToHTTPRequest(ctx context.Context) (*http.Request, error) {
+func (evt *Event) HTTPRequest(ctx context.Context) (*http.Request, error) {
 	body := bytes.NewReader(evt.Content)
-	req, err := http.NewRequestWithContext(ctx, evt.GetValue(MethodValKey), evt.GetValue(URLValKey), body)
+	req, err := http.NewRequestWithContext(ctx, evt.Value(MethodValKey), evt.Value(URLValKey), body)
 	if err != nil {
 		return nil, err
 	}
-	req.Header = evt.GetValueMap(HeaderValKey)
+	req.Header = evt.ValueMap(HeaderValKey)
 
 	return req, nil
 }
 
-func (evt *Event) ToHTTPResponse() *http.Response {
-	code := evt.GetValueVar(StatusCodeValKey).Int()
+func (evt *Event) HTTPResponse() *http.Response {
+	code := evt.ValueV(StatusCodeValKey).Int()
 	if code == 0 {
 		code = http.StatusOK
 	}
 	return &http.Response{
-		Status:     evt.GetValue("status"),
+		Status:     evt.Value("status"),
 		StatusCode: code,
-		Header:     evt.GetValueMap(HeaderValKey),
+		Header:     evt.ValueMap(HeaderValKey),
 		Body:       io.NopCloser(bytes.NewReader(evt.Content)),
 	}
 }
 
-func (evt *Event) ParseHTTPRequest(httpReq *http.Request) error {
+func (evt *Event) SetHTTPRequest(httpReq *http.Request) error {
 	content, err := io.ReadAll(httpReq.Body)
 	if err != nil {
 		return err
@@ -299,7 +305,7 @@ func (evt *Event) ParseHTTPRequest(httpReq *http.Request) error {
 	return nil
 }
 
-func (evt *Event) ParseHTTPResponse(httpResp *http.Response) error {
+func (evt *Event) SetHTTPResponse(httpResp *http.Response) error {
 	defer httpResp.Body.Close()
 	content, err := io.ReadAll(httpResp.Body)
 	if err != nil {
@@ -313,7 +319,7 @@ func (evt *Event) ParseHTTPResponse(httpResp *http.Response) error {
 	}
 
 	evt.SetValue("status", httpResp.Status)
-	evt.SetValueNumber(StatusCodeValKey, float64(httpResp.StatusCode))
+	evt.SetValueV(StatusCodeValKey, ValInt(httpResp.StatusCode))
 	evt.SetValueMap(HeaderValKey, httpResp.Header)
 
 	return nil

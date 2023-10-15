@@ -24,7 +24,7 @@ var (
 	paramRegexp = regexp.MustCompile(`([^\\])({[^}]+})`)
 )
 
-func (r *Route) Resolve(envVars map[string]*Var) error {
+func (r *Route) Resolve(envVars map[string]*Val) error {
 	r.ResolvedRule = ""
 	// removes any extra whitespace
 	resolved := strings.Join(strings.Fields(r.Rule), " ")

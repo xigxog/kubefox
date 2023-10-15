@@ -31,8 +31,10 @@ func (rms ReleaseMatchers) Match(evt *kubefox.Event) *kubefox.MatchedEvent {
 		}
 		for _, m := range rm.Matchers {
 			if comp, rt, match := m.Match(evt); match {
+				if !updateTarget(comp, evt) {
+					continue
+				}
 				evt.Release = rm.Release
-				evt.Target = comp
 				return &kubefox.MatchedEvent{
 					Event:   evt,
 					RouteId: int64(rt.Id),
@@ -51,7 +53,9 @@ func (dm *DeploymentMatcher) Match(evt *kubefox.Event) *kubefox.MatchedEvent {
 
 	for _, m := range dm.Matchers {
 		if comp, rt, match := m.Match(evt); match {
-			evt.Target = comp
+			if !updateTarget(comp, evt) {
+				continue
+			}
 			return &kubefox.MatchedEvent{
 				Event:   evt,
 				RouteId: int64(rt.Id),
@@ -60,4 +64,23 @@ func (dm *DeploymentMatcher) Match(evt *kubefox.Event) *kubefox.MatchedEvent {
 	}
 
 	return nil
+}
+
+func updateTarget(tgt *kubefox.Component, evt *kubefox.Event) bool {
+	if evt.Target == nil {
+		evt.Target = tgt
+		return true
+	}
+
+	if evt.Target.Name != tgt.Name {
+		return false
+	}
+	if evt.Target.Commit == "" {
+		evt.Target.Commit = tgt.Commit
+	}
+	if evt.Target.Commit != tgt.Commit {
+		return false
+	}
+
+	return true
 }

@@ -2,12 +2,6 @@ package config
 
 import "time"
 
-// Injected at build time
-var (
-	GitRef    string
-	GitCommit string
-)
-
 var (
 	Instance  string
 	Platform  string

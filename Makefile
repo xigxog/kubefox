@@ -26,7 +26,6 @@ COMPONENTS := broker operator
 PUSHES := $(addprefix push/,$(COMPONENTS))
 IMAGES := $(addprefix image/,$(COMPONENTS))
 BINS := $(addprefix bin/,$(COMPONENTS))
-TIDIES := $(addprefix tidy/,$(COMPONENTS))
 INSPECTS := $(addprefix inspect/,$(COMPONENTS))
 
 
@@ -38,9 +37,6 @@ push-all: clean generate $(PUSHES)
 
 .PHONY: image-all
 image-all: clean generate $(IMAGES)
-
-.PHONY: tidy-all
-tidy-all: $(TIDIES)
 
 .PHONY: $(PUSHES)
 $(PUSHES):
@@ -67,14 +63,8 @@ $(BINS):
 	mkdir -p "$(dir $@)"
 	CGO_ENABLED=0 go build \
 		-C "$(SRC_DIR)/" -o "$(TARGET_DIR)/$(component)" \
-		-ldflags "-X main.GitRef=$(GIT_REF) -X main.GitCommit=$(GIT_COMMIT)" \
+		-ldflags "-X github.com/xigxog/kubefox/libs/core/kubefox.ComponentName=$(component) -X github.com/xigxog/kubefox/libs/core/kubefox.GitCommit=$(GIT_COMMIT) -X github.com/xigxog/kubefox/libs/core/kubefox.GitRef=$(GIT_REF)" \
 		main.go
-
-.PHONY: $(TIDIES)
-$(TIDIES):
-	$(eval component=$(notdir $@))
-
-	cd components/$(component) && go mod tidy
 
 .PHONY: docs
 docs:

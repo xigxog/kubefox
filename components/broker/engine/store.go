@@ -74,8 +74,8 @@ func (str *Store) Open(routesKV nats.KeyValue) error {
 		return str.log.ErrorN("loading K8s config failed: %v", err)
 	}
 	c, err := ctrlcache.New(cfg, ctrlcache.Options{
-		Scheme:     scheme.Scheme,
-		Namespaces: []string{str.namespace},
+		Scheme:            scheme.Scheme,
+		DefaultNamespaces: map[string]ctrlcache.Config{str.namespace: {}},
 	})
 	if err != nil {
 		return str.log.ErrorN("creating resource cache failed: %v", err)
@@ -111,7 +111,7 @@ func (str *Store) Open(routesKV nats.KeyValue) error {
 		inf.AddEventHandler(str)
 	}
 	if inf, err := c.GetInformer(str.ctx, &appsv1.DaemonSet{}); err != nil {
-		return str.log.ErrorN("release informer failed: %v", err)
+		return str.log.ErrorN("daemonset informer failed: %v", err)
 	} else {
 		str.dsInf = inf
 		k8scache.WaitForCacheSync(str.ctx.Done(), inf.HasSynced)
@@ -161,7 +161,7 @@ func (str *Store) GetBrokerMap() (map[string]string, error) {
 	return map[string]string{}, nil
 }
 
-func (str *Store) GetReleaseMatchers() (ReleaseMatchers, error) {
+func (str *Store) GetRelMatchers() (ReleaseMatchers, error) {
 	if len(str.relMatchers) > 0 {
 		return str.relMatchers, nil
 	}
@@ -195,7 +195,7 @@ func (str *Store) GetReleaseMatchers() (ReleaseMatchers, error) {
 	return str.relMatchers, nil
 }
 
-func (str *Store) GetDeploymentMatcher(depName, envName string) (*DeploymentMatcher, error) {
+func (str *Store) GetDepMatcher(depName, envName string) (*DeploymentMatcher, error) {
 	if byEnv, found := str.depMatchersByDep.Get(depName); found {
 		if depM, found := byEnv[envName]; found {
 			str.depMatchersByEnv.Get(envName) // touch env to reset TTL
@@ -340,7 +340,7 @@ func (str *Store) OnDelete(obj interface{}) {
 	}
 }
 
-func (str *Store) buildMatchers(comps map[string]*v1alpha1.Component, vars map[string]*kubefox.Var) ([]*matcher.EventMatcher, error) {
+func (str *Store) buildMatchers(comps map[string]*v1alpha1.Component, vars map[string]*kubefox.Val) ([]*matcher.EventMatcher, error) {
 	matchers := make([]*matcher.EventMatcher, 0)
 	for compName, resComp := range comps {
 		comp := &kubefox.Component{Name: compName, Commit: resComp.Commit}
@@ -350,7 +350,7 @@ func (str *Store) buildMatchers(comps map[string]*v1alpha1.Component, vars map[s
 			if err != nil {
 				return nil, err
 			}
-			compReg := new(kubefox.ComponentRegistration)
+			compReg := new(kubefox.ComponentReg)
 			err = json.Unmarshal(entry.Value(), compReg)
 			if err != nil {
 				return nil, err

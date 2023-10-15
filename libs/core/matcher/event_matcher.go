@@ -42,6 +42,7 @@ func New(comp *kubefox.Component) (*EventMatcher, error) {
 	// Create a new parser and define the supported operators and methods
 	parser, err := predicate.NewParser(predicate.Def{
 		Functions: map[string]interface{}{
+			"All":        m.all,
 			"Header":     m.header,
 			"Host":       m.host,
 			"Method":     m.method,
@@ -116,6 +117,12 @@ func (m *EventMatcher) Match(e *kubefox.Event) (*kubefox.Component, *kubefox.Rou
 	return nil, nil, false
 }
 
+func (m *EventMatcher) all() eventPredicate {
+	return func(e *kubefox.Event) bool {
+		return true
+	}
+}
+
 func (m *EventMatcher) header(key, val string) (eventPredicate, error) {
 	if key == "" {
 		return nil, fmt.Errorf("header key must be provided")
@@ -128,7 +135,7 @@ func (m *EventMatcher) header(key, val string) (eventPredicate, error) {
 	}
 
 	return func(e *kubefox.Event) bool {
-		return matchMap(key, val, regex, e.GetValueMap(kubefox.HeaderValKey))
+		return matchMap(key, val, regex, e.ValueMap(kubefox.HeaderValKey))
 	}, nil
 }
 
@@ -145,7 +152,7 @@ func (m *EventMatcher) host(s string) (eventPredicate, error) {
 
 func (m *EventMatcher) method(s ...string) eventPredicate {
 	return func(e *kubefox.Event) bool {
-		m := e.GetValue(kubefox.MethodValKey)
+		m := e.Value(kubefox.MethodValKey)
 		for _, v := range s {
 			if strings.EqualFold(m, v) {
 				return true
@@ -188,7 +195,7 @@ func (m *EventMatcher) query(key, val string) (eventPredicate, error) {
 	}
 
 	return func(e *kubefox.Event) bool {
-		return matchMap(key, val, regex, e.GetValueMap(kubefox.QueryValKey))
+		return matchMap(key, val, regex, e.ValueMap(kubefox.QueryValKey))
 	}, nil
 }
 
@@ -250,7 +257,7 @@ func matchMap(key, val string, regex *regexp.Regexp, m map[string][]string) bool
 }
 
 func matchParts(val string, sep string, parts []string, params map[int]*param, e *kubefox.Event, prefix bool) bool {
-	evtParts := strings.Split(strings.Trim(e.GetValue(val), sep), sep)
+	evtParts := strings.Split(strings.Trim(e.Value(val), sep), sep)
 
 	if len(parts) > len(evtParts) {
 		return false

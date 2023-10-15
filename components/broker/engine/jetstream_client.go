@@ -21,12 +21,13 @@ const (
 	ProtobufContentType = "application/protobuf"
 	name                = "jetstream-client"
 	evtStream           = "events"
-	routesBucket        = "component-routes"
+	compBucket          = "components"
 )
 
 var (
-	maxMsgSize = int32(1024 * 1024 * 5) // 5 MiB
-	maxAge     = time.Hour * 24 * 3     // 3 days
+	maxMsgSize     = int32(1024 * 1024 * 5) // 5 MiB
+	EventStreamTTL = time.Hour * 24 * 3     // 3 days
+	ComponentsTTL  = time.Hour * 12         // 12 hours
 )
 
 type RecvMsg func(*nats.Msg)
@@ -36,7 +37,7 @@ type JetStreamClient struct {
 
 	nc       *nats.Conn
 	eventsKV nats.KeyValue
-	routesKV nats.KeyValue
+	compKV   nats.KeyValue
 
 	brk Broker
 
@@ -124,22 +125,22 @@ func (c *JetStreamClient) setupStream() error {
 		Name:        evtStream,
 		Description: "Durable disk backed event stream. Events are retained for 3 days.",
 		Subjects:    []string{"evt.>"},
-		MaxMsgSize:  maxMsgSize, // 5 MiB
+		MaxMsgSize:  maxMsgSize,
 		Discard:     nats.DiscardOld,
-		MaxAge:      maxAge, // 3 days
+		MaxAge:      EventStreamTTL,
 	})
 	if err != nil {
 		return c.log.ErrorN("unable to create events stream: %v", err)
 	}
 
-	c.routesKV, err = c.CreateKeyValue(&nats.KeyValueConfig{
-		Bucket:      routesBucket,
-		Description: "Durable disk backed key/value store used by Brokers to register Component routes. Values are retained for 2 days.",
+	c.compKV, err = c.CreateKeyValue(&nats.KeyValueConfig{
+		Bucket:      compBucket,
+		Description: "Durable key/value store used by Brokers to register Components. Values are retained for 12 hours.",
 		Storage:     nats.FileStorage,
-		TTL:         time.Hour * 12,
+		TTL:         ComponentsTTL,
 	})
 	if err != nil {
-		return c.log.ErrorN("unable to create component routes key/value store: %v", err)
+		return c.log.ErrorN("unable to create components key/value store: %v", err)
 	}
 
 	return nil
@@ -150,7 +151,7 @@ func (c *JetStreamClient) setupEventsKV() (err error) {
 		Bucket:      evtStream,
 		Description: "Durable disk backed key/value store for events. Values are retained for 3 days.",
 		Storage:     nats.FileStorage,
-		TTL:         time.Hour * 24 * 3, // 3 days, TODO configurable,
+		TTL:         EventStreamTTL,
 	})
 	if err != nil {
 		return c.log.ErrorN("unable to create archive key/value store: %w", err)
@@ -228,8 +229,8 @@ func (c *JetStreamClient) EventsKV() nats.KeyValue {
 	return c.eventsKV
 }
 
-func (c *JetStreamClient) RoutesKV() nats.KeyValue {
-	return c.routesKV
+func (c *JetStreamClient) ComponentsKV() nats.KeyValue {
+	return c.compKV
 }
 
 func (c *JetStreamClient) Publish(subject string, evt *kubefox.Event) (nats.PubAckFuture, error) {
@@ -282,7 +283,7 @@ func (c *JetStreamClient) PullEvents(sub ReplicaSubscription) error {
 			Durable:           grpConsumer,
 			AckPolicy:         nats.AckExplicitPolicy,
 			FilterSubject:     grpSubj,
-			InactiveThreshold: maxAge,
+			InactiveThreshold: EventStreamTTL,
 		}
 		if _, err := c.AddConsumer(evtStream, grpCfg); err != nil {
 			if _, err := c.UpdateConsumer(evtStream, grpCfg); err != nil {

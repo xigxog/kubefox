@@ -16,10 +16,10 @@ func TestPath(t *testing.T) {
 		t.FailNow()
 	}
 
-	v := map[string]*kubefox.Var{
-		"a": kubefox.NewVarString("127"),
-		"b": kubefox.NewVarArrayInt([]int{0, 1}),
-		"c": kubefox.NewVarArrayString([]string{"a", "b"}),
+	v := map[string]*kubefox.Val{
+		"a": kubefox.ValString("127"),
+		"b": kubefox.ValArrayInt([]int{0, 1}),
+		"c": kubefox.ValArrayString([]string{"a", "b"}),
 	}
 
 	r1 := &kubefox.Route{
@@ -57,7 +57,7 @@ func TestPath(t *testing.T) {
 		t.Log("incorrect route matched :(")
 		t.FailNow()
 	}
-	t.Logf("matched route %d; i=%s, j=%s", r.Id, e.GetParam("i"), e.GetParam("j"))
+	t.Logf("matched route %d; i=%s, j=%s", r.Id, e.Param("i"), e.Param("j"))
 
 }
 

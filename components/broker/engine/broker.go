@@ -2,9 +2,11 @@ package engine
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"os"
 	"os/signal"
+	"strings"
 	"sync"
 	"syscall"
 	"time"
@@ -12,6 +14,7 @@ import (
 	"github.com/lestrrat-go/jwx/jwt"
 	"github.com/xigxog/kubefox/components/broker/config"
 	"github.com/xigxog/kubefox/components/broker/telemetry"
+	"github.com/xigxog/kubefox/libs/core/api/kubernetes/v1alpha1"
 	"github.com/xigxog/kubefox/libs/core/kubefox"
 	"github.com/xigxog/kubefox/libs/core/logkf"
 	"github.com/xigxog/kubefox/libs/core/utils"
@@ -61,7 +64,7 @@ type broker struct {
 	healthSrv *telemetry.HealthServer
 	telClient *telemetry.Client
 
-	subMgr     SubscriptionManager
+	subMgr     SubscriptionMgr
 	recvCh     chan *ReceivedEvent
 	archiveCh  chan *ReceivedEvent
 	kvUpdateCh chan *IdSeq
@@ -100,8 +103,6 @@ func New() Engine {
 
 func (brk *broker) Start() {
 	// TODO log config
-	// TODO start bg process to republish sub'd comp's routes to reset ttl on
-	// kv. run every 6 hrs.
 
 	brk.log.Debug("broker starting")
 
@@ -137,11 +138,11 @@ func (brk *broker) Start() {
 	}
 	brk.healthSrv.Register(brk.jsClient)
 
-	if err := brk.store.Open(brk.jsClient.RoutesKV()); err != nil {
+	if err := brk.store.Open(brk.jsClient.ComponentsKV()); err != nil {
 		brk.shutdown(ResourceStoreExitCode)
 	}
 
-	if err := brk.grpcSrv.Start(ctx, brk.jsClient.RoutesKV()); err != nil {
+	if err := brk.grpcSrv.Start(ctx, brk.jsClient.ComponentsKV()); err != nil {
 		brk.shutdown(GRPCServerExitCode)
 	}
 
@@ -150,9 +151,10 @@ func (brk *broker) Start() {
 	}
 
 	brk.log.Infof("starting %d workers", config.NumWorkers)
-	brk.wg.Add(config.NumWorkers + 2) // +2 for archiver and kv-updater
-	go brk.startKVUpdater()
+	brk.wg.Add(config.NumWorkers + 3) // +3 for archiver and updaters
 	go brk.startArchiver()
+	go brk.startEventsKVUpdater()
+	go brk.startCompsKVUpdater()
 	for i := 0; i < config.NumWorkers; i++ {
 		go brk.startWorker(i)
 	}
@@ -172,6 +174,10 @@ func (brk *broker) Subscribe(ctx context.Context, conf *SubscriptionConf) (Repli
 		return nil, err
 	}
 
+	if err := brk.updateCompReg(conf.Component, conf.CompReg); err != nil {
+		return nil, err
+	}
+
 	err = brk.jsClient.PullEvents(sub)
 	if err != nil {
 		return nil, err
@@ -183,21 +189,19 @@ func (brk *broker) Subscribe(ctx context.Context, conf *SubscriptionConf) (Repli
 }
 
 func (brk *broker) AuthorizeComponent(ctx context.Context, comp *kubefox.Component, authToken string) error {
-	svcAccName := config.Platform + "-" + comp.GroupKey()
-
 	parsed, err := jwt.ParseString(authToken)
 	if err != nil {
 		return err
 	}
-	var jwtSvcAccName string
+	var svcAccName string
 	if k, ok := parsed.PrivateClaims()["kubernetes.io"].(map[string]interface{}); ok {
 		if sa, ok := k["serviceaccount"].(map[string]interface{}); ok {
 			if n, ok := sa["name"].(string); ok {
-				jwtSvcAccName = n
+				svcAccName = n
 			}
 		}
 	}
-	if jwtSvcAccName != svcAccName {
+	if !strings.HasSuffix(svcAccName, comp.GroupKey()) {
 		return fmt.Errorf("service account name does not match component")
 	}
 
@@ -270,55 +274,15 @@ func (brk *broker) routeEvt(log *logkf.Logger, rEvt *ReceivedEvent) {
 	log.Debug("routing event from work queue")
 	start := time.Now().UnixMicro()
 
-	var (
-		matcher Matcher
-		mEvt    *kubefox.MatchedEvent
-		err     error
-	)
-	switch {
-	case evt.Target != nil:
-		mEvt = &kubefox.MatchedEvent{
-			Event: rEvt.Event,
-		}
-
-	case evt.Deployment == "" && evt.Environment == "" && evt.Release == "":
-		matcher, err = brk.store.GetReleaseMatchers()
-
-	case evt.Deployment != "" && evt.Environment != "" && evt.Release == "":
-		matcher, err = brk.store.GetDeploymentMatcher(evt.Deployment, evt.Environment)
-
-	default:
-		err = fmt.Errorf("%w: missing deployment or environment", ErrEventInvalid)
-	}
-
-	switch {
-	case err != nil:
+	mEvt, err := brk.matchEvt(log, evt)
+	if err != nil {
 		log.Debug(err)
 		rEvt.Err(err)
 		return
-
-	case matcher != nil:
-		if mEvt = matcher.Match(evt); mEvt == nil {
-			log.Debug(ErrRouteNotFound)
-			rEvt.Err(ErrRouteNotFound)
-			return
-		}
-
-		if env, err := brk.store.GetEnvironment(evt.Environment); err != nil {
-			log.Debug(ErrRouteNotFound)
-			rEvt.Err(ErrRouteNotFound)
-			return
-
-		} else {
-			mEvt.Env = make(map[string]*structpb.Value, len(env.Spec.Vars))
-			for k, v := range env.Spec.Vars {
-				mEvt.Env[k] = v.Value()
-			}
-		}
 	}
 
 	log = log.WithComponent(evt.Target)
-	log.Debug("found target component")
+	log.Debug("matched event")
 
 	// TODO add policy hook
 
@@ -381,6 +345,72 @@ func (brk *broker) routeEvt(log *logkf.Logger, rEvt *ReceivedEvent) {
 	}
 }
 
+func (brk *broker) matchEvt(log *logkf.Logger, evt *kubefox.Event) (*kubefox.MatchedEvent, error) {
+	if evt.Target != nil {
+		if brk.httpSrv.Component().Equal(evt.Target) {
+			return &kubefox.MatchedEvent{Event: evt}, nil
+		}
+
+		if evt.Category == kubefox.Category_CATEGORY_RESPONSE &&
+			evt.Target.Name != "" && evt.Target.Commit != "" && evt.Target.Id != "" {
+
+			return &kubefox.MatchedEvent{Event: evt}, nil
+		}
+	}
+
+	var (
+		matcher Matcher
+		err     error
+	)
+	switch {
+	case evt.Deployment == "" && evt.Environment == "" && evt.Release == "":
+		matcher, err = brk.store.GetRelMatchers()
+
+	case evt.Deployment != "" && evt.Environment != "" && evt.Release == "":
+		matcher, err = brk.store.GetDepMatcher(evt.Deployment, evt.Environment)
+
+	default:
+		err = fmt.Errorf("%w: missing deployment or environment", ErrEventInvalid)
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	mEvt := matcher.Match(evt)
+	if mEvt == nil {
+		return nil, ErrRouteNotFound
+	}
+
+	var (
+		rel     *v1alpha1.Release
+		env     *v1alpha1.Environment
+		envVars map[string]*kubefox.Val
+	)
+	switch {
+	case evt.Release != "":
+		rel, err = brk.store.GetRelease(evt.Release)
+		if rel != nil {
+			envVars = rel.Spec.Environment.Vars
+		}
+
+	case evt.Environment != "":
+		env, err = brk.store.GetEnvironment(evt.Environment)
+		if env != nil {
+			envVars = env.Spec.Vars
+		}
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	mEvt.Env = make(map[string]*structpb.Value, len(envVars))
+	for k, v := range envVars {
+		mEvt.Env[k] = v.Proto()
+	}
+
+	return mEvt, nil
+}
+
 func (brk *broker) startArchiver() {
 	log := brk.log.With("worker", "archiver")
 	defer func() {
@@ -416,10 +446,10 @@ func (brk *broker) startArchiver() {
 	}
 }
 
-func (brk *broker) startKVUpdater() {
-	log := brk.log.With("worker", "kv-updater")
+func (brk *broker) startEventsKVUpdater() {
+	log := brk.log.With("worker", "events-kv-updater")
 	defer func() {
-		log.Info("kv-updater stopped")
+		log.Info("events-kv-updater stopped")
 		brk.wg.Done()
 	}()
 
@@ -440,6 +470,43 @@ func (brk *broker) startKVUpdater() {
 			return
 		}
 	}
+}
+
+func (brk *broker) startCompsKVUpdater() {
+	log := brk.log.With("worker", "components-kv-updater")
+	defer func() {
+		log.Info("components-kv-updater stopped")
+		brk.wg.Done()
+	}()
+
+	ticker := time.NewTicker(ComponentsTTL / 2)
+	for {
+		select {
+		case <-ticker.C:
+			for _, sub := range brk.subMgr.Subscriptions() {
+				if err := brk.updateCompReg(sub.Component(), sub.ComponentReg()); err != nil {
+					log.Error("error updating components key/value: %v", err)
+				}
+			}
+
+		case <-brk.ctx.Done():
+			return
+		}
+	}
+
+}
+
+func (brk *broker) updateCompReg(comp *kubefox.Component, reg *kubefox.ComponentReg) error {
+	b, err := json.Marshal(reg)
+	if err != nil {
+		return err
+	}
+
+	if _, err := brk.jsClient.ComponentsKV().Put(comp.GroupKey(), b); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func (brk *broker) shutdown(code int) {

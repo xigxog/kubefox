@@ -21,6 +21,7 @@ import (
 	kscheme "k8s.io/client-go/kubernetes/scheme"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
+	"sigs.k8s.io/controller-runtime/pkg/metrics/server"
 
 	"github.com/xigxog/kubefox/components/operator/controller"
 	"github.com/xigxog/kubefox/libs/core/api/kubernetes/v1alpha1"
@@ -28,20 +29,11 @@ import (
 	"github.com/xigxog/kubefox/libs/core/utils"
 )
 
-// Injected at build time.
-var (
-	GitRef    string
-	GitCommit string
-)
-
 var (
 	scheme = runtime.NewScheme()
 )
 
 func init() {
-	controller.GitRef = GitRef
-	controller.GitCommit = GitCommit
-
 	urt.Must(kscheme.AddToScheme(scheme))
 	urt.Must(v1alpha1.AddToScheme(scheme))
 }
@@ -74,8 +66,10 @@ func main() {
 	ctrl.SetLogger(zapr.NewLogger(logkf.Global.Unwrap().Desugar()))
 
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
-		Scheme:                 scheme,
-		MetricsBindAddress:     "0",
+		Scheme: scheme,
+		Metrics: server.Options{
+			BindAddress: "0",
+		},
 		HealthProbeBindAddress: healthAddr,
 		// WebhookServer: webhook.NewServer(webhook.Options{
 		// 	CertDir: "/kubefox/operator/",

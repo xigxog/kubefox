@@ -28,7 +28,7 @@ type ReleaseEnv struct {
 	// +kubebuilder:validation:Schemaless
 	// +kubebuilder:validation:Type=object
 	// +kubebuilder:pruning:PreserveUnknownFields
-	Vars map[string]*kubefox.Var `json:"vars,omitempty"`
+	Vars map[string]*kubefox.Val `json:"vars,omitempty"`
 }
 
 // ReleaseStatus defines the observed state of Release

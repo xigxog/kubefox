@@ -25,8 +25,8 @@ spec:
             - -name={{ .Component.Name }}
             - -commit={{ .Component.Commit }}
             - -broker-addr=$(BROKER_HOST):6060
-            - -log-format=json
-            - -log-level=info
+            - -log-format=console
+            - -log-level=debug
           env:
             - name: BROKER_HOST
               valueFrom:
@@ -37,7 +37,7 @@ spec:
                 name: {{ .Platform.Name }}-env
           volumeMounts:
             - name: root-ca
-              mountPath: /tmp/kubefox/broker/ca.crt
+              mountPath: /tmp/kubefox/ca.crt
               subPath: ca.crt
       volumes:
         - name: root-ca

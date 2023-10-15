@@ -12,11 +12,12 @@ import (
 
 // TODO metrics, logging
 
-type SubscriptionManager interface {
+type SubscriptionMgr interface {
 	Create(ctx context.Context, cfg *SubscriptionConf, recvCh chan *ReceivedEvent) (ReplicaSubscription, error)
 	Subscription(comp *kubefox.Component) (Subscription, bool)
 	ReplicaSubscription(comp *kubefox.Component) (ReplicaSubscription, bool)
 	GroupSubscription(comp *kubefox.Component) (GroupSubscription, bool)
+	Subscriptions() []ReplicaSubscription
 	Close()
 }
 
@@ -31,6 +32,7 @@ type GroupSubscription interface {
 
 type SubscriptionConf struct {
 	Component   *kubefox.Component
+	CompReg     *kubefox.ComponentReg
 	SendFunc    SendEvent
 	EnableGroup bool
 }
@@ -38,13 +40,14 @@ type SubscriptionConf struct {
 type ReplicaSubscription interface {
 	Subscription
 	Component() *kubefox.Component
+	ComponentReg() *kubefox.ComponentReg
 	GroupEnabled() bool
 	Context() context.Context
 	Cancel(err error)
 	Err() error
 }
 
-type subscriptionManager struct {
+type subscriptionMgr struct {
 	subMap map[string]*subscription
 	grpMap map[string]*subscriptionGroup
 
@@ -59,8 +62,9 @@ type subscriptionGroup struct {
 }
 
 type subscription struct {
-	comp *kubefox.Component
-	mgr  *subscriptionManager
+	comp    *kubefox.Component
+	compReg *kubefox.ComponentReg
+	mgr     *subscriptionMgr
 
 	sendFunc   SendEvent
 	recvCh     chan *ReceivedEvent
@@ -81,15 +85,15 @@ type sendResp struct {
 	Err error
 }
 
-func NewManager() SubscriptionManager {
-	return &subscriptionManager{
+func NewManager() SubscriptionMgr {
+	return &subscriptionMgr{
 		subMap: make(map[string]*subscription),
 		grpMap: make(map[string]*subscriptionGroup),
 		log:    logkf.Global,
 	}
 }
 
-func (mgr *subscriptionManager) Create(ctx context.Context, cfg *SubscriptionConf, recvCh chan *ReceivedEvent) (ReplicaSubscription, error) {
+func (mgr *subscriptionMgr) Create(ctx context.Context, cfg *SubscriptionConf, recvCh chan *ReceivedEvent) (ReplicaSubscription, error) {
 	if err := checkComp(cfg.Component); err != nil {
 		return nil, err
 	}
@@ -104,6 +108,7 @@ func (mgr *subscriptionManager) Create(ctx context.Context, cfg *SubscriptionCon
 	subCtx, subCancel := context.WithCancelCause(ctx)
 	sub := &subscription{
 		comp:       cfg.Component,
+		compReg:    cfg.CompReg,
 		mgr:        mgr,
 		sendFunc:   cfg.SendFunc,
 		recvCh:     recvCh,
@@ -131,7 +136,7 @@ func (mgr *subscriptionManager) Create(ctx context.Context, cfg *SubscriptionCon
 	return sub, nil
 }
 
-func (mgr *subscriptionManager) Subscription(comp *kubefox.Component) (Subscription, bool) {
+func (mgr *subscriptionMgr) Subscription(comp *kubefox.Component) (Subscription, bool) {
 	if sub, found := mgr.ReplicaSubscription(comp); found {
 		return sub, true
 	}
@@ -139,7 +144,7 @@ func (mgr *subscriptionManager) Subscription(comp *kubefox.Component) (Subscript
 	return mgr.GroupSubscription(comp)
 }
 
-func (mgr *subscriptionManager) ReplicaSubscription(comp *kubefox.Component) (ReplicaSubscription, bool) {
+func (mgr *subscriptionMgr) ReplicaSubscription(comp *kubefox.Component) (ReplicaSubscription, bool) {
 	mgr.mutex.RLock()
 	defer mgr.mutex.RUnlock()
 
@@ -151,7 +156,7 @@ func (mgr *subscriptionManager) ReplicaSubscription(comp *kubefox.Component) (Re
 	return sub, true
 }
 
-func (mgr *subscriptionManager) GroupSubscription(comp *kubefox.Component) (GroupSubscription, bool) {
+func (mgr *subscriptionMgr) GroupSubscription(comp *kubefox.Component) (GroupSubscription, bool) {
 	mgr.mutex.RLock()
 	defer mgr.mutex.RUnlock()
 
@@ -163,7 +168,18 @@ func (mgr *subscriptionManager) GroupSubscription(comp *kubefox.Component) (Grou
 	return grp, true
 }
 
-func (mgr *subscriptionManager) Close() {
+func (mgr *subscriptionMgr) Subscriptions() []ReplicaSubscription {
+	list := make([]ReplicaSubscription, 0, len(mgr.subMap))
+	for _, s := range mgr.subMap {
+		if sub, found := mgr.ReplicaSubscription(s.Component()); found {
+			list = append(list, sub)
+		}
+	}
+
+	return list
+}
+
+func (mgr *subscriptionMgr) Close() {
 	mgr.log.Info("subscription manager closing")
 
 	for _, sub := range mgr.subMap {
@@ -173,7 +189,7 @@ func (mgr *subscriptionManager) Close() {
 	mgr.log.Debug("subscription manager closed")
 }
 
-func (mgr *subscriptionManager) remove(sub *subscription) {
+func (mgr *subscriptionMgr) remove(sub *subscription) {
 	mgr.mutex.Lock()
 	defer mgr.mutex.Unlock()
 
@@ -214,6 +230,10 @@ func (sub *subscription) IsActive() bool {
 
 func (sub *subscription) Component() *kubefox.Component {
 	return sub.comp
+}
+
+func (sub *subscription) ComponentReg() *kubefox.ComponentReg {
+	return sub.compReg
 }
 
 func (sub *subscription) GroupEnabled() bool {

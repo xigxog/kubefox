@@ -2,7 +2,6 @@ package kit
 
 import (
 	"context"
-	"encoding/json"
 	"time"
 
 	"github.com/xigxog/kubefox/libs/core/kubefox"
@@ -12,61 +11,60 @@ import (
 
 type Kontext interface {
 	context.Context
+	kubefox.EventReader
 
-	//
-	// Retrieve from request event.
-	//
 	Env(name string) string
-	EnvVar(name string) *kubefox.Var
-	EnvOrDefault(key string, def string) string
+	EnvV(name string) *kubefox.Val
+	EnvDef(name string, def string) string
 
-	Param(name string) string
-	ParamVar(name string) *kubefox.Var
-	ParamOrDefault(key string, def string) string
+	Resp() Resp
 
-	Query(name string) string
-	QueryVar(name string) *kubefox.Var
-	QueryOrDefault(name string, def string) string
+	Component(name string) Req
 
-	Header(name string) string
-	HeaderVar(name string) *kubefox.Var
-	HeaderOrDefault(name string, def string) string
-
-	Bind(v any) error
-
-	//
-	// Modify response event.
-	//
-	Status(code int)
-
-	//
-	// Send response event.
-	//
-	String(s string) error
-	JSON(v any) error
-	Bytes(contentType string, b []byte) error
-
-	//
-	// Send request event.
-	//
-
-	//
-	// Other.
-	//
 	Log() *logkf.Logger
+}
+
+type Req interface {
+	kubefox.EventWriter
+
+	SendString(s string) (kubefox.EventReader, error)
+	SendHTML(s string) (kubefox.EventReader, error)
+	SendJSON(v any) (kubefox.EventReader, error)
+	SendBytes(contentType string, b []byte) (kubefox.EventReader, error)
+	Send() (kubefox.EventReader, error)
+}
+
+type Resp interface {
+	kubefox.EventWriter
+
+	SendString(s string) error
+	SendHTML(s string) error
+	SendJSON(v any) error
+	SendBytes(contentType string, b []byte) error
+	Send() error
 }
 
 type kontext struct {
 	context.Context
+	*kubefox.EventRW
 
 	kit  *kit
-	req  *kubefox.Event
-	resp *kubefox.Event
+	resp *kubefox.EventRW
 	env  map[string]*structpb.Value
 
-	start int64
+	start time.Time
 
 	log *logkf.Logger
+}
+
+type reqKtx struct {
+	*kubefox.EventRW
+	*kontext
+}
+
+type respKtx struct {
+	*kubefox.EventRW
+	*kontext
 }
 
 func (k *kontext) Log() *logkf.Logger {
@@ -74,15 +72,15 @@ func (k *kontext) Log() *logkf.Logger {
 }
 
 func (k *kontext) Env(key string) string {
-	return k.EnvVar(key).String()
+	return k.EnvV(key).String()
 }
 
-func (k *kontext) EnvVar(key string) *kubefox.Var {
-	v, _ := kubefox.VarFromValue(k.env[key])
+func (k *kontext) EnvV(key string) *kubefox.Val {
+	v, _ := kubefox.ValProto(k.env[key])
 	return v
 }
 
-func (k *kontext) EnvOrDefault(key string, def string) string {
+func (k *kontext) EnvDef(key string, def string) string {
 	if v := k.Env(key); v == "" {
 		return def
 	} else {
@@ -90,101 +88,84 @@ func (k *kontext) EnvOrDefault(key string, def string) string {
 	}
 }
 
-func (k *kontext) Param(key string) string {
-	v := k.req.GetParamVar(key)
-	if !v.IsNil() {
-		return v.String()
-	}
-	if s := k.Query(key); s != "" {
-		return s
-	}
-	if s := k.Header(key); s != "" {
-		return s
-	}
-
-	return ""
-}
-
-func (k *kontext) ParamVar(key string) *kubefox.Var {
-	return k.req.GetParamVar(key)
-}
-
-func (k *kontext) ParamOrDefault(key string, def string) string {
-	if v := k.Param(key); v == "" {
-		return def
-	} else {
-		return v
+func (k *kontext) Resp() Resp {
+	return &respKtx{
+		kontext: k,
+		EventRW: k.resp,
 	}
 }
 
-func (k *kontext) Query(key string) string {
-	m := k.req.GetValueMap(kubefox.QueryValKey)
-	if q := m[key]; len(q) >= 1 {
-		return q[0]
-	}
-
-	return ""
+func (s *respKtx) SendString(val string) error {
+	return s.SendBytes("text/plain; charset=UTF-8", []byte(val))
 }
 
-func (k *kontext) QueryVar(key string) *kubefox.Var {
-	return kubefox.NewVarString(k.Query(key))
+func (s *respKtx) SendHTML(val string) error {
+	return s.SendBytes("text/html; charset=UTF-8", []byte(val))
 }
 
-func (k *kontext) QueryOrDefault(key string, def string) string {
-	if v := k.Query(key); v == "" {
-		return def
-	} else {
-		return v
-	}
-}
-
-func (k *kontext) Header(key string) string {
-	m := k.req.GetValueMap(kubefox.HeaderValKey)
-	if h := m[key]; len(h) >= 1 {
-		return h[0]
-	}
-
-	return ""
-}
-
-func (k *kontext) HeaderVar(key string) *kubefox.Var {
-	return kubefox.NewVarString(k.Header(key))
-}
-
-func (k *kontext) HeaderOrDefault(key string, def string) string {
-	if v := k.Header(key); v == "" {
-		return def
-	} else {
-		return v
-	}
-}
-
-func (k *kontext) Bind(v any) error {
-	return k.req.Unmarshal(v)
-}
-
-func (k *kontext) Status(code int) {
-	k.req.SetValueNumber(kubefox.StatusCodeValKey, float64(code))
-}
-
-func (k *kontext) String(s string) error {
-	return k.Bytes("text/plain; charset=UTF-8", []byte(s))
-}
-
-func (k *kontext) JSON(v any) error {
-	b, err := json.Marshal(v)
-	if err != nil {
+func (s *respKtx) SendJSON(val any) error {
+	if err := s.SetJSON(val); err != nil {
 		return err
 	}
 
-	return k.Bytes("application/json; charset=UTF-8", b)
+	return s.Send()
 }
 
-func (k *kontext) Bytes(contentType string, b []byte) error {
-	k.resp.ContentType = contentType
-	k.resp.Content = b
+func (s *respKtx) SendBytes(contentType string, b []byte) error {
+	s.EventRW.ContentType = contentType
+	s.EventRW.Content = b
 
-	k.resp.Ttl = k.req.Ttl - (time.Now().UnixMicro() - k.start)
+	return s.Send()
+}
 
-	return k.kit.sendEvent(k.resp, k.start)
+func (s *respKtx) Send() error {
+	s.Event.ReduceTTL(s.start)
+	return s.kit.sendEvent(s.Event)
+}
+
+func (k *kontext) Component(component string) Req {
+	return &reqKtx{
+		kontext: k,
+		EventRW: kubefox.NewReq(
+			kubefox.ComponentRequestType,
+			k.Event,
+			k.kit.comp,
+			&kubefox.Component{
+				Name: component,
+			},
+		),
+	}
+}
+
+func (s *reqKtx) SendString(val string) (kubefox.EventReader, error) {
+	return s.SendBytes("text/plain; charset=UTF-8", []byte(val))
+}
+
+func (s *reqKtx) SendHTML(val string) (kubefox.EventReader, error) {
+	return s.SendBytes("text/html; charset=UTF-8", []byte(val))
+}
+
+func (s *reqKtx) SendJSON(val any) (kubefox.EventReader, error) {
+	if err := s.SetJSON(val); err != nil {
+		return nil, err
+	}
+
+	return s.Send()
+}
+
+func (s *reqKtx) SendBytes(contentType string, b []byte) (kubefox.EventReader, error) {
+	s.EventRW.ContentType = contentType
+	s.EventRW.Content = b
+
+	return s.Send()
+}
+
+func (s *reqKtx) Send() (kubefox.EventReader, error) {
+	s.Event.ReduceTTL(s.start)
+	resp, err := s.kit.sendReq(s.kontext, s.Event)
+	if err != nil {
+		return nil, err
+	}
+
+	return kubefox.NewEventRW(resp), nil
 }

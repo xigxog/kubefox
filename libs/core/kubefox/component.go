@@ -4,11 +4,14 @@ import (
 	"fmt"
 )
 
-type ComponentRegistration struct {
+type ComponentReg struct {
 	Routes []*Route `json:"routes"`
 }
 
 func (lhs *Component) Equal(rhs *Component) bool {
+	if rhs == nil {
+		return false
+	}
 	return lhs.Name == rhs.Name &&
 		lhs.Commit == rhs.Commit &&
 		lhs.Id == rhs.Id

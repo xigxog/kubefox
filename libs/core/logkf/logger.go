@@ -167,8 +167,8 @@ func (log *Logger) WithEvent(evt *kubefox.Event) *Logger {
 	return log.With(
 		EventId, evt.Id,
 		EventType, evt.Type,
-		TraceId, evt.GetTraceId(),
-		SpanId, evt.GetSpanId(),
+		TraceId, evt.TraceId(),
+		SpanId, evt.SpanId(),
 	)
 }
 
@@ -194,8 +194,8 @@ func (log *Logger) DebugEw(msg string, evt *kubefox.Event, keysAndValues ...inte
 		keysAndValues = append(keysAndValues,
 			EventId, evt.Id,
 			EventType, evt.Type,
-			TraceId, evt.GetTraceId(),
-			SpanId, evt.GetSpanId(),
+			TraceId, evt.TraceId(),
+			SpanId, evt.SpanId(),
 		)
 	}
 	log.wrapped.Debugw(msg, keysAndValues...)
@@ -206,8 +206,8 @@ func (log *Logger) ErrorEw(msg string, evt *kubefox.Event, keysAndValues ...inte
 		keysAndValues = append(keysAndValues,
 			EventId, evt.Id,
 			EventType, evt.Type,
-			TraceId, evt.GetTraceId(),
-			SpanId, evt.GetSpanId(),
+			TraceId, evt.TraceId(),
+			SpanId, evt.SpanId(),
 		)
 	}
 

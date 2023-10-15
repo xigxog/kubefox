@@ -33,9 +33,9 @@ func NewSpan(ctx context.Context, timeout time.Duration, req *kubefox.Event) (co
 		typ = kubefox.EventType(req.Type)
 	}
 
-	trcId, _ := trace.TraceIDFromHex(req.GetTraceId())
-	spnId, _ := trace.SpanIDFromHex(req.GetSpanId())
-	trcFlags := trace.TraceFlags(req.GetTraceFlags())
+	trcId, _ := trace.TraceIDFromHex(req.TraceId())
+	spnId, _ := trace.SpanIDFromHex(req.SpanId())
+	trcFlags := trace.TraceFlags(req.TraceFlags())
 
 	ctx = trace.ContextWithRemoteSpanContext(ctx, trace.NewSpanContext(
 		trace.SpanContextConfig{

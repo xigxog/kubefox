@@ -18,7 +18,7 @@ type EnvironmentSpec struct {
 	// +kubebuilder:validation:Schemaless
 	// +kubebuilder:validation:Type=object
 	// +kubebuilder:pruning:PreserveUnknownFields
-	Vars map[string]*kubefox.Var `json:"vars,omitempty"`
+	Vars map[string]*kubefox.Val `json:"vars,omitempty"`
 }
 
 // EnvironmentStatus defines the observed state of Environment

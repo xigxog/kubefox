@@ -23,7 +23,7 @@ func NewHTTPClient(brk Broker) *HTTPClient {
 }
 
 func (c *HTTPClient) SendEvent(req ReceivedEvent) error {
-	httpReq, err := req.Event.ToHTTPRequest(req.Context)
+	httpReq, err := req.Event.HTTPRequest(req.Context)
 	if err != nil {
 		return err
 	}
@@ -34,7 +34,7 @@ func (c *HTTPClient) SendEvent(req ReceivedEvent) error {
 	}
 
 	resp := kubefox.NewEvent()
-	if err = resp.ParseHTTPResponse(httpResp); err != nil {
+	if err = resp.SetHTTPResponse(httpResp); err != nil {
 		return err
 	}
 	resp.SetParent(req.Event)

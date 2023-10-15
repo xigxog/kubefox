@@ -33,19 +33,19 @@ func (rt *KitRoundTripper) RoundTrip(httpReq *http.Request) (*http.Response, err
 
 	// TODO
 	// req := kit.req.ChildEvent()
-	req := &kubefox.Event{}
+	req := kubefox.NewEvent()
 	req.Target = kitCtx.target
 
-	if err := req.ParseHTTPRequest(httpReq); err != nil {
+	if err := req.SetHTTPRequest(httpReq); err != nil {
 		kitSvc.Log().Error(err)
 		return nil, err
 	}
 
-	resp, err := kitSvc.sendReq(req)
+	resp, err := kitSvc.sendReq(httpReq.Context(), req)
 	if err != nil {
 		kitSvc.Log().Error(err)
 		return nil, err
 	}
 
-	return resp.ToHTTPResponse(), nil
+	return resp.HTTPResponse(), nil
 }

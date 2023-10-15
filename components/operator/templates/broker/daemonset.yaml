@@ -67,10 +67,11 @@ spec:
             - -vault-addr={{ .Instance.Name }}-vault.{{ .Instance.Namespace }}
             - -nats-addr={{ .Platform.Name }}-nats.{{ .Platform.Namespace }}
             - -http-addr=0.0.0.0:8080
+            - -https-addr=0.0.0.0:8443
             - -telemetry-addr=false
             - -health-addr=0.0.0.0:1111
-            - -log-format=json
-            - -log-level=info
+            - -log-format=console
+            - -log-level=debug
           env:
             - name: KUBEFOX_COMPONENT_IP
               valueFrom:
@@ -88,11 +89,14 @@ spec:
             - configMapRef:
                 name: {{ .Platform.Name }}-env
           ports:
-            - name: grpc
-              containerPort: 6060
-              protocol: TCP
             - name: http
               containerPort: 8080
+              protocol: TCP
+            - name: https
+              containerPort: 8443
+              protocol: TCP
+            - name: grpc
+              containerPort: 6060
               protocol: TCP
             - name: health
               containerPort: 1111
