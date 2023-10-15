@@ -8,24 +8,10 @@ import (
 	"unsafe"
 )
 
-type Comparable[T any] interface {
-	Equals(T) bool
-}
-
-func Contains[T Comparable[T]](s []T, e T) bool {
-	for _, v := range s {
-		if v.Equals(e) {
-			return true
-		}
-	}
-	return false
-}
-
 func ResolveFlag(curr, envVar, def string) string {
 	if curr != "" {
 		return curr
 	}
-
 	if e := os.Getenv(envVar); e != "" {
 		return e
 	} else {
@@ -37,7 +23,6 @@ func ResolveFlagBool(curr bool, envVar string, def bool) bool {
 	if curr != def {
 		return curr
 	}
-
 	if e, err := strconv.ParseBool(os.Getenv(envVar)); err == nil {
 		return e
 	} else {
@@ -49,7 +34,6 @@ func ResolveFlagInt(curr int, envVar string, def int) int {
 	if curr != def {
 		return curr
 	}
-
 	if e, err := strconv.ParseInt(os.Getenv(envVar), 10, 0); err == nil {
 		return int(e)
 	} else {

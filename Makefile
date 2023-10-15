@@ -11,7 +11,7 @@ KIND_LOAD := false
 
 ROOT := $(dir $(abspath $(lastword $(MAKEFILE_LIST))))
 TARGET_DIR := $(abspath $(ROOT)/bin)
-API_DIR := $(abspath $(ROOT)/libs/core/api)
+API_DIR := $(abspath $(ROOT)/libs/api)
 CRDS_DIR := $(abspath $(API_DIR)/crds)
 PROTO_SRC := $(abspath $(API_DIR)/protobuf)
 KUBEFOX_DIR := $(abspath $(ROOT)/libs/core/kubefox)

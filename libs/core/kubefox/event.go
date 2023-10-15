@@ -12,7 +12,6 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/lestrrat-go/jwx/jwt"
 	"google.golang.org/protobuf/types/known/structpb"
 )
 
@@ -268,11 +267,13 @@ func (evt *Event) SetHTTPRequest(httpReq *http.Request) error {
 		}
 	}
 
-	token, err := jwt.ParseRequest(httpReq, jwt.WithValidate(true))
-	if err == nil {
-		b, _ := jwt.NewSerializer().Serialize(token)
-		evt.SetValue("authToken", string(b))
-	}
+	// TODO parse and validate jwt
+	// NOTE the jwt lib has lots of deps :(
+	// token, err := jwt.ParseRequest(httpReq, jwt.WithValidate(true))
+	// if err == nil {
+	// 	b, _ := jwt.NewSerializer().Serialize(token)
+	// 	evt.SetValue("authToken", string(b))
+	// }
 
 	url := httpReq.URL
 	if host := httpReq.Header.Get("X-Forwarded-Host"); host != "" {

@@ -11,6 +11,7 @@ package controller
 import (
 	"context"
 	"fmt"
+	"os"
 	"sync"
 	"time"
 
@@ -25,10 +26,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/xigxog/kubefox/components/operator/templates"
-	"github.com/xigxog/kubefox/libs/core/api/kubernetes/v1alpha1"
+	"github.com/xigxog/kubefox/libs/api/kubernetes/v1alpha1"
 	"github.com/xigxog/kubefox/libs/core/kubefox"
 	"github.com/xigxog/kubefox/libs/core/logkf"
-	"github.com/xigxog/kubefox/libs/core/utils"
 )
 
 // PlatformReconciler reconciles a Platform object
@@ -354,11 +354,13 @@ func (r *PlatformReconciler) vaultClient(ctx context.Context, url string, caCert
 		return nil, err
 	}
 
-	jwt, err := utils.GetSvcAccountToken(r.Namespace, r.Instance+"-operator")
-	if err != nil {
+	b, err := os.ReadFile(kubefox.SvcAccTokenFile)
+	if err == nil {
+		// Return token from file is it was successfully read.
 		return nil, err
 	}
-	auth, err := vauth.NewKubernetesAuth("kubefox-operator", vauth.WithServiceAccountToken(jwt))
+	token := vauth.WithServiceAccountToken(string(b))
+	auth, err := vauth.NewKubernetesAuth("kubefox-operator", token)
 	if err != nil {
 		return nil, err
 	}

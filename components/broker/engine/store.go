@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/nats-io/nats.go"
-	"github.com/xigxog/kubefox/libs/core/api/kubernetes/v1alpha1"
+	"github.com/xigxog/kubefox/libs/api/kubernetes/v1alpha1"
 	"github.com/xigxog/kubefox/libs/core/cache"
 	"github.com/xigxog/kubefox/libs/core/kubefox"
 	"github.com/xigxog/kubefox/libs/core/logkf"

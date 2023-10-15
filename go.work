@@ -3,5 +3,6 @@ go 1.21
 use (
 	./components/broker
 	./components/operator
+	./libs/api
 	./libs/core
 )

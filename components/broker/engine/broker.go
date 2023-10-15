@@ -14,7 +14,7 @@ import (
 	"github.com/lestrrat-go/jwx/jwt"
 	"github.com/xigxog/kubefox/components/broker/config"
 	"github.com/xigxog/kubefox/components/broker/telemetry"
-	"github.com/xigxog/kubefox/libs/core/api/kubernetes/v1alpha1"
+	"github.com/xigxog/kubefox/libs/api/kubernetes/v1alpha1"
 	"github.com/xigxog/kubefox/libs/core/kubefox"
 	"github.com/xigxog/kubefox/libs/core/logkf"
 	"github.com/xigxog/kubefox/libs/core/utils"

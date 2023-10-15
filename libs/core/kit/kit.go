@@ -11,9 +11,8 @@ import (
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
-	_ "k8s.io/client-go/plugin/pkg/client/auth"
+	// _ "k8s.io/client-go/plugin/pkg/client/auth"
 
-	"github.com/go-logr/logr"
 	"github.com/xigxog/kubefox/libs/core/grpc"
 	"github.com/xigxog/kubefox/libs/core/kubefox"
 	"github.com/xigxog/kubefox/libs/core/logkf"
@@ -24,7 +23,6 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/status"
-	ctrl "sigs.k8s.io/controller-runtime"
 )
 
 type EventHandlerFunc func(kit Kontext) error
@@ -114,7 +112,7 @@ Flags:
 	defer logkf.Global.Sync()
 
 	svc.log = logkf.Global
-	ctrl.SetLogger(logr.Logger{})
+	// ctrl.SetLogger(logr.Logger{})
 
 	svc.Context, svc.cancel = context.WithCancel(context.Background())
 	svc.log.Info("kit service created 🦊")
@@ -309,16 +307,18 @@ func (svc *kit) sendEvent(evt *kubefox.Event) error {
 }
 
 func (svc *kit) GetRequestMetadata(ctx context.Context, uri ...string) (map[string]string, error) {
-	saToken, err := utils.GetSvcAccountToken(svc.namespace, svc.platform+"-"+svc.comp.GroupKey())
-	if err != nil {
+	b, err := os.ReadFile(kubefox.SvcAccTokenFile)
+	if err == nil {
+		// Return token from file is it was successfully read.
 		return nil, err
 	}
+	token := string(b)
 
 	return map[string]string{
 		"componentId":     svc.comp.Id,
 		"componentName":   svc.comp.Name,
 		"componentCommit": svc.comp.Commit,
-		"authToken":       saToken,
+		"authToken":       token,
 	}, nil
 }
 

@@ -14,7 +14,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 
-	"github.com/xigxog/kubefox/libs/core/api/kubernetes/v1alpha1"
+	"github.com/xigxog/kubefox/libs/api/kubernetes/v1alpha1"
 	"github.com/xigxog/kubefox/libs/core/logkf"
 )
 
