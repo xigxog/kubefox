@@ -55,7 +55,7 @@ func (srv *GRPCServer) Start(ctx context.Context, routesKV nats.KeyValue) error 
 	// 	srv.log.Errorf("error reading cert: %v", err)
 	// 	os.Exit(model.RpcServerErrorCode)
 	// }
-	creds, err := credentials.NewServerTLSFromFile(kubefox.TLSCertPath, kubefox.TLSKeyPath)
+	creds, err := credentials.NewServerTLSFromFile(kubefox.PathTLSCert, kubefox.PathTLSKey)
 	if err != nil {
 		return srv.log.ErrorN("%v", err)
 	}
@@ -132,8 +132,8 @@ func (srv *GRPCServer) Subscribe(stream grpc.Broker_SubscribeServer) error {
 	if err != nil {
 		return log.ErrorN("component registration failed: %v", err)
 	}
-	if regEvt.Type != string(kubefox.RegisterType) {
-		return log.ErrorN("component registration failed: expected event of type %s but got %s", kubefox.RegisterType, regEvt.Type)
+	if regEvt.Type != string(kubefox.EventTypeRegister) {
+		return log.ErrorN("component registration failed: expected event of type %s but got %s", kubefox.EventTypeRegister, regEvt.Type)
 	}
 	compReg := &kubefox.ComponentReg{}
 	if err := regEvt.Bind(compReg); err != nil {
@@ -198,7 +198,7 @@ func (srv *GRPCServer) Subscribe(stream grpc.Broker_SubscribeServer) error {
 			log.DebugEw("receive event", evt)
 			err = srv.brk.RecvEvent(&ReceivedEvent{
 				Event:    evt,
-				Receiver: GRPCSvc,
+				Receiver: EventReceiverGRPC,
 			})
 			if err != nil {
 				log.DebugEw("receive event failed", evt, err)

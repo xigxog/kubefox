@@ -10,7 +10,7 @@ import (
 	// to ensure that exec-entrypoint and run can make use of them.
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 
-	"github.com/go-logr/logr"
+	"github.com/go-logr/zapr"
 	"github.com/xigxog/kubefox/components/broker/config"
 	"github.com/xigxog/kubefox/components/broker/engine"
 	"github.com/xigxog/kubefox/libs/core/kubefox"
@@ -49,8 +49,9 @@ func main() {
 		WithPlatform(config.Platform).
 		WithService("broker")
 	defer logkf.Global.Sync()
+	ctrl.SetLogger(zapr.NewLogger(logkf.Global.Unwrap().Desugar()))
 
-	ctrl.SetLogger(logr.Logger{})
+	logkf.Global.Debugf("gitCommit: %s, gitRef: %s", kubefox.GitCommit, kubefox.GitRef)
 
 	engine.New().Start()
 

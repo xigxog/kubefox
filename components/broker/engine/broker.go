@@ -245,7 +245,7 @@ func (brk *broker) RecvEvent(rEvt *ReceivedEvent) error {
 }
 
 func (brk *broker) startWorker(id int) {
-	log := brk.log.With("worker", fmt.Sprintf("worker-%d", id))
+	log := brk.log.With(logkf.KeyWorker, fmt.Sprintf("worker-%d", id))
 	defer func() {
 		log.Info("worker stopped")
 		brk.wg.Done()
@@ -363,10 +363,10 @@ func (brk *broker) matchEvt(log *logkf.Logger, evt *kubefox.Event) (*kubefox.Mat
 		err     error
 	)
 	switch {
-	case evt.Deployment == "" && evt.Environment == "" && evt.Release == "":
+	case evt.Release != "" || (evt.Deployment == "" && evt.Environment == ""):
 		matcher, err = brk.store.GetRelMatchers()
 
-	case evt.Deployment != "" && evt.Environment != "" && evt.Release == "":
+	case evt.Deployment != "" && evt.Environment != "":
 		matcher, err = brk.store.GetDepMatcher(evt.Deployment, evt.Environment)
 
 	default:
@@ -412,7 +412,7 @@ func (brk *broker) matchEvt(log *logkf.Logger, evt *kubefox.Event) (*kubefox.Mat
 }
 
 func (brk *broker) startArchiver() {
-	log := brk.log.With("worker", "archiver")
+	log := brk.log.With(logkf.KeyWorker, "archiver")
 	defer func() {
 		log.Info("archiver stopped")
 		brk.wg.Done()
@@ -447,7 +447,7 @@ func (brk *broker) startArchiver() {
 }
 
 func (brk *broker) startEventsKVUpdater() {
-	log := brk.log.With("worker", "events-kv-updater")
+	log := brk.log.With(logkf.KeyWorker, "events-kv-updater")
 	defer func() {
 		log.Info("events-kv-updater stopped")
 		brk.wg.Done()
@@ -462,7 +462,7 @@ func (brk *broker) startEventsKVUpdater() {
 			v := utils.UIntToByteArray(idSeq.Sequence)
 			go func() {
 				if _, err := brk.jsClient.EventsKV().Put(k, v); err != nil {
-					log.With("eventId", idSeq.EventId).Errorf("unable to update event kv: %v")
+					log.With(logkf.KeyEventId, idSeq.EventId).Errorf("unable to update event kv: %v")
 				}
 			}()
 
@@ -473,7 +473,7 @@ func (brk *broker) startEventsKVUpdater() {
 }
 
 func (brk *broker) startCompsKVUpdater() {
-	log := brk.log.With("worker", "components-kv-updater")
+	log := brk.log.With(logkf.KeyWorker, "components-kv-updater")
 	defer func() {
 		log.Info("components-kv-updater stopped")
 		brk.wg.Done()

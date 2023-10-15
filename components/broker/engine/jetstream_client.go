@@ -17,11 +17,9 @@ import (
 
 // Content types
 const (
-	DataSchemaV1        = "xigxog.proto.v1.KubeFoxData"
-	ProtobufContentType = "application/protobuf"
-	name                = "jetstream-client"
-	evtStream           = "events"
-	compBucket          = "components"
+	name       = "jetstream-client"
+	evtStream  = "events"
+	compBucket = "components"
 )
 
 var (
@@ -87,8 +85,8 @@ func (c *JetStreamClient) Connect() error {
 		// nats.NoReconnect(),
 		// nats.MaxReconnects(3),
 		// c.natsTLS(c.cfg.Namespace),
-		nats.RootCAs(kubefox.CACertPath),
-		nats.ClientCert(kubefox.TLSCertPath, kubefox.TLSKeyPath),
+		nats.RootCAs(kubefox.PathCACert),
+		nats.ClientCert(kubefox.PathTLSCert, kubefox.PathTLSKey),
 	)
 	if err != nil {
 		return c.log.ErrorN("connecting to NATS failed: %v", err)
@@ -234,9 +232,6 @@ func (c *JetStreamClient) ComponentsKV() nats.KeyValue {
 }
 
 func (c *JetStreamClient) Publish(subject string, evt *kubefox.Event) (nats.PubAckFuture, error) {
-	// c.log.With("traceId", evt.GetTraceId()).
-	// 	Debugf("publishing data; id: %s, subject: %s", evt.Id, subject)
-
 	dataBytes, err := proto.Marshal(evt)
 	if err != nil {
 		c.log.Error(err)
@@ -246,13 +241,13 @@ func (c *JetStreamClient) Publish(subject string, evt *kubefox.Event) (nats.PubA
 	h := make(nats.Header)
 
 	h.Set(nats.MsgIdHdr, evt.Id)
-	// h.Set("ce_specversion", "1.0")
-	// h.Set("ce_type", evt.Type)
-	// h.Set("ce_id", evt.Id)
-	// h.Set("ce_time", time.Now().Format(time.RFC3339))
-	// h.Set("ce_source", evt.GetSource().GetURI())
-	// h.Set("ce_dataschema", DataSchemaV1)
-	// h.Set("ce_datacontenttype", ProtobufContentType)
+	h.Set("ce_specversion", "1.0")
+	h.Set("ce_type", evt.Type)
+	h.Set("ce_id", evt.Id)
+	h.Set("ce_time", time.Now().Format(time.RFC3339))
+	h.Set("ce_source", fmt.Sprintf("kubefox:component:%s", evt.Source.GetId()))
+	h.Set("ce_dataschema", kubefox.DataSchemaKubefox)
+	h.Set("ce_datacontenttype", kubefox.ContentTypeProtobuf)
 
 	return c.PublishMsgAsync(&nats.Msg{
 		Subject: subject,
@@ -319,7 +314,7 @@ func (c *JetStreamClient) PullEvents(sub ReplicaSubscription) error {
 
 		rEvt := &ReceivedEvent{
 			Event:        evt,
-			Receiver:     JetStreamSvc,
+			Receiver:     EventReceiverJetStream,
 			Subscription: sub,
 		}
 		if err := c.brk.RecvEvent(rEvt); err != nil {

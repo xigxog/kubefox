@@ -38,7 +38,7 @@ type ReleaseReconciler struct {
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *ReleaseReconciler) SetupWithManager(mgr ctrl.Manager) error {
-	r.log = logkf.Global.With("controller", "release")
+	r.log = logkf.Global.With(logkf.KeyController, "release")
 	r.cm = &ComponentManager{
 		Instance: r.Instance,
 		Client:   r.Client,

@@ -75,14 +75,14 @@ func NewReq(typ EventType, parent *Event, src, tgt *Component) *EventRW {
 func NewEventRW(evt *Event) *EventRW {
 	return &EventRW{
 		Event:     evt,
-		queryMap:  evt.ValueMap(QueryValKey),
-		headerMap: evt.ValueMap(HeaderValKey),
+		queryMap:  evt.ValueMap(ValKeyQuery),
+		headerMap: evt.ValueMap(ValKeyHeader),
 	}
 }
 
 func (evt *EventRW) Flush() {
-	evt.SetValueMap(QueryValKey, evt.queryMap)
-	evt.SetValueMap(HeaderValKey, evt.headerMap)
+	evt.SetValueMap(ValKeyQuery, evt.queryMap)
+	evt.SetValueMap(ValKeyHeader, evt.headerMap)
 }
 
 func (evt *EventRW) Param(name string) string {

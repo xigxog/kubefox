@@ -38,13 +38,7 @@ type Kit interface {
 type kit struct {
 	context.Context
 
-	comp *kubefox.Component
-
-	brokerAddr string
-	caCertPath string
-	platform   string
-	namespace  string
-
+	comp   *kubefox.Component
 	routes []*route
 
 	brk    grpc.Broker_SubscribeClient
@@ -52,6 +46,8 @@ type kit struct {
 
 	reqMapMutex sync.Mutex
 	sendMutex   sync.Mutex
+
+	brokerAddr string
 
 	cancel context.CancelFunc
 	log    *logkf.Logger
@@ -77,10 +73,7 @@ func New() Kit {
 	//-tls-skip-verify
 	flag.StringVar(&svc.comp.Name, "name", "", "Component name; environment variable 'KUBEFOX_COMPONENT_NAME'. (required)")
 	flag.StringVar(&svc.comp.Commit, "commit", "", "Commit the Component was built from; environment variable 'KUBEFOX_COMPONENT_COMMIT'. (required)")
-	flag.StringVar(&svc.platform, "platform", "", "Platform the Component is part of; environment variable 'KUBEFOX_PLATFORM'.")
-	flag.StringVar(&svc.namespace, "namespace", "", "Kubernetes namespace of the Component; environment variable 'KUBEFOX_NAMESPACE'.")
 	flag.StringVar(&svc.brokerAddr, "broker-addr", "127.0.0.1:6060", "Address of the Broker gRPC server; environment variable 'KUBEFOX_BROKER_GRPC_ADDR'.")
-	flag.StringVar(&svc.caCertPath, "ca-cert-path", kubefox.CACertPath, "Path of file containing KubeFox root CA certificate; environment variable 'KUBEFOX_CA_CERT_PATH'.")
 	flag.StringVar(&logFormat, "log-format", "console", "Log format; environment variable 'KUBEFOX_LOG_FORMAT'. [options 'json', 'console']")
 	flag.StringVar(&logLevel, "log-level", "debug", "Log level; environment variable 'KUBEFOX_LOG_LEVEL'. [options 'debug', 'info', 'warn', 'error']")
 	flag.BoolVar(&help, "help", false, "Show usage for component.")
@@ -99,7 +92,6 @@ Flags:
 	svc.comp.Name = utils.ResolveFlag(svc.comp.Name, "KUBEFOX_COMPONENT_NAME", "")
 	svc.comp.Commit = utils.ResolveFlag(svc.comp.Commit, "KUBEFOX_COMPONENT_COMMIT", "")
 	svc.brokerAddr = utils.ResolveFlag(svc.brokerAddr, "KUBEFOX_BROKER_GRPC_ADDR", "127.0.0.1:6060")
-	svc.caCertPath = utils.ResolveFlag(svc.caCertPath, "KUBEFOX_CA_CERT_PATH", kubefox.CACertPath)
 	logFormat = utils.ResolveFlag(logFormat, "KUBEFOX_LOG_FORMAT", "console")
 	logLevel = utils.ResolveFlag(logLevel, "KUBEFOX_LOG_LEVEL", "debug")
 
@@ -112,10 +104,10 @@ Flags:
 	defer logkf.Global.Sync()
 
 	svc.log = logkf.Global
-	// ctrl.SetLogger(logr.Logger{})
+	svc.log.Debugf("gitCommit: %s, gitRef: %s", kubefox.GitCommit, kubefox.GitRef)
 
 	svc.Context, svc.cancel = context.WithCancel(context.Background())
-	svc.log.Info("kit service created 🦊")
+	svc.log.Info("kit created 🦊")
 
 	return svc
 }
@@ -157,7 +149,7 @@ func (svc *kit) Start() {
 			  "RetryableStatusCodes": [ "UNAVAILABLE" ]
 		  }
 		}]}`
-	creds, err := credentials.NewClientTLSFromFile(kubefox.CACertPath, "")
+	creds, err := credentials.NewClientTLSFromFile(kubefox.PathCACert, "")
 	if err != nil {
 		svc.log.Fatalf("unable to load root CA certificate: %v", err)
 	}
@@ -182,7 +174,7 @@ func (svc *kit) Start() {
 	}
 
 	regEvt := kubefox.NewEvent()
-	regEvt.Type = string(kubefox.RegisterType)
+	regEvt.Type = string(kubefox.EventTypeRegister)
 	regEvt.Category = kubefox.Category_CATEGORY_SINGLE
 	if err := regEvt.SetJSON(reg); err != nil {
 		svc.log.Fatalf("unable to connect to broker: %v", err)
@@ -191,7 +183,7 @@ func (svc *kit) Start() {
 		svc.log.Fatalf("unable to connect to broker: %v", err)
 	}
 
-	svc.log.Info("kit service started 🏁")
+	svc.log.Info("kit subscribed to broker 🏁")
 
 	for {
 		mEvt, err := svc.brk.Recv()
@@ -205,8 +197,7 @@ func (svc *kit) Start() {
 			default:
 				svc.log.Error(err)
 			}
-
-			return
+			break
 		}
 
 		svc.log.DebugEw("received event", mEvt.Event)
@@ -221,6 +212,12 @@ func (svc *kit) Start() {
 		default:
 			svc.log.Debug("default")
 		}
+	}
+
+	for {
+		svc.log.Warn("broker subscription closed, restarting.")
+		time.Sleep(time.Second)
+		svc.Start()
 	}
 }
 
@@ -249,7 +246,7 @@ func (svc *kit) recvReq(req *kubefox.MatchedEvent) {
 
 	if err != nil {
 		ktx.resp = kubefox.NewResp(req.Event, svc.comp)
-		ktx.resp.Type = string(kubefox.ErrorEventType)
+		ktx.resp.Type = string(kubefox.EventTypeError)
 
 		log.Error(err)
 		if err := ktx.Resp().SendString(err.Error()); err != nil {
@@ -307,9 +304,8 @@ func (svc *kit) sendEvent(evt *kubefox.Event) error {
 }
 
 func (svc *kit) GetRequestMetadata(ctx context.Context, uri ...string) (map[string]string, error) {
-	b, err := os.ReadFile(kubefox.SvcAccTokenFile)
-	if err == nil {
-		// Return token from file is it was successfully read.
+	b, err := os.ReadFile(kubefox.PathSvcAccToken)
+	if err != nil {
 		return nil, err
 	}
 	token := string(b)

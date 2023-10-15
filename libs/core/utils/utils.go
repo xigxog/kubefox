@@ -49,6 +49,14 @@ func CheckRequiredFlag(n, p string) {
 	}
 }
 
+func EnvDef(name, def string) string {
+	e, _ := os.LookupEnv(name)
+	if e == "" {
+		return def
+	}
+	return e
+}
+
 func UIntToByteArray(i uint64) []byte {
 	data := *(*[unsafe.Sizeof(i)]byte)(unsafe.Pointer(&i))
 	return data[:]

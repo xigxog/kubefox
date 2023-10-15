@@ -19,12 +19,6 @@ import (
 	semconv "go.opentelemetry.io/otel/semconv/v1.4.0"
 )
 
-const (
-	TLSCertFile = "/kubefox/telemetry/tls/tls.crt"
-	TLSKeyFile  = "/kubefox/telemetry/tls/tls.key"
-	CACertFile  = "/kubefox/telemetry/tls/ca.crt"
-)
-
 type Client struct {
 	meterProvider *metric.MeterProvider
 	traceProvider *trace.TracerProvider

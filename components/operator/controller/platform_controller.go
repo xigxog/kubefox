@@ -31,6 +31,11 @@ import (
 	"github.com/xigxog/kubefox/libs/core/logkf"
 )
 
+const (
+	TenYears     string = "87600h"
+	HundredYears string = "876000h"
+)
+
 // PlatformReconciler reconciles a Platform object
 type PlatformReconciler struct {
 	*Client
@@ -50,7 +55,7 @@ type PlatformReconciler struct {
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *PlatformReconciler) SetupWithManager(mgr ctrl.Manager) error {
-	r.log = logkf.Global.With("controller", "platform")
+	r.log = logkf.Global.With(logkf.KeyController, "platform")
 	r.cm = &ComponentManager{
 		Instance: r.Instance,
 		Client:   r.Client,
@@ -88,7 +93,7 @@ func (r *PlatformReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 
 	} else if apierrors.IsNotFound(err) {
 		log.Debug("platform was deleted, removing namespace label")
-		delete(ns.Labels, kubefox.PlatformLabel)
+		delete(ns.Labels, kubefox.LabelK8sPlatform)
 		return ctrl.Result{}, r.Update(ctx, ns)
 	}
 
@@ -99,11 +104,11 @@ func (r *PlatformReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	}()
 
 	// TODO move to admission webhook
-	if lbl, found := ns.Labels[kubefox.PlatformLabel]; found && lbl != req.Name {
+	if lbl, found := ns.Labels[kubefox.LabelK8sPlatform]; found && lbl != req.Name {
 		return ctrl.Result{}, log.ErrorN("namespace belongs to platform '%s'", lbl)
 
 	} else if !found {
-		ns.Labels[kubefox.PlatformLabel] = p.Name
+		ns.Labels[kubefox.LabelK8sPlatform] = p.Name
 		if err := r.Update(ctx, ns); err != nil {
 			return ctrl.Result{}, err
 		}
@@ -354,9 +359,8 @@ func (r *PlatformReconciler) vaultClient(ctx context.Context, url string, caCert
 		return nil, err
 	}
 
-	b, err := os.ReadFile(kubefox.SvcAccTokenFile)
-	if err == nil {
-		// Return token from file is it was successfully read.
+	b, err := os.ReadFile(kubefox.PathSvcAccToken)
+	if err != nil {
 		return nil, err
 	}
 	token := vauth.WithServiceAccountToken(string(b))

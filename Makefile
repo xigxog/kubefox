@@ -63,7 +63,10 @@ $(BINS):
 	mkdir -p "$(dir $@)"
 	CGO_ENABLED=0 go build \
 		-C "$(SRC_DIR)/" -o "$(TARGET_DIR)/$(component)" \
-		-ldflags "-X github.com/xigxog/kubefox/libs/core/kubefox.ComponentName=$(component) -X github.com/xigxog/kubefox/libs/core/kubefox.GitCommit=$(GIT_COMMIT) -X github.com/xigxog/kubefox/libs/core/kubefox.GitRef=$(GIT_REF)" \
+		-ldflags " \
+		-X github.com/xigxog/kubefox/libs/core/kubefox.ComponentName=$(component) \
+		-X github.com/xigxog/kubefox/libs/core/kubefox.GitCommit=$(GIT_COMMIT) \
+		-X github.com/xigxog/kubefox/libs/core/kubefox.GitRef=$(GIT_REF)" \
 		main.go
 
 .PHONY: docs

@@ -48,7 +48,7 @@ type Adapter struct {
 
 // DeploymentStatus defines the observed state of Deployment
 type DeploymentStatus struct {
-	Ready bool `json:"ready"`
+	// Ready bool `json:"ready"`
 }
 
 //+kubebuilder:object:root=true

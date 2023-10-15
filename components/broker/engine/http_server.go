@@ -94,7 +94,7 @@ func (srv *HTTPServer) Start() (err error) {
 			return srv.log.ErrorN("%v", err)
 		}
 		go func() {
-			err := srv.wrapped.ServeTLS(lns, kubefox.TLSCertPath, kubefox.TLSKeyPath)
+			err := srv.wrapped.ServeTLS(lns, kubefox.PathTLSCert, kubefox.PathTLSKey)
 			if err != nil && !errors.Is(err, http.ErrServerClosed) {
 				srv.log.Error(err)
 				os.Exit(HTTPServerExitCode)
@@ -143,6 +143,7 @@ func (srv *HTTPServer) ServeHTTP(resWriter http.ResponseWriter, httpReq *http.Re
 	}
 
 	log := srv.log.WithEvent(req)
+	log.Debug("received request")
 
 	srv.mutex.Lock()
 	respCh := make(chan *kubefox.Event)
@@ -151,7 +152,7 @@ func (srv *HTTPServer) ServeHTTP(resWriter http.ResponseWriter, httpReq *http.Re
 
 	rEvt := &ReceivedEvent{
 		Event:    req,
-		Receiver: HTTPSrvSvc,
+		Receiver: EventReceiverHTTPSrv,
 		ErrCh:    make(chan error),
 	}
 	if err := srv.brk.RecvEvent(rEvt); err != nil {
@@ -180,7 +181,7 @@ func (srv *HTTPServer) ServeHTTP(resWriter http.ResponseWriter, httpReq *http.Re
 
 	var statusCode int
 	switch {
-	case resp.Type == string(kubefox.ErrorEventType):
+	case resp.Type == string(kubefox.EventTypeError):
 		statusCode = http.StatusInternalServerError
 
 	default:

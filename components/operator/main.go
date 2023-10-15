@@ -9,22 +9,30 @@ one at https://mozilla.org/MPL/2.0/.
 package main
 
 import (
+	"context"
 	"flag"
+	"io/fs"
+	"time"
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 
 	"github.com/go-logr/zapr"
+	v1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	urt "k8s.io/apimachinery/pkg/util/runtime"
 	kscheme "k8s.io/client-go/kubernetes/scheme"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/metrics/server"
+	"sigs.k8s.io/yaml"
 
 	"github.com/xigxog/kubefox/components/operator/controller"
+	"github.com/xigxog/kubefox/libs/api"
 	"github.com/xigxog/kubefox/libs/api/kubernetes/v1alpha1"
+	"github.com/xigxog/kubefox/libs/core/kubefox"
 	"github.com/xigxog/kubefox/libs/core/logkf"
 	"github.com/xigxog/kubefox/libs/core/utils"
 )
@@ -36,6 +44,7 @@ var (
 func init() {
 	urt.Must(kscheme.AddToScheme(scheme))
 	urt.Must(v1alpha1.AddToScheme(scheme))
+	urt.Must(v1.AddToScheme(scheme))
 }
 
 func main() {
@@ -61,9 +70,10 @@ func main() {
 		BuildLoggerOrDie(logFormat, logLevel).
 		WithService("operator")
 	defer logkf.Global.Sync()
+	ctrl.SetLogger(zapr.NewLogger(logkf.Global.Unwrap().Desugar()))
 
 	log := logkf.Global
-	ctrl.SetLogger(zapr.NewLogger(logkf.Global.Unwrap().Desugar()))
+	log.Debugf("gitCommit: %s, gitRef: %s", kubefox.GitCommit, kubefox.GitRef)
 
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
 		Scheme: scheme,
@@ -87,8 +97,12 @@ func main() {
 		log.Fatal("unable to start manager", err)
 	}
 
+	ctrlClient := &controller.Client{Client: mgr.GetClient()}
+
+	createdCRDs(ctrlClient)
+
 	if err = (&controller.PlatformReconciler{
-		Client:    &controller.Client{Client: mgr.GetClient()},
+		Client:    ctrlClient,
 		Instance:  instance,
 		Namespace: namespace,
 		VaultAddr: vaultAddr,
@@ -97,14 +111,14 @@ func main() {
 		log.Fatalf("unable to create platform controller", err)
 	}
 	if err = (&controller.DeploymentReconciler{
-		Client:   &controller.Client{Client: mgr.GetClient()},
+		Client:   ctrlClient,
 		Instance: instance,
 		Scheme:   mgr.GetScheme(),
 	}).SetupWithManager(mgr); err != nil {
 		log.Fatalf("unable to create deployment controller", err)
 	}
 	if err = (&controller.ReleaseReconciler{
-		Client:   &controller.Client{Client: mgr.GetClient()},
+		Client:   ctrlClient,
 		Instance: instance,
 		Scheme:   mgr.GetScheme(),
 	}).SetupWithManager(mgr); err != nil {
@@ -126,5 +140,49 @@ func main() {
 	log.Info("starting manager")
 	if err := mgr.Start(ctrl.SetupSignalHandler()); err != nil {
 		log.Fatal("problem running manager", err)
+	}
+}
+
+func createdCRDs(ctrlClient *controller.Client) {
+	log := logkf.Global
+
+	created := false
+	fs.WalkDir(api.EFS, "crds",
+		func(path string, d fs.DirEntry, err error) error {
+			if d.IsDir() || err != nil {
+				return err
+			}
+
+			b, err := api.EFS.ReadFile(path)
+			if err != nil {
+				log.Errorf("unable to read crd %s: %v", path, err)
+				return err
+			}
+
+			crd := &v1.CustomResourceDefinition{}
+			if err := yaml.Unmarshal(b, crd); err != nil {
+				log.Errorf("unable to parse crd %s: %v", path, err)
+				return err
+			}
+
+			err = ctrlClient.Create(context.Background(), crd)
+			if errors.IsAlreadyExists(err) {
+				log.Debugf("crd %s already exists", crd.Name)
+				return nil
+			}
+			if err != nil {
+				log.Errorf("unable to create crd %s: %v", path, err)
+				return err
+			}
+			log.Debugf("created crd %s", crd.Name)
+			created = true
+			return nil
+		},
+	)
+
+	if created {
+		// Need to let API settle before starting controllers.
+		log.Debug("crd was created, sleeping to allow API to settle")
+		time.Sleep(time.Second * 5)
 	}
 }

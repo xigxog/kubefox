@@ -121,11 +121,6 @@ spec:
             type: object
           status:
             description: DeploymentStatus defines the observed state of Deployment
-            properties:
-              ready:
-                type: boolean
-            required:
-            - ready
             type: object
         type: object
     served: true

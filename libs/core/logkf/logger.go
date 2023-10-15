@@ -11,21 +11,19 @@ import (
 	"go.uber.org/zap/zapcore"
 )
 
-// TODO move "with" keys to const
-
 const (
-	Instance = "instance"
-	Platform = "platform"
-	Service  = "service"
-
-	ComponentId     = "componentId"
-	ComponentCommit = "componentCommit"
-	ComponentName   = "componentName"
-
-	EventId   = "eventId"
-	EventType = "eventType"
-	TraceId   = "traceId"
-	SpanId    = "spanId"
+	KeyComponentCommit = "componentCommit"
+	KeyComponentId     = "componentId"
+	KeyComponentName   = "componentName"
+	KeyController      = "controller"
+	KeyEventId         = "eventId"
+	KeyEventType       = "eventType"
+	KeyInstance        = "instance"
+	KeyPlatform        = "platform"
+	KeyService         = "service"
+	KeySpanId          = "spanId"
+	KeyTraceId         = "traceId"
+	KeyWorker          = "worker"
 )
 
 var (
@@ -64,7 +62,7 @@ func BuildLogger(format, level string) (*Logger, error) {
 	case "console":
 		cfg = zap.NewDevelopmentConfig()
 		cfg.EncoderConfig.EncodeLevel = zapcore.LowercaseColorLevelEncoder
-		cfg.EncoderConfig.EncodeTime = zapcore.TimeEncoderOfLayout("2006-01-02 15:04.05")
+		cfg.EncoderConfig.EncodeTime = zapcore.TimeEncoderOfLayout("2006-01-02 15:04.0000")
 		skip = 1
 	case "cli":
 		cfg = zap.NewDevelopmentConfig()
@@ -138,15 +136,15 @@ func (log *Logger) With(args ...interface{}) *Logger {
 }
 
 func (log *Logger) WithInstance(val string) *Logger {
-	return log.With(Instance, val)
+	return log.With(KeyInstance, val)
 }
 
 func (log *Logger) WithPlatform(val string) *Logger {
-	return log.With(Platform, val)
+	return log.With(KeyPlatform, val)
 }
 
 func (log *Logger) WithService(val string) *Logger {
-	return log.With(Service, val)
+	return log.With(KeyService, val)
 }
 
 func (log *Logger) WithComponent(comp *kubefox.Component) *Logger {
@@ -154,9 +152,9 @@ func (log *Logger) WithComponent(comp *kubefox.Component) *Logger {
 		return log
 	}
 	return log.With(
-		ComponentId, comp.Id,
-		ComponentCommit, comp.Commit,
-		ComponentName, comp.Name,
+		KeyComponentId, comp.Id,
+		KeyComponentCommit, comp.Commit,
+		KeyComponentName, comp.Name,
 	)
 }
 
@@ -165,17 +163,17 @@ func (log *Logger) WithEvent(evt *kubefox.Event) *Logger {
 		return log
 	}
 	return log.With(
-		EventId, evt.Id,
-		EventType, evt.Type,
-		TraceId, evt.TraceId(),
-		SpanId, evt.SpanId(),
+		KeyEventId, evt.Id,
+		KeyEventType, evt.Type,
+		KeyTraceId, evt.TraceId(),
+		KeySpanId, evt.SpanId(),
 	)
 }
 
 func (log *Logger) WithSpan(traceId, spanId string) *Logger {
 	return log.With(
-		TraceId, traceId,
-		SpanId, spanId,
+		KeyTraceId, traceId,
+		KeySpanId, spanId,
 	)
 }
 
@@ -192,10 +190,10 @@ func (log *Logger) DebugInterface(msg string, v interface{}) {
 func (log *Logger) DebugEw(msg string, evt *kubefox.Event, keysAndValues ...interface{}) {
 	if evt != nil {
 		keysAndValues = append(keysAndValues,
-			EventId, evt.Id,
-			EventType, evt.Type,
-			TraceId, evt.TraceId(),
-			SpanId, evt.SpanId(),
+			KeyEventId, evt.Id,
+			KeyEventType, evt.Type,
+			KeyTraceId, evt.TraceId(),
+			KeySpanId, evt.SpanId(),
 		)
 	}
 	log.wrapped.Debugw(msg, keysAndValues...)
@@ -204,10 +202,10 @@ func (log *Logger) DebugEw(msg string, evt *kubefox.Event, keysAndValues ...inte
 func (log *Logger) ErrorEw(msg string, evt *kubefox.Event, keysAndValues ...interface{}) {
 	if evt != nil {
 		keysAndValues = append(keysAndValues,
-			EventId, evt.Id,
-			EventType, evt.Type,
-			TraceId, evt.TraceId(),
-			SpanId, evt.SpanId(),
+			KeyEventId, evt.Id,
+			KeyEventType, evt.Type,
+			KeyTraceId, evt.TraceId(),
+			KeySpanId, evt.SpanId(),
 		)
 	}
 

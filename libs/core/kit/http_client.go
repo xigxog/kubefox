@@ -19,6 +19,7 @@ type ReqContext struct {
 
 type KitRoundTripper struct{}
 
+// TODO
 func NewHTTPClient() *http.Client {
 	return &http.Client{Transport: &KitRoundTripper{}}
 }
@@ -28,22 +29,21 @@ func (rt *KitRoundTripper) Do(httpReq *http.Request) (*http.Response, error) {
 }
 
 func (rt *KitRoundTripper) RoundTrip(httpReq *http.Request) (*http.Response, error) {
-	kitCtx := httpReq.Context().Value(ReqContextKey).(*ReqContext)
-	kitSvc := kitCtx.k
+	reqCtx := httpReq.Context().Value(ReqContextKey).(*ReqContext)
+	k := reqCtx.k
 
-	// TODO
 	// req := kit.req.ChildEvent()
 	req := kubefox.NewEvent()
-	req.Target = kitCtx.target
+	req.Target = reqCtx.target
 
 	if err := req.SetHTTPRequest(httpReq); err != nil {
-		kitSvc.Log().Error(err)
+		k.Log().Error(err)
 		return nil, err
 	}
 
-	resp, err := kitSvc.sendReq(httpReq.Context(), req)
+	resp, err := k.sendReq(httpReq.Context(), req)
 	if err != nil {
-		kitSvc.Log().Error(err)
+		k.Log().Error(err)
 		return nil, err
 	}
 

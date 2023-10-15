@@ -140,43 +140,43 @@ func (evt *Event) ReduceTTL(start time.Time) {
 }
 
 func (evt *Event) Status() int {
-	return evt.ValueV(StatusCodeValKey).Int()
+	return evt.ValueV(ValKeyStatusCode).Int()
 }
 
 func (evt *Event) StatusV() *Val {
-	return evt.ValueV(StatusCodeValKey)
+	return evt.ValueV(ValKeyStatusCode)
 }
 
 func (evt *Event) SetStatus(code int) {
-	evt.SetValueV(StatusCodeValKey, ValInt(code))
+	evt.SetValueV(ValKeyStatusCode, ValInt(code))
 }
 
 func (evt *Event) SetStatusV(val *Val) {
-	evt.SetValueV(StatusCodeValKey, val)
+	evt.SetValueV(ValKeyStatusCode, val)
 }
 
 func (evt *Event) TraceId() string {
-	return evt.Value(TraceIdValKey)
+	return evt.Value(ValKeyTraceId)
 }
 
 func (evt *Event) SetTraceId(val string) {
-	evt.SetValue(TraceIdValKey, val)
+	evt.SetValue(ValKeyTraceId, val)
 }
 
 func (evt *Event) SpanId() string {
-	return evt.Value(SpanIdValKey)
+	return evt.Value(ValKeySpanId)
 }
 
 func (evt *Event) SetSpanId(val string) {
-	evt.SetValue(SpanIdValKey, val)
+	evt.SetValue(ValKeySpanId, val)
 }
 
 func (evt *Event) TraceFlags() byte {
-	return byte(evt.ValueV(TraceFlagsValKey).Float())
+	return byte(evt.ValueV(ValKeyTraceFlags).Float())
 }
 
 func (evt *Event) SetTraceFlags(val byte) {
-	evt.SetValueV(TraceFlagsValKey, ValInt(int(val)))
+	evt.SetValueV(ValKeyTraceFlags, ValInt(int(val)))
 }
 
 func (evt *Event) SetJSON(v any) error {
@@ -190,7 +190,7 @@ func (evt *Event) SetJSON(v any) error {
 		return err
 	}
 
-	evt.ContentType = JSONContentType + "; charset=utf-8"
+	evt.ContentType = fmt.Sprintf("%s; %s", ContentTypeJSON, CharSetUTF8)
 	evt.Content = b
 
 	return nil
@@ -207,7 +207,7 @@ func (evt *Event) BindStrict(v any) error {
 func (evt *Event) bind(v any, strict bool) error {
 	contType := strings.ToLower(evt.ContentType)
 	switch {
-	case strings.Contains(contType, JSONContentType):
+	case strings.Contains(contType, ContentTypeJSON):
 		dec := json.NewDecoder(bytes.NewReader(evt.Content))
 		if strict {
 			dec.DisallowUnknownFields()
@@ -220,24 +220,24 @@ func (evt *Event) bind(v any, strict bool) error {
 
 func (evt *Event) HTTPRequest(ctx context.Context) (*http.Request, error) {
 	body := bytes.NewReader(evt.Content)
-	req, err := http.NewRequestWithContext(ctx, evt.Value(MethodValKey), evt.Value(URLValKey), body)
+	req, err := http.NewRequestWithContext(ctx, evt.Value(ValKeyMethod), evt.Value(ValKeyURL), body)
 	if err != nil {
 		return nil, err
 	}
-	req.Header = evt.ValueMap(HeaderValKey)
+	req.Header = evt.ValueMap(ValKeyHeader)
 
 	return req, nil
 }
 
 func (evt *Event) HTTPResponse() *http.Response {
-	code := evt.ValueV(StatusCodeValKey).Int()
+	code := evt.ValueV(ValKeyStatusCode).Int()
 	if code == 0 {
 		code = http.StatusOK
 	}
 	return &http.Response{
 		Status:     evt.Value("status"),
 		StatusCode: code,
-		Header:     evt.ValueMap(HeaderValKey),
+		Header:     evt.ValueMap(ValKeyHeader),
 		Body:       io.NopCloser(bytes.NewReader(evt.Content)),
 	}
 }
@@ -249,21 +249,22 @@ func (evt *Event) SetHTTPRequest(httpReq *http.Request) error {
 	}
 	evt.Content = content
 	evt.ContentType = httpReq.Header.Get("Content-Type")
+	evt.Category = Category_CATEGORY_REQUEST
 
 	if evt.Environment == "" {
-		evt.Environment = GetParamOrHeader(httpReq, EnvHeader, EnvHeaderShort, EnvHeaderAbbrv)
+		evt.Environment = GetParamOrHeader(httpReq, HeaderEnv, HeaderShortEnv, HeaderAbbrvEnv)
 	}
 
 	if evt.Deployment == "" {
-		evt.Deployment = GetParamOrHeader(httpReq, DepHeader, DepHeaderShort, DepHeaderAbbrv)
+		evt.Deployment = GetParamOrHeader(httpReq, HeaderDep, HeaderShortDep, HeaderAbbrvDep)
 	}
 
-	if evt.Type == "" || evt.Type == string(UnknownEventType) {
-		evtType := GetParamOrHeader(httpReq, EventTypeHeader, EventTypeHeaderAbbrv)
+	if evt.Type == "" || evt.Type == string(EventTypeUnknown) {
+		evtType := GetParamOrHeader(httpReq, HeaderEventType, HeaderAbbrvEventType)
 		if evtType != "" {
 			evt.Type = evtType
 		} else {
-			evt.Type = string(HTTPRequestType)
+			evt.Type = string(EventTypeHTTP)
 		}
 	}
 
@@ -296,12 +297,12 @@ func (evt *Event) SetHTTPRequest(httpReq *http.Request) error {
 		url.Host = httpReq.Host
 	}
 
-	evt.SetValue(URLValKey, url.String())
-	evt.SetValue(HostValKey, strings.ToLower(url.Host))
-	evt.SetValue(PathValKey, url.Path)
-	evt.SetValue(MethodValKey, httpReq.Method)
-	evt.SetValueMap(HeaderValKey, httpReq.Header)
-	evt.SetValueMap(QueryValKey, url.Query())
+	evt.SetValue(ValKeyURL, url.String())
+	evt.SetValue(ValKeyHost, strings.ToLower(url.Host))
+	evt.SetValue(ValKeyPath, url.Path)
+	evt.SetValue(ValKeyMethod, httpReq.Method)
+	evt.SetValueMap(ValKeyHeader, httpReq.Header)
+	evt.SetValueMap(ValKeyQuery, url.Query())
 
 	return nil
 }
@@ -314,14 +315,15 @@ func (evt *Event) SetHTTPResponse(httpResp *http.Response) error {
 	}
 	evt.Content = content
 	evt.ContentType = httpResp.Header.Get("Content-Type")
+	evt.Category = Category_CATEGORY_RESPONSE
 
-	if evt.Type == "" || evt.Type == string(UnknownEventType) {
-		evt.Type = string(HTTPResponseType)
+	if evt.Type == "" || evt.Type == string(EventTypeUnknown) {
+		evt.Type = string(EventTypeHTTP)
 	}
 
 	evt.SetValue("status", httpResp.Status)
-	evt.SetValueV(StatusCodeValKey, ValInt(httpResp.StatusCode))
-	evt.SetValueMap(HeaderValKey, httpResp.Header)
+	evt.SetValueV(ValKeyStatusCode, ValInt(httpResp.StatusCode))
+	evt.SetValueMap(ValKeyHeader, httpResp.Header)
 
 	return nil
 }

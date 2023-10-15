@@ -135,7 +135,7 @@ func (m *EventMatcher) header(key, val string) (eventPredicate, error) {
 	}
 
 	return func(e *kubefox.Event) bool {
-		return matchMap(key, val, regex, e.ValueMap(kubefox.HeaderValKey))
+		return matchMap(key, val, regex, e.ValueMap(kubefox.ValKeyHeader))
 	}, nil
 }
 
@@ -146,13 +146,13 @@ func (m *EventMatcher) host(s string) (eventPredicate, error) {
 	}
 
 	return func(e *kubefox.Event) bool {
-		return matchParts(kubefox.HostValKey, ".", parts, params, e, false)
+		return matchParts(kubefox.ValKeyHost, ".", parts, params, e, false)
 	}, nil
 }
 
 func (m *EventMatcher) method(s ...string) eventPredicate {
 	return func(e *kubefox.Event) bool {
-		m := e.Value(kubefox.MethodValKey)
+		m := e.Value(kubefox.ValKeyMethod)
 		for _, v := range s {
 			if strings.EqualFold(m, v) {
 				return true
@@ -169,7 +169,7 @@ func (m *EventMatcher) path(s string) (eventPredicate, error) {
 	}
 
 	return func(e *kubefox.Event) bool {
-		return matchParts(kubefox.PathValKey, "/", parts, params, e, false)
+		return matchParts(kubefox.ValKeyPath, "/", parts, params, e, false)
 	}, nil
 }
 
@@ -180,7 +180,7 @@ func (m *EventMatcher) pathPrefix(s string) (eventPredicate, error) {
 	}
 
 	return func(e *kubefox.Event) bool {
-		return matchParts(kubefox.PathValKey, "/", parts, params, e, true)
+		return matchParts(kubefox.ValKeyPath, "/", parts, params, e, true)
 	}, nil
 }
 
@@ -195,7 +195,7 @@ func (m *EventMatcher) query(key, val string) (eventPredicate, error) {
 	}
 
 	return func(e *kubefox.Event) bool {
-		return matchMap(key, val, regex, e.ValueMap(kubefox.QueryValKey))
+		return matchMap(key, val, regex, e.ValueMap(kubefox.ValKeyQuery))
 	}, nil
 }
 

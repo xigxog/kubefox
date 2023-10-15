@@ -20,8 +20,6 @@ func Render(name string, data *Data) ([]*unstructured.Unstructured, error) {
 		return nil, err
 	}
 
-	// fmt.Println(string(rendered))
-
 	resList := &ResourceList{}
 	if err := yaml.Unmarshal([]byte(rendered), resList); err != nil {
 		return nil, err

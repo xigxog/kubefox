@@ -29,9 +29,9 @@ type ComponentManager struct {
 
 func (cm *ComponentManager) SetupComponent(ctx context.Context, td *TemplateData) (bool, error) {
 	log := cm.Log.With(
-		logkf.Instance, td.Instance.Name,
-		logkf.Platform, td.Platform.Name,
-		logkf.ComponentName, td.Component.Name,
+		logkf.KeyInstance, td.Instance.Name,
+		logkf.KeyPlatform, td.Platform.Name,
+		logkf.KeyComponentName, td.Component.Name,
 	)
 
 	log.Debug("setting up component")
@@ -68,8 +68,8 @@ func (cm *ComponentManager) ReconcileComponents(ctx context.Context, namespace s
 	}
 
 	log := cm.Log.With(
-		logkf.Instance, cm.Instance,
-		logkf.Platform, platform.Name,
+		logkf.KeyInstance, cm.Instance,
+		logkf.KeyPlatform, platform.Name,
 	)
 
 	if !platform.Status.Ready {
@@ -98,7 +98,7 @@ func (cm *ComponentManager) ReconcileComponents(ctx context.Context, namespace s
 	compDepList := &appsv1.DeploymentList{}
 	if err := cm.Client.List(ctx, compDepList,
 		client.InNamespace(platform.Namespace),
-		client.HasLabels{kubefox.ComponentLabel},
+		client.HasLabels{kubefox.LabelK8sComponent},
 	); err != nil {
 		return false, err
 	}
@@ -140,7 +140,7 @@ func (cm *ComponentManager) ReconcileComponents(ctx context.Context, namespace s
 
 	for _, d := range compDepList.Items {
 		if _, found := compMap[d.Name]; !found {
-			log.Debugw("deleting component", logkf.ComponentName, d.Name)
+			log.Debugw("deleting component", logkf.KeyComponentName, d.Name)
 			if err := cm.Client.Delete(ctx, &d); err != nil {
 				return false, err
 			}

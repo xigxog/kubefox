@@ -28,7 +28,7 @@ type span struct {
 func NewSpan(ctx context.Context, timeout time.Duration, req *kubefox.Event) (context.Context, Span) {
 	ctx, cancel := context.WithTimeout(ctx, timeout)
 
-	typ := kubefox.UnknownEventType
+	typ := kubefox.EventTypeUnknown
 	if req.Type != "" {
 		typ = kubefox.EventType(req.Type)
 	}

@@ -33,7 +33,7 @@ type ReleaseEnv struct {
 
 // ReleaseStatus defines the observed state of Release
 type ReleaseStatus struct {
-	Ready bool `json:"ready"`
+	// Ready bool `json:"ready"`
 }
 
 //+kubebuilder:object:root=true

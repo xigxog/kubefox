@@ -46,7 +46,7 @@ func TestPath(t *testing.T) {
 		t.FailNow()
 	}
 
-	e := evt(kubefox.HTTPRequestType)
+	e := evt(kubefox.EventTypeHTTP)
 	_, r, match := p.Match(e)
 
 	if !match {

@@ -10,8 +10,6 @@ import (
 	"github.com/xigxog/kubefox/libs/core/logkf"
 )
 
-// TODO metrics, logging
-
 type SubscriptionMgr interface {
 	Create(ctx context.Context, cfg *SubscriptionConf, recvCh chan *ReceivedEvent) (ReplicaSubscription, error)
 	Subscription(comp *kubefox.Component) (Subscription, bool)

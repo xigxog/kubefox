@@ -53,8 +53,8 @@ func NewStore(namespace string) *Store {
 	ctx, cancel := context.WithCancel(context.Background())
 	return &Store{
 		namespace:        namespace,
-		depMatchersByDep: cache.New[map[string]*DeploymentMatcher](time.Hour),
-		depMatchersByEnv: cache.New[map[string]*DeploymentMatcher](time.Hour),
+		depMatchersByDep: cache.New[map[string]*DeploymentMatcher](time.Minute * 15),
+		depMatchersByEnv: cache.New[map[string]*DeploymentMatcher](time.Minute * 15),
 		relMatchers:      make(map[string]*ReleaseMatcher),
 		routes:           cache.New[[]*kubefox.Route](time.Hour * 24),
 		ctx:              ctx,
@@ -136,7 +136,7 @@ func (str *Store) GetEnvironment(name string) (*v1alpha1.Environment, error) {
 
 func (str *Store) GetRelease(name string) (*v1alpha1.Release, error) {
 	obj := new(v1alpha1.Release)
-	return obj, str.get(name, obj, false)
+	return obj, str.get(name, obj, true)
 }
 
 // TODO return a map of node names to broker pod id. This will allow running
@@ -196,16 +196,6 @@ func (str *Store) GetRelMatchers() (ReleaseMatchers, error) {
 }
 
 func (str *Store) GetDepMatcher(depName, envName string) (*DeploymentMatcher, error) {
-	if byEnv, found := str.depMatchersByDep.Get(depName); found {
-		if depM, found := byEnv[envName]; found {
-			str.depMatchersByEnv.Get(envName) // touch env to reset TTL
-			return depM, nil
-		}
-	}
-
-	str.mutex.Lock()
-	defer str.mutex.Unlock()
-
 	dep, err := str.GetDeployment(depName)
 	if err != nil {
 		return nil, err
@@ -214,6 +204,19 @@ func (str *Store) GetDepMatcher(depName, envName string) (*DeploymentMatcher, er
 	if err != nil {
 		return nil, err
 	}
+	depId := fmt.Sprintf("%s-%s", dep.Name, dep.ResourceVersion)
+	envId := fmt.Sprintf("%s-%s", dep.Name, dep.ResourceVersion)
+
+	if byEnv, found := str.depMatchersByDep.Get(depId); found {
+		if depM, found := byEnv[envId]; found {
+			str.depMatchersByEnv.Get(envId) // touch env to reset TTL
+			return depM, nil
+		}
+	}
+
+	str.mutex.Lock()
+	defer str.mutex.Unlock()
+
 	matchers, err := str.buildMatchers(dep.Spec.Components, env.Spec.Vars)
 	if err != nil {
 		return nil, err
@@ -225,15 +228,15 @@ func (str *Store) GetDepMatcher(depName, envName string) (*DeploymentMatcher, er
 		Matchers:    matchers,
 	}
 
-	if m, found := str.depMatchersByDep.Get(depName); found {
+	if m, found := str.depMatchersByDep.Get(depId); found {
 		m[envName] = depMatcher
 	} else {
-		str.depMatchersByDep.Set(depName, map[string]*DeploymentMatcher{envName: depMatcher})
+		str.depMatchersByDep.Set(depId, map[string]*DeploymentMatcher{envId: depMatcher})
 	}
-	if m, found := str.depMatchersByEnv.Get(envName); found {
-		m[depName] = depMatcher
+	if m, found := str.depMatchersByEnv.Get(envId); found {
+		m[depId] = depMatcher
 	} else {
-		str.depMatchersByEnv.Set(envName, map[string]*DeploymentMatcher{depName: depMatcher})
+		str.depMatchersByEnv.Set(envId, map[string]*DeploymentMatcher{depId: depMatcher})
 	}
 
 	return depMatcher, nil
@@ -244,7 +247,14 @@ func (str *Store) OnAdd(obj interface{}, isInInitialList bool) {
 	defer str.mutex.Unlock()
 
 	switch rel := obj.(type) {
+	case *v1alpha1.Deployment:
+		str.log.Debug("deployment added")
+
+	case *v1alpha1.Environment:
+		str.log.Debug("environment added")
+
 	case *v1alpha1.Release:
+		str.log.Debug("release added")
 		matchers, err := str.buildMatchers(rel.Spec.Deployment.Components, rel.Spec.Environment.Vars)
 		str.relMatchers[rel.Name] = &ReleaseMatcher{
 			Release:  rel.Name,
@@ -263,38 +273,19 @@ func (str *Store) OnUpdate(oldObj, obj interface{}) {
 
 	switch v := obj.(type) {
 	case *v1alpha1.Deployment:
-		if byEnv, found := str.depMatchersByDep.Get(v.Name); found {
-			for envName, depMatcher := range byEnv {
-				str.depMatchersByEnv.Get(envName) // touch to reset TTL
-				if env, err := str.GetEnvironment(envName); err != nil {
-					depMatcher.Matchers = nil
-					depMatcher.Error = err
-				} else {
-					depMatcher.Matchers, depMatcher.Error = str.buildMatchers(v.Spec.Components, env.Spec.Vars)
-				}
-			}
-		}
+		str.log.Debug("deployment updated")
 
 	case *v1alpha1.Environment:
-		if byDep, found := str.depMatchersByEnv.Get(v.Name); found {
-			for depName, depMatcher := range byDep {
-				str.depMatchersByDep.Get(depName) // touch to reset TTL
-				if dep, err := str.GetDeployment(depName); err != nil {
-					depMatcher.Matchers = nil
-					depMatcher.Error = err
-				} else {
-					depMatcher.Matchers, depMatcher.Error = str.buildMatchers(dep.Spec.Components, v.Spec.Vars)
-				}
-			}
-		}
+		str.log.Debug("environment updated")
 
 	case *v1alpha1.Release:
-		relMatcher, found := str.relMatchers[v.Name]
-		if !found {
-			relMatcher = &ReleaseMatcher{Release: v.Name}
-			str.relMatchers[v.Name] = relMatcher
+		str.log.Debug("release updated")
+		matchers, err := str.buildMatchers(v.Spec.Deployment.Components, v.Spec.Environment.Vars)
+		str.relMatchers[v.Name] = &ReleaseMatcher{
+			Release:  v.Name,
+			Matchers: matchers,
+			Error:    err,
 		}
-		relMatcher.Matchers, relMatcher.Error = str.buildMatchers(v.Spec.Deployment.Components, v.Spec.Environment.Vars)
 
 	default:
 		return
@@ -307,32 +298,13 @@ func (str *Store) OnDelete(obj interface{}) {
 
 	switch v := obj.(type) {
 	case *v1alpha1.Deployment:
-		if byEnv, found := str.depMatchersByDep.Get(v.Name); found {
-			for envName := range byEnv {
-				if m, found := str.depMatchersByEnv.Get(envName); found {
-					delete(m, v.Name)
-					if len(m) == 0 {
-						str.depMatchersByEnv.Delete(envName)
-					}
-				}
-			}
-			str.depMatchersByDep.Delete(v.Name)
-		}
+		str.log.Debug("deployment deleted")
 
 	case *v1alpha1.Environment:
-		if byDep, found := str.depMatchersByEnv.Get(v.Name); found {
-			for depName := range byDep {
-				if m, found := str.depMatchersByDep.Get(depName); found {
-					delete(m, v.Name)
-					if len(m) == 0 {
-						str.depMatchersByDep.Delete(depName)
-					}
-				}
-			}
-			str.depMatchersByEnv.Delete(v.Name)
-		}
+		str.log.Debug("environment deleted")
 
 	case *v1alpha1.Release:
+		str.log.Debug("release deleted")
 		delete(str.relMatchers, v.Name)
 
 	default:

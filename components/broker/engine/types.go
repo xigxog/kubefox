@@ -9,10 +9,10 @@ import (
 type EventReceiver int
 
 const (
-	GRPCSvc EventReceiver = iota
-	JetStreamSvc
-	HTTPClientSvc
-	HTTPSrvSvc
+	EventReceiverGRPC EventReceiver = iota
+	EventReceiverJetStream
+	EventReceiverHTTPClient
+	EventReceiverHTTPSrv
 )
 
 type SendEvent func(*kubefox.MatchedEvent) error

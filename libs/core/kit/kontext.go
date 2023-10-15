@@ -2,6 +2,7 @@ package kit
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/xigxog/kubefox/libs/core/kubefox"
@@ -96,11 +97,13 @@ func (k *kontext) Resp() Resp {
 }
 
 func (s *respKtx) SendString(val string) error {
-	return s.SendBytes("text/plain; charset=UTF-8", []byte(val))
+	c := fmt.Sprintf("%s; %s", kubefox.ContentTypePlain, kubefox.CharSetUTF8)
+	return s.SendBytes(c, []byte(val))
 }
 
 func (s *respKtx) SendHTML(val string) error {
-	return s.SendBytes("text/html; charset=UTF-8", []byte(val))
+	c := fmt.Sprintf("%s; %s", kubefox.ContentTypeHTML, kubefox.CharSetUTF8)
+	return s.SendBytes(c, []byte(val))
 }
 
 func (s *respKtx) SendJSON(val any) error {
@@ -127,7 +130,7 @@ func (k *kontext) Component(component string) Req {
 	return &reqKtx{
 		kontext: k,
 		EventRW: kubefox.NewReq(
-			kubefox.ComponentRequestType,
+			kubefox.EventTypeComponent,
 			k.Event,
 			k.kit.comp,
 			&kubefox.Component{
@@ -138,11 +141,13 @@ func (k *kontext) Component(component string) Req {
 }
 
 func (s *reqKtx) SendString(val string) (kubefox.EventReader, error) {
-	return s.SendBytes("text/plain; charset=UTF-8", []byte(val))
+	c := fmt.Sprintf("%s; %s", kubefox.ContentTypePlain, kubefox.CharSetUTF8)
+	return s.SendBytes(c, []byte(val))
 }
 
 func (s *reqKtx) SendHTML(val string) (kubefox.EventReader, error) {
-	return s.SendBytes("text/html; charset=UTF-8", []byte(val))
+	c := fmt.Sprintf("%s; %s", kubefox.ContentTypeHTML, kubefox.CharSetUTF8)
+	return s.SendBytes(c, []byte(val))
 }
 
 func (s *reqKtx) SendJSON(val any) (kubefox.EventReader, error) {
