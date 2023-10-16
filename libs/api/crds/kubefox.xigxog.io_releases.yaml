@@ -37,22 +37,22 @@ spec:
               deployment:
                 description: DeploymentSpec defines the desired state of Deployment
                 properties:
-                  adapters:
-                    additionalProperties:
-                      properties:
-                        type:
-                          enum:
-                          - graphql
-                          - http
-                          - kv
-                          - object
-                          type: string
-                      required:
-                      - type
-                      type: object
-                    type: object
                   app:
                     properties:
+                      adapters:
+                        additionalProperties:
+                          properties:
+                            type:
+                              enum:
+                              - graphql
+                              - http
+                              - kv
+                              - object
+                              type: string
+                          required:
+                          - type
+                          type: object
+                        type: object
                       commit:
                         pattern: ^[a-z0-9]{7}$
                         type: string

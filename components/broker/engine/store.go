@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"sort"
 	"sync"
 	"time"
 
@@ -28,13 +27,12 @@ import (
 type Store struct {
 	namespace string
 
-	resCache ctrlcache.Cache
-	routes   cache.Cache[[]*kubefox.Route]
-	routesKV nats.KeyValue
+	resCache     ctrlcache.Cache
+	compRegCache cache.Cache[*kubefox.ComponentReg]
+	compRegKV    nats.KeyValue
 
-	depMatchersByDep cache.Cache[map[string]*DeploymentMatcher]
-	depMatchersByEnv cache.Cache[map[string]*DeploymentMatcher]
-	relMatchers      ReleaseMatchers
+	depMatchers cache.Cache[*matcher.EventMatcher]
+	relMatcher  *matcher.EventMatcher
 
 	envInf ctrlcache.Informer
 	depInf ctrlcache.Informer
@@ -44,7 +42,7 @@ type Store struct {
 	ctx    context.Context
 	cancel context.CancelFunc
 
-	mutex sync.Mutex
+	mutex sync.RWMutex
 
 	log *logkf.Logger
 }
@@ -52,19 +50,18 @@ type Store struct {
 func NewStore(namespace string) *Store {
 	ctx, cancel := context.WithCancel(context.Background())
 	return &Store{
-		namespace:        namespace,
-		depMatchersByDep: cache.New[map[string]*DeploymentMatcher](time.Minute * 15),
-		depMatchersByEnv: cache.New[map[string]*DeploymentMatcher](time.Minute * 15),
-		relMatchers:      make(map[string]*ReleaseMatcher),
-		routes:           cache.New[[]*kubefox.Route](time.Hour * 24),
-		ctx:              ctx,
-		cancel:           cancel,
-		log:              logkf.Global,
+		namespace:    namespace,
+		depMatchers:  cache.New[*matcher.EventMatcher](time.Minute * 15),
+		relMatcher:   new(matcher.EventMatcher),
+		compRegCache: cache.New[*kubefox.ComponentReg](time.Hour * 24),
+		ctx:          ctx,
+		cancel:       cancel,
+		log:          logkf.Global,
 	}
 }
 
-func (str *Store) Open(routesKV nats.KeyValue) error {
-	str.routesKV = routesKV
+func (str *Store) Open(compRegKV nats.KeyValue) error {
+	str.compRegKV = compRegKV
 	if err := v1alpha1.AddToScheme(scheme.Scheme); err != nil {
 		return str.log.ErrorN("adding KubeFox CRs to scheme failed: %v", err)
 	}
@@ -124,6 +121,24 @@ func (str *Store) Close() {
 	str.cancel()
 }
 
+func (str *Store) ComponentReg(comp *kubefox.Component) (*kubefox.ComponentReg, error) {
+	compReg, found := str.compRegCache.Get(comp.GroupKey())
+	if !found {
+		entry, err := str.compRegKV.Get(comp.GroupKey())
+		if err != nil {
+			return nil, err
+		}
+		compReg = &kubefox.ComponentReg{}
+		err = json.Unmarshal(entry.Value(), compReg)
+		if err != nil {
+			return nil, err
+		}
+		str.compRegCache.Set(comp.GroupKey(), compReg)
+	}
+
+	return compReg, nil
+}
+
 func (str *Store) GetDeployment(name string) (*v1alpha1.Deployment, error) {
 	obj := new(v1alpha1.Deployment)
 	return obj, str.get(name, obj, true)
@@ -161,92 +176,50 @@ func (str *Store) GetBrokerMap() (map[string]string, error) {
 	return map[string]string{}, nil
 }
 
-func (str *Store) GetRelMatchers() (ReleaseMatchers, error) {
-	if len(str.relMatchers) > 0 {
-		return str.relMatchers, nil
+func (str *Store) GetRelMatchers() (*matcher.EventMatcher, error) {
+	str.mutex.RLock()
+	if !str.relMatcher.IsEmpty() {
+		str.mutex.RUnlock()
+		return str.relMatcher, nil
 	}
 
 	// There are no matchers in cache, perform full reload.
-	str.mutex.Lock()
-	defer str.mutex.Unlock()
-
-	ctx, cancel := context.WithTimeout(str.ctx, time.Minute)
-	defer cancel()
-
-	relList := new(v1alpha1.ReleaseList)
-	if err := str.resCache.List(ctx, relList, &client.ListOptions{Namespace: str.namespace}); err != nil {
-		return nil, err
-	}
-
-	relMatchers := make(ReleaseMatchers)
-	for _, rel := range relList.Items {
-		matchers, err := str.buildMatchers(rel.Spec.Deployment.Components, rel.Spec.Environment.Vars)
-		if err != nil {
-			return nil, err
-		}
-		relMatchers[rel.Name] = &ReleaseMatcher{
-			Release:  rel.Name,
-			Matchers: matchers,
-			Error:    err,
-		}
-	}
-	str.relMatchers = relMatchers
-
-	return str.relMatchers, nil
+	str.mutex.RUnlock()
+	return str.buildReleaseMatcher()
 }
 
-func (str *Store) GetDepMatcher(depName, envName string) (*DeploymentMatcher, error) {
-	dep, err := str.GetDeployment(depName)
+func (str *Store) GetDepMatcher(evtCtx *kubefox.EventContext) (*matcher.EventMatcher, error) {
+	dep, err := str.GetDeployment(evtCtx.Deployment)
 	if err != nil {
 		return nil, err
 	}
-	env, err := str.GetEnvironment(envName)
+	env, err := str.GetEnvironment(evtCtx.Environment)
 	if err != nil {
 		return nil, err
 	}
-	depId := fmt.Sprintf("%s-%s", dep.Name, dep.ResourceVersion)
-	envId := fmt.Sprintf("%s-%s", dep.Name, dep.ResourceVersion)
+	id := fmt.Sprintf("%s-%s-%s-%s", dep.Name, dep.ResourceVersion, env.Name, env.ResourceVersion)
 
-	if byEnv, found := str.depMatchersByDep.Get(depId); found {
-		if depM, found := byEnv[envId]; found {
-			str.depMatchersByEnv.Get(envId) // touch env to reset TTL
-			return depM, nil
-		}
+	if depM, found := str.depMatchers.Get(id); found {
+		return depM, nil
+	}
+
+	routes, err := str.buildRoutes(dep.Spec.Components, env.Spec.Vars, evtCtx)
+	if err != nil {
+		return nil, err
 	}
 
 	str.mutex.Lock()
 	defer str.mutex.Unlock()
 
-	matchers, err := str.buildMatchers(dep.Spec.Components, env.Spec.Vars)
-	if err != nil {
-		return nil, err
-	}
+	depM := matcher.New()
+	depM.AddRoutes(routes)
+	str.depMatchers.Set(id, depM)
 
-	depMatcher := &DeploymentMatcher{
-		Deployment:  depName,
-		Environment: envName,
-		Matchers:    matchers,
-	}
-
-	if m, found := str.depMatchersByDep.Get(depId); found {
-		m[envName] = depMatcher
-	} else {
-		str.depMatchersByDep.Set(depId, map[string]*DeploymentMatcher{envId: depMatcher})
-	}
-	if m, found := str.depMatchersByEnv.Get(envId); found {
-		m[depId] = depMatcher
-	} else {
-		str.depMatchersByEnv.Set(envId, map[string]*DeploymentMatcher{depId: depMatcher})
-	}
-
-	return depMatcher, nil
+	return depM, nil
 }
 
 func (str *Store) OnAdd(obj interface{}, isInInitialList bool) {
-	str.mutex.Lock()
-	defer str.mutex.Unlock()
-
-	switch rel := obj.(type) {
+	switch obj.(type) {
 	case *v1alpha1.Deployment:
 		str.log.Debug("deployment added")
 
@@ -255,12 +228,7 @@ func (str *Store) OnAdd(obj interface{}, isInInitialList bool) {
 
 	case *v1alpha1.Release:
 		str.log.Debug("release added")
-		matchers, err := str.buildMatchers(rel.Spec.Deployment.Components, rel.Spec.Environment.Vars)
-		str.relMatchers[rel.Name] = &ReleaseMatcher{
-			Release:  rel.Name,
-			Matchers: matchers,
-			Error:    err,
-		}
+		str.buildReleaseMatcher()
 
 	default:
 		return
@@ -268,10 +236,7 @@ func (str *Store) OnAdd(obj interface{}, isInInitialList bool) {
 }
 
 func (str *Store) OnUpdate(oldObj, obj interface{}) {
-	str.mutex.Lock()
-	defer str.mutex.Unlock()
-
-	switch v := obj.(type) {
+	switch obj.(type) {
 	case *v1alpha1.Deployment:
 		str.log.Debug("deployment updated")
 
@@ -280,12 +245,7 @@ func (str *Store) OnUpdate(oldObj, obj interface{}) {
 
 	case *v1alpha1.Release:
 		str.log.Debug("release updated")
-		matchers, err := str.buildMatchers(v.Spec.Deployment.Components, v.Spec.Environment.Vars)
-		str.relMatchers[v.Name] = &ReleaseMatcher{
-			Release:  v.Name,
-			Matchers: matchers,
-			Error:    err,
-		}
+		str.buildReleaseMatcher()
 
 	default:
 		return
@@ -293,10 +253,7 @@ func (str *Store) OnUpdate(oldObj, obj interface{}) {
 }
 
 func (str *Store) OnDelete(obj interface{}) {
-	str.mutex.Lock()
-	defer str.mutex.Unlock()
-
-	switch v := obj.(type) {
+	switch obj.(type) {
 	case *v1alpha1.Deployment:
 		str.log.Debug("deployment deleted")
 
@@ -305,51 +262,69 @@ func (str *Store) OnDelete(obj interface{}) {
 
 	case *v1alpha1.Release:
 		str.log.Debug("release deleted")
-		delete(str.relMatchers, v.Name)
+		str.buildReleaseMatcher()
 
 	default:
 		return
 	}
 }
 
-func (str *Store) buildMatchers(comps map[string]*v1alpha1.Component, vars map[string]*kubefox.Val) ([]*matcher.EventMatcher, error) {
-	matchers := make([]*matcher.EventMatcher, 0)
-	for compName, resComp := range comps {
-		comp := &kubefox.Component{Name: compName, Commit: resComp.Commit}
-		compRts, found := str.routes.Get(comp.GroupKey())
-		if !found {
-			entry, err := str.routesKV.Get(comp.GroupKey())
-			if err != nil {
-				return nil, err
-			}
-			compReg := new(kubefox.ComponentReg)
-			err = json.Unmarshal(entry.Value(), compReg)
-			if err != nil {
-				return nil, err
-			}
-			str.routes.Set(comp.GroupKey(), compReg.Routes)
-			compRts = compReg.Routes
-		}
+func (str *Store) buildReleaseMatcher() (*matcher.EventMatcher, error) {
+	ctx, cancel := context.WithTimeout(str.ctx, time.Minute)
+	defer cancel()
 
-		evtMatcher, err := matcher.New(comp)
+	relList := new(v1alpha1.ReleaseList)
+	if err := str.resCache.List(ctx, relList, &client.ListOptions{Namespace: str.namespace}); err != nil {
+		return nil, err
+	}
+
+	relM := matcher.New()
+	for _, rel := range relList.Items {
+		comps := rel.Spec.Deployment.Components
+		vars := rel.Spec.Environment.Vars
+		evtCtx := &kubefox.EventContext{Release: rel.Name}
+
+		routes, err := str.buildRoutes(comps, vars, evtCtx)
 		if err != nil {
 			return nil, err
 		}
-		for _, r := range compRts {
-			if err := r.Resolve(vars); err != nil {
+		if err := relM.AddRoutes(routes); err != nil {
+			return nil, err
+		}
+	}
+
+	str.mutex.Lock()
+	defer str.mutex.Unlock()
+	str.relMatcher = relM
+
+	return relM, nil
+}
+
+func (str *Store) buildRoutes(
+	comps map[string]*v1alpha1.Component,
+	vars map[string]*kubefox.Val,
+	evtCtx *kubefox.EventContext) ([]*kubefox.Route, error) {
+
+	routes := make([]*kubefox.Route, 0)
+	for compName, resComp := range comps {
+		comp := &kubefox.Component{Name: compName, Commit: resComp.Commit}
+		compReg, err := str.ComponentReg(comp)
+		if err != nil {
+			return nil, err
+		}
+
+		for _, r := range compReg.Routes {
+			rCopy := *r
+			rCopy.Component = comp
+			rCopy.EventContext = evtCtx
+			if err := rCopy.Resolve(vars); err != nil {
 				return nil, err
 			}
+			routes = append(routes, &rCopy)
 		}
-		if err := evtMatcher.AddRoutes(compRts); err != nil {
-			return nil, fmt.Errorf("route issue with component '%s.%s': %w", comp.Name, comp.Commit, err)
-		}
-		matchers = append(matchers, evtMatcher)
 	}
-	sort.SliceStable(matchers, func(i, j int) bool {
-		return matchers[i].Id() < matchers[j].Id()
-	})
 
-	return matchers, nil
+	return routes, nil
 }
 
 func (str *Store) get(name string, obj client.Object, namespaced bool) error {

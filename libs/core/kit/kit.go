@@ -32,14 +32,16 @@ type Kit interface {
 
 	Start()
 	Route(string, EventHandlerFunc)
+	Default(EventHandlerFunc)
 	Log() *logkf.Logger
 }
 
 type kit struct {
 	context.Context
 
-	comp   *kubefox.Component
-	routes []*route
+	comp       *kubefox.Component
+	defHandler EventHandlerFunc
+	routes     []*route
 
 	brk    grpc.Broker_SubscribeClient
 	reqMap map[string]chan *kubefox.Event
@@ -107,7 +109,7 @@ Flags:
 	svc.log.Debugf("gitCommit: %s, gitRef: %s", kubefox.GitCommit, kubefox.GitRef)
 
 	svc.Context, svc.cancel = context.WithCancel(context.Background())
-	svc.log.Info("kit created 🦊")
+	svc.log.Info("🦊 kit created")
 
 	return svc
 }
@@ -125,6 +127,10 @@ func (svc *kit) Route(rule string, handler EventHandlerFunc) {
 		handler: handler,
 	}
 	svc.routes = append(svc.routes, r)
+}
+
+func (svc *kit) Default(handler EventHandlerFunc) {
+	svc.defHandler = handler
 }
 
 func (svc *kit) Start() {
@@ -167,7 +173,8 @@ func (svc *kit) Start() {
 	}
 
 	reg := &kubefox.ComponentReg{
-		Routes: make([]*kubefox.Route, len(svc.routes)),
+		Routes:         make([]*kubefox.Route, len(svc.routes)),
+		DefaultHandler: svc.defHandler != nil,
 	}
 	for i := range svc.routes {
 		reg.Routes[i] = &svc.routes[i].Route
@@ -183,7 +190,7 @@ func (svc *kit) Start() {
 		svc.log.Fatalf("unable to connect to broker: %v", err)
 	}
 
-	svc.log.Info("kit subscribed to broker 🏁")
+	svc.log.Info("kit subscribed to broker")
 
 	for {
 		mEvt, err := svc.brk.Recv()
@@ -238,10 +245,19 @@ func (svc *kit) recvReq(req *kubefox.MatchedEvent) {
 	}
 
 	var err error
-	if req.RouteId < 0 || req.RouteId >= int64(len(svc.routes)) {
-		err = fmt.Errorf("invalid route id %d", req.RouteId)
-	} else {
+	switch {
+	case req.RouteId == kubefox.DefaultRouteId:
+		if svc.defHandler == nil {
+			err = fmt.Errorf("default handler not found")
+		} else {
+			err = svc.defHandler(ktx)
+		}
+
+	case req.RouteId >= 0 && req.RouteId < int64(len(svc.routes)):
 		err = svc.routes[req.RouteId].handler(ktx)
+
+	default:
+		err = fmt.Errorf("invalid route id %d", req.RouteId)
 	}
 
 	if err != nil {

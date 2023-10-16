@@ -2,6 +2,7 @@ package engine
 
 import (
 	"context"
+	"time"
 
 	"github.com/xigxog/kubefox/libs/core/kubefox"
 )
@@ -21,7 +22,7 @@ type RecvEvent func(*ReceivedEvent) error
 type ReceivedEvent struct {
 	Event        *kubefox.Event
 	Receiver     EventReceiver
-	RecvTime     int64
+	RecvTime     time.Time
 	Subscription ReplicaSubscription
 	Context      context.Context
 	ErrCh        chan error

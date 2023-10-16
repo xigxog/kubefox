@@ -17,10 +17,11 @@ import (
 	"github.com/xigxog/kubefox/libs/api/kubernetes/v1alpha1"
 	"github.com/xigxog/kubefox/libs/core/kubefox"
 	"github.com/xigxog/kubefox/libs/core/logkf"
+	"github.com/xigxog/kubefox/libs/core/matcher"
 	"github.com/xigxog/kubefox/libs/core/utils"
-
 	"google.golang.org/protobuf/types/known/structpb"
 	authv1 "k8s.io/api/authentication/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -237,7 +238,7 @@ func (brk *broker) RecvEvent(rEvt *ReceivedEvent) error {
 	if rEvt.Context == nil {
 		rEvt.Context = context.Background()
 	}
-	rEvt.RecvTime = time.Now().UnixMicro()
+	rEvt.RecvTime = time.Now()
 
 	brk.recvCh <- rEvt
 
@@ -262,29 +263,40 @@ func (brk *broker) startWorker(id int) {
 }
 
 func (brk *broker) routeEvt(log *logkf.Logger, rEvt *ReceivedEvent) {
+	var err error
 	evt := rEvt.Event
-	evt.Ttl = evt.Ttl - (time.Now().UnixMicro() - rEvt.RecvTime)
+	log = log.WithEvent(evt)
+
+	evt.ReduceTTL(rEvt.RecvTime)
 	if rEvt.Event.Ttl <= 0 {
-		log.DebugEw("event timed out while waiting for worker", evt)
+		log.Debug("event timed out while waiting for worker")
 		rEvt.Err(ErrEventTimeout)
 		return
 	}
 
-	log = log.WithEvent(evt)
 	log.Debug("routing event from work queue")
-	start := time.Now().UnixMicro()
+	start := time.Now()
 
-	mEvt, err := brk.matchEvt(log, evt)
+	mEvt, err := brk.matchEvent(evt)
 	if err != nil {
+		if apierrors.IsNotFound(err) {
+			err = fmt.Errorf("%w: %v", ErrRouteNotFound, err)
+		}
 		log.Debug(err)
 		rEvt.Err(err)
 		return
 	}
 
 	log = log.WithComponent(evt.Target)
-	log.Debug("matched event")
+	log.Debug("matched event to target")
 
-	// TODO add policy hook
+	if err := brk.checkMatchedEvent(mEvt); err != nil {
+		log.Debug(err)
+		rEvt.Err(err)
+		return
+	}
+
+	// TODO add policy checks
 
 	var sub Subscription
 	switch {
@@ -333,7 +345,7 @@ func (brk *broker) routeEvt(log *logkf.Logger, rEvt *ReceivedEvent) {
 		}
 	}
 
-	evt.Ttl = evt.Ttl - (time.Now().UnixMicro() - start)
+	evt.ReduceTTL(start)
 	if rEvt.Event.Ttl <= 0 {
 		log.Debug("event timed out while routing it")
 		rEvt.Err(ErrEventTimeout)
@@ -345,39 +357,52 @@ func (brk *broker) routeEvt(log *logkf.Logger, rEvt *ReceivedEvent) {
 	}
 }
 
-func (brk *broker) matchEvt(log *logkf.Logger, evt *kubefox.Event) (*kubefox.MatchedEvent, error) {
-	if evt.Target != nil {
-		if brk.httpSrv.Component().Equal(evt.Target) {
-			return &kubefox.MatchedEvent{Event: evt}, nil
+func (brk *broker) matchEvent(evt *kubefox.Event) (*kubefox.MatchedEvent, error) {
+	if evt.Category == kubefox.Category_CATEGORY_RESPONSE {
+		if evt.Target == nil || !evt.Target.IsFull() {
+			return nil, fmt.Errorf("%w: response target is missing required attribute", ErrRouteInvalid)
 		}
 
-		if evt.Category == kubefox.Category_CATEGORY_RESPONSE &&
-			evt.Target.Name != "" && evt.Target.Commit != "" && evt.Target.Id != "" {
-
-			return &kubefox.MatchedEvent{Event: evt}, nil
-		}
+		return &kubefox.MatchedEvent{Event: evt}, nil
 	}
 
 	var (
-		matcher Matcher
+		matcher *matcher.EventMatcher
 		err     error
 	)
+	evtCtx := evt.CheckContext()
 	switch {
-	case evt.Release != "" || (evt.Deployment == "" && evt.Environment == ""):
+	case evtCtx.IsRelease():
 		matcher, err = brk.store.GetRelMatchers()
 
-	case evt.Deployment != "" && evt.Environment != "":
-		matcher, err = brk.store.GetDepMatcher(evt.Deployment, evt.Environment)
+	case evtCtx.IsDeployment():
+		matcher, err = brk.store.GetDepMatcher(evtCtx)
 
 	default:
-		err = fmt.Errorf("%w: missing deployment or environment", ErrEventInvalid)
+		err = fmt.Errorf("%w: event missing deployment or environment context", ErrEventInvalid)
 	}
 	if err != nil {
 		return nil, err
 	}
 
-	mEvt := matcher.Match(evt)
-	if mEvt == nil {
+	var (
+		routeId int
+	)
+	route, matched := matcher.Match(evt)
+	switch {
+	case matched:
+		routeId = route.Id
+		if evt.Target == nil {
+			evt.Target = &kubefox.Component{}
+		}
+		evt.Target.Name = route.Component.Name
+		evt.Target.Commit = route.Component.Commit
+		evt.SetContext(route.EventContext)
+
+	case evt.Target != nil && evt.Target.Name != "":
+		routeId = kubefox.DefaultRouteId
+
+	default:
 		return nil, ErrRouteNotFound
 	}
 
@@ -387,14 +412,14 @@ func (brk *broker) matchEvt(log *logkf.Logger, evt *kubefox.Event) (*kubefox.Mat
 		envVars map[string]*kubefox.Val
 	)
 	switch {
-	case evt.Release != "":
-		rel, err = brk.store.GetRelease(evt.Release)
+	case evtCtx.Release != "":
+		rel, err = brk.store.GetRelease(evtCtx.Release)
 		if rel != nil {
 			envVars = rel.Spec.Environment.Vars
 		}
 
-	case evt.Environment != "":
-		env, err = brk.store.GetEnvironment(evt.Environment)
+	case evtCtx.Environment != "":
+		env, err = brk.store.GetEnvironment(evtCtx.Environment)
 		if env != nil {
 			envVars = env.Spec.Vars
 		}
@@ -403,12 +428,72 @@ func (brk *broker) matchEvt(log *logkf.Logger, evt *kubefox.Event) (*kubefox.Mat
 		return nil, err
 	}
 
-	mEvt.Env = make(map[string]*structpb.Value, len(envVars))
+	mEvt := &kubefox.MatchedEvent{
+		Env:     make(map[string]*structpb.Value, len(envVars)),
+		Event:   evt,
+		RouteId: int64(routeId),
+	}
 	for k, v := range envVars {
 		mEvt.Env[k] = v.Proto()
 	}
 
 	return mEvt, nil
+}
+
+func (brk *broker) checkMatchedEvent(mEvt *kubefox.MatchedEvent) error {
+	evt := mEvt.Event
+	if evt.Target == nil || evt.Target.Name == "" || evt.Context == nil {
+		return ErrComponentMismatch
+	}
+
+	// Check if target is adapter.
+	switch {
+	case evt.Target.Equal(brk.httpSrv.Component()):
+		return nil
+	}
+
+	var (
+		depSpec v1alpha1.DeploymentSpec
+	)
+	switch {
+	case evt.Context.IsRelease():
+		if rel, err := brk.store.GetRelease(evt.Context.Release); err != nil {
+			return fmt.Errorf("%w: unable to get release: %v", ErrUnexpected, err)
+		} else {
+			depSpec = rel.Spec.Deployment
+		}
+
+	case evt.Context.IsDeployment():
+		if dep, err := brk.store.GetDeployment(evt.Context.Deployment); err != nil {
+			return fmt.Errorf("%w: unable to get deployment: %v", ErrUnexpected, err)
+		} else {
+			depSpec = dep.Spec
+		}
+
+	default:
+		return ErrUnexpected
+	}
+
+	depComp, found := depSpec.Components[evt.Target.Name]
+	switch {
+	case !found:
+		return fmt.Errorf("%w: component not part of deployment", ErrComponentMismatch)
+
+	case evt.Target.Commit == "" && mEvt.RouteId == kubefox.DefaultRouteId:
+		evt.Target.Commit = depComp.Commit
+		reg, err := brk.store.ComponentReg(evt.Target)
+		if err != nil {
+			return fmt.Errorf("%w: unable to get component registration: %v", ErrUnexpected, err)
+		}
+		if !reg.DefaultHandler {
+			return fmt.Errorf("%w: component does not have default handler", ErrRouteNotFound)
+		}
+
+	case evt.Target.Commit != depComp.Commit:
+		return fmt.Errorf("%w: component commit does not match deployment", ErrComponentMismatch)
+	}
+
+	return nil
 }
 
 func (brk *broker) startArchiver() {
@@ -493,7 +578,6 @@ func (brk *broker) startCompsKVUpdater() {
 			return
 		}
 	}
-
 }
 
 func (brk *broker) updateCompReg(comp *kubefox.Component, reg *kubefox.ComponentReg) error {

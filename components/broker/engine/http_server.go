@@ -38,7 +38,7 @@ type HTTPServer struct {
 
 func NewHTTPServer(brk Broker) *HTTPServer {
 	comp := &kubefox.Component{
-		Name:   "kf-http-srv-adapt",
+		Name:   "kf-http-server",
 		Commit: kubefox.GitCommit,
 		Id:     uuid.NewString(),
 	}

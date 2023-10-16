@@ -8,12 +8,22 @@ import (
 	sprig "github.com/go-task/slim-sprig"
 )
 
+// Takes an Event and returns true or false if rule matches.
+type EventPredicate func(e *Event) bool
+
 type Route struct {
-	Id           int    `json:"id"`
-	Rule         string `json:"rule"`
-	Priority     int    `json:"priority"`
-	ResolvedRule string `json:"-"`
-	tpl          *template.Template
+	Id       int    `json:"id"`
+	Rule     string `json:"rule"`
+	Priority int    `json:"priority"`
+
+	ResolvedRule string         `json:"-"`
+	Predicate    EventPredicate `json:"-"`
+	ParseErr     error          `json:"-"`
+
+	Component    *Component    `json:"-"`
+	EventContext *EventContext `json:"-"`
+
+	tpl *template.Template
 }
 
 type tplData struct {
@@ -71,4 +81,12 @@ func (r *Route) Resolve(envVars map[string]*Val) error {
 	r.ResolvedRule = resolved
 
 	return nil
+}
+
+func (r *Route) Match(evt *Event) (bool, error) {
+	if r.ParseErr != nil {
+		return false, r.ParseErr
+	}
+
+	return r.Predicate != nil && r.Predicate(evt), nil
 }

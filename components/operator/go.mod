@@ -11,8 +11,8 @@ require (
 	github.com/go-logr/zapr v1.2.4
 	github.com/hashicorp/vault/api v1.10.0
 	github.com/hashicorp/vault/api/auth/kubernetes v0.5.0
-	github.com/xigxog/kubefox/libs/api v0.0.0-00010101000000-000000000000
-	github.com/xigxog/kubefox/libs/core v0.1.1-alpha
+	github.com/xigxog/kubefox/libs/api v0.0.0
+	github.com/xigxog/kubefox/libs/core v0.0.0
 	k8s.io/api v0.28.2
 	k8s.io/apiextensions-apiserver v0.28.0
 	k8s.io/apimachinery v0.28.2

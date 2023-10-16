@@ -39,7 +39,7 @@ const (
 	EventTypeUnknown   EventType = "io.kubefox.unknown"
 )
 
-// Kubernetes labels.
+// Labels
 const (
 	LabelK8sComponent       string = "kubefox.xigxog.io/component"
 	LabelK8sComponentCommit string = "kubefox.xigxog.io/component-commit"
@@ -107,4 +107,8 @@ var (
 	PathSvcAccToken = "/var/run/secrets/kubernetes.io/serviceaccount/token"
 	PathTLSCert     = path.Join(KubeFoxHome, FileTLSCert)
 	PathTLSKey      = path.Join(KubeFoxHome, FileTLSKey)
+)
+
+const (
+	DefaultRouteId = -1
 )

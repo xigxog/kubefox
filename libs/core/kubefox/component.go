@@ -5,7 +5,16 @@ import (
 )
 
 type ComponentReg struct {
-	Routes []*Route `json:"routes"`
+	Routes         []*Route `json:"routes"`
+	DefaultHandler bool     `json:"defaultHandler"`
+}
+
+func (c *Component) IsEmpty() bool {
+	return c.Name == "" && c.Commit == "" && c.Id == ""
+}
+
+func (c *Component) IsFull() bool {
+	return c.Name != "" && c.Commit != "" && c.Id != ""
 }
 
 func (lhs *Component) Equal(rhs *Component) bool {

@@ -19,6 +19,12 @@ message Component {
   string id = 3;
 }
 
+message EventContext {
+  string deployment = 1;
+  string environment = 2;
+  string release = 3;
+}
+
 message Event {
   string id = 1;
   string parent_id = 2;
@@ -31,15 +37,12 @@ message Event {
   // TTL in µs
   int64 ttl = 6;
 
-  string deployment = 7;
-  string environment = 8;
-  string release = 9;
+  EventContext context = 7;
+  Component source = 8;
+  Component target = 9;
 
-  Component source = 10;
-  Component target = 11;
-
-  map<string, google.protobuf.Value> params = 12;
-  map<string, google.protobuf.Value> values = 13;
+  map<string, google.protobuf.Value> params = 10;
+  map<string, google.protobuf.Value> values = 11;
 
   string content_type = 14;
   bytes content = 15;

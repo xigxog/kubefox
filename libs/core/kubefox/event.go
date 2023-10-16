@@ -31,12 +31,27 @@ func NewEvent() *Event {
 func (evt *Event) SetParent(parent *Event) {
 	evt.ParentId = parent.Id
 	evt.Ttl = parent.Ttl
-	evt.Deployment = parent.Deployment
-	evt.Environment = parent.Environment
-	evt.Release = parent.Release
+	evt.SetContext(parent.Context)
 	evt.SetTraceId(parent.TraceId())
 	evt.SetSpanId(parent.SpanId())
 	evt.SetTraceFlags(parent.TraceFlags())
+}
+
+func (evt *Event) SetContext(evtCtx *EventContext) {
+	evt.CheckContext()
+	if evtCtx == nil {
+		return
+	}
+	evt.Context.Deployment = evtCtx.Deployment
+	evt.Context.Environment = evtCtx.Environment
+	evt.Context.Release = evtCtx.Release
+}
+
+func (evt *Event) CheckContext() *EventContext {
+	if evt.Context == nil {
+		evt.Context = &EventContext{}
+	}
+	return evt.Context
 }
 
 func (evt *Event) EventType() EventType {
@@ -251,12 +266,12 @@ func (evt *Event) SetHTTPRequest(httpReq *http.Request) error {
 	evt.ContentType = httpReq.Header.Get("Content-Type")
 	evt.Category = Category_CATEGORY_REQUEST
 
-	if evt.Environment == "" {
-		evt.Environment = GetParamOrHeader(httpReq, HeaderEnv, HeaderShortEnv, HeaderAbbrvEnv)
+	evt.CheckContext()
+	if evt.Context.Environment == "" {
+		evt.Context.Environment = GetParamOrHeader(httpReq, HeaderEnv, HeaderShortEnv, HeaderAbbrvEnv)
 	}
-
-	if evt.Deployment == "" {
-		evt.Deployment = GetParamOrHeader(httpReq, HeaderDep, HeaderShortDep, HeaderAbbrvDep)
+	if evt.Context.Deployment == "" {
+		evt.Context.Deployment = GetParamOrHeader(httpReq, HeaderDep, HeaderShortDep, HeaderAbbrvDep)
 	}
 
 	if evt.Type == "" || evt.Type == string(EventTypeUnknown) {
@@ -326,6 +341,14 @@ func (evt *Event) SetHTTPResponse(httpResp *http.Response) error {
 	evt.SetValueMap(ValKeyHeader, httpResp.Header)
 
 	return nil
+}
+
+func (ctx *EventContext) IsRelease() bool {
+	return ctx.Release != "" || !ctx.IsDeployment()
+}
+
+func (ctx *EventContext) IsDeployment() bool {
+	return ctx.Deployment != "" && ctx.Environment != ""
 }
 
 // GetParamOrHeader looks for query parameters and headers for the provided

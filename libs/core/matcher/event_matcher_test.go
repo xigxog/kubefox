@@ -7,14 +7,7 @@ import (
 )
 
 func TestPath(t *testing.T) {
-	p, err := New(&kubefox.Component{
-		Name:   "test",
-		Commit: "0000000",
-	})
-	if err != nil {
-		t.Log(err)
-		t.FailNow()
-	}
+	p := New()
 
 	v := map[string]*kubefox.Val{
 		"a": kubefox.ValString("127"),
@@ -23,31 +16,34 @@ func TestPath(t *testing.T) {
 	}
 
 	r1 := &kubefox.Route{
-		Id:   1,
-		Rule: "PathPrefix(`/customize/{{.Env.b}}`)",
+		Id:           1,
+		Rule:         "PathPrefix(`/customize/{{.Env.b}}`)",
+		Component:    &kubefox.Component{},
+		EventContext: &kubefox.EventContext{},
 	}
-	err = r1.Resolve(v)
-	if err != nil {
+	if err := r1.Resolve(v); err != nil {
 		t.Log(err)
 		t.FailNow()
 	}
 
 	r2 := &kubefox.Route{
-		Id:   2,
-		Rule: "Method(`PUT`,`GET`,`POST`) && (Query(`q1`, `{q[1-2]}`) && Header(`header-one`,`{[a-z0-9]+}`)) && Host(`{{.Env.a}}.0.0.{i}`) && Path(`/customize/{{.Env.b}}/{j:[a-z]+}`)",
+		Id:           2,
+		Rule:         "Method(`PUT`,`GET`,`POST`) && (Query(`q1`, `{q[1-2]}`) && Header(`header-one`,`{[a-z0-9]+}`)) && Host(`{{.Env.a}}.0.0.{i}`) && Path(`/customize/{{.Env.b}}/{j:[a-z]+}`)",
+		Component:    &kubefox.Component{},
+		EventContext: &kubefox.EventContext{},
 	}
-	err = r2.Resolve(v)
-	if err != nil {
+	if err := r2.Resolve(v); err != nil {
 		t.Log(err)
 		t.FailNow()
 	}
+
 	if err := p.AddRoutes([]*kubefox.Route{r1, r2}); err != nil {
 		t.Log(err)
 		t.FailNow()
 	}
 
 	e := evt(kubefox.EventTypeHTTP)
-	_, r, match := p.Match(e)
+	r, match := p.Match(e)
 
 	if !match {
 		t.Log("should have got a match :(")
@@ -64,14 +60,14 @@ func TestPath(t *testing.T) {
 func evt(evtType kubefox.EventType) *kubefox.Event {
 	evt := kubefox.NewEvent()
 	evt.Type = string(evtType)
-	evt.SetValue("url", "http://127.0.0.1/customize/1/a?q1=q1&q2=q2")
-	evt.SetValue("host", "127.0.0.1")
-	evt.SetValue("path", "/customize/1/a")
-	evt.SetValue("method", "GET")
-	evt.SetValueMap("header", map[string][]string{
+	evt.SetValue(kubefox.ValKeyURL, "http://127.0.0.1/customize/1/a?q1=q1&q2=q2")
+	evt.SetValue(kubefox.ValKeyHost, "127.0.0.1")
+	evt.SetValue(kubefox.ValKeyPath, "/customize/1/a")
+	evt.SetValue(kubefox.ValKeyMethod, "GET")
+	evt.SetValueMap(kubefox.ValKeyHeader, map[string][]string{
 		"Header-One": {"h1"},
 	})
-	evt.SetValueMap("query", map[string][]string{
+	evt.SetValueMap(kubefox.ValKeyQuery, map[string][]string{
 		"q1": {"q1"},
 		"q2": {"q2"},
 	})

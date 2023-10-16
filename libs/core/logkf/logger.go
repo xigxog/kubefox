@@ -62,7 +62,7 @@ func BuildLogger(format, level string) (*Logger, error) {
 	case "console":
 		cfg = zap.NewDevelopmentConfig()
 		cfg.EncoderConfig.EncodeLevel = zapcore.LowercaseColorLevelEncoder
-		cfg.EncoderConfig.EncodeTime = zapcore.TimeEncoderOfLayout("2006-01-02 15:04.0000")
+		cfg.EncoderConfig.EncodeTime = zapcore.ISO8601TimeEncoder
 		skip = 1
 	case "cli":
 		cfg = zap.NewDevelopmentConfig()

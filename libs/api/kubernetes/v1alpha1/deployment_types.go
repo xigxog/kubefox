@@ -16,7 +16,6 @@ import (
 type DeploymentSpec struct {
 	App        App                   `json:"app"`
 	Components map[string]*Component `json:"components"`
-	Adapters   map[string]*Adapter   `json:"adapters,omitempty"`
 }
 
 type App struct {
@@ -25,10 +24,11 @@ type App struct {
 	Name        string `json:"name"`
 	GitRef      string `json:"gitRef,omitempty"`
 	// +kubebuilder:validation:Pattern="^[a-z0-9]{7}$"
-	Commit            string `json:"commit"`
-	GitRepo           string `json:"gitRepo,omitempty"`
-	ContainerRegistry string `json:"containerRegistry"`
-	ImagePullSecret   string `json:"imagePullSecret,omitempty"`
+	Commit            string              `json:"commit"`
+	GitRepo           string              `json:"gitRepo,omitempty"`
+	ContainerRegistry string              `json:"containerRegistry"`
+	ImagePullSecret   string              `json:"imagePullSecret,omitempty"`
+	Adapters          map[string]*Adapter `json:"adapters,omitempty"`
 }
 
 type Component struct {
