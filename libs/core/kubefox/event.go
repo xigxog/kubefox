@@ -29,12 +29,18 @@ func NewEvent() *Event {
 }
 
 func (evt *Event) SetParent(parent *Event) {
+	if parent == nil {
+		return
+	}
 	evt.ParentId = parent.Id
 	evt.Ttl = parent.Ttl
 	evt.SetContext(parent.Context)
 	evt.SetTraceId(parent.TraceId())
 	evt.SetSpanId(parent.SpanId())
 	evt.SetTraceFlags(parent.TraceFlags())
+	if evt.Type == "" {
+		evt.Type = parent.Type
+	}
 }
 
 func (evt *Event) SetContext(evtCtx *EventContext) {
@@ -144,10 +150,6 @@ func (evt *Event) SetValueProto(key string, val *structpb.Value) {
 		return
 	}
 	evt.Values[key] = val
-}
-
-func (evt *Event) TTL() time.Duration {
-	return time.Microsecond * time.Duration(evt.Ttl)
 }
 
 func (evt *Event) ReduceTTL(start time.Time) {
@@ -264,18 +266,18 @@ func (evt *Event) SetHTTPRequest(httpReq *http.Request) error {
 	}
 	evt.Content = content
 	evt.ContentType = httpReq.Header.Get("Content-Type")
-	evt.Category = Category_CATEGORY_REQUEST
+	evt.Category = Category_REQUEST
 
 	evt.CheckContext()
 	if evt.Context.Environment == "" {
-		evt.Context.Environment = GetParamOrHeader(httpReq, HeaderEnv, HeaderShortEnv, HeaderAbbrvEnv)
+		evt.Context.Environment = GetParamOrHeader(httpReq, HeaderEnv, HeaderAbbrvEnv, HeaderShortEnv)
 	}
 	if evt.Context.Deployment == "" {
-		evt.Context.Deployment = GetParamOrHeader(httpReq, HeaderDep, HeaderShortDep, HeaderAbbrvDep)
+		evt.Context.Deployment = GetParamOrHeader(httpReq, HeaderDep, HeaderAbbrvDep, HeaderShortDep)
 	}
 
 	if evt.Type == "" || evt.Type == string(EventTypeUnknown) {
-		evtType := GetParamOrHeader(httpReq, HeaderEventType, HeaderAbbrvEventType)
+		evtType := GetParamOrHeader(httpReq, HeaderEventType, HeaderAbbrvEventType, HeaderShortEventType)
 		if evtType != "" {
 			evt.Type = evtType
 		} else {
@@ -330,7 +332,7 @@ func (evt *Event) SetHTTPResponse(httpResp *http.Response) error {
 	}
 	evt.Content = content
 	evt.ContentType = httpResp.Header.Get("Content-Type")
-	evt.Category = Category_CATEGORY_RESPONSE
+	evt.Category = Category_RESPONSE
 
 	if evt.Type == "" || evt.Type == string(EventTypeUnknown) {
 		evt.Type = string(EventTypeHTTP)
@@ -344,7 +346,7 @@ func (evt *Event) SetHTTPResponse(httpResp *http.Response) error {
 }
 
 func (ctx *EventContext) IsRelease() bool {
-	return ctx.Release != "" || !ctx.IsDeployment()
+	return ctx.Release != "" || (ctx.Deployment == "" && ctx.Environment == "")
 }
 
 func (ctx *EventContext) IsDeployment() bool {

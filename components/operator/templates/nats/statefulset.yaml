@@ -67,11 +67,36 @@ spec:
             - "nats-server"
             - "--config"
             - "/etc/nats/nats.conf"
+          resources:
+            requests:
+              memory: 1843Mi # 90% of limit, used to set GOMEMLIMIT 
+              cpu: 250m
+            limits:
+              memory: 2048Mi
+              cpu: 2000m
           env:
+            - name: KUBEFOX_COMPONENT_IP
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.hostIP
             - name: POD_NAME
               valueFrom:
                 fieldRef:
                   fieldPath: metadata.name
+            - name: POD_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: GOMEMLIMIT
+              valueFrom:
+                resourceFieldRef:
+                  containerName: {{ .Component.Name }}
+                  resource: requests.memory
+            - name: GOMAXPROCS
+              valueFrom:
+                resourceFieldRef:
+                  containerName: {{ .Component.Name }}
+                  resource: limits.cpu
           envFrom:
             - configMapRef:
                 name: {{ .Platform.Name }}-env

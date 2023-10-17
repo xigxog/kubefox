@@ -4,7 +4,7 @@ import (
 	"context"
 	"flag"
 	"fmt"
-	"io"
+	"math/rand"
 	"os"
 	"sync"
 	"time"
@@ -20,16 +20,16 @@ import (
 
 	"github.com/google/uuid"
 	gogrpc "google.golang.org/grpc"
-	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials"
-	"google.golang.org/grpc/status"
+)
+
+const (
+	maxRetry = 5
 )
 
 type EventHandlerFunc func(kit Kontext) error
 
 type Kit interface {
-	context.Context
-
 	Start()
 	Route(string, EventHandlerFunc)
 	Default(EventHandlerFunc)
@@ -37,22 +37,19 @@ type Kit interface {
 }
 
 type kit struct {
-	context.Context
-
 	comp       *kubefox.Component
 	defHandler EventHandlerFunc
 	routes     []*route
 
 	brk    grpc.Broker_SubscribeClient
-	reqMap map[string]chan *kubefox.Event
+	reqMap map[string]chan *kubefox.ActiveEvent
 
 	reqMapMutex sync.Mutex
 	sendMutex   sync.Mutex
 
 	brokerAddr string
 
-	cancel context.CancelFunc
-	log    *logkf.Logger
+	log *logkf.Logger
 }
 
 type route struct {
@@ -67,7 +64,7 @@ func New() Kit {
 			Id: uuid.NewString(),
 		},
 		routes: make([]*route, 0),
-		reqMap: make(map[string]chan *kubefox.Event),
+		reqMap: make(map[string]chan *kubefox.ActiveEvent),
 	}
 
 	var help bool
@@ -108,7 +105,6 @@ Flags:
 	svc.log = logkf.Global
 	svc.log.Debugf("gitCommit: %s, gitRef: %s", kubefox.GitCommit, kubefox.GitRef)
 
-	svc.Context, svc.cancel = context.WithCancel(context.Background())
 	svc.log.Info("🦊 kit created")
 
 	return svc
@@ -134,15 +130,24 @@ func (svc *kit) Default(handler EventHandlerFunc) {
 }
 
 func (svc *kit) Start() {
-	var conn *gogrpc.ClientConn
+	var (
+		retry int
+		err   error
+	)
 
-	defer func() {
-		svc.cancel()
-		if err := conn.Close(); err != nil {
-			svc.log.Fatal(err)
-		}
-	}()
+	for retry < maxRetry {
+		retry, err = svc.run(retry)
+		svc.log.Warnf("broker subscription closed, retry %d: %v", retry, err)
+		time.Sleep(time.Second * time.Duration(rand.Intn(2)+1))
+	}
+	svc.log.Fatalf("exceeded max retries: %v", err)
+}
 
+func (svc *kit) run(retry int) (int, error) {
+	creds, err := credentials.NewClientTLSFromFile(kubefox.PathCACert, "")
+	if err != nil {
+		svc.log.Fatalf("unable to load root CA certificate: %v", err)
+	}
 	grpcCfg := `{
 		"methodConfig": [{
 		  "name": [{"service": "", "method": ""}],
@@ -155,21 +160,23 @@ func (svc *kit) Start() {
 			  "RetryableStatusCodes": [ "UNAVAILABLE" ]
 		  }
 		}]}`
-	creds, err := credentials.NewClientTLSFromFile(kubefox.PathCACert, "")
-	if err != nil {
-		svc.log.Fatalf("unable to load root CA certificate: %v", err)
-	}
-	conn, err = gogrpc.Dial(svc.brokerAddr,
+
+	conn, err := gogrpc.Dial(svc.brokerAddr,
 		gogrpc.WithPerRPCCredentials(svc),
 		gogrpc.WithTransportCredentials(creds),
 		gogrpc.WithDefaultServiceConfig(grpcCfg),
 	)
 	if err != nil {
-		svc.log.Fatalf("unable to connect to broker: %v", err)
+		return retry + 1, fmt.Errorf("unable to connect to broker: %v", err)
 	}
+	defer func() {
+		if err := conn.Close(); err != nil {
+			svc.log.Fatal(err)
+		}
+	}()
 
-	if svc.brk, err = grpc.NewBrokerClient(conn).Subscribe(svc); err != nil {
-		svc.log.Fatalf("subscribing to broker failed: %v", err)
+	if svc.brk, err = grpc.NewBrokerClient(conn).Subscribe(context.Background()); err != nil {
+		return retry + 1, fmt.Errorf("subscribing to broker failed: %v", err)
 	}
 
 	reg := &kubefox.ComponentReg{
@@ -180,14 +187,16 @@ func (svc *kit) Start() {
 		reg.Routes[i] = &svc.routes[i].Route
 	}
 
-	regEvt := kubefox.NewEvent()
-	regEvt.Type = string(kubefox.EventTypeRegister)
-	regEvt.Category = kubefox.Category_CATEGORY_SINGLE
+	regEvt := kubefox.StartMsg(kubefox.EventOpts{
+		Type:   kubefox.EventTypeRegister,
+		Source: svc.comp,
+	})
+
 	if err := regEvt.SetJSON(reg); err != nil {
-		svc.log.Fatalf("unable to connect to broker: %v", err)
+		svc.log.Fatalf("unable to marshal registration: %v", err)
 	}
 	if err := svc.sendEvent(regEvt); err != nil {
-		svc.log.Fatalf("unable to connect to broker: %v", err)
+		return retry + 1, fmt.Errorf("unable to register with broker: %v", err)
 	}
 
 	svc.log.Info("kit subscribed to broker")
@@ -195,53 +204,44 @@ func (svc *kit) Start() {
 	for {
 		mEvt, err := svc.brk.Recv()
 		if err != nil {
-			status, _ := status.FromError(err)
-			switch {
-			case err == io.EOF:
-				svc.log.Debug("send stream closed")
-			case status.Code() == codes.Canceled:
-				svc.log.Debug("context canceled")
-			default:
-				svc.log.Error(err)
-			}
-			break
+			// Success connection was made, reset retry.
+			return 0, err
 		}
 
 		svc.log.DebugEw("received event", mEvt.Event)
 
 		switch mEvt.Event.Category {
-		case kubefox.Category_CATEGORY_REQUEST:
+		case kubefox.Category_REQUEST:
 			go svc.recvReq(mEvt)
 
-		case kubefox.Category_CATEGORY_RESPONSE:
-			go svc.recvResp(mEvt.Event)
+		case kubefox.Category_RESPONSE:
+			go svc.recvResp(kubefox.StartEvent(mEvt.Event))
 
 		default:
 			svc.log.Debug("default")
 		}
 	}
-
-	for {
-		svc.log.Warn("broker subscription closed, restarting.")
-		time.Sleep(time.Second)
-		svc.Start()
-	}
 }
 
 func (svc *kit) recvReq(req *kubefox.MatchedEvent) {
 	log := svc.log.WithEvent(req.Event)
+	log.Debug("receive request")
 
-	ctx, cancel := context.WithTimeout(context.Background(), req.Event.TTL())
+	evt := kubefox.StartEvent(req.Event)
+	ctx, cancel := context.WithTimeout(context.Background(), evt.TTL())
 	defer cancel()
 
 	ktx := &kontext{
-		Context: ctx,
-		EventRW: kubefox.NewEventRW(req.Event),
-		resp:    kubefox.NewResp(req.Event, svc.comp),
-		kit:     svc,
-		env:     req.Env,
-		start:   time.Now(),
-		log:     log,
+		ActiveEvent: evt,
+		resp: kubefox.StartResp(kubefox.EventOpts{
+			Parent: req.Event,
+			Source: svc.comp,
+			Target: req.Event.Source,
+		}),
+		kit: svc,
+		env: req.Env,
+		ctx: ctx,
+		log: log,
 	}
 
 	var err error
@@ -261,7 +261,6 @@ func (svc *kit) recvReq(req *kubefox.MatchedEvent) {
 	}
 
 	if err != nil {
-		ktx.resp = kubefox.NewResp(req.Event, svc.comp)
 		ktx.resp.Type = string(kubefox.EventTypeError)
 
 		log.Error(err)
@@ -271,18 +270,27 @@ func (svc *kit) recvReq(req *kubefox.MatchedEvent) {
 	}
 }
 
-func (svc *kit) sendReq(ctx context.Context, req *kubefox.Event) (*kubefox.Event, error) {
-	log := svc.log.WithEvent(req)
+func (svc *kit) sendReq(req *kubefox.ActiveEvent) (*kubefox.ActiveEvent, error) {
+	log := svc.log.WithEvent(req.Event)
 	log.Debug("send request")
 
 	svc.reqMapMutex.Lock()
-	respCh := make(chan *kubefox.Event)
+	respCh := make(chan *kubefox.ActiveEvent)
 	svc.reqMap[req.Id] = respCh
 	svc.reqMapMutex.Unlock()
+
+	defer func() {
+		svc.reqMapMutex.Lock()
+		delete(svc.reqMap, req.Id)
+		svc.reqMapMutex.Unlock()
+	}()
 
 	if err := svc.sendEvent(req); err != nil {
 		return nil, log.ErrorN("%v", err)
 	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), req.TTL())
+	defer cancel()
 
 	select {
 	case resp := <-respCh:
@@ -293,30 +301,30 @@ func (svc *kit) sendReq(ctx context.Context, req *kubefox.Event) (*kubefox.Event
 	}
 }
 
-func (svc *kit) recvResp(resp *kubefox.Event) {
-	svc.log.DebugEw("recv event", resp)
+func (svc *kit) recvResp(resp *kubefox.ActiveEvent) {
+	log := svc.log.WithEvent(resp.Event)
+	log.Debug("receive response")
 
 	svc.reqMapMutex.Lock()
 	respCh, found := svc.reqMap[resp.ParentId]
-	delete(svc.reqMap, resp.ParentId)
 	svc.reqMapMutex.Unlock()
 
 	if !found {
-		svc.log.ErrorEw("matching request not found for response", resp)
+		log.Error("request for response not found")
 		return
 	}
 
 	respCh <- resp
 }
 
-func (svc *kit) sendEvent(evt *kubefox.Event) error {
-	svc.log.DebugEw("send event", evt)
+func (svc *kit) sendEvent(evt *kubefox.ActiveEvent) error {
+	svc.log.DebugEw("send event", evt.Event)
 
-	// need to protect the stream from being called by multiple threads
+	// Need to protect the stream from being called by multiple threads.
 	svc.sendMutex.Lock()
 	defer svc.sendMutex.Unlock()
 
-	return svc.brk.Send(evt)
+	return svc.brk.Send(evt.Flush())
 }
 
 func (svc *kit) GetRequestMetadata(ctx context.Context, uri ...string) (map[string]string, error) {

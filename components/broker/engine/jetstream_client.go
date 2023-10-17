@@ -98,6 +98,9 @@ func (c *JetStreamClient) Connect() error {
 	if err := c.setupStream(); err != nil {
 		return err
 	}
+	if err := c.setupCompsKV(); err != nil {
+		return err
+	}
 	if err := c.setupEventsKV(); err != nil {
 		return err
 	}
@@ -113,6 +116,7 @@ func (c *JetStreamClient) setupStream() error {
 			// cannot be updated
 			Storage:   nats.FileStorage,
 			Retention: nats.LimitsPolicy,
+			NoAck:     true,
 			//
 		})
 		if err != nil {
@@ -131,6 +135,10 @@ func (c *JetStreamClient) setupStream() error {
 		return c.log.ErrorN("unable to create events stream: %v", err)
 	}
 
+	return nil
+}
+
+func (c *JetStreamClient) setupCompsKV() (err error) {
 	c.compKV, err = c.CreateKeyValue(&nats.KeyValueConfig{
 		Bucket:      compBucket,
 		Description: "Durable key/value store used by Brokers to register Components. Values are retained for 12 hours.",
@@ -147,7 +155,7 @@ func (c *JetStreamClient) setupStream() error {
 func (c *JetStreamClient) setupEventsKV() (err error) {
 	c.eventsKV, err = c.CreateKeyValue(&nats.KeyValueConfig{
 		Bucket:      evtStream,
-		Description: "Durable disk backed key/value store for events. Values are retained for 3 days.",
+		Description: "Durable disk backed key/value store for Event ids. Values are retained for 3 days.",
 		Storage:     nats.FileStorage,
 		TTL:         EventStreamTTL,
 	})
@@ -234,12 +242,10 @@ func (c *JetStreamClient) ComponentsKV() nats.KeyValue {
 func (c *JetStreamClient) Publish(subject string, evt *kubefox.Event) (nats.PubAckFuture, error) {
 	dataBytes, err := proto.Marshal(evt)
 	if err != nil {
-		c.log.Error(err)
 		return nil, err
 	}
 
 	h := make(nats.Header)
-
 	h.Set(nats.MsgIdHdr, evt.Id)
 	h.Set("ce_specversion", "1.0")
 	h.Set("ce_type", evt.Type)
@@ -248,6 +254,12 @@ func (c *JetStreamClient) Publish(subject string, evt *kubefox.Event) (nats.PubA
 	h.Set("ce_source", fmt.Sprintf("kubefox:component:%s", evt.Source.GetId()))
 	h.Set("ce_dataschema", kubefox.DataSchemaKubefox)
 	h.Set("ce_datacontenttype", kubefox.ContentTypeProtobuf)
+
+	// return c.nc.PublishMsg(&nats.Msg{
+	// 	Subject: subject,
+	// 	Header:  h,
+	// 	Data:    dataBytes,
+	// })
 
 	return c.PublishMsgAsync(&nats.Msg{
 		Subject: subject,
@@ -264,6 +276,7 @@ func (c *JetStreamClient) PullEvents(sub ReplicaSubscription) error {
 		sub.Component().Key(),
 		nats.InactiveThreshold(time.Minute),
 		nats.Context(sub.Context()),
+		nats.AckNone(),
 	)
 	if err != nil {
 		return log.ErrorN("unable to create JetStream pull subscription: %v", err)
@@ -276,7 +289,7 @@ func (c *JetStreamClient) PullEvents(sub ReplicaSubscription) error {
 		grpCfg := &nats.ConsumerConfig{
 			Name:              grpConsumer,
 			Durable:           grpConsumer,
-			AckPolicy:         nats.AckExplicitPolicy,
+			AckPolicy:         nats.AckNonePolicy,
 			FilterSubject:     grpSubj,
 			InactiveThreshold: EventStreamTTL,
 		}
@@ -291,6 +304,7 @@ func (c *JetStreamClient) PullEvents(sub ReplicaSubscription) error {
 			grpConsumer,
 			nats.Bind(evtStream, grpConsumer),
 			nats.Context(sub.Context()),
+			nats.AckNone(),
 		)
 		if err != nil {
 			return log.ErrorN("unable to create JetStream pull subscription: %v", err)
@@ -298,23 +312,20 @@ func (c *JetStreamClient) PullEvents(sub ReplicaSubscription) error {
 	}
 
 	recvMsg := func(msg *nats.Msg) {
-		ts := time.Now().UnixMicro()
-		if md, err := msg.Metadata(); err == nil {
-			ts = md.Timestamp.UnixMicro()
+		evt := kubefox.NewEvent()
+		if md, err := msg.Metadata(); err == nil { // success
+			evt.ReduceTTL(md.Timestamp)
 		}
 
-		evt := &kubefox.Event{}
 		if err := proto.Unmarshal(msg.Data, evt); err != nil {
 			// This msg cannot be processed, remove it from subject.
-			msg.Ack()
+			// msg.Ack()
 			log.Error(err)
 			return
 		}
-		evt.Ttl = evt.Ttl - (time.Now().UnixMicro() - ts)
 
 		rEvt := &ReceivedEvent{
-			Event:        evt,
-			Receiver:     EventReceiverJetStream,
+			ActiveEvent:  kubefox.StartEvent(evt),
 			Subscription: sub,
 		}
 		if err := c.brk.RecvEvent(rEvt); err != nil {
@@ -322,12 +333,13 @@ func (c *JetStreamClient) PullEvents(sub ReplicaSubscription) error {
 			if evt.Target.Id == "" && errors.Is(err, ErrSubCanceled) {
 				// Any component replica can process so do not remove msg from
 				// subject and let another JetStream subscriber process it.
-				msg.Nak()
+				// msg.Nak()
+				// TODO, republish event since ACK disabled
 				return
 			}
 		}
 
-		msg.Ack()
+		// msg.Ack()
 	}
 
 	go c.pullEvents(log, jsSub, recvMsg)

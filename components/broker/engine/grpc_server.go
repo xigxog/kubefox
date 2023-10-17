@@ -147,7 +147,10 @@ func (srv *GRPCServer) Subscribe(stream grpc.Broker_SubscribeServer) error {
 
 		log.DebugEw("send event", mEvt.Event)
 
-		return stream.Send(mEvt)
+		if err := stream.Send(mEvt); err != nil {
+			return fmt.Errorf("%w: %v", ErrComponentGone, err)
+		}
+		return nil
 	}
 
 	sub, err = srv.brk.Subscribe(stream.Context(), &SubscriptionConf{
@@ -197,8 +200,7 @@ func (srv *GRPCServer) Subscribe(stream grpc.Broker_SubscribeServer) error {
 
 			log.DebugEw("receive event", evt)
 			err = srv.brk.RecvEvent(&ReceivedEvent{
-				Event:    evt,
-				Receiver: EventReceiverGRPC,
+				ActiveEvent: kubefox.StartEvent(evt),
 			})
 			if err != nil {
 				log.DebugEw("receive event failed", evt, err)

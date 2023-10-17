@@ -7,10 +7,10 @@ import "google/protobuf/struct.proto";
 option go_package = "github.com/xigxog/kubefox/libs/core/kubefox";
 
 enum Category {
-  CATEGORY_UNKNOWN = 0;
-  CATEGORY_SINGLE = 1;
-  CATEGORY_REQUEST = 2;
-  CATEGORY_RESPONSE = 3;
+  UNKNOWN = 0;
+  MESSAGE = 1;
+  REQUEST = 2;
+  RESPONSE = 3;
 }
 
 message Component {

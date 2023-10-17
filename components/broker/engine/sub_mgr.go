@@ -92,12 +92,14 @@ func NewManager() SubscriptionMgr {
 }
 
 func (mgr *subscriptionMgr) Create(ctx context.Context, cfg *SubscriptionConf, recvCh chan *ReceivedEvent) (ReplicaSubscription, error) {
+	log := mgr.log.WithComponent(cfg.Component)
 	if err := checkComp(cfg.Component); err != nil {
 		return nil, err
 	}
 
-	if _, found := mgr.ReplicaSubscription(cfg.Component); found {
-		return nil, fmt.Errorf("subscription for component already exists")
+	if sub, found := mgr.ReplicaSubscription(cfg.Component); found {
+		log.Warn("subscription for component already exists")
+		sub.Cancel(nil)
 	}
 
 	mgr.mutex.Lock()

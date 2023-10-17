@@ -24,6 +24,13 @@ spec:
           image: {{ .Component.Image | default (printf "%s/%s:%s" .App.Registry .Component.Name .Component.Commit) | quote }}
           imagePullPolicy: {{ .Component.ImagePullPolicy | default "IfNotPresent" }}
           {{- include "containerSecurityContext" . | nindent 10 }}
+          resources:
+            requests:
+              memory: 115Mi # 90% of limit, used to set GOMEMLIMIT 
+              cpu: 250m
+            limits:
+              memory: 128Mi
+              cpu: 1000m
           env:
             - name: KUBEFOX_INSTANCE
               value: {{ .Instance.Name }}

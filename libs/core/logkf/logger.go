@@ -16,12 +16,16 @@ const (
 	KeyComponentId     = "componentId"
 	KeyComponentName   = "componentName"
 	KeyController      = "controller"
+	KeyEventCategory   = "eventCategory"
 	KeyEventId         = "eventId"
 	KeyEventType       = "eventType"
 	KeyInstance        = "instance"
 	KeyPlatform        = "platform"
 	KeyService         = "service"
 	KeySpanId          = "spanId"
+	KeyTargetCommit    = "targetCommit"
+	KeyTargetId        = "targetId"
+	KeyTargetName      = "targetName"
 	KeyTraceId         = "traceId"
 	KeyWorker          = "worker"
 )
@@ -158,16 +162,31 @@ func (log *Logger) WithComponent(comp *kubefox.Component) *Logger {
 	)
 }
 
+func (log *Logger) WithTarget(tgt *kubefox.Component) *Logger {
+	if tgt == nil {
+		return log
+	}
+	return log.With(
+		KeyTargetId, tgt.Id,
+		KeyTargetCommit, tgt.Commit,
+		KeyTargetName, tgt.Name,
+	)
+}
+
 func (log *Logger) WithEvent(evt *kubefox.Event) *Logger {
 	if evt == nil {
 		return log
 	}
-	return log.With(
-		KeyEventId, evt.Id,
-		KeyEventType, evt.Type,
-		KeyTraceId, evt.TraceId(),
-		KeySpanId, evt.SpanId(),
-	)
+	return log.
+		WithComponent(evt.Source).
+		WithTarget(evt.Target).
+		With(
+			KeyEventId, evt.Id,
+			KeyEventType, evt.Type,
+			KeyEventCategory, evt.Category.String(),
+			KeyTraceId, evt.TraceId(),
+			KeySpanId, evt.SpanId(),
+		)
 }
 
 func (log *Logger) WithSpan(traceId, spanId string) *Logger {
@@ -188,18 +207,26 @@ func (log *Logger) DebugInterface(msg string, v interface{}) {
 }
 
 func (log *Logger) DebugEw(msg string, evt *kubefox.Event, keysAndValues ...interface{}) {
-	if evt != nil {
-		keysAndValues = append(keysAndValues,
-			KeyEventId, evt.Id,
-			KeyEventType, evt.Type,
-			KeyTraceId, evt.TraceId(),
-			KeySpanId, evt.SpanId(),
-		)
-	}
+	keysAndValues = appendEvent(evt, keysAndValues...)
 	log.wrapped.Debugw(msg, keysAndValues...)
 }
 
+func (log *Logger) InfoEw(msg string, evt *kubefox.Event, keysAndValues ...interface{}) {
+	keysAndValues = appendEvent(evt, keysAndValues...)
+	log.wrapped.Infow(msg, keysAndValues...)
+}
+
+func (log *Logger) WarnEw(msg string, evt *kubefox.Event, keysAndValues ...interface{}) {
+	keysAndValues = appendEvent(evt, keysAndValues...)
+	log.wrapped.Warnw(msg, keysAndValues...)
+}
+
 func (log *Logger) ErrorEw(msg string, evt *kubefox.Event, keysAndValues ...interface{}) {
+	keysAndValues = appendEvent(evt, keysAndValues...)
+	log.wrapped.Errorw(msg, keysAndValues...)
+}
+
+func appendEvent(evt *kubefox.Event, keysAndValues ...interface{}) []any {
 	if evt != nil {
 		keysAndValues = append(keysAndValues,
 			KeyEventId, evt.Id,
@@ -208,8 +235,7 @@ func (log *Logger) ErrorEw(msg string, evt *kubefox.Event, keysAndValues ...inte
 			KeySpanId, evt.SpanId(),
 		)
 	}
-
-	log.wrapped.Errorw(msg, keysAndValues...)
+	return keysAndValues
 }
 
 // ErrorN creates an error with fmt.Errorf, logs it, and returns the error.

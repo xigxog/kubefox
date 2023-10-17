@@ -37,17 +37,22 @@ type HTTPServer struct {
 }
 
 func NewHTTPServer(brk Broker) *HTTPServer {
+	id, err := os.Hostname()
+	if err != nil || id == "" {
+		id = uuid.NewString()
+	}
+
 	comp := &kubefox.Component{
-		Name:   "kf-http-server",
+		Name:   "http-server",
 		Commit: kubefox.GitCommit,
-		Id:     uuid.NewString(),
+		Id:     id,
 	}
 	return &HTTPServer{
 		brk:        brk,
 		comp:       comp,
 		reqMap:     make(map[string]chan *kubefox.Event),
 		propagator: propagation.NewCompositeTextMapPropagator(jaeger.Jaeger{}, b3.New()),
-		log:        logkf.Global,
+		log:        logkf.Global.WithComponent(comp),
 	}
 }
 
@@ -74,7 +79,7 @@ func (srv *HTTPServer) Start() (err error) {
 
 	// Start listener outside of goroutine to deal with address and port issues.
 	if config.HTTPSrvAddr != "false" {
-		srv.log.WithComponent(srv.comp).Debug("http server starting")
+		srv.log.Debug("http server starting")
 		ln, err := net.Listen("tcp", config.HTTPSrvAddr)
 		if err != nil {
 			return srv.log.ErrorN("%v", err)
@@ -88,7 +93,7 @@ func (srv *HTTPServer) Start() (err error) {
 		}()
 	}
 	if config.HTTPSSrvAddr != "false" {
-		srv.log.WithComponent(srv.comp).Debug("https server starting")
+		srv.log.Debug("https server starting")
 		lns, err := net.Listen("tcp", config.HTTPSSrvAddr)
 		if err != nil {
 			return srv.log.ErrorN("%v", err)
@@ -127,22 +132,21 @@ func (srv *HTTPServer) ServeHTTP(resWriter http.ResponseWriter, httpReq *http.Re
 	// ctx := srv.propagator.Extract(httpReq.Context(), propagation.HeaderCarrier(httpReq.Header))
 
 	ctx, cancel := context.WithTimeoutCause(httpReq.Context(), config.EventTTL, ErrEventTimeout)
-	defer func() {
-		cancel()
-	}()
+	defer cancel()
 
-	req := kubefox.NewEvent()
+	resWriter.Header().Set(kubefox.HeaderAdapter, srv.comp.Key())
+
+	req := kubefox.StartReq(kubefox.EventOpts{
+		Source: srv.comp,
+	})
 	req.Ttl = config.EventTTL.Microseconds()
-	req.Category = kubefox.Category_CATEGORY_REQUEST
-	req.Source = srv.comp
 	if err := req.SetHTTPRequest(httpReq); err != nil {
-		srv.log.Debugf("error parsing event from http request: %v", err)
-		resWriter.WriteHeader(http.StatusBadRequest)
-		resWriter.Write([]byte(err.Error()))
+		err = fmt.Errorf("%w: error parsing event: %v", ErrEventInvalid, err)
+		writeError(resWriter, err, srv.log)
 		return
 	}
 
-	log := srv.log.WithEvent(req)
+	log := srv.log.WithEvent(req.Event)
 	log.Debug("received request")
 
 	srv.mutex.Lock()
@@ -150,10 +154,15 @@ func (srv *HTTPServer) ServeHTTP(resWriter http.ResponseWriter, httpReq *http.Re
 	srv.reqMap[req.Id] = respCh
 	srv.mutex.Unlock()
 
+	defer func() {
+		srv.mutex.Lock()
+		delete(srv.reqMap, req.Id)
+		srv.mutex.Unlock()
+	}()
+
 	rEvt := &ReceivedEvent{
-		Event:    req,
-		Receiver: EventReceiverHTTPSrv,
-		ErrCh:    make(chan error),
+		ActiveEvent: req,
+		ErrCh:       make(chan error),
 	}
 	if err := srv.brk.RecvEvent(rEvt); err != nil {
 		writeError(resWriter, context.Cause(ctx), log)
@@ -174,9 +183,8 @@ func (srv *HTTPServer) ServeHTTP(resWriter http.ResponseWriter, httpReq *http.Re
 		return
 	}
 
-	resWriter.Header().Set("Kf-Adapter", srv.comp.Key())
 	if resp.TraceId() != "" {
-		resWriter.Header().Set("Kf-Trace-Id", resp.TraceId())
+		resWriter.Header().Set(kubefox.HeaderTraceId, resp.TraceId())
 	}
 
 	var statusCode int
@@ -212,7 +220,6 @@ func (srv *HTTPServer) sendEvent(mEvt *kubefox.MatchedEvent) error {
 	resp := mEvt.Event
 	srv.mutex.Lock()
 	respCh, found := srv.reqMap[resp.ParentId]
-	delete(srv.reqMap, resp.ParentId)
 	srv.mutex.Unlock()
 
 	if !found {
@@ -227,7 +234,7 @@ func (srv *HTTPServer) sendEvent(mEvt *kubefox.MatchedEvent) error {
 }
 
 func writeError(resWriter http.ResponseWriter, err error, log *logkf.Logger) {
-	log.Debugf("sending event failed: %v", err)
+	log.Debugf("event failed: %v", err)
 	switch {
 	case errors.Is(err, ErrEventTimeout):
 		resWriter.WriteHeader(http.StatusGatewayTimeout)

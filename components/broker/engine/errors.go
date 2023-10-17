@@ -1,14 +1,19 @@
 package engine
 
-import "errors"
+import (
+	"errors"
+	"fmt"
+)
 
 var (
-	ErrComponentGone     = errors.New("component gone")
-	ErrComponentMismatch = errors.New("component mismatch")
-	ErrEventInvalid      = errors.New("event invalid")
-	ErrEventTimeout      = errors.New("event time out")
-	ErrRouteInvalid      = errors.New("route invalid")
-	ErrRouteNotFound     = errors.New("route not found")
-	ErrSubCanceled       = errors.New("subscription canceled")
-	ErrUnexpected        = errors.New("unexpected error")
+	ErrKubeFox = errors.New("")
+
+	ErrComponentGone     = fmt.Errorf("%wcomponent gone", ErrKubeFox)
+	ErrComponentMismatch = fmt.Errorf("%wcomponent mismatch", ErrKubeFox)
+	ErrEventInvalid      = fmt.Errorf("%wevent invalid", ErrKubeFox)
+	ErrEventTimeout      = fmt.Errorf("%wevent time out", ErrKubeFox)
+	ErrRouteInvalid      = fmt.Errorf("%wroute invalid", ErrKubeFox)
+	ErrRouteNotFound     = fmt.Errorf("%wroute not found", ErrKubeFox)
+	ErrSubCanceled       = fmt.Errorf("%wsubscription canceled", ErrKubeFox)
+	ErrUnexpected        = fmt.Errorf("%wunexpected error", ErrKubeFox)
 )

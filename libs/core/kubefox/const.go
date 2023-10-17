@@ -67,14 +67,17 @@ const (
 
 // Headers and query params.
 const (
-	HeaderAbbrvDep       = "kfd"
-	HeaderAbbrvEnv       = "kfe"
-	HeaderAbbrvEventType = "kft"
-	HeaderDep            = "kf-deployment"
-	HeaderEnv            = "kf-environment"
-	HeaderEventType      = "kf-type"
-	HeaderShortDep       = "kf-dep"
-	HeaderShortEnv       = "kf-env"
+	HeaderAbbrvDep       = "kf-dep"
+	HeaderAbbrvEnv       = "kf-env"
+	HeaderAbbrvEventType = "kf-type"
+	HeaderAdapter        = "kubefox-adapter"
+	HeaderDep            = "kubefox-deployment"
+	HeaderEnv            = "kubefox-environment"
+	HeaderEventType      = "kubefox-type"
+	HeaderShortDep       = "kfd"
+	HeaderShortEnv       = "kfe"
+	HeaderShortEventType = "kft"
+	HeaderTraceId        = "kubefox-trace-id"
 )
 
 const (

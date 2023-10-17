@@ -3,6 +3,7 @@ package engine
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"os/signal"
@@ -19,6 +20,7 @@ import (
 	"github.com/xigxog/kubefox/libs/core/logkf"
 	"github.com/xigxog/kubefox/libs/core/matcher"
 	"github.com/xigxog/kubefox/libs/core/utils"
+	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/structpb"
 	authv1 "k8s.io/api/authentication/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -235,11 +237,6 @@ func (brk *broker) RecvEvent(rEvt *ReceivedEvent) error {
 		return ErrSubCanceled
 	}
 
-	if rEvt.Context == nil {
-		rEvt.Context = context.Background()
-	}
-	rEvt.RecvTime = time.Now()
-
 	brk.recvCh <- rEvt
 
 	return nil
@@ -254,46 +251,57 @@ func (brk *broker) startWorker(id int) {
 
 	for {
 		select {
-		case evt := <-brk.recvCh:
-			brk.routeEvt(log, evt)
+		case rEvt := <-brk.recvCh:
+			if err := brk.routeEvt(log, rEvt); err != nil {
+				_, gRPCErr := status.FromError(err)
+				switch {
+				case gRPCErr: // gRPC error
+					err = fmt.Errorf("%w: %v", ErrComponentGone, err)
+
+				case apierrors.IsNotFound(err): // Not found error from K8s API
+					err = fmt.Errorf("%w: %v", ErrRouteNotFound, err)
+
+				case !errors.Is(err, ErrKubeFox): // Unknown
+					err = fmt.Errorf("%w: %v", ErrUnexpected, err)
+				}
+
+				log = log.WithEvent(rEvt.Event)
+				if errors.Is(err, ErrUnexpected) {
+					log.Error(err)
+				} else {
+					log.Info(err)
+				}
+
+				rEvt.Err(err)
+			}
 		case <-brk.ctx.Done():
 			return
 		}
 	}
 }
 
-func (brk *broker) routeEvt(log *logkf.Logger, rEvt *ReceivedEvent) {
-	var err error
-	evt := rEvt.Event
-	log = log.WithEvent(evt)
+func (brk *broker) routeEvt(log *logkf.Logger, rEvt *ReceivedEvent) error {
+	log = log.
+		WithEvent(rEvt.Event).
+		WithComponent(rEvt.Source).
+		WithTarget(rEvt.Target)
 
-	evt.ReduceTTL(rEvt.RecvTime)
-	if rEvt.Event.Ttl <= 0 {
-		log.Debug("event timed out while waiting for worker")
-		rEvt.Err(ErrEventTimeout)
-		return
+	if rEvt.TTL() <= 0 {
+		return fmt.Errorf("%w: event timed out while waiting for worker", ErrEventTimeout)
 	}
 
 	log.Debug("routing event from work queue")
-	start := time.Now()
 
-	mEvt, err := brk.matchEvent(evt)
+	mEvt, err := brk.matchEvent(rEvt.Event)
 	if err != nil {
-		if apierrors.IsNotFound(err) {
-			err = fmt.Errorf("%w: %v", ErrRouteNotFound, err)
-		}
-		log.Debug(err)
-		rEvt.Err(err)
-		return
+		return err
 	}
 
-	log = log.WithComponent(evt.Target)
+	log = log.WithTarget(rEvt.Target)
 	log.Debug("matched event to target")
 
 	if err := brk.checkMatchedEvent(mEvt); err != nil {
-		log.Debug(err)
-		rEvt.Err(err)
-		return
+		return err
 	}
 
 	// TODO add policy checks
@@ -303,14 +311,14 @@ func (brk *broker) routeEvt(log *logkf.Logger, rEvt *ReceivedEvent) {
 	case rEvt.Subscription != nil:
 		sub = rEvt.Subscription
 
-	case evt.Target.Equal(brk.httpSrv.Component()):
+	case rEvt.Target.Equal(brk.httpSrv.Component()):
 		sub = brk.httpSrv.Subscription()
 
-	case evt.Target.Id != "":
-		sub, _ = brk.subMgr.ReplicaSubscription(evt.Target)
+	case rEvt.Target.Id != "":
+		sub, _ = brk.subMgr.ReplicaSubscription(rEvt.Target)
 
-	case evt.Target.Id == "":
-		sub, _ = brk.subMgr.GroupSubscription(evt.Target)
+	case rEvt.Target.Id == "":
+		sub, _ = brk.subMgr.GroupSubscription(rEvt.Target)
 	}
 
 	var sendEvent SendEvent
@@ -327,38 +335,43 @@ func (brk *broker) routeEvt(log *logkf.Logger, rEvt *ReceivedEvent) {
 		// Subscriptions not found, publish to JetStream.
 		sendEvent = func(mEvt *kubefox.MatchedEvent) error {
 			log.Debug("subscription not found, sending event to JetStream")
-			ack, err := brk.jsClient.Publish(evt.Target.Subject(), mEvt.Event)
-			if err != nil {
+
+			if _, err := brk.jsClient.Publish(rEvt.Target.Subject(), mEvt.Event); err != nil {
 				return err
 			}
 
-			go func() {
-				select {
-				case pubAck := <-ack.Ok():
-					brk.kvUpdateCh <- &IdSeq{EventId: rEvt.Event.Id, Sequence: pubAck.Sequence}
-				case err := <-ack.Err():
-					rEvt.Err(log.ErrorN("%w: %v", ErrUnexpected, err))
-				}
-			}()
+			// ack, err := brk.jsClient.Publish(rEvt.Target.Subject(), mEvt.Event)
+			// if err != nil {
+			// 	return err
+			// }
+
+			// go func() {
+			// 	select {
+			// 	case pubAck := <-ack.Ok():
+			// 		brk.kvUpdateCh <- &IdSeq{EventId: rEvt.Event.Id, Sequence: pubAck.Sequence}
+			// 	case err := <-ack.Err():
+			// 		rEvt.Err(log.ErrorN("%w: %v", ErrUnexpected, err))
+			// 	}
+			// }()
 
 			return nil
 		}
 	}
 
-	evt.ReduceTTL(start)
-	if rEvt.Event.Ttl <= 0 {
-		log.Debug("event timed out while routing it")
-		rEvt.Err(ErrEventTimeout)
-		return
+	if rEvt.TTL() <= 0 {
+		return fmt.Errorf("%w: event timed out during routing", ErrEventTimeout)
 	}
 
-	if err := sendEvent(mEvt); err != nil {
-		rEvt.Err(log.ErrorN("%w: %v", ErrUnexpected, err))
+	rEvt.Flush()
+	if err = sendEvent(mEvt); err != nil {
+		return fmt.Errorf("%w: error sending event", err)
 	}
+
+	return nil
 }
 
 func (brk *broker) matchEvent(evt *kubefox.Event) (*kubefox.MatchedEvent, error) {
-	if evt.Category == kubefox.Category_CATEGORY_RESPONSE {
+	if evt.Category == kubefox.Category_RESPONSE {
 		if evt.Target == nil || !evt.Target.IsFull() {
 			return nil, fmt.Errorf("%w: response target is missing required attribute", ErrRouteInvalid)
 		}
@@ -503,27 +516,34 @@ func (brk *broker) startArchiver() {
 		brk.wg.Done()
 	}()
 
-	errMsg := "unable to publish event to JetStream, event not archived: %v"
 	for {
 		select {
 		case rEvt := <-brk.archiveCh:
+			log := log.WithEvent(rEvt.Event)
 			log.Debug("publishing event to JetStream for archiving")
 
-			ack, err := brk.jsClient.Publish(rEvt.Event.Target.DirectSubject(), rEvt.Event)
-			if err != nil {
-				// This event will be lost in time, never to be seen again :(
-				log.ErrorEw(errMsg, rEvt.Event, err)
+			if _, err := brk.jsClient.Publish(rEvt.Target.DirectSubject(), rEvt.Event); err != nil {
+				log.Error(err)
 			}
-			go func() {
-				select {
-				case pubAck := <-ack.Ok():
-					brk.kvUpdateCh <- &IdSeq{EventId: rEvt.Event.Id, Sequence: pubAck.Sequence}
-					return
-				case err := <-ack.Err():
-					// This event will be lost in time, never to be seen again :(
-					log.ErrorEw(errMsg, rEvt.Event, err)
-				}
-			}()
+
+			// ack, err := brk.jsClient.Publish(rEvt.Target.DirectSubject(), rEvt.Event)
+			// if err != nil {
+			// 	// This event will be lost in time, never to be seen again :(
+			// 	log.Warnf("unable to publish event to JetStream, event not archived: %v", err)
+			// 	continue
+			// }
+
+			// evtId := rEvt.Id
+			// go func() {
+			// 	select {
+			// 	case pubAck := <-ack.Ok():
+			// 		brk.kvUpdateCh <- &IdSeq{EventId: evtId, Sequence: pubAck.Sequence}
+			// 		return
+			// 	case err := <-ack.Err():
+			// 		// This event will be lost in time, never to be seen again :(
+			// 		log.Warnf("received error from nats, event not archived: %v", err)
+			// 	}
+			// }()
 
 		case <-brk.ctx.Done():
 			return
@@ -547,7 +567,8 @@ func (brk *broker) startEventsKVUpdater() {
 			v := utils.UIntToByteArray(idSeq.Sequence)
 			go func() {
 				if _, err := brk.jsClient.EventsKV().Put(k, v); err != nil {
-					log.With(logkf.KeyEventId, idSeq.EventId).Errorf("unable to update event kv: %v")
+					log.With(logkf.KeyEventId, idSeq.EventId).
+						Warnf("unable to update event kv, will not be able to lookup event: %v", err)
 				}
 			}()
 
