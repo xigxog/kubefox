@@ -80,10 +80,9 @@ func (c *JetStreamClient) Connect() error {
 	c.nc, err = nats.Connect(
 		fmt.Sprintf("nats://%s", config.NATSAddr),
 		nats.Name("broker-"+name),
-		// nats.RetryOnFailedConnect(true),
-		// nats.PingInterval(time.Second),
-		// nats.NoReconnect(),
-		// nats.MaxReconnects(3),
+		nats.RetryOnFailedConnect(true),
+		nats.MaxReconnects(3),
+		nats.PingInterval(time.Second*30),
 		// c.natsTLS(c.cfg.Namespace),
 		nats.RootCAs(kubefox.PathCACert),
 		nats.ClientCert(kubefox.PathTLSCert, kubefox.PathTLSKey),
@@ -116,8 +115,8 @@ func (c *JetStreamClient) setupStream() error {
 			// cannot be updated
 			Storage:   nats.FileStorage,
 			Retention: nats.LimitsPolicy,
-			NoAck:     true,
 			//
+			NoAck: true,
 		})
 		if err != nil {
 			return c.log.ErrorN("unable to create events stream: %v", err)
@@ -130,6 +129,7 @@ func (c *JetStreamClient) setupStream() error {
 		MaxMsgSize:  maxMsgSize,
 		Discard:     nats.DiscardOld,
 		MaxAge:      EventStreamTTL,
+		NoAck:       true,
 	})
 	if err != nil {
 		return c.log.ErrorN("unable to create events stream: %v", err)
@@ -239,10 +239,10 @@ func (c *JetStreamClient) ComponentsKV() nats.KeyValue {
 	return c.compKV
 }
 
-func (c *JetStreamClient) Publish(subject string, evt *kubefox.Event) (nats.PubAckFuture, error) {
+func (c *JetStreamClient) Publish(subject string, evt *kubefox.Event) error {
 	dataBytes, err := proto.Marshal(evt)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	h := make(nats.Header)
@@ -255,13 +255,10 @@ func (c *JetStreamClient) Publish(subject string, evt *kubefox.Event) (nats.PubA
 	h.Set("ce_dataschema", kubefox.DataSchemaKubefox)
 	h.Set("ce_datacontenttype", kubefox.ContentTypeProtobuf)
 
-	// return c.nc.PublishMsg(&nats.Msg{
-	// 	Subject: subject,
-	// 	Header:  h,
-	// 	Data:    dataBytes,
-	// })
-
-	return c.PublishMsgAsync(&nats.Msg{
+	// Note use of NATS directly instead of JetStream. This is done for
+	// performance and memory efficiency. The risk is a msg not getting
+	// delivered as there is no ACK from the server.
+	return c.nc.PublishMsg(&nats.Msg{
 		Subject: subject,
 		Header:  h,
 		Data:    dataBytes,
@@ -274,16 +271,17 @@ func (c *JetStreamClient) PullEvents(sub ReplicaSubscription) error {
 	jsSub, err := c.PullSubscribe(
 		sub.Component().Subject(),
 		sub.Component().Key(),
+		nats.DeliverNew(),
+		nats.AckNone(),
 		nats.InactiveThreshold(time.Minute),
 		nats.Context(sub.Context()),
-		nats.AckNone(),
 	)
 	if err != nil {
 		return log.ErrorN("unable to create JetStream pull subscription: %v", err)
 	}
 
 	var grpJSSub *nats.Subscription
-	if sub.GroupEnabled() {
+	if sub.IsGroupEnabled() {
 		grpConsumer := sub.Component().GroupKey()
 		grpSubj := sub.Component().GroupSubject()
 		grpCfg := &nats.ConsumerConfig{
@@ -318,18 +316,17 @@ func (c *JetStreamClient) PullEvents(sub ReplicaSubscription) error {
 		}
 
 		if err := proto.Unmarshal(msg.Data, evt); err != nil {
-			// This msg cannot be processed, remove it from subject.
-			// msg.Ack()
-			log.Error(err)
+			log.Warn(err)
 			return
 		}
 
 		rEvt := &ReceivedEvent{
 			ActiveEvent:  kubefox.StartEvent(evt),
 			Subscription: sub,
+			Receiver:     ReceiverJetStream,
 		}
 		if err := c.brk.RecvEvent(rEvt); err != nil {
-			log.WithEvent(evt).Debug(err)
+			c.log.WithEvent(evt).Debug(err)
 			if evt.Target.Id == "" && errors.Is(err, ErrSubCanceled) {
 				// Any component replica can process so do not remove msg from
 				// subject and let another JetStream subscriber process it.
@@ -338,8 +335,6 @@ func (c *JetStreamClient) PullEvents(sub ReplicaSubscription) error {
 				return
 			}
 		}
-
-		// msg.Ack()
 	}
 
 	go c.pullEvents(log, jsSub, recvMsg)

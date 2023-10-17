@@ -71,7 +71,7 @@ spec:
             - -telemetry-addr=false
             - -health-addr=0.0.0.0:1111
             - -log-format=console
-            - -log-level=debug
+            - -log-level=info
           resources:
             requests:
               memory: 115Mi # 90% of limit, used to set GOMEMLIMIT 

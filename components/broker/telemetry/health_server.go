@@ -85,12 +85,12 @@ func (srv *HealthServer) ServeHTTP(resp http.ResponseWriter, req *http.Request) 
 	ctx, cancel := context.WithTimeout(req.Context(), time.Second*10)
 	defer cancel()
 
+	status := http.StatusOK
 	for _, p := range srv.providers {
 		if !p.IsHealthy(ctx) {
 			srv.log.Errorf("%s is unhealthy", p.Name())
-			resp.WriteHeader(http.StatusServiceUnavailable)
+			status = http.StatusServiceUnavailable
 		}
 	}
-
-	resp.WriteHeader(http.StatusOK)
+	resp.WriteHeader(status)
 }

@@ -39,7 +39,7 @@ type ReplicaSubscription interface {
 	Subscription
 	Component() *kubefox.Component
 	ComponentReg() *kubefox.ComponentReg
-	GroupEnabled() bool
+	IsGroupEnabled() bool
 	Context() context.Context
 	Cancel(err error)
 	Err() error
@@ -236,7 +236,7 @@ func (sub *subscription) ComponentReg() *kubefox.ComponentReg {
 	return sub.compReg
 }
 
-func (sub *subscription) GroupEnabled() bool {
+func (sub *subscription) IsGroupEnabled() bool {
 	return sub.grpEnabled
 }
 

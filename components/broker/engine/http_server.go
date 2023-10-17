@@ -162,6 +162,7 @@ func (srv *HTTPServer) ServeHTTP(resWriter http.ResponseWriter, httpReq *http.Re
 
 	rEvt := &ReceivedEvent{
 		ActiveEvent: req,
+		Receiver:    ReceiverHTTPServer,
 		ErrCh:       make(chan error),
 	}
 	if err := srv.brk.RecvEvent(rEvt); err != nil {
@@ -172,7 +173,9 @@ func (srv *HTTPServer) ServeHTTP(resWriter http.ResponseWriter, httpReq *http.Re
 	var resp *kubefox.Event
 	select {
 	case resp = <-respCh:
-		log.DebugEw("received response", resp)
+		// Reset log attributes with response.
+		log = srv.log.WithEvent(resp)
+		log.Debug("received response")
 
 	case err := <-rEvt.ErrCh:
 		writeError(resWriter, err, log)
@@ -223,9 +226,7 @@ func (srv *HTTPServer) sendEvent(mEvt *kubefox.MatchedEvent) error {
 	srv.mutex.Unlock()
 
 	if !found {
-		err := fmt.Errorf("matching request not found for response")
-		srv.log.DebugEw(err.Error(), resp)
-		return err
+		return ErrEventRequestGone
 	}
 
 	respCh <- resp

@@ -63,6 +63,7 @@ func (c *HTTPClient) SendEvent(req ReceivedEvent) error {
 	rEvt := &ReceivedEvent{
 		ActiveEvent:  resp,
 		Subscription: req.Subscription,
+		Receiver:     ReceiverHTTPClient,
 	}
 	if err := c.brk.RecvEvent(rEvt); err != nil {
 		return err

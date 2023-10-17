@@ -69,10 +69,10 @@ spec:
             - "/etc/nats/nats.conf"
           resources:
             requests:
-              memory: 1843Mi # 90% of limit, used to set GOMEMLIMIT 
+              memory: 460Mi # 90% of limit, used to set GOMEMLIMIT 
               cpu: 250m
             limits:
-              memory: 2048Mi
+              memory: 512Mi
               cpu: 2000m
           env:
             - name: KUBEFOX_COMPONENT_IP

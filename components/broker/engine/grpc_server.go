@@ -9,7 +9,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/nats-io/nats.go"
 	"github.com/xigxog/kubefox/components/broker/config"
 	"github.com/xigxog/kubefox/libs/core/grpc"
 	"github.com/xigxog/kubefox/libs/core/kubefox"
@@ -27,9 +26,8 @@ import (
 type GRPCServer struct {
 	grpc.UnimplementedBrokerServer
 
-	wrapped  *gogrpc.Server
-	brk      Broker
-	routesKV nats.KeyValue
+	wrapped *gogrpc.Server
+	brk     Broker
 
 	log *logkf.Logger
 }
@@ -46,9 +44,8 @@ func NewGRPCServer(brk Broker) *GRPCServer {
 	}
 }
 
-func (srv *GRPCServer) Start(ctx context.Context, routesKV nats.KeyValue) error {
+func (srv *GRPCServer) Start(ctx context.Context) error {
 	srv.log.Debug("grpc server starting")
-	srv.routesKV = routesKV
 
 	// creds, err := kfp.NewGPRCSrvCreds(ctx, kfp.BrokerCertsDir)
 	// if err != nil {
@@ -145,7 +142,7 @@ func (srv *GRPCServer) Subscribe(stream grpc.Broker_SubscribeServer) error {
 		sendMutex.Lock()
 		defer sendMutex.Unlock()
 
-		log.DebugEw("send event", mEvt.Event)
+		srv.log.WithEvent(mEvt.Event).Debug("send event")
 
 		if err := stream.Send(mEvt); err != nil {
 			return fmt.Errorf("%w: %v", ErrComponentGone, err)
@@ -198,12 +195,14 @@ func (srv *GRPCServer) Subscribe(stream grpc.Broker_SubscribeServer) error {
 				return err
 			}
 
-			log.DebugEw("receive event", evt)
+			log = srv.log.WithEvent(evt)
+			log.Debug("receive event")
 			err = srv.brk.RecvEvent(&ReceivedEvent{
 				ActiveEvent: kubefox.StartEvent(evt),
+				Receiver:    ReceiverGRPCServer,
 			})
 			if err != nil {
-				log.DebugEw("receive event failed", evt, err)
+				log.Debug(err)
 			}
 
 		case <-sub.Context().Done():

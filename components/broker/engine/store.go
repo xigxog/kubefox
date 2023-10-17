@@ -24,6 +24,11 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
+const (
+	TplComponentKey = "component/%s"
+	TplAdapterKey   = "adapter/%s"
+)
+
 type Store struct {
 	namespace string
 
@@ -121,35 +126,71 @@ func (str *Store) Close() {
 	str.cancel()
 }
 
-func (str *Store) ComponentReg(comp *kubefox.Component) (*kubefox.ComponentReg, error) {
-	compReg, found := str.compRegCache.Get(comp.GroupKey())
+func (str *Store) RegisterComponent(comp *kubefox.Component, reg *kubefox.ComponentReg) error {
+	id := fmt.Sprintf(TplComponentKey, comp.GroupKey())
+	return str.setReg(id, reg)
+}
+
+func (str *Store) RegisterAdapter(comp *kubefox.Component) error {
+	id := fmt.Sprintf(TplAdapterKey, comp.Key())
+	return str.setReg(id, &kubefox.ComponentReg{})
+}
+
+func (str *Store) setReg(id string, reg *kubefox.ComponentReg) error {
+	str.log.Debugf("registering component '%s'", id)
+	b, err := json.Marshal(reg)
+	if err != nil {
+		return err
+	}
+
+	if _, err := str.compRegKV.Put(id, b); err != nil {
+		return err
+	}
+	str.compRegCache.Set(id, reg)
+
+	return nil
+}
+
+func (str *Store) Component(comp *kubefox.Component) (*kubefox.ComponentReg, error) {
+	return str.getReg(fmt.Sprintf(TplComponentKey, comp.GroupKey()))
+}
+
+func (str *Store) Adapter(comp *kubefox.Component) bool {
+	r, err := str.getReg(fmt.Sprintf(TplAdapterKey, comp.Key()))
+	return r != nil && err == nil
+}
+
+func (str *Store) getReg(id string) (*kubefox.ComponentReg, error) {
+	compReg, found := str.compRegCache.Get(id)
 	if !found {
-		entry, err := str.compRegKV.Get(comp.GroupKey())
+		entry, err := str.compRegKV.Get(id)
 		if err != nil {
 			return nil, err
 		}
+
 		compReg = &kubefox.ComponentReg{}
 		err = json.Unmarshal(entry.Value(), compReg)
 		if err != nil {
 			return nil, err
 		}
-		str.compRegCache.Set(comp.GroupKey(), compReg)
+
+		str.compRegCache.Set(id, compReg)
 	}
 
 	return compReg, nil
 }
 
-func (str *Store) GetDeployment(name string) (*v1alpha1.Deployment, error) {
+func (str *Store) Deployment(name string) (*v1alpha1.Deployment, error) {
 	obj := new(v1alpha1.Deployment)
 	return obj, str.get(name, obj, true)
 }
 
-func (str *Store) GetEnvironment(name string) (*v1alpha1.Environment, error) {
+func (str *Store) Environment(name string) (*v1alpha1.Environment, error) {
 	obj := new(v1alpha1.Environment)
 	return obj, str.get(name, obj, false)
 }
 
-func (str *Store) GetRelease(name string) (*v1alpha1.Release, error) {
+func (str *Store) Release(name string) (*v1alpha1.Release, error) {
 	obj := new(v1alpha1.Release)
 	return obj, str.get(name, obj, true)
 }
@@ -157,7 +198,7 @@ func (str *Store) GetRelease(name string) (*v1alpha1.Release, error) {
 // TODO return a map of node names to broker pod id. This will allow running
 // broker without host network. Broker just sends back correct ip during
 // subscribe.
-func (str *Store) GetBrokerMap() (map[string]string, error) {
+func (str *Store) BrokerMap() (map[string]string, error) {
 	ctx, cancel := context.WithTimeout(str.ctx, time.Minute)
 	defer cancel()
 
@@ -176,7 +217,7 @@ func (str *Store) GetBrokerMap() (map[string]string, error) {
 	return map[string]string{}, nil
 }
 
-func (str *Store) GetRelMatchers() (*matcher.EventMatcher, error) {
+func (str *Store) ReleaseMatcher() (*matcher.EventMatcher, error) {
 	str.mutex.RLock()
 	if !str.relMatcher.IsEmpty() {
 		str.mutex.RUnlock()
@@ -188,12 +229,12 @@ func (str *Store) GetRelMatchers() (*matcher.EventMatcher, error) {
 	return str.buildReleaseMatcher()
 }
 
-func (str *Store) GetDepMatcher(evtCtx *kubefox.EventContext) (*matcher.EventMatcher, error) {
-	dep, err := str.GetDeployment(evtCtx.Deployment)
+func (str *Store) DeploymentMatcher(evtCtx *kubefox.EventContext) (*matcher.EventMatcher, error) {
+	dep, err := str.Deployment(evtCtx.Deployment)
 	if err != nil {
 		return nil, err
 	}
-	env, err := str.GetEnvironment(evtCtx.Environment)
+	env, err := str.Environment(evtCtx.Environment)
 	if err != nil {
 		return nil, err
 	}
@@ -308,7 +349,7 @@ func (str *Store) buildRoutes(
 	routes := make([]*kubefox.Route, 0)
 	for compName, resComp := range comps {
 		comp := &kubefox.Component{Name: compName, Commit: resComp.Commit}
-		compReg, err := str.ComponentReg(comp)
+		compReg, err := str.Component(comp)
 		if err != nil {
 			return nil, err
 		}

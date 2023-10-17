@@ -208,7 +208,7 @@ func (svc *kit) run(retry int) (int, error) {
 			return 0, err
 		}
 
-		svc.log.DebugEw("received event", mEvt.Event)
+		svc.log.WithEvent(mEvt.Event).Debug("received event")
 
 		switch mEvt.Event.Category {
 		case kubefox.Category_REQUEST:
@@ -318,7 +318,7 @@ func (svc *kit) recvResp(resp *kubefox.ActiveEvent) {
 }
 
 func (svc *kit) sendEvent(evt *kubefox.ActiveEvent) error {
-	svc.log.DebugEw("send event", evt.Event)
+	svc.log.WithEvent(evt.Event).Debug("send event")
 
 	// Need to protect the stream from being called by multiple threads.
 	svc.sendMutex.Lock()
