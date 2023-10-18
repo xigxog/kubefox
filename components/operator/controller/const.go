@@ -7,3 +7,18 @@ one at https://mozilla.org/MPL/2.0/.
 */
 
 package controller
+
+import (
+	"fmt"
+
+	"github.com/xigxog/kubefox/libs/core/kubefox"
+)
+
+const (
+	NATSImage  = "ghcr.io/xigxog/nats:2.10.3"
+	VaultImage = "ghcr.io/xigxog/vault:1.14.4-v0.2.1-alpha"
+)
+
+var (
+	BrokerImage = fmt.Sprintf("ghcr.io/xigxog/kubefox/broker:%s", kubefox.Version())
+)

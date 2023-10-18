@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: Service
+{{ include "metadata" . }}
+spec:
+  type: ClusterIP
+  selector:
+    {{- include "selectors" . | nindent 4 }}
+  ports:
+    - name: http
+      port: 80
+      targetPort: 8080
+      protocol: TCP
+    - name: https
+      port: 443
+      targetPort: 8443
+      protocol: TCP

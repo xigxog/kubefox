@@ -38,8 +38,6 @@ type JetStreamClient struct {
 	eventsKV jetstream.KeyValue
 	compKV   jetstream.KeyValue
 
-	kvUpdaterCtx jetstream.ConsumeContext
-
 	brk Broker
 
 	mutex sync.Mutex
@@ -91,9 +89,6 @@ func (c *JetStreamClient) Connect(ctx context.Context) error {
 		return err
 	}
 	if err := c.setupEventsKV(ctx); err != nil {
-		return err
-	}
-	if err := c.startKVUpdater(ctx); err != nil {
 		return err
 	}
 
@@ -163,10 +158,6 @@ func (c *JetStreamClient) Close() {
 	defer c.mutex.Unlock()
 
 	c.log.Info("jetstream client closing")
-
-	if c.kvUpdaterCtx != nil {
-		c.kvUpdaterCtx.Stop()
-	}
 
 	if c.nc != nil {
 		c.nc.Close()
@@ -295,10 +286,6 @@ func (c *JetStreamClient) PullEvents(sub ReplicaSubscription) error {
 	}()
 	log.Debug("consumers started")
 
-	return nil
-}
-
-func (c *JetStreamClient) startKVUpdater(ctx context.Context) error {
 	return nil
 }
 

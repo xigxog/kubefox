@@ -3,6 +3,7 @@ package kubefox
 import (
 	"path"
 	"regexp"
+	"strings"
 
 	"github.com/xigxog/kubefox/libs/core/utils"
 )
@@ -13,6 +14,14 @@ var (
 	GitCommit     string
 	GitRef        string
 )
+
+func Version() string {
+	p := strings.Split(GitRef, "/")
+	if len(p) > 0 {
+		return p[len(p)-1]
+	}
+	return GitRef
+}
 
 type EventType string
 

@@ -15,13 +15,8 @@ spec:
       annotations:
         checksum/config: {{ file "nats/nats.conf" | sha256sum }}
     spec:
-      serviceAccountName: {{ componentFullName }}
+      {{- include "podSpec" . | nindent 6 }}
       shareProcessNamespace: true
-      {{- with .App.ImagePullSecret }}
-      imagePullSecrets:
-        - name: {{ . }}
-      {{- end }}
-      {{- include "podSecurityContext" . | nindent 6 }}
       initContainers:
         - name: pki-init
           image: {{ .Values.pkiInitImage | quote }}
@@ -30,34 +25,23 @@ spec:
           command:
             - /pki-init.sh
           env:
-            - name: KUBEFOX_HOME
-              value: /tmp/kubefox
-            - name: KUBEFOX_COMPONENT
-              value: {{ .Component.Name }}
+          {{- include "env" . | nindent 12 }}
             - name: KUBEFOX_COMPONENT_IP
               valueFrom:
                 fieldRef:
                   fieldPath: status.podIP
-            - name: POD_NAME
-              valueFrom:
-                fieldRef:
-                  fieldPath: metadata.name
-            - name: POD_NAMESPACE
-              valueFrom:
-                fieldRef:
-                  fieldPath: metadata.namespace
           envFrom:
             - configMapRef:
-                name: {{ .Platform.Name }}-env
+                name: {{ name }}-env
           volumeMounts:
             - name: pki-init
               mountPath: /pki-init.sh
               subPath: pki-init.sh
             - name: root-ca
-              mountPath: /tmp/kubefox/ca.crt
+              mountPath: {{ homePath }}/ca.crt
               subPath: ca.crt
             - name: kubefox
-              mountPath: /tmp/kubefox
+              mountPath: {{ homePath }}
       containers:
         - name: {{ .Component.Name }}
           image: {{ .Component.Image | default (printf "%s/%s:%s" .App.Registry .Component.Name .Component.Commit) | quote }}
@@ -67,26 +51,19 @@ spec:
             - "nats-server"
             - "--config"
             - "/etc/nats/nats.conf"
+          {{- if .Component.Resources }}
           resources:
-            requests:
-              memory: 460Mi # 90% of limit, used to set GOMEMLIMIT 
-              cpu: 250m
-            limits:
-              memory: 512Mi
-              cpu: 2000m
+            {{- .Component.Resources | toYaml | nindent 12 }}
+          {{- else if .App.Resources }}
+          resources:
+            {{- .App.Resources | toYaml | nindent 12 }}
+          {{- end }}
           env:
+          {{- include "env" . | nindent 12 }}
             - name: KUBEFOX_COMPONENT_IP
               valueFrom:
                 fieldRef:
-                  fieldPath: status.hostIP
-            - name: POD_NAME
-              valueFrom:
-                fieldRef:
-                  fieldPath: metadata.name
-            - name: POD_NAMESPACE
-              valueFrom:
-                fieldRef:
-                  fieldPath: metadata.namespace
+                  fieldPath: status.podIP
             - name: GOMEMLIMIT
               valueFrom:
                 resourceFieldRef:
@@ -99,7 +76,7 @@ spec:
                   resource: limits.cpu
           envFrom:
             - configMapRef:
-                name: {{ .Platform.Name }}-env
+                name: {{ name }}-env
           ports:
             - name: client
               containerPort: 4222
@@ -113,10 +90,10 @@ spec:
             - name: jetstream
               mountPath: /data
             - name: root-ca
-              mountPath: /tmp/kubefox/ca.crt
+              mountPath: {{ homePath }}/ca.crt
               subPath: ca.crt
             - name: kubefox
-              mountPath: /tmp/kubefox
+              mountPath: {{ homePath }}
           startupProbe:
             httpGet:
               path: /healthz
@@ -164,7 +141,7 @@ spec:
             name: {{ .Instance.Name }}-root-ca
         - name: pki-init
           configMap:
-            name: {{ .Platform.Name }}-pki-init
+            name: {{ name }}-pki-init
             defaultMode: 0777
         - name: kubefox
           emptyDir: {}

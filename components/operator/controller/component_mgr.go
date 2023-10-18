@@ -64,7 +64,10 @@ func (cm *ComponentManager) SetupComponent(ctx context.Context, td *TemplateData
 func (cm *ComponentManager) ReconcileComponents(ctx context.Context, namespace string) (bool, error) {
 	platform, err := cm.Client.GetPlatform(ctx, namespace)
 	if err != nil {
-		return false, err
+		return false, client.IgnoreNotFound(err)
+	}
+	if !platform.Status.Ready {
+		return false, nil
 	}
 
 	log := cm.Log.With(

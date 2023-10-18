@@ -71,17 +71,16 @@ func initFuncs(tpl *template.Template, data *Data) {
 		} else {
 			return s
 		}
-		// b, err := EFS.ReadFile(name)
-		// if err != nil {
-		// 	return ""
-		// }
-		// return string(b)
 	}
 
+	funcMap["name"] = data.Name
 	funcMap["namespace"] = data.Namespace
 	funcMap["platformFullName"] = data.PlatformFullName
 	funcMap["platformVaultName"] = data.PlatformVaultName
 	funcMap["componentFullName"] = data.ComponentFullName
+	funcMap["homePath"] = data.HomePath
+	funcMap["logLevel"] = data.LogLevel
+	funcMap["logFormat"] = data.LogFormat
 
 	tpl.Funcs(funcMap)
 }

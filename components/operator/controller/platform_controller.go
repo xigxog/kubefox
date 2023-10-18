@@ -20,6 +20,7 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -84,7 +85,16 @@ func (r *PlatformReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 
 	ns := &v1.Namespace{}
 	if err := r.Get(ctx, nn("", req.Namespace), ns); err != nil {
+		if apierrors.IsNotFound(err) {
+			log.Debug("namespace is gone")
+			return ctrl.Result{}, nil
+		}
 		return ctrl.Result{}, log.ErrorN("unable to fetch namespace: %w", err)
+	}
+
+	if ns.Status.Phase == v1.NamespaceTerminating {
+		log.Debug("namespace is terminating")
+		return ctrl.Result{}, nil
 	}
 
 	p := &v1alpha1.Platform{}
@@ -122,14 +132,27 @@ func (r *PlatformReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 			},
 			Component: templates.Component{
 				Name:  "vault",
-				Image: "ghcr.io/xigxog/vault:1.14.1-v0.2.1-alpha", // TODO move image to arg or const
+				Image: VaultImage,
+				Resources: &v1.ResourceRequirements{
+					Requests: v1.ResourceList{
+						"memory": resource.MustParse("115Mi"), // 90% of limit, used to set GOMEMLIMIT
+						"cpu":    resource.MustParse("0"),
+					},
+					Limits: v1.ResourceList{
+						"memory": resource.MustParse("128Mi"),
+						"cpu":    resource.MustParse("1"),
+					},
+				},
 			},
 		},
 		Obj:      &appsv1.StatefulSet{},
 		Template: "vault",
 	}
+	if err := r.ApplyTemplate(ctx, "instance", &td.Data); err != nil {
+		return ctrl.Result{}, log.ErrorN("problem setting up instance: %w", err)
+	}
 	if rdy, err := r.cm.SetupComponent(ctx, td); !rdy || err != nil {
-		return ctrl.Result{RequeueAfter: time.Second * 5}, err
+		return ctrl.Result{}, err
 	}
 	vaultURL := fmt.Sprintf("https://%s.%s:8200", td.ComponentFullName(), td.Instance.Namespace)
 	if r.VaultAddr != "" {
@@ -153,7 +176,7 @@ func (r *PlatformReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 				Namespace: p.Namespace,
 			},
 			Values: map[string]any{
-				"pkiInitImage": "ghcr.io/xigxog/vault:1.14.1-v0.2.1-alpha", // TODO move image to arg or const
+				"pkiInitImage": VaultImage,
 			},
 			Owner: []*metav1.OwnerReference{metav1.NewControllerRef(p, p.GroupVersionKind())},
 		},
@@ -170,28 +193,47 @@ func (r *PlatformReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	td.Obj = &appsv1.StatefulSet{}
 	td.Component = templates.Component{
 		Name:  "nats",
-		Image: "ghcr.io/xigxog/nats:2.10.1", // TODO move image to arg or const
+		Image: NATSImage,
+		Resources: &v1.ResourceRequirements{
+			Requests: v1.ResourceList{
+				"memory": resource.MustParse("460Mi"), // 90% of limit, used to set GOMEMLIMIT
+				"cpu":    resource.MustParse("250m"),
+			},
+			Limits: v1.ResourceList{
+				"memory": resource.MustParse("512Mi"),
+				"cpu":    resource.MustParse("2"),
+			},
+		},
 	}
 	if rdy, err := r.cm.SetupComponent(ctx, td); !rdy || err != nil {
-		return ctrl.Result{RequeueAfter: time.Second * 5}, err
+		return ctrl.Result{}, err
 	}
 
 	td.Template = "broker"
 	td.Obj = &appsv1.DaemonSet{}
 	td.Component = templates.Component{
 		Name:  "broker",
-		Image: "ghcr.io/xigxog/kubefox/broker:v0.0.1", // TODO move image to arg or const
+		Image: BrokerImage,
+		Resources: &v1.ResourceRequirements{
+			Requests: v1.ResourceList{
+				"memory": resource.MustParse("115Mi"), // 90% of limit, used to set GOMEMLIMIT
+				"cpu":    resource.MustParse("250m"),
+			},
+			Limits: v1.ResourceList{
+				"memory": resource.MustParse("128Mi"),
+				"cpu":    resource.MustParse("2"),
+			},
+		},
 	}
 	if rdy, err := r.cm.SetupComponent(ctx, td); !rdy || err != nil {
 		return ctrl.Result{}, err
 	}
 
+	// Used by defer block above.
 	platformReady = true
 
-	if rdy, err := r.cm.ReconcileComponents(ctx, req.Namespace); err != nil {
+	if rdy, err := r.cm.ReconcileComponents(ctx, req.Namespace); !rdy || err != nil {
 		return ctrl.Result{}, err
-	} else if !rdy {
-		return ctrl.Result{RequeueAfter: time.Second * 3}, nil
 	}
 
 	log.Debug("platform reconciled")

@@ -25,11 +25,15 @@ type Instance struct {
 	Name      string
 	Namespace string
 	RootCA    string
+	LogLevel  string
+	LogFormat string
 }
 
 type Platform struct {
 	Name      string
 	Namespace string
+	LogLevel  string
+	LogFormat string
 }
 
 type App struct {
@@ -38,6 +42,12 @@ type App struct {
 	GitRef          string
 	Registry        string
 	ImagePullSecret string
+	Resources       *corev1.ResourceRequirements
+	NodeSelector    *corev1.NodeSelector
+	Tolerations     []*corev1.Toleration
+	Affinity        *corev1.Affinity
+	LogLevel        string
+	LogFormat       string
 }
 
 type Component struct {
@@ -46,11 +56,23 @@ type Component struct {
 	GitRef          string
 	Image           string
 	ImagePullPolicy string
-	Resources       corev1.ResourceRequirements
+	Resources       *corev1.ResourceRequirements
+	NodeSelector    *corev1.NodeSelector
+	Tolerations     []*corev1.Toleration
+	Affinity        *corev1.Affinity
+	LogLevel        string
+	LogFormat       string
 }
 
 type ResourceList struct {
 	Items []*unstructured.Unstructured `json:"items,omitempty"`
+}
+
+func (d Data) Name() string {
+	if d.Platform.Name == "" {
+		return d.Instance.Name
+	}
+	return d.Platform.Name
 }
 
 func (d Data) Namespace() string {
@@ -92,4 +114,40 @@ func (d Data) ComponentFullName() string {
 	}
 	name = fmt.Sprintf("%s-%s-%s", name, d.Component.Name, d.Component.Commit)
 	return strings.TrimSuffix(name, "-")
+}
+
+func (d Data) LogLevel() string {
+	if d.Component.LogLevel != "" {
+		return d.Component.LogLevel
+	}
+	if d.App.LogLevel != "" {
+		return d.App.LogLevel
+	}
+	if d.Platform.LogLevel != "" {
+		return d.Platform.LogLevel
+	}
+	if d.Instance.LogLevel != "" {
+		return d.Instance.LogLevel
+	}
+	return "info"
+}
+
+func (d Data) LogFormat() string {
+	if d.Component.LogFormat != "" {
+		return d.Component.LogFormat
+	}
+	if d.App.LogFormat != "" {
+		return d.App.LogFormat
+	}
+	if d.Platform.LogFormat != "" {
+		return d.Platform.LogFormat
+	}
+	if d.Instance.LogFormat != "" {
+		return d.Instance.LogFormat
+	}
+	return "json"
+}
+
+func (d Data) HomePath() string {
+	return "/tmp/kubefox"
 }

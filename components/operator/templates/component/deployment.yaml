@@ -5,17 +5,17 @@ spec:
   selector:
     matchLabels:
       {{- include "selectors" . | nindent 6 }}
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
   template:
     metadata:
       labels:
         {{- include "labels" . | nindent 8 }}
     spec:
-      serviceAccountName: {{ componentFullName }}
-      {{- with .App.ImagePullSecret }}
-      imagePullSecrets:
-        - name: {{ . }}
-      {{- end }}
-      {{- include "podSecurityContext" . | nindent 6 }}
+      {{- include "podSpec" . | nindent 6 }}
       containers:
         - name: {{ .Component.Name }}
           image: {{ .Component.Image | default (printf "%s/%s:%s" .App.Registry .Component.Name .Component.Commit) | quote }}
@@ -24,20 +24,28 @@ spec:
           args:
             - -name={{ .Component.Name }}
             - -commit={{ .Component.Commit }}
-            - -broker-addr=$(BROKER_HOST):6060
-            - -log-format=console
-            - -log-level=info
+            - -broker-addr=$(KUBEFOX_HOST_IP):6060
+            - -log-format={{ logFormat }}
+            - -log-level={{ logLevel }}
+          {{- if .Component.Resources }}
+          resources:
+            {{- .Component.Resources | toYaml | nindent 12 }}
+          {{- else if .App.Resources }}
+          resources:
+            {{- .App.Resources | toYaml | nindent 12 }}
+          {{- end }}
           env:
-            - name: BROKER_HOST
+          {{- include "env" . | nindent 12 }}
+            - name: KUBEFOX_COMPONENT_IP
               valueFrom:
                 fieldRef:
-                  fieldPath: status.hostIP
+                  fieldPath: status.podIP
           envFrom:
             - configMapRef:
-                name: {{ .Platform.Name }}-env
+                name: {{ name }}-env
           volumeMounts:
             - name: root-ca
-              mountPath: /tmp/kubefox/ca.crt
+              mountPath: {{ homePath }}/ca.crt
               subPath: ca.crt
       volumes:
         - name: root-ca

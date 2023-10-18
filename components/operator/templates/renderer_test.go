@@ -3,6 +3,8 @@ package templates
 import (
 	"testing"
 
+	v1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -15,6 +17,26 @@ func TestRenderVault(t *testing.T) {
 		Component: Component{
 			Name:  "vault",
 			Image: "ghcr.io/xigxog/vault:1.14.1-v0.2.1-alpha",
+			Resources: &v1.ResourceRequirements{
+				Limits: v1.ResourceList{
+					"memory": resource.MustParse("128Mi"),
+					"cpu":    resource.MustParse("1000m"),
+				},
+			},
+			Tolerations: []*v1.Toleration{
+				{
+					Key: "asdf",
+				},
+			},
+			Affinity: &v1.Affinity{
+				NodeAffinity: &v1.NodeAffinity{
+					RequiredDuringSchedulingIgnoredDuringExecution: &v1.NodeSelector{
+						NodeSelectorTerms: []v1.NodeSelectorTerm{
+							{},
+						},
+					},
+				},
+			},
 		},
 	}
 	if s, err := renderStr("list.tpl", "vault/*", d); err != nil {

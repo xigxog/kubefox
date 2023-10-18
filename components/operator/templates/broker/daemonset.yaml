@@ -5,19 +5,16 @@ spec:
   selector:
     matchLabels:
       {{- include "selectors" . | nindent 6 }}
+  updateStrategy:
+    type: RollingUpdate
   template:
     metadata:
       labels:
         {{- include "labels" . | nindent 8 }}
     spec:
-      serviceAccountName: {{ componentFullName }}
+      {{- include "podSpec" . | nindent 6 }}
       hostNetwork: true
       dnsPolicy: ClusterFirstWithHostNet
-      {{- with .App.ImagePullSecret }}
-      imagePullSecrets:
-        - name: {{ . }}
-      {{- end }}
-      {{- include "podSecurityContext" . | nindent 6 }}
       initContainers:
         - name: pki-init
           image: {{ .Values.pkiInitImage | quote }}
@@ -26,34 +23,23 @@ spec:
           command:
             - /pki-init.sh
           env:
-            - name: KUBEFOX_HOME
-              value: /tmp/kubefox
-            - name: KUBEFOX_COMPONENT
-              value: {{ .Component.Name }}
+          {{- include "env" . | nindent 12 }}
             - name: KUBEFOX_COMPONENT_IP
               valueFrom:
                 fieldRef:
-                  fieldPath: status.podIP
-            - name: POD_NAME
-              valueFrom:
-                fieldRef:
-                  fieldPath: metadata.name
-            - name: POD_NAMESPACE
-              valueFrom:
-                fieldRef:
-                  fieldPath: metadata.namespace
+                  fieldPath: status.hostIP
           envFrom:
             - configMapRef:
-                name: {{ .Platform.Name }}-env
+                name: {{ name }}-env
           volumeMounts:
             - name: pki-init
               mountPath: /pki-init.sh
               subPath: pki-init.sh
             - name: root-ca
-              mountPath: /tmp/kubefox/ca.crt
+              mountPath: {{ homePath }}/ca.crt
               subPath: ca.crt
             - name: kubefox
-              mountPath: /tmp/kubefox
+              mountPath: {{ homePath }}
       containers:
         - name: {{ .Component.Name }}
           image: {{ .Component.Image | default (printf "%s/%s:%s" .App.Registry .Component.Name .Component.Commit) | quote }}
@@ -62,7 +48,7 @@ spec:
           args:
             - -instance={{ .Instance.Name }}
             - -platform={{ .Platform.Name }}
-            - -namespace={{ .Platform.Namespace }}
+            - -namespace={{ namespace }}
             - -grpc-addr=$(KUBEFOX_COMPONENT_IP):6060
             - -vault-addr={{ .Instance.Name }}-vault.{{ .Instance.Namespace }}
             - -nats-addr={{ .Platform.Name }}-nats.{{ .Platform.Namespace }}
@@ -70,28 +56,21 @@ spec:
             - -https-addr=0.0.0.0:8443
             - -telemetry-addr=false
             - -health-addr=0.0.0.0:1111
-            - -log-format=console
-            - -log-level=info
+            - -log-format={{ logFormat }}
+            - -log-level={{ logLevel }}
+          {{- if .Component.Resources }}
           resources:
-            requests:
-              memory: 115Mi # 90% of limit, used to set GOMEMLIMIT 
-              cpu: 500m
-            limits:
-              memory: 128Mi
-              cpu: 2000m
+            {{- .Component.Resources | toYaml | nindent 12 }}
+          {{- else if .App.Resources }}
+          resources:
+            {{- .App.Resources | toYaml | nindent 12 }}
+          {{- end }}
           env:
+          {{- include "env" . | nindent 12 }}
             - name: KUBEFOX_COMPONENT_IP
               valueFrom:
                 fieldRef:
                   fieldPath: status.hostIP
-            - name: POD_NAME
-              valueFrom:
-                fieldRef:
-                  fieldPath: metadata.name
-            - name: POD_NAMESPACE
-              valueFrom:
-                fieldRef:
-                  fieldPath: metadata.namespace
             - name: GOMEMLIMIT
               valueFrom:
                 resourceFieldRef:
@@ -104,7 +83,7 @@ spec:
                   resource: limits.cpu
           envFrom:
             - configMapRef:
-                name: {{ .Platform.Name }}-env
+                name: {{ name }}-env
           ports:
             - name: http
               containerPort: 8080
@@ -126,17 +105,17 @@ spec:
               port: health
           volumeMounts:
             - name: root-ca
-              mountPath: /tmp/kubefox/ca.crt
+              mountPath: {{ homePath }}/ca.crt
               subPath: ca.crt
             - name: kubefox
-              mountPath: /tmp/kubefox
+              mountPath: {{ homePath }}
       volumes:
         - name: root-ca
           configMap:
             name: {{ .Instance.Name }}-root-ca
         - name: pki-init
           configMap:
-            name: {{ .Platform.Name }}-pki-init
+            name: {{ name }}-pki-init
             defaultMode: 0777
         - name: kubefox
           emptyDir: {}

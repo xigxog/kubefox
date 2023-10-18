@@ -49,13 +49,30 @@ func (r *Client) GetPlatform(ctx context.Context, namespace string) (*v1alpha1.P
 	if err := r.Get(ctx, nn("", namespace), ns); err != nil {
 		return nil, fmt.Errorf("unable to fetch namespace: %w", err)
 	}
-	pName, found := ns.Labels[kubefox.LabelK8sPlatform]
-	if !found {
-		return nil, fmt.Errorf("namespace does not have '%s' label", kubefox.LabelK8sPlatform)
-	}
 	p := &v1alpha1.Platform{}
-	if err := r.Get(ctx, nn(namespace, pName), p); err != nil {
-		return nil, fmt.Errorf("unable to fetch platform: %w", err)
+
+	pName, found := ns.Labels[kubefox.LabelK8sPlatform]
+	if found {
+		if err := r.Get(ctx, nn(namespace, pName), p); err != nil {
+			return nil, fmt.Errorf("unable to fetch platform: %w", err)
+		}
+	} else {
+		l := &v1alpha1.PlatformList{}
+		if err := r.List(ctx, l, client.InNamespace(namespace)); err != nil {
+			return nil, fmt.Errorf("unable to fetch platform: %w", err)
+		}
+
+		switch c := len(l.Items); c {
+		case 0:
+			// Produces a NotFound error.
+			err := r.Get(ctx, nn(namespace, "notfound"), p)
+			return nil, err
+		case 1:
+			p = &l.Items[0]
+		default:
+			return nil, fmt.Errorf("found more than one platform in namespace: found %d, expected 1", c)
+		}
+
 	}
 
 	return p, nil

@@ -14,10 +14,6 @@ data:
   KUBEFOX_INSTANCE_NAMESPACE: {{ .Instance.Namespace }}
   KUBEFOX_INSTANCE: {{ .Instance.Name }}
   KUBEFOX_NAMESPACE: {{ namespace }}
-  KUBEFOX_PLATFORM_FULL_NAME: {{ platformFullName }}
-  KUBEFOX_PLATFORM_NAMESPACE: {{ .Platform.Namespace }}
-  KUBEFOX_PLATFORM_VAULT_NAME: {{ platformVaultName }}
-  KUBEFOX_PLATFORM: {{ .Platform.Name }}
   {{- with .Platform.LogFormat }}
   KUBEFOX_LOG_FORMAT: {{ . }}
   {{- end }}

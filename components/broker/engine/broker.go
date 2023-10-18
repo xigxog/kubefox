@@ -84,7 +84,7 @@ type broker struct {
 }
 
 func New() Engine {
-	id, _ := os.LookupEnv("POD_NAME")
+	id, _ := os.LookupEnv("KUBEFOX_POD")
 	if id == "" {
 		id, _ = os.Hostname()
 	}

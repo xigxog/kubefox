@@ -4,9 +4,7 @@ metadata:
   name: {{ .Instance.Name }}-root-ca
   namespace: {{ namespace }}
   labels:
-    app.kubernetes.io/instance: {{ .Instance.Name }}
-    app.kubernetes.io/managed-by: {{ .Instance.Name }}-operator
-    kubefox.xigxog.io/platform: {{ .Platform.Name }}
+    {{- include "labels" . | nindent 4 }}
   {{- with .Owner }}
   ownerReferences:
     {{- . | toYaml | nindent 4 }}

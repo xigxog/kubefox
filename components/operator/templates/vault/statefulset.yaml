@@ -13,31 +13,30 @@ spec:
       labels:
         {{- include "labels" . | nindent 8 }}
     spec:
-      serviceAccountName: {{ componentFullName }}
-      {{- with .App.ImagePullSecret }}
-      imagePullSecrets:
-        - name: {{ . }}
-      {{- end }}
-      {{- include "podSecurityContext" . | nindent 6 }}
+      {{- include "podSpec" . | nindent 6 }}
       containers:
         - name: {{ .Component.Name }}
           image: {{ .Component.Image | default (printf "%s/%s:%s" .App.Registry .Component.Name .Component.Commit) | quote }}
           imagePullPolicy: {{ .Component.ImagePullPolicy | default "IfNotPresent" }}
           {{- include "containerSecurityContext" . | nindent 10 }}
+          {{- if .Component.Resources }}
           resources:
-            requests:
-              memory: 115Mi # 90% of limit, used to set GOMEMLIMIT 
-              cpu: 250m
-            limits:
-              memory: 128Mi
-              cpu: 1000m
+            {{- .Component.Resources | toYaml | nindent 12 }}
+          {{- else if .App.Resources }}
+          resources:
+            {{- .App.Resources | toYaml | nindent 12 }}
+          {{- end }}
           env:
-            - name: KUBEFOX_INSTANCE
-              value: {{ .Instance.Name }}
-            - name: KUBEFOX_NAMESPACE
-              value: {{ namespace }}
+          {{- include "env" . | nindent 12 }}
+            - name: KUBEFOX_COMPONENT_IP
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.podIP
             - name: VAULT_LOG_FORMAT
-              value: {{ .Values.logFormat | default "json" }}
+              value: {{ .Values.vaultLogFormat | default "json" }}
+          envFrom:
+            - configMapRef:
+                name: {{ name }}-env
           ports:
             - name: https
               containerPort: 8200
