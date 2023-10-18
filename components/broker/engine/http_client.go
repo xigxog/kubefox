@@ -3,10 +3,8 @@ package engine
 import (
 	"context"
 	"net/http"
-	"os"
 	"time"
 
-	"github.com/google/uuid"
 	"github.com/xigxog/kubefox/libs/core/kubefox"
 	"github.com/xigxog/kubefox/libs/core/logkf"
 )
@@ -20,15 +18,10 @@ type HTTPClient struct {
 }
 
 func NewHTTPClient(brk Broker) *HTTPClient {
-	id, err := os.Hostname()
-	if err != nil || id == "" {
-		id = uuid.NewString()
-	}
-
 	comp := &kubefox.Component{
 		Name:   "http-client",
 		Commit: kubefox.GitCommit,
-		Id:     id,
+		Id:     brk.Id(),
 	}
 	return &HTTPClient{
 		wrapped: &http.Client{},

@@ -12,7 +12,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/google/uuid"
 	"github.com/xigxog/kubefox/components/broker/config"
 	"github.com/xigxog/kubefox/libs/core/kubefox"
 	"github.com/xigxog/kubefox/libs/core/logkf"
@@ -37,15 +36,10 @@ type HTTPServer struct {
 }
 
 func NewHTTPServer(brk Broker) *HTTPServer {
-	id, err := os.Hostname()
-	if err != nil || id == "" {
-		id = uuid.NewString()
-	}
-
 	comp := &kubefox.Component{
 		Name:   "http-server",
 		Commit: kubefox.GitCommit,
-		Id:     id,
+		Id:     brk.Id(),
 	}
 	return &HTTPServer{
 		brk:        brk,

@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"os"
 	"sync"
 	"time"
 
@@ -39,6 +38,8 @@ type JetStreamClient struct {
 	eventsKV jetstream.KeyValue
 	compKV   jetstream.KeyValue
 
+	kvUpdaterCtx jetstream.ConsumeContext
+
 	brk Broker
 
 	mutex sync.Mutex
@@ -65,30 +66,19 @@ func (c *JetStreamClient) Connect(ctx context.Context) error {
 
 	var err error
 
-	name, _ := os.LookupEnv("POD_NAME")
-	if name == "" {
-		name, _ = os.Hostname()
-	}
-	if name == "" {
-		name = "unknown"
-	}
-
 	c.nc, err = nats.Connect(
 		fmt.Sprintf("nats://%s", config.NATSAddr),
-		nats.Name("broker-"+name),
-		nats.RetryOnFailedConnect(true),
-		nats.MaxReconnects(3),
+		nats.Name("broker-"+c.brk.Id()),
+		// nats.RetryOnFailedConnect(true),
+		// nats.MaxReconnects(3),
+		// nats.NoReconnect(),??
 		nats.PingInterval(time.Second*30),
-		// c.natsTLS(c.cfg.Namespace),
 		nats.RootCAs(kubefox.PathCACert),
 		nats.ClientCert(kubefox.PathTLSCert, kubefox.PathTLSKey),
 	)
 	if err != nil {
 		return c.log.ErrorN("connecting to NATS failed: %v", err)
 	}
-	// if c.JetStreamContext, err = c.nc.JetStream(); err != nil {
-	// 	return c.log.ErrorN("connecting to JetStream failed: %v", err)
-	// }
 
 	if c.JetStream, err = jetstream.New(c.nc); err != nil {
 		return c.log.ErrorN("connecting to JetStream failed: %v", err)
@@ -103,7 +93,7 @@ func (c *JetStreamClient) Connect(ctx context.Context) error {
 	if err := c.setupEventsKV(ctx); err != nil {
 		return err
 	}
-	if err := c.startKVUpdater(); err != nil {
+	if err := c.startKVUpdater(ctx); err != nil {
 		return err
 	}
 
@@ -174,9 +164,14 @@ func (c *JetStreamClient) Close() {
 
 	c.log.Info("jetstream client closing")
 
+	if c.kvUpdaterCtx != nil {
+		c.kvUpdaterCtx.Stop()
+	}
+
 	if c.nc != nil {
 		c.nc.Close()
 	}
+
 }
 
 func (c *JetStreamClient) EventsKV() jetstream.KeyValue {
@@ -195,6 +190,9 @@ func (c *JetStreamClient) Publish(subject string, evt *kubefox.Event) error {
 
 	h := make(nats.Header)
 	h.Set(nats.MsgIdHdr, evt.Id)
+
+	// Headers create sizeable overhead for storage. Disabling for now.
+	//
 	// h.Set("ce_specversion", "1.0")
 	// h.Set("ce_type", evt.Type)
 	// h.Set("ce_id", evt.Id)
@@ -202,6 +200,7 @@ func (c *JetStreamClient) Publish(subject string, evt *kubefox.Event) error {
 	// h.Set("ce_source", fmt.Sprintf("kubefox:component:%s", evt.Source.Key()))
 	// h.Set("ce_dataschema", kubefox.DataSchemaKubefox)
 	// h.Set("ce_datacontenttype", kubefox.ContentTypeProtobuf)
+	//
 
 	// Note use of NATS directly instead of JetStream. This is done for
 	// performance and memory efficiency. The risk is a msg not getting
@@ -230,6 +229,7 @@ func (c *JetStreamClient) PullEvents(sub ReplicaSubscription) error {
 	if sub.IsGroupEnabled() {
 		grpConsumer, err = c.JetStream.CreateOrUpdateConsumer(sub.Context(), eventStream, jetstream.ConsumerConfig{
 			Name:              sub.Component().GroupKey(),
+			Durable:           sub.Component().GroupKey(),
 			FilterSubject:     sub.Component().GroupSubject(),
 			AckPolicy:         jetstream.AckNonePolicy,
 			InactiveThreshold: EventStreamTTL,
@@ -298,44 +298,7 @@ func (c *JetStreamClient) PullEvents(sub ReplicaSubscription) error {
 	return nil
 }
 
-func (c *JetStreamClient) startKVUpdater() error {
-	// log := c.log.With(logkf.KeyWorker, "kv-updater")
-	// cfg := &nats.ConsumerConfig{
-	// 	Name:      "kv-updater",
-	// 	Durable:   "kv-updater",
-	// 	AckPolicy: nats.AckNonePolicy,
-	// 	// FilterSubject:     grpSubj,
-	// 	InactiveThreshold: EventStreamTTL,
-	// 	HeadersOnly:       true,
-	// }
-	// if _, err := c.AddConsumer(eventStream, cfg); err != nil {
-	// 	if _, err := c.UpdateConsumer(eventStream, cfg); err != nil {
-	// 		return log.ErrorN("unable to update JetStream consumer: %v", err)
-	// 	}
-
-	// }
-	// sub, err := c.PullSubscribe(
-	// 	eventSubjectWildcard,
-	// 	"kv-updater",
-	// 	nats.Bind(eventStream, "kv-updater"),
-	// 	// nats.Context(sub.Context()),
-	// 	nats.AckNone(),
-	// 	nats.HeadersOnly(),
-	// )
-	// if err != nil {
-	// 	return log.ErrorN("unable to create JetStream pull subscription: %v", err)
-	// }
-
-	// go c.pullEvents(log, sub, func(m *nats.Msg) {
-	// 	md, err := m.Metadata()
-	// 	if err != nil {
-	// 		log.Warnf("unable to get sequence: %v", err)
-	// 	}
-
-	// 	log.DebugInterface("", m)
-	// 	log.Debugf("seq: %d", md.Sequence.Stream)
-	// })
-
+func (c *JetStreamClient) startKVUpdater(ctx context.Context) error {
 	return nil
 }
 

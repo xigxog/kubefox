@@ -11,6 +11,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/lestrrat-go/jwx/jwt"
 	"github.com/xigxog/kubefox/components/broker/config"
 	"github.com/xigxog/kubefox/components/broker/telemetry"
@@ -52,9 +53,12 @@ type Broker interface {
 	AuthorizeComponent(context.Context, *kubefox.Component, string) error
 	Subscribe(context.Context, *SubscriptionConf) (ReplicaSubscription, error)
 	RecvEvent(*LiveEvent) error
+	Id() string
 }
 
 type broker struct {
+	id string
+
 	grpcSrv *GRPCServer
 	httpSrv *HTTPServer
 
@@ -80,8 +84,17 @@ type broker struct {
 }
 
 func New() Engine {
+	id, _ := os.LookupEnv("POD_NAME")
+	if id == "" {
+		id, _ = os.Hostname()
+	}
+	if id == "" {
+		id = uuid.NewString()
+	}
+
 	ctx, cancel := context.WithCancel(context.Background())
 	brk := &broker{
+		id:        id,
 		healthSrv: telemetry.NewHealthServer(),
 		telClient: telemetry.NewClient(),
 		subMgr:    NewManager(),
@@ -98,6 +111,10 @@ func New() Engine {
 	// brk.httpClient = NewHTTPClient(brk)
 
 	return brk
+}
+
+func (brk *broker) Id() string {
+	return brk.id
 }
 
 func (brk *broker) Start() {
@@ -224,13 +241,12 @@ func (brk *broker) AuthorizeComponent(ctx context.Context, comp *kubefox.Compone
 }
 
 func (brk *broker) RecvEvent(evt *LiveEvent) error {
-	if evt == nil || evt.Event == nil {
+	switch {
+	case evt == nil || evt.Event == nil:
 		return ErrEventInvalid
-	}
-	if evt.Ttl <= 0 {
+	case evt.TTL() <= 0:
 		return ErrEventTimeout
-	}
-	if evt.Subscription != nil && !evt.Subscription.IsActive() {
+	case evt.Subscription != nil && !evt.Subscription.IsActive():
 		return ErrSubCanceled
 	}
 
@@ -320,7 +336,7 @@ func (brk *broker) routeEvent(log *logkf.Logger, evt *LiveEvent) error {
 	switch {
 	case sub != nil:
 		sendEvent = func(evt *LiveEvent) error {
-			log.Debug("subscription found, sending event directly")
+			log.Debug("subscription found, sending event with gRPC")
 			err := sub.SendEvent(evt)
 			if evt.Receiver != ReceiverJetStream {
 				brk.archiveCh <- evt
@@ -330,7 +346,7 @@ func (brk *broker) routeEvent(log *logkf.Logger, evt *LiveEvent) error {
 
 	default:
 		sendEvent = func(evt *LiveEvent) error {
-			log.Debug("subscription not found, sending event to JetStream")
+			log.Debug("subscription not found, sending event with JetStream")
 			err := brk.jsClient.Publish(evt.Target.Subject(), evt.Event)
 			if err != nil {
 				return err
