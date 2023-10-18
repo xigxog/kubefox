@@ -27,8 +27,8 @@ type Kontext interface {
 type Req interface {
 	kubefox.EventWriter
 
-	SendString(s string) (kubefox.EventReader, error)
-	SendHTML(s string) (kubefox.EventReader, error)
+	SendStr(s string) (kubefox.EventReader, error)
+	SendHTML(h string) (kubefox.EventReader, error)
 	SendJSON(v any) (kubefox.EventReader, error)
 	SendBytes(contentType string, b []byte) (kubefox.EventReader, error)
 	Send() (kubefox.EventReader, error)
@@ -37,32 +37,33 @@ type Req interface {
 type Resp interface {
 	kubefox.EventWriter
 
-	SendString(s string) error
-	SendHTML(s string) error
+	SendStr(s string) error
+	SendHTML(h string) error
 	SendJSON(v any) error
 	SendBytes(contentType string, b []byte) error
 	Send() error
 }
 
 type kontext struct {
-	*kubefox.ActiveEvent
+	*kubefox.Event
 
 	kit  *kit
-	resp *kubefox.ActiveEvent
+	resp *kubefox.Event
 	env  map[string]*structpb.Value
 
 	ctx context.Context
 	log *logkf.Logger
 }
 
-type reqKtx struct {
-	*kubefox.ActiveEvent
+type reqKontext struct {
+	*kubefox.Event
 
 	kit *kit
+	ctx context.Context
 }
 
-type respKtx struct {
-	*kubefox.ActiveEvent
+type respKontext struct {
+	*kubefox.Event
 
 	kit *kit
 }
@@ -93,23 +94,23 @@ func (k *kontext) EnvDef(key string, def string) string {
 }
 
 func (k *kontext) Resp() Resp {
-	return &respKtx{
-		ActiveEvent: k.resp,
-		kit:         k.kit,
+	return &respKontext{
+		Event: k.resp,
+		kit:   k.kit,
 	}
 }
 
-func (resp *respKtx) SendString(val string) error {
+func (resp *respKontext) SendStr(val string) error {
 	c := fmt.Sprintf("%s; %s", kubefox.ContentTypePlain, kubefox.CharSetUTF8)
 	return resp.SendBytes(c, []byte(val))
 }
 
-func (resp *respKtx) SendHTML(val string) error {
+func (resp *respKontext) SendHTML(val string) error {
 	c := fmt.Sprintf("%s; %s", kubefox.ContentTypeHTML, kubefox.CharSetUTF8)
 	return resp.SendBytes(c, []byte(val))
 }
 
-func (resp *respKtx) SendJSON(val any) error {
+func (resp *respKontext) SendJSON(val any) error {
 	if err := resp.SetJSON(val); err != nil {
 		return err
 	}
@@ -117,40 +118,41 @@ func (resp *respKtx) SendJSON(val any) error {
 	return resp.Send()
 }
 
-func (resp *respKtx) SendBytes(contentType string, b []byte) error {
-	resp.ActiveEvent.ContentType = contentType
-	resp.ActiveEvent.Content = b
+func (resp *respKontext) SendBytes(contentType string, b []byte) error {
+	resp.Event.ContentType = contentType
+	resp.Event.Content = b
 
 	return resp.Send()
 }
 
-func (resp *respKtx) Send() error {
-	return resp.kit.sendEvent(resp.ActiveEvent)
+func (resp *respKontext) Send() error {
+	return resp.kit.sendEvent(resp.Event)
 }
 
 func (k *kontext) Component(component string) Req {
-	return &reqKtx{
-		ActiveEvent: kubefox.StartReq(kubefox.EventOpts{
+	return &reqKontext{
+		Event: kubefox.NewReq(kubefox.EventOpts{
 			Type:   kubefox.EventTypeComponent,
 			Parent: k.Event,
 			Source: k.kit.comp,
 			Target: &kubefox.Component{Name: component},
 		}),
 		kit: k.kit,
+		ctx: k.ctx,
 	}
 }
 
-func (req *reqKtx) SendString(val string) (kubefox.EventReader, error) {
+func (req *reqKontext) SendStr(val string) (kubefox.EventReader, error) {
 	c := fmt.Sprintf("%s; %s", kubefox.ContentTypePlain, kubefox.CharSetUTF8)
 	return req.SendBytes(c, []byte(val))
 }
 
-func (req *reqKtx) SendHTML(val string) (kubefox.EventReader, error) {
+func (req *reqKontext) SendHTML(val string) (kubefox.EventReader, error) {
 	c := fmt.Sprintf("%s; %s", kubefox.ContentTypeHTML, kubefox.CharSetUTF8)
 	return req.SendBytes(c, []byte(val))
 }
 
-func (req *reqKtx) SendJSON(val any) (kubefox.EventReader, error) {
+func (req *reqKontext) SendJSON(val any) (kubefox.EventReader, error) {
 	if err := req.SetJSON(val); err != nil {
 		return nil, err
 	}
@@ -158,15 +160,15 @@ func (req *reqKtx) SendJSON(val any) (kubefox.EventReader, error) {
 	return req.Send()
 }
 
-func (req *reqKtx) SendBytes(contentType string, b []byte) (kubefox.EventReader, error) {
-	req.ActiveEvent.ContentType = contentType
-	req.ActiveEvent.Content = b
+func (req *reqKontext) SendBytes(contentType string, b []byte) (kubefox.EventReader, error) {
+	req.Event.ContentType = contentType
+	req.Event.Content = b
 
 	return req.Send()
 }
 
-func (req *reqKtx) Send() (kubefox.EventReader, error) {
-	resp, err := req.kit.sendReq(req.ActiveEvent)
+func (req *reqKontext) Send() (kubefox.EventReader, error) {
+	resp, err := req.kit.sendReq(req.ctx, req.Event)
 	if err != nil {
 		return nil, err
 	}

@@ -11,7 +11,7 @@ import (
 )
 
 type SubscriptionMgr interface {
-	Create(ctx context.Context, cfg *SubscriptionConf, recvCh chan *ReceivedEvent) (ReplicaSubscription, error)
+	Create(ctx context.Context, cfg *SubscriptionConf, recvCh chan *LiveEvent) (ReplicaSubscription, error)
 	Subscription(comp *kubefox.Component) (Subscription, bool)
 	ReplicaSubscription(comp *kubefox.Component) (ReplicaSubscription, bool)
 	GroupSubscription(comp *kubefox.Component) (GroupSubscription, bool)
@@ -20,7 +20,7 @@ type SubscriptionMgr interface {
 }
 
 type Subscription interface {
-	SendEvent(mEvt *kubefox.MatchedEvent) error
+	SendEvent(evt *LiveEvent) error
 	IsActive() bool
 }
 
@@ -65,7 +65,7 @@ type subscription struct {
 	mgr     *subscriptionMgr
 
 	sendFunc   SendEvent
-	recvCh     chan *ReceivedEvent
+	recvCh     chan *LiveEvent
 	sendCh     chan *evtRespCh
 	grpEnabled bool
 
@@ -75,7 +75,7 @@ type subscription struct {
 }
 
 type evtRespCh struct {
-	mEvt   *kubefox.MatchedEvent
+	mEvt   *LiveEvent
 	respCh chan *sendResp
 }
 
@@ -91,7 +91,7 @@ func NewManager() SubscriptionMgr {
 	}
 }
 
-func (mgr *subscriptionMgr) Create(ctx context.Context, cfg *SubscriptionConf, recvCh chan *ReceivedEvent) (ReplicaSubscription, error) {
+func (mgr *subscriptionMgr) Create(ctx context.Context, cfg *SubscriptionConf, recvCh chan *LiveEvent) (ReplicaSubscription, error) {
 	log := mgr.log.WithComponent(cfg.Component)
 	if err := checkComp(cfg.Component); err != nil {
 		return nil, err
@@ -204,9 +204,9 @@ func (mgr *subscriptionMgr) remove(sub *subscription) {
 	delete(mgr.subMap, sub.comp.Id)
 }
 
-func (grp *subscriptionGroup) SendEvent(mEvt *kubefox.MatchedEvent) error {
+func (grp *subscriptionGroup) SendEvent(evt *LiveEvent) error {
 	respCh := make(chan *sendResp)
-	grp.sendCh <- &evtRespCh{mEvt: mEvt, respCh: respCh}
+	grp.sendCh <- &evtRespCh{mEvt: evt, respCh: respCh}
 	resp := <-respCh
 
 	return resp.Err
@@ -216,8 +216,8 @@ func (grp *subscriptionGroup) IsActive() bool {
 	return len(grp.subMap) > 0
 }
 
-func (sub *subscription) SendEvent(mEvt *kubefox.MatchedEvent) error {
-	if err := sub.sendFunc(mEvt); err != nil {
+func (sub *subscription) SendEvent(evt *LiveEvent) error {
+	if err := sub.sendFunc(evt); err != nil {
 		return err
 	}
 

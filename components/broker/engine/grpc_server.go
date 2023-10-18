@@ -137,14 +137,14 @@ func (srv *GRPCServer) Subscribe(stream grpc.Broker_SubscribeServer) error {
 		return log.ErrorN("component registration failed: %v", err)
 	}
 
-	sendEvt := func(mEvt *kubefox.MatchedEvent) error {
+	sendEvt := func(evt *LiveEvent) error {
 		// Protect the stream from being called by multiple threads.
 		sendMutex.Lock()
 		defer sendMutex.Unlock()
 
-		srv.log.WithEvent(mEvt.Event).Debug("send event")
+		srv.log.WithEvent(evt.Event).Debug("send event")
 
-		if err := stream.Send(mEvt); err != nil {
+		if err := stream.Send(evt.MatchedEvent); err != nil {
 			return fmt.Errorf("%w: %v", ErrComponentGone, err)
 		}
 		return nil
@@ -197,9 +197,10 @@ func (srv *GRPCServer) Subscribe(stream grpc.Broker_SubscribeServer) error {
 
 			log = srv.log.WithEvent(evt)
 			log.Debug("receive event")
-			err = srv.brk.RecvEvent(&ReceivedEvent{
-				ActiveEvent: kubefox.StartEvent(evt),
-				Receiver:    ReceiverGRPCServer,
+			err = srv.brk.RecvEvent(&LiveEvent{
+				Event:      evt,
+				Receiver:   ReceiverGRPCServer,
+				ReceivedAt: time.Now(),
 			})
 			if err != nil {
 				log.Debug(err)

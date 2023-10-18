@@ -180,7 +180,7 @@ func (log *Logger) WithEvent(evt *kubefox.Event) *Logger {
 	if evt == nil {
 		return log
 	}
-	evt.CheckContext()
+
 	return log.
 		WithComponent(evt.Source).
 		WithTarget(evt.Target).

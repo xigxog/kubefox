@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http"
 	"os"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/xigxog/kubefox/libs/core/kubefox"
@@ -37,7 +38,7 @@ func NewHTTPClient(brk Broker) *HTTPClient {
 	}
 }
 
-func (c *HTTPClient) SendEvent(req ReceivedEvent) error {
+func (c *HTTPClient) SendEvent(req *LiveEvent) error {
 	ctx, cancel := context.WithTimeout(context.Background(), req.TTL())
 	defer cancel()
 
@@ -51,7 +52,7 @@ func (c *HTTPClient) SendEvent(req ReceivedEvent) error {
 		return err
 	}
 
-	resp := kubefox.StartResp(kubefox.EventOpts{
+	resp := kubefox.NewResp(kubefox.EventOpts{
 		Parent: req.Event,
 		Source: c.comp,
 		Target: req.Source,
@@ -60,10 +61,11 @@ func (c *HTTPClient) SendEvent(req ReceivedEvent) error {
 		return err
 	}
 
-	rEvt := &ReceivedEvent{
-		ActiveEvent:  resp,
-		Subscription: req.Subscription,
+	rEvt := &LiveEvent{
+		Event:        resp,
 		Receiver:     ReceiverHTTPClient,
+		ReceivedAt:   time.Now(),
+		Subscription: req.Subscription,
 	}
 	if err := c.brk.RecvEvent(rEvt); err != nil {
 		return err

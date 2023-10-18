@@ -42,7 +42,7 @@ type kit struct {
 	routes     []*route
 
 	brk    grpc.Broker_SubscribeClient
-	reqMap map[string]chan *kubefox.ActiveEvent
+	reqMap map[string]chan *kubefox.Event
 
 	reqMapMutex sync.Mutex
 	sendMutex   sync.Mutex
@@ -64,7 +64,7 @@ func New() Kit {
 			Id: uuid.NewString(),
 		},
 		routes: make([]*route, 0),
-		reqMap: make(map[string]chan *kubefox.ActiveEvent),
+		reqMap: make(map[string]chan *kubefox.Event),
 	}
 
 	var help bool
@@ -187,11 +187,10 @@ func (svc *kit) run(retry int) (int, error) {
 		reg.Routes[i] = &svc.routes[i].Route
 	}
 
-	regEvt := kubefox.StartMsg(kubefox.EventOpts{
+	regEvt := kubefox.NewMsg(kubefox.EventOpts{
 		Type:   kubefox.EventTypeRegister,
 		Source: svc.comp,
 	})
-
 	if err := regEvt.SetJSON(reg); err != nil {
 		svc.log.Fatalf("unable to marshal registration: %v", err)
 	}
@@ -215,7 +214,7 @@ func (svc *kit) run(retry int) (int, error) {
 			go svc.recvReq(mEvt)
 
 		case kubefox.Category_RESPONSE:
-			go svc.recvResp(kubefox.StartEvent(mEvt.Event))
+			go svc.recvResp(mEvt.Event)
 
 		default:
 			svc.log.Debug("default")
@@ -227,13 +226,12 @@ func (svc *kit) recvReq(req *kubefox.MatchedEvent) {
 	log := svc.log.WithEvent(req.Event)
 	log.Debug("receive request")
 
-	evt := kubefox.StartEvent(req.Event)
-	ctx, cancel := context.WithTimeout(context.Background(), evt.TTL())
+	ctx, cancel := context.WithTimeout(context.Background(), req.Event.TTL())
 	defer cancel()
 
 	ktx := &kontext{
-		ActiveEvent: evt,
-		resp: kubefox.StartResp(kubefox.EventOpts{
+		Event: req.Event,
+		resp: kubefox.NewResp(kubefox.EventOpts{
 			Parent: req.Event,
 			Source: svc.comp,
 			Target: req.Event.Source,
@@ -264,18 +262,18 @@ func (svc *kit) recvReq(req *kubefox.MatchedEvent) {
 		ktx.resp.Type = string(kubefox.EventTypeError)
 
 		log.Error(err)
-		if err := ktx.Resp().SendString(err.Error()); err != nil {
+		if err := ktx.Resp().SendStr(err.Error()); err != nil {
 			log.Error(err)
 		}
 	}
 }
 
-func (svc *kit) sendReq(req *kubefox.ActiveEvent) (*kubefox.ActiveEvent, error) {
-	log := svc.log.WithEvent(req.Event)
+func (svc *kit) sendReq(ctx context.Context, req *kubefox.Event) (*kubefox.Event, error) {
+	log := svc.log.WithEvent(req)
 	log.Debug("send request")
 
 	svc.reqMapMutex.Lock()
-	respCh := make(chan *kubefox.ActiveEvent)
+	respCh := make(chan *kubefox.Event)
 	svc.reqMap[req.Id] = respCh
 	svc.reqMapMutex.Unlock()
 
@@ -289,9 +287,6 @@ func (svc *kit) sendReq(req *kubefox.ActiveEvent) (*kubefox.ActiveEvent, error) 
 		return nil, log.ErrorN("%v", err)
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), req.TTL())
-	defer cancel()
-
 	select {
 	case resp := <-respCh:
 		return resp, nil
@@ -301,8 +296,8 @@ func (svc *kit) sendReq(req *kubefox.ActiveEvent) (*kubefox.ActiveEvent, error) 
 	}
 }
 
-func (svc *kit) recvResp(resp *kubefox.ActiveEvent) {
-	log := svc.log.WithEvent(resp.Event)
+func (svc *kit) recvResp(resp *kubefox.Event) {
+	log := svc.log.WithEvent(resp)
 	log.Debug("receive response")
 
 	svc.reqMapMutex.Lock()
@@ -317,14 +312,14 @@ func (svc *kit) recvResp(resp *kubefox.ActiveEvent) {
 	respCh <- resp
 }
 
-func (svc *kit) sendEvent(evt *kubefox.ActiveEvent) error {
-	svc.log.WithEvent(evt.Event).Debug("send event")
-
+func (svc *kit) sendEvent(evt *kubefox.Event) error {
 	// Need to protect the stream from being called by multiple threads.
 	svc.sendMutex.Lock()
 	defer svc.sendMutex.Unlock()
 
-	return svc.brk.Send(evt.Flush())
+	svc.log.WithEvent(evt).Debug("send event")
+
+	return svc.brk.Send(evt)
 }
 
 func (svc *kit) GetRequestMetadata(ctx context.Context, uri ...string) (map[string]string, error) {

@@ -3,11 +3,13 @@ package engine
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"sync"
 	"time"
 
 	"github.com/nats-io/nats.go"
+	"github.com/nats-io/nats.go/jetstream"
 	"github.com/xigxog/kubefox/libs/api/kubernetes/v1alpha1"
 	"github.com/xigxog/kubefox/libs/core/cache"
 	"github.com/xigxog/kubefox/libs/core/kubefox"
@@ -34,7 +36,7 @@ type Store struct {
 
 	resCache     ctrlcache.Cache
 	compRegCache cache.Cache[*kubefox.ComponentReg]
-	compRegKV    nats.KeyValue
+	compRegKV    jetstream.KeyValue
 
 	depMatchers cache.Cache[*matcher.EventMatcher]
 	relMatcher  *matcher.EventMatcher
@@ -65,7 +67,7 @@ func NewStore(namespace string) *Store {
 	}
 }
 
-func (str *Store) Open(compRegKV nats.KeyValue) error {
+func (str *Store) Open(compRegKV jetstream.KeyValue) error {
 	str.compRegKV = compRegKV
 	if err := v1alpha1.AddToScheme(scheme.Scheme); err != nil {
 		return str.log.ErrorN("adding KubeFox CRs to scheme failed: %v", err)
@@ -126,24 +128,24 @@ func (str *Store) Close() {
 	str.cancel()
 }
 
-func (str *Store) RegisterComponent(comp *kubefox.Component, reg *kubefox.ComponentReg) error {
+func (str *Store) RegisterComponent(ctx context.Context, comp *kubefox.Component, reg *kubefox.ComponentReg) error {
 	id := fmt.Sprintf(TplComponentKey, comp.GroupKey())
-	return str.setReg(id, reg)
+	return str.setReg(ctx, id, reg)
 }
 
-func (str *Store) RegisterAdapter(comp *kubefox.Component) error {
+func (str *Store) RegisterAdapter(ctx context.Context, comp *kubefox.Component) error {
 	id := fmt.Sprintf(TplAdapterKey, comp.Key())
-	return str.setReg(id, &kubefox.ComponentReg{})
+	return str.setReg(ctx, id, &kubefox.ComponentReg{})
 }
 
-func (str *Store) setReg(id string, reg *kubefox.ComponentReg) error {
+func (str *Store) setReg(ctx context.Context, id string, reg *kubefox.ComponentReg) error {
 	str.log.Debugf("registering component '%s'", id)
 	b, err := json.Marshal(reg)
 	if err != nil {
 		return err
 	}
 
-	if _, err := str.compRegKV.Put(id, b); err != nil {
+	if _, err := str.compRegKV.Put(ctx, id, b); err != nil {
 		return err
 	}
 	str.compRegCache.Set(id, reg)
@@ -151,20 +153,22 @@ func (str *Store) setReg(id string, reg *kubefox.ComponentReg) error {
 	return nil
 }
 
-func (str *Store) Component(comp *kubefox.Component) (*kubefox.ComponentReg, error) {
-	return str.getReg(fmt.Sprintf(TplComponentKey, comp.GroupKey()))
+func (str *Store) Component(ctx context.Context, comp *kubefox.Component) (*kubefox.ComponentReg, error) {
+	return str.getReg(ctx, fmt.Sprintf(TplComponentKey, comp.GroupKey()))
 }
 
-func (str *Store) Adapter(comp *kubefox.Component) bool {
-	r, err := str.getReg(fmt.Sprintf(TplAdapterKey, comp.Key()))
+func (str *Store) Adapter(ctx context.Context, comp *kubefox.Component) bool {
+	r, err := str.getReg(ctx, fmt.Sprintf(TplAdapterKey, comp.Key()))
 	return r != nil && err == nil
 }
 
-func (str *Store) getReg(id string) (*kubefox.ComponentReg, error) {
+func (str *Store) getReg(ctx context.Context, id string) (*kubefox.ComponentReg, error) {
 	compReg, found := str.compRegCache.Get(id)
 	if !found {
-		entry, err := str.compRegKV.Get(id)
-		if err != nil {
+		entry, err := str.compRegKV.Get(ctx, id)
+		if errors.Is(err, nats.ErrKeyNotFound) {
+			return nil, fmt.Errorf("%w: component is not registered", ErrRouteNotFound)
+		} else if err != nil {
 			return nil, err
 		}
 
@@ -217,7 +221,7 @@ func (str *Store) BrokerMap() (map[string]string, error) {
 	return map[string]string{}, nil
 }
 
-func (str *Store) ReleaseMatcher() (*matcher.EventMatcher, error) {
+func (str *Store) ReleaseMatcher(ctx context.Context) (*matcher.EventMatcher, error) {
 	str.mutex.RLock()
 	if !str.relMatcher.IsEmpty() {
 		str.mutex.RUnlock()
@@ -226,10 +230,10 @@ func (str *Store) ReleaseMatcher() (*matcher.EventMatcher, error) {
 
 	// There are no matchers in cache, perform full reload.
 	str.mutex.RUnlock()
-	return str.buildReleaseMatcher()
+	return str.buildReleaseMatcher(ctx)
 }
 
-func (str *Store) DeploymentMatcher(evtCtx *kubefox.EventContext) (*matcher.EventMatcher, error) {
+func (str *Store) DeploymentMatcher(ctx context.Context, evtCtx *kubefox.EventContext) (*matcher.EventMatcher, error) {
 	dep, err := str.Deployment(evtCtx.Deployment)
 	if err != nil {
 		return nil, err
@@ -244,7 +248,7 @@ func (str *Store) DeploymentMatcher(evtCtx *kubefox.EventContext) (*matcher.Even
 		return depM, nil
 	}
 
-	routes, err := str.buildRoutes(dep.Spec.Components, env.Spec.Vars, evtCtx)
+	routes, err := str.buildRoutes(ctx, dep.Spec.Components, env.Spec.Vars, evtCtx)
 	if err != nil {
 		return nil, err
 	}
@@ -269,7 +273,7 @@ func (str *Store) OnAdd(obj interface{}, isInInitialList bool) {
 
 	case *v1alpha1.Release:
 		str.log.Debug("release added")
-		str.buildReleaseMatcher()
+		str.buildReleaseMatcher(context.Background())
 
 	default:
 		return
@@ -286,7 +290,7 @@ func (str *Store) OnUpdate(oldObj, obj interface{}) {
 
 	case *v1alpha1.Release:
 		str.log.Debug("release updated")
-		str.buildReleaseMatcher()
+		str.buildReleaseMatcher(context.Background())
 
 	default:
 		return
@@ -303,15 +307,15 @@ func (str *Store) OnDelete(obj interface{}) {
 
 	case *v1alpha1.Release:
 		str.log.Debug("release deleted")
-		str.buildReleaseMatcher()
+		str.buildReleaseMatcher(context.Background())
 
 	default:
 		return
 	}
 }
 
-func (str *Store) buildReleaseMatcher() (*matcher.EventMatcher, error) {
-	ctx, cancel := context.WithTimeout(str.ctx, time.Minute)
+func (str *Store) buildReleaseMatcher(ctx context.Context) (*matcher.EventMatcher, error) {
+	ctx, cancel := context.WithTimeout(ctx, time.Minute)
 	defer cancel()
 
 	relList := new(v1alpha1.ReleaseList)
@@ -325,7 +329,7 @@ func (str *Store) buildReleaseMatcher() (*matcher.EventMatcher, error) {
 		vars := rel.Spec.Environment.Vars
 		evtCtx := &kubefox.EventContext{Release: rel.Name}
 
-		routes, err := str.buildRoutes(comps, vars, evtCtx)
+		routes, err := str.buildRoutes(ctx, comps, vars, evtCtx)
 		if err != nil {
 			return nil, err
 		}
@@ -342,6 +346,7 @@ func (str *Store) buildReleaseMatcher() (*matcher.EventMatcher, error) {
 }
 
 func (str *Store) buildRoutes(
+	ctx context.Context,
 	comps map[string]*v1alpha1.Component,
 	vars map[string]*kubefox.Val,
 	evtCtx *kubefox.EventContext) ([]*kubefox.Route, error) {
@@ -349,7 +354,7 @@ func (str *Store) buildRoutes(
 	routes := make([]*kubefox.Route, 0)
 	for compName, resComp := range comps {
 		comp := &kubefox.Component{Name: compName, Commit: resComp.Commit}
-		compReg, err := str.Component(comp)
+		compReg, err := str.Component(ctx, comp)
 		if err != nil {
 			return nil, err
 		}

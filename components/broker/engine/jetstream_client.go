@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/nats-io/nats.go"
+	"github.com/nats-io/nats.go/jetstream"
 	"github.com/xigxog/kubefox/components/broker/config"
 	"github.com/xigxog/kubefox/libs/core/kubefox"
 	"github.com/xigxog/kubefox/libs/core/logkf"
@@ -17,9 +18,10 @@ import (
 
 // Content types
 const (
-	name       = "jetstream-client"
-	evtStream  = "events"
-	compBucket = "components"
+	name                 = "jetstream-client"
+	eventStream          = "EVENTS"
+	eventSubjectWildcard = "evt.>"
+	compBucket           = "COMPONENTS"
 )
 
 var (
@@ -31,32 +33,26 @@ var (
 type RecvMsg func(*nats.Msg)
 
 type JetStreamClient struct {
-	nats.JetStreamContext
+	jetstream.JetStream
 
 	nc       *nats.Conn
-	eventsKV nats.KeyValue
-	compKV   nats.KeyValue
+	eventsKV jetstream.KeyValue
+	compKV   jetstream.KeyValue
 
 	brk Broker
-
-	ctx    context.Context
-	cancel context.CancelFunc
 
 	mutex sync.Mutex
 	log   *logkf.Logger
 }
 
 func NewJetStreamClient(brk Broker) *JetStreamClient {
-	ctx, cancel := context.WithCancel(context.Background())
 	return &JetStreamClient{
-		log:    logkf.Global,
-		brk:    brk,
-		ctx:    ctx,
-		cancel: cancel,
+		log: logkf.Global,
+		brk: brk,
 	}
 }
 
-func (c *JetStreamClient) Connect() error {
+func (c *JetStreamClient) Connect(ctx context.Context) error {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 
@@ -90,17 +86,24 @@ func (c *JetStreamClient) Connect() error {
 	if err != nil {
 		return c.log.ErrorN("connecting to NATS failed: %v", err)
 	}
-	if c.JetStreamContext, err = c.nc.JetStream(); err != nil {
+	// if c.JetStreamContext, err = c.nc.JetStream(); err != nil {
+	// 	return c.log.ErrorN("connecting to JetStream failed: %v", err)
+	// }
+
+	if c.JetStream, err = jetstream.New(c.nc); err != nil {
 		return c.log.ErrorN("connecting to JetStream failed: %v", err)
 	}
 
-	if err := c.setupStream(); err != nil {
+	if err := c.setupStream(ctx); err != nil {
 		return err
 	}
-	if err := c.setupCompsKV(); err != nil {
+	if err := c.setupCompsKV(ctx); err != nil {
 		return err
 	}
-	if err := c.setupEventsKV(); err != nil {
+	if err := c.setupEventsKV(ctx); err != nil {
+		return err
+	}
+	if err := c.startKVUpdater(); err != nil {
 		return err
 	}
 
@@ -108,26 +111,25 @@ func (c *JetStreamClient) Connect() error {
 	return nil
 }
 
-func (c *JetStreamClient) setupStream() error {
-	if _, err := c.StreamInfo(evtStream); err != nil {
-		_, err = c.AddStream(&nats.StreamConfig{
-			Name: evtStream,
+func (c *JetStreamClient) setupStream(ctx context.Context) error {
+	if _, err := c.Stream(ctx, eventStream); err != nil {
+		_, err = c.CreateStream(ctx, jetstream.StreamConfig{
+			Name: eventStream,
 			// cannot be updated
-			Storage:   nats.FileStorage,
-			Retention: nats.LimitsPolicy,
+			Storage:   jetstream.FileStorage,
+			Retention: jetstream.LimitsPolicy,
 			//
-			NoAck: true,
 		})
 		if err != nil {
 			return c.log.ErrorN("unable to create events stream: %v", err)
 		}
 	}
-	_, err := c.UpdateStream(&nats.StreamConfig{
-		Name:        evtStream,
+	_, err := c.UpdateStream(ctx, jetstream.StreamConfig{
+		Name:        eventStream,
 		Description: "Durable disk backed event stream. Events are retained for 3 days.",
-		Subjects:    []string{"evt.>"},
+		Subjects:    []string{eventSubjectWildcard},
 		MaxMsgSize:  maxMsgSize,
-		Discard:     nats.DiscardOld,
+		Discard:     jetstream.DiscardOld,
 		MaxAge:      EventStreamTTL,
 		NoAck:       true,
 	})
@@ -138,11 +140,11 @@ func (c *JetStreamClient) setupStream() error {
 	return nil
 }
 
-func (c *JetStreamClient) setupCompsKV() (err error) {
-	c.compKV, err = c.CreateKeyValue(&nats.KeyValueConfig{
+func (c *JetStreamClient) setupCompsKV(ctx context.Context) (err error) {
+	c.compKV, err = c.CreateKeyValue(ctx, jetstream.KeyValueConfig{
 		Bucket:      compBucket,
 		Description: "Durable key/value store used by Brokers to register Components. Values are retained for 12 hours.",
-		Storage:     nats.FileStorage,
+		Storage:     jetstream.FileStorage,
 		TTL:         ComponentsTTL,
 	})
 	if err != nil {
@@ -152,11 +154,11 @@ func (c *JetStreamClient) setupCompsKV() (err error) {
 	return nil
 }
 
-func (c *JetStreamClient) setupEventsKV() (err error) {
-	c.eventsKV, err = c.CreateKeyValue(&nats.KeyValueConfig{
-		Bucket:      evtStream,
+func (c *JetStreamClient) setupEventsKV(ctx context.Context) (err error) {
+	c.eventsKV, err = c.CreateKeyValue(ctx, jetstream.KeyValueConfig{
+		Bucket:      eventStream,
 		Description: "Durable disk backed key/value store for Event ids. Values are retained for 3 days.",
-		Storage:     nats.FileStorage,
+		Storage:     jetstream.FileStorage,
 		TTL:         EventStreamTTL,
 	})
 	if err != nil {
@@ -166,76 +168,22 @@ func (c *JetStreamClient) setupEventsKV() (err error) {
 	return nil
 }
 
-// func (c *Client) natsTLS(namespace string) nats.Option {
-// 	return func(o *nats.Options) error {
-// var err error
-// var pool *x509.CertPool
-// var cert tls.Certificate
-
-// caFile := path.Join(platform.NATSTLSDir, platform.CACertFile)
-// certFile := path.Join(platform.NATSTLSDir, platform.TLSCertFile)
-// keyFile := path.Join(platform.NATSTLSDir, platform.TLSKeyFile)
-
-// if pem, err := os.ReadFile(c.cfg.CACertPath); err == nil {
-// 	c.log.Debugf("reading tls certs from file")
-// 	pool = x509.NewCertPool()
-// 	ok := pool.AppendCertsFromPEM(pem)
-// 	if !ok {
-// 		return fmt.Errorf("failed to parse root certificate from %s", c.cfg.CACertPath)
-// 	}
-
-// 	// cert, err = tls.LoadX509KeyPair(certFile, keyFile)
-// 	// if err != nil {
-// 	// 	return fmt.Errorf("nats: error loading client certificate: %v", err)
-// 	// }
-
-// } else {
-// 	c.log.Debugf("reading tls certs from kubernetes secret")
-// 	pool, err = utils.GetCAFromSecret(ktyps.NamespacedName{
-// 		Namespace: c.cfg.Namespace,
-// 		Name:      fmt.Sprintf("%s-%s", c.cfg.Platform, kfp.RootCASecret),
-// 	})
-// 	if err != nil {
-// 		return err
-// 	}
-// }
-
-// cert.Leaf, err = x509.ParseCertificate(cert.Certificate[0])
-// if err != nil {
-// 	return err
-// }
-
-// if o.TLSConfig == nil {
-// 	o.TLSConfig = &tls.Config{MinVersion: tls.VersionTLS12}
-// }
-// o.TLSConfig.Certificates = []tls.Certificate{cert}
-// 		o.TLSConfig.RootCAs = pool
-// 		o.Secure = true
-
-// 		return nil
-// 	}
-// }
-
 func (c *JetStreamClient) Close() {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 
 	c.log.Info("jetstream client closing")
 
-	if c.cancel != nil {
-		c.cancel()
-	}
-
 	if c.nc != nil {
 		c.nc.Close()
 	}
 }
 
-func (c *JetStreamClient) EventsKV() nats.KeyValue {
+func (c *JetStreamClient) EventsKV() jetstream.KeyValue {
 	return c.eventsKV
 }
 
-func (c *JetStreamClient) ComponentsKV() nats.KeyValue {
+func (c *JetStreamClient) ComponentsKV() jetstream.KeyValue {
 	return c.compKV
 }
 
@@ -247,13 +195,13 @@ func (c *JetStreamClient) Publish(subject string, evt *kubefox.Event) error {
 
 	h := make(nats.Header)
 	h.Set(nats.MsgIdHdr, evt.Id)
-	h.Set("ce_specversion", "1.0")
-	h.Set("ce_type", evt.Type)
-	h.Set("ce_id", evt.Id)
-	h.Set("ce_time", time.Now().Format(time.RFC3339))
-	h.Set("ce_source", fmt.Sprintf("kubefox:component:%s", evt.Source.GetId()))
-	h.Set("ce_dataschema", kubefox.DataSchemaKubefox)
-	h.Set("ce_datacontenttype", kubefox.ContentTypeProtobuf)
+	// h.Set("ce_specversion", "1.0")
+	// h.Set("ce_type", evt.Type)
+	// h.Set("ce_id", evt.Id)
+	// h.Set("ce_time", time.Now().Format(time.RFC3339))
+	// h.Set("ce_source", fmt.Sprintf("kubefox:component:%s", evt.Source.Key()))
+	// h.Set("ce_dataschema", kubefox.DataSchemaKubefox)
+	// h.Set("ce_datacontenttype", kubefox.ContentTypeProtobuf)
 
 	// Note use of NATS directly instead of JetStream. This is done for
 	// performance and memory efficiency. The risk is a msg not getting
@@ -268,116 +216,127 @@ func (c *JetStreamClient) Publish(subject string, evt *kubefox.Event) error {
 func (c *JetStreamClient) PullEvents(sub ReplicaSubscription) error {
 	log := c.log.WithComponent(sub.Component())
 
-	jsSub, err := c.PullSubscribe(
-		sub.Component().Subject(),
-		sub.Component().Key(),
-		nats.DeliverNew(),
-		nats.AckNone(),
-		nats.InactiveThreshold(time.Minute),
-		nats.Context(sub.Context()),
-	)
+	consumer, err := c.JetStream.CreateOrUpdateConsumer(sub.Context(), eventStream, jetstream.ConsumerConfig{
+		Name:          sub.Component().Key(),
+		FilterSubject: sub.Component().Subject(),
+		DeliverPolicy: jetstream.DeliverNewPolicy,
+		AckPolicy:     jetstream.AckNonePolicy,
+	})
 	if err != nil {
-		return log.ErrorN("unable to create JetStream pull subscription: %v", err)
+		return log.ErrorN("unable to create JetStream consumer for component: %v", err)
 	}
 
-	var grpJSSub *nats.Subscription
+	var grpConsumer jetstream.Consumer
 	if sub.IsGroupEnabled() {
-		grpConsumer := sub.Component().GroupKey()
-		grpSubj := sub.Component().GroupSubject()
-		grpCfg := &nats.ConsumerConfig{
-			Name:              grpConsumer,
-			Durable:           grpConsumer,
-			AckPolicy:         nats.AckNonePolicy,
-			FilterSubject:     grpSubj,
+		grpConsumer, err = c.JetStream.CreateOrUpdateConsumer(sub.Context(), eventStream, jetstream.ConsumerConfig{
+			Name:              sub.Component().GroupKey(),
+			FilterSubject:     sub.Component().GroupSubject(),
+			AckPolicy:         jetstream.AckNonePolicy,
 			InactiveThreshold: EventStreamTTL,
-		}
-		if _, err := c.AddConsumer(evtStream, grpCfg); err != nil {
-			if _, err := c.UpdateConsumer(evtStream, grpCfg); err != nil {
-				return log.ErrorN("unable to update JetStream consumer: %v", err)
-			}
-
-		}
-		grpJSSub, err = c.PullSubscribe(
-			grpSubj,
-			grpConsumer,
-			nats.Bind(evtStream, grpConsumer),
-			nats.Context(sub.Context()),
-			nats.AckNone(),
-		)
+		})
 		if err != nil {
-			return log.ErrorN("unable to create JetStream pull subscription: %v", err)
+			return log.ErrorN("unable to create JetStream consumer for group: %v", err)
 		}
 	}
 
-	recvMsg := func(msg *nats.Msg) {
+	recvMsg := func(msg jetstream.Msg) {
 		evt := kubefox.NewEvent()
+		if err := proto.Unmarshal(msg.Data(), evt); err != nil {
+			evtId := msg.Headers().Get(jetstream.MsgIDHeader)
+			log.With(logkf.KeyEventId, evtId).Warn("message contains invalid event data: %v", err)
+			return
+		}
 		if md, err := msg.Metadata(); err == nil { // success
 			evt.ReduceTTL(md.Timestamp)
 		}
 
-		if err := proto.Unmarshal(msg.Data, evt); err != nil {
-			log.Warn(err)
-			return
-		}
-
-		rEvt := &ReceivedEvent{
-			ActiveEvent:  kubefox.StartEvent(evt),
-			Subscription: sub,
+		rEvt := &LiveEvent{
+			Event:        evt,
 			Receiver:     ReceiverJetStream,
+			ReceivedAt:   time.Now(),
+			Subscription: sub,
 		}
 		if err := c.brk.RecvEvent(rEvt); err != nil {
 			c.log.WithEvent(evt).Debug(err)
 			if evt.Target.Id == "" && errors.Is(err, ErrSubCanceled) {
-				// Any component replica can process so do not remove msg from
-				// subject and let another JetStream subscriber process it.
-				// msg.Nak()
-				// TODO, republish event since ACK disabled
-				return
+				// Any component replica can process, republish event.
+				if err := c.nc.PublishMsg(&nats.Msg{
+					Subject: msg.Subject(),
+					Header:  msg.Headers(),
+					Data:    msg.Data(),
+				}); err != nil {
+					c.log.WithEvent(evt).Debug(err)
+				}
 			}
 		}
 	}
 
-	go c.pullEvents(log, jsSub, recvMsg)
-	if grpJSSub != nil {
-		go c.pullEvents(log, grpJSSub, recvMsg)
+	var (
+		conCtx    jetstream.ConsumeContext
+		grpConCtx jetstream.ConsumeContext
+	)
+	if conCtx, err = consumer.Consume(recvMsg); err != nil {
+		return err
 	}
+	if grpConsumer != nil {
+		if grpConCtx, err = grpConsumer.Consume(recvMsg); err != nil {
+			conCtx.Stop()
+			return err
+		}
+	}
+	go func() {
+		<-sub.Context().Done()
+		log.Debug("subscription closed, stopping consumers")
+		if grpConCtx != nil {
+			grpConCtx.Stop()
+		}
+		conCtx.Stop()
+
+	}()
+	log.Debug("consumers started")
 
 	return nil
 }
 
-func (c *JetStreamClient) pullEvents(log *logkf.Logger, jsSub *nats.Subscription, recvMsg RecvMsg) {
-	for {
-		msgs, err := jsSub.Fetch(1)
-		if err != nil {
-			if errors.Is(err, nats.ErrTimeout) {
-				// timeout waiting for msg, just go back to waiting
-				continue
-			}
-			if !jsSub.IsValid() {
-				log.Debug("jetstream pull subscription closed")
-				return
-			}
-			if errors.Is(err, nats.ErrConnectionClosed) {
-				// TODO deal with err
-				log.Debug("jetstream connection closed")
-				return
-			}
+func (c *JetStreamClient) startKVUpdater() error {
+	// log := c.log.With(logkf.KeyWorker, "kv-updater")
+	// cfg := &nats.ConsumerConfig{
+	// 	Name:      "kv-updater",
+	// 	Durable:   "kv-updater",
+	// 	AckPolicy: nats.AckNonePolicy,
+	// 	// FilterSubject:     grpSubj,
+	// 	InactiveThreshold: EventStreamTTL,
+	// 	HeadersOnly:       true,
+	// }
+	// if _, err := c.AddConsumer(eventStream, cfg); err != nil {
+	// 	if _, err := c.UpdateConsumer(eventStream, cfg); err != nil {
+	// 		return log.ErrorN("unable to update JetStream consumer: %v", err)
+	// 	}
 
-			// TODO nats: Server Shutdown , should exit
+	// }
+	// sub, err := c.PullSubscribe(
+	// 	eventSubjectWildcard,
+	// 	"kv-updater",
+	// 	nats.Bind(eventStream, "kv-updater"),
+	// 	// nats.Context(sub.Context()),
+	// 	nats.AckNone(),
+	// 	nats.HeadersOnly(),
+	// )
+	// if err != nil {
+	// 	return log.ErrorN("unable to create JetStream pull subscription: %v", err)
+	// }
 
-			log.Error(err)
-			// sub.errCount += 1
-			// simple backoff, max 3 seconds
-			// sleepTime := math.Min(3, float64(sub.errCount-1))
-			// time.Sleep(time.Duration(sleepTime) * time.Second)
-			time.Sleep(time.Second)
-			continue
-		}
+	// go c.pullEvents(log, sub, func(m *nats.Msg) {
+	// 	md, err := m.Metadata()
+	// 	if err != nil {
+	// 		log.Warnf("unable to get sequence: %v", err)
+	// 	}
 
-		for _, msg := range msgs {
-			recvMsg(msg)
-		}
-	}
+	// 	log.DebugInterface("", m)
+	// 	log.Debugf("seq: %d", md.Sequence.Stream)
+	// })
+
+	return nil
 }
 
 func (c *JetStreamClient) IsHealthy(ctx context.Context) bool {

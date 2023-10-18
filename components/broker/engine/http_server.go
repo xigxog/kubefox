@@ -136,7 +136,7 @@ func (srv *HTTPServer) ServeHTTP(resWriter http.ResponseWriter, httpReq *http.Re
 
 	resWriter.Header().Set(kubefox.HeaderAdapter, srv.comp.Key())
 
-	req := kubefox.StartReq(kubefox.EventOpts{
+	req := kubefox.NewReq(kubefox.EventOpts{
 		Source: srv.comp,
 	})
 	req.Ttl = config.EventTTL.Microseconds()
@@ -146,7 +146,7 @@ func (srv *HTTPServer) ServeHTTP(resWriter http.ResponseWriter, httpReq *http.Re
 		return
 	}
 
-	log := srv.log.WithEvent(req.Event)
+	log := srv.log.WithEvent(req)
 	log.Debug("received request")
 
 	srv.mutex.Lock()
@@ -160,10 +160,11 @@ func (srv *HTTPServer) ServeHTTP(resWriter http.ResponseWriter, httpReq *http.Re
 		srv.mutex.Unlock()
 	}()
 
-	rEvt := &ReceivedEvent{
-		ActiveEvent: req,
-		Receiver:    ReceiverHTTPServer,
-		ErrCh:       make(chan error),
+	rEvt := &LiveEvent{
+		Event:      req,
+		Receiver:   ReceiverHTTPServer,
+		ReceivedAt: time.Now(),
+		ErrCh:      make(chan error),
 	}
 	if err := srv.brk.RecvEvent(rEvt); err != nil {
 		writeError(resWriter, context.Cause(ctx), log)
@@ -219,7 +220,7 @@ func (srv *HTTPServer) Subscription() Subscription {
 	return srv.sub
 }
 
-func (srv *HTTPServer) sendEvent(mEvt *kubefox.MatchedEvent) error {
+func (srv *HTTPServer) sendEvent(mEvt *LiveEvent) error {
 	resp := mEvt.Event
 	srv.mutex.Lock()
 	respCh, found := srv.reqMap[resp.ParentId]
