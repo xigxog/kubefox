@@ -14,6 +14,10 @@ import (
 	"github.com/xigxog/kubefox/libs/core/kubefox"
 )
 
+var (
+	ErrNotFound = fmt.Errorf("not found")
+)
+
 const (
 	NATSImage  = "ghcr.io/xigxog/nats:2.9.23"
 	VaultImage = "ghcr.io/xigxog/vault:1.14.4-v0.2.1-alpha"

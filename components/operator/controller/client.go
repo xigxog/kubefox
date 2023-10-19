@@ -49,8 +49,11 @@ func (r *Client) GetPlatform(ctx context.Context, namespace string) (*v1alpha1.P
 	if err := r.Get(ctx, nn("", namespace), ns); err != nil {
 		return nil, fmt.Errorf("unable to fetch namespace: %w", err)
 	}
-	p := &v1alpha1.Platform{}
+	if ns.Status.Phase == v1.NamespaceTerminating {
+		return nil, ErrNotFound
+	}
 
+	p := &v1alpha1.Platform{}
 	pName, found := ns.Labels[kubefox.LabelK8sPlatform]
 	if found {
 		if err := r.Get(ctx, nn(namespace, pName), p); err != nil {
@@ -64,9 +67,7 @@ func (r *Client) GetPlatform(ctx context.Context, namespace string) (*v1alpha1.P
 
 		switch c := len(l.Items); c {
 		case 0:
-			// Produces a NotFound error.
-			err := r.Get(ctx, nn(namespace, "notfound"), p)
-			return nil, err
+			return nil, ErrNotFound
 		case 1:
 			p = &l.Items[0]
 		default:

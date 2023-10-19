@@ -2,9 +2,11 @@ package controller
 
 import (
 	"context"
+	"errors"
 
 	appsv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -64,7 +66,7 @@ func (cm *ComponentManager) SetupComponent(ctx context.Context, td *TemplateData
 func (cm *ComponentManager) ReconcileComponents(ctx context.Context, namespace string) (bool, error) {
 	platform, err := cm.Client.GetPlatform(ctx, namespace)
 	if err != nil {
-		return false, client.IgnoreNotFound(err)
+		return false, IgnoreNotFound(err)
 	}
 	if !platform.Status.Ready {
 		return false, nil
@@ -169,4 +171,11 @@ func (cm *ComponentManager) ReconcileComponents(ctx context.Context, namespace s
 	}
 
 	return rdy, nil
+}
+
+func IgnoreNotFound(err error) error {
+	if apierrors.IsNotFound(err) || errors.Is(err, ErrNotFound) {
+		return nil
+	}
+	return err
 }

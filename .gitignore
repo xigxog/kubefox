@@ -18,3 +18,4 @@ tools/
 # Misc
 workstation/
 *.ignore
+go.work.sum
