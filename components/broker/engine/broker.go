@@ -525,7 +525,6 @@ func (brk *broker) startArchiver() {
 			if err != nil {
 				// This event will be lost in time, never to be seen again :(
 				log.Warnf("unable to publish event to JetStream, event not archived: %v", err)
-				continue
 			}
 
 		case <-brk.ctx.Done():

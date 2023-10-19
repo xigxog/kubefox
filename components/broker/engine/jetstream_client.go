@@ -34,9 +34,8 @@ type RecvMsg func(*nats.Msg)
 type JetStreamClient struct {
 	jetstream.JetStream
 
-	nc       *nats.Conn
-	eventsKV jetstream.KeyValue
-	compKV   jetstream.KeyValue
+	nc     *nats.Conn
+	compKV jetstream.KeyValue
 
 	brk Broker
 
@@ -67,10 +66,6 @@ func (c *JetStreamClient) Connect(ctx context.Context) error {
 	c.nc, err = nats.Connect(
 		fmt.Sprintf("nats://%s", config.NATSAddr),
 		nats.Name("broker-"+c.brk.Id()),
-		// nats.RetryOnFailedConnect(true),
-		// nats.MaxReconnects(3),
-		// nats.NoReconnect(),??
-		nats.PingInterval(time.Second*30),
 		nats.RootCAs(kubefox.PathCACert),
 		nats.ClientCert(kubefox.PathTLSCert, kubefox.PathTLSKey),
 	)
@@ -86,9 +81,6 @@ func (c *JetStreamClient) Connect(ctx context.Context) error {
 		return err
 	}
 	if err := c.setupCompsKV(ctx); err != nil {
-		return err
-	}
-	if err := c.setupEventsKV(ctx); err != nil {
 		return err
 	}
 
@@ -116,7 +108,7 @@ func (c *JetStreamClient) setupStream(ctx context.Context) error {
 		MaxMsgSize:  maxMsgSize,
 		Discard:     jetstream.DiscardOld,
 		MaxAge:      EventStreamTTL,
-		NoAck:       true,
+		Duplicates:  time.Millisecond * 100, // minimum value
 	})
 	if err != nil {
 		return c.log.ErrorN("unable to create events stream: %v", err)
@@ -139,34 +131,14 @@ func (c *JetStreamClient) setupCompsKV(ctx context.Context) (err error) {
 	return nil
 }
 
-func (c *JetStreamClient) setupEventsKV(ctx context.Context) (err error) {
-	c.eventsKV, err = c.CreateKeyValue(ctx, jetstream.KeyValueConfig{
-		Bucket:      eventStream,
-		Description: "Durable disk backed key/value store for Event ids. Values are retained for 3 days.",
-		Storage:     jetstream.FileStorage,
-		TTL:         EventStreamTTL,
-	})
-	if err != nil {
-		return c.log.ErrorN("unable to create archive key/value store: %w", err)
-	}
-
-	return nil
-}
-
 func (c *JetStreamClient) Close() {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 
 	c.log.Info("jetstream client closing")
-
 	if c.nc != nil {
 		c.nc.Close()
 	}
-
-}
-
-func (c *JetStreamClient) EventsKV() jetstream.KeyValue {
-	return c.eventsKV
 }
 
 func (c *JetStreamClient) ComponentsKV() jetstream.KeyValue {
@@ -180,13 +152,13 @@ func (c *JetStreamClient) Publish(subject string, evt *kubefox.Event) error {
 	}
 
 	h := make(nats.Header)
-	h.Set(nats.MsgIdHdr, evt.Id)
+	// Note, use of `Nats-Msg-Id` would enable de-dupe and increase mem usage.
+	h.Set(kubefox.CloudEventId, evt.Id)
 
-	// Headers create sizeable overhead for storage. Disabling for now.
+	// Headers create sizeable overhead for storage. Disabling most for now.
 	//
 	// h.Set("ce_specversion", "1.0")
 	// h.Set("ce_type", evt.Type)
-	// h.Set("ce_id", evt.Id)
 	// h.Set("ce_time", time.Now().Format(time.RFC3339))
 	// h.Set("ce_source", fmt.Sprintf("kubefox:component:%s", evt.Source.Key()))
 	// h.Set("ce_dataschema", kubefox.DataSchemaKubefox)
@@ -207,10 +179,10 @@ func (c *JetStreamClient) PullEvents(sub ReplicaSubscription) error {
 	log := c.log.WithComponent(sub.Component())
 
 	consumer, err := c.JetStream.CreateOrUpdateConsumer(sub.Context(), eventStream, jetstream.ConsumerConfig{
-		Name:          sub.Component().Key(),
-		FilterSubject: sub.Component().Subject(),
-		DeliverPolicy: jetstream.DeliverNewPolicy,
-		AckPolicy:     jetstream.AckNonePolicy,
+		Name:              sub.Component().Key(),
+		FilterSubject:     sub.Component().Subject(),
+		DeliverPolicy:     jetstream.DeliverNewPolicy,
+		InactiveThreshold: config.EventTTL * 5,
 	})
 	if err != nil {
 		return log.ErrorN("unable to create JetStream consumer for component: %v", err)
@@ -220,10 +192,9 @@ func (c *JetStreamClient) PullEvents(sub ReplicaSubscription) error {
 	if sub.IsGroupEnabled() {
 		grpConsumer, err = c.JetStream.CreateOrUpdateConsumer(sub.Context(), eventStream, jetstream.ConsumerConfig{
 			Name:              sub.Component().GroupKey(),
-			Durable:           sub.Component().GroupKey(),
 			FilterSubject:     sub.Component().GroupSubject(),
-			AckPolicy:         jetstream.AckNonePolicy,
-			InactiveThreshold: EventStreamTTL,
+			DeliverPolicy:     jetstream.DeliverNewPolicy,
+			InactiveThreshold: config.EventTTL * 5,
 		})
 		if err != nil {
 			return log.ErrorN("unable to create JetStream consumer for group: %v", err)
@@ -233,7 +204,7 @@ func (c *JetStreamClient) PullEvents(sub ReplicaSubscription) error {
 	recvMsg := func(msg jetstream.Msg) {
 		evt := kubefox.NewEvent()
 		if err := proto.Unmarshal(msg.Data(), evt); err != nil {
-			evtId := msg.Headers().Get(jetstream.MsgIDHeader)
+			evtId := msg.Headers().Get(kubefox.CloudEventId)
 			log.With(logkf.KeyEventId, evtId).Warn("message contains invalid event data: %v", err)
 			return
 		}
@@ -250,42 +221,38 @@ func (c *JetStreamClient) PullEvents(sub ReplicaSubscription) error {
 		if err := c.brk.RecvEvent(rEvt); err != nil {
 			c.log.WithEvent(evt).Debug(err)
 			if evt.Target.Id == "" && errors.Is(err, ErrSubCanceled) {
-				// Any component replica can process, republish event.
-				if err := c.nc.PublishMsg(&nats.Msg{
-					Subject: msg.Subject(),
-					Header:  msg.Headers(),
-					Data:    msg.Data(),
-				}); err != nil {
-					c.log.WithEvent(evt).Debug(err)
-				}
+				// Any component replica can process, redeliver event.
+				log.Debug("nacking event from component group subject")
+				msg.Nak()
+				return
 			}
 		}
+		msg.Ack()
 	}
 
 	var (
-		conCtx    jetstream.ConsumeContext
-		grpConCtx jetstream.ConsumeContext
+		consumerCtx    jetstream.ConsumeContext
+		grpConsumerCtx jetstream.ConsumeContext
 	)
-	if conCtx, err = consumer.Consume(recvMsg); err != nil {
+	if consumerCtx, err = consumer.Consume(recvMsg); err != nil {
 		return err
 	}
 	if grpConsumer != nil {
-		if grpConCtx, err = grpConsumer.Consume(recvMsg); err != nil {
-			conCtx.Stop()
+		if grpConsumerCtx, err = grpConsumer.Consume(recvMsg); err != nil {
+			consumerCtx.Stop()
 			return err
 		}
 	}
 	go func() {
 		<-sub.Context().Done()
 		log.Debug("subscription closed, stopping consumers")
-		if grpConCtx != nil {
-			grpConCtx.Stop()
+		if grpConsumerCtx != nil {
+			grpConsumerCtx.Stop()
 		}
-		conCtx.Stop()
-
+		consumerCtx.Stop()
 	}()
-	log.Debug("consumers started")
 
+	log.Debug("consumers started")
 	return nil
 }
 

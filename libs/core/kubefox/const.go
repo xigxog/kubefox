@@ -124,3 +124,7 @@ var (
 const (
 	DefaultRouteId = -1
 )
+
+const (
+	CloudEventId = "ce_id"
+)

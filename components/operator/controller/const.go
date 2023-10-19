@@ -15,7 +15,7 @@ import (
 )
 
 const (
-	NATSImage  = "ghcr.io/xigxog/nats:2.10.3"
+	NATSImage  = "ghcr.io/xigxog/nats:2.9.23"
 	VaultImage = "ghcr.io/xigxog/vault:1.14.4-v0.2.1-alpha"
 )
 
