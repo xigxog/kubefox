@@ -4,11 +4,9 @@ verify_ssl = true
 name = "pypi"
 
 [packages]
-mkdocs = "*"
-mkdocs-material = "*"
-mkdocs-mermaid2-plugin = "*"
-
-[dev-packages]
+mkdocs = "==1.5.3"
+mkdocs-material = "==9.4.1" # versions above this screw up the nav
+mkdocs-mermaid2-plugin = "==1.1.1"
 
 [requires]
 python_version = "3"
