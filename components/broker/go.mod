@@ -2,17 +2,13 @@ module github.com/xigxog/kubefox/components/broker
 
 go 1.21
 
-replace github.com/xigxog/kubefox/libs/core => ../../libs/core
-
-replace github.com/xigxog/kubefox/libs/api => ../../libs/api
-
 require (
 	github.com/go-logr/zapr v1.2.4
 	github.com/google/uuid v1.3.1
 	github.com/lestrrat-go/jwx v1.2.26
 	github.com/nats-io/nats.go v1.30.2
-	github.com/xigxog/kubefox/libs/api v0.0.0
-	github.com/xigxog/kubefox/libs/core v0.1.1-alpha
+	github.com/xigxog/kubefox/libs/api v0.2.0-alpha
+	github.com/xigxog/kubefox/libs/core v0.2.0-alpha
 	go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc v0.45.0
 	go.opentelemetry.io/contrib/instrumentation/host v0.45.0
 	go.opentelemetry.io/contrib/instrumentation/runtime v0.45.0

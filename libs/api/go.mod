@@ -2,10 +2,8 @@ module github.com/xigxog/kubefox/libs/api
 
 go 1.21
 
-replace github.com/xigxog/kubefox/libs/core => ../../libs/core
-
 require (
-	github.com/xigxog/kubefox/libs/core v0.1.1-alpha
+	github.com/xigxog/kubefox/libs/core v0.2.0-alpha
 	k8s.io/apimachinery v0.28.2
 	sigs.k8s.io/controller-runtime v0.16.2
 )

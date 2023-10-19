@@ -21,8 +21,8 @@ nav:
   - 'Telemetry': 'telemetry.md'
   - Reference:
       - reference/events.md
-      - reference/api.md
-      - reference/protobuf.md
+      - reference/protobuf_msgs.md
+      - reference/broker_svc.md
 
 extra:
   homepage: https://kubefox.io

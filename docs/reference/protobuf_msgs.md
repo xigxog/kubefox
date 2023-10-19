@@ -34,9 +34,7 @@
 | category | [Category](#kubefoxprotov1category) |  |  |
 | create_time | [int64](#int64) |  | Unix time in µs |
 | ttl | [int64](#int64) |  | TTL in µs |
-| deployment | [string](#string) |  |  |
-| environment | [string](#string) |  |  |
-| release | [string](#string) |  |  |
+| context | [EventContext](#kubefoxprotov1eventcontext) |  |  |
 | source | [Component](#kubefoxprotov1component) |  |  |
 | target | [Component](#kubefoxprotov1component) |  |  |
 | params | [Event.ParamsEntry](#kubefoxprotov1eventparamsentry) | repeated |  |
@@ -75,6 +73,23 @@
 | ----- | ---- | ----- | ----------- |
 | key | [string](#string) |  |  |
 | value | [google.protobuf.Value](#googleprotobufvalue) |  |  |
+
+
+
+
+
+
+<a name="kubefoxprotov1eventcontext"></a>
+
+### EventContext
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| deployment | [string](#string) |  |  |
+| environment | [string](#string) |  |  |
+| release | [string](#string) |  |  |
 
 
 
@@ -123,10 +138,10 @@
 
 | Name | Number | Description |
 | ---- | ------ | ----------- |
-| CATEGORY_UNKNOWN | 0 |  |
-| CATEGORY_SINGLE | 1 |  |
-| CATEGORY_REQUEST | 2 |  |
-| CATEGORY_RESPONSE | 3 |  |
+| UNKNOWN | 0 |  |
+| MESSAGE | 1 |  |
+| REQUEST | 2 |  |
+| RESPONSE | 3 |  |
 
 
  <!-- end enums -->

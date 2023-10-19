@@ -2,17 +2,13 @@ module github.com/xigxog/kubefox/components/operator
 
 go 1.21
 
-replace github.com/xigxog/kubefox/libs/core => ../../libs/core
-
-replace github.com/xigxog/kubefox/libs/api => ../../libs/api
-
 require (
 	github.com/Masterminds/sprig/v3 v3.2.3
 	github.com/go-logr/zapr v1.2.4
 	github.com/hashicorp/vault/api v1.10.0
 	github.com/hashicorp/vault/api/auth/kubernetes v0.5.0
-	github.com/xigxog/kubefox/libs/api v0.0.0
-	github.com/xigxog/kubefox/libs/core v0.0.0
+	github.com/xigxog/kubefox/libs/api v0.2.0-alpha
+	github.com/xigxog/kubefox/libs/core v0.2.0-alpha
 	k8s.io/api v0.28.2
 	k8s.io/apiextensions-apiserver v0.28.0
 	k8s.io/apimachinery v0.28.2
