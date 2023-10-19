@@ -152,7 +152,7 @@ func (r *PlatformReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		return ctrl.Result{}, log.ErrorN("problem setting up instance: %w", err)
 	}
 	if rdy, err := r.cm.SetupComponent(ctx, td); !rdy || err != nil {
-		return ctrl.Result{}, err
+		return ctrl.Result{RequeueAfter: time.Second * 3}, err
 	}
 	vaultURL := fmt.Sprintf("https://%s.%s:8200", td.ComponentFullName(), td.Instance.Namespace)
 	if r.VaultAddr != "" {
