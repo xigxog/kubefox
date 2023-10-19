@@ -25,6 +25,7 @@ spec:
             - -name={{ .Component.Name }}
             - -commit={{ .Component.Commit }}
             - -broker-addr=$(KUBEFOX_HOST_IP):6060
+            - -health-addr=0.0.0.0:1111
             - -log-format={{ logFormat }}
             - -log-level={{ logLevel }}
           {{- if .Component.Resources }}
@@ -43,6 +44,19 @@ spec:
           envFrom:
             - configMapRef:
                 name: {{ name }}-env
+          ports:
+            - name: health
+              containerPort: 1111
+              protocol: TCP
+          readinessProbe:
+            periodSeconds: 3
+            failureThreshold: 2
+            httpGet:
+              port: health
+          livenessProbe:
+            failureThreshold: 6
+            httpGet:
+              port: health
           volumeMounts:
             - name: root-ca
               mountPath: {{ homePath }}/ca.crt
