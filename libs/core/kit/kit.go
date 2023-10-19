@@ -2,11 +2,15 @@ package kit
 
 import (
 	"context"
+	"errors"
 	"flag"
 	"fmt"
 	"math/rand"
+	"net"
+	"net/http"
 	"os"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
@@ -44,6 +48,9 @@ type kit struct {
 	brk    grpc.Broker_SubscribeClient
 	reqMap map[string]chan *kubefox.Event
 
+	httpSrv *http.Server
+	healthy atomic.Bool
+
 	reqMapMutex sync.Mutex
 	sendMutex   sync.Mutex
 
@@ -68,11 +75,12 @@ func New() Kit {
 	}
 
 	var help bool
-	var logFormat, logLevel string
+	var healthAddr, logFormat, logLevel string
 	//-tls-skip-verify
 	flag.StringVar(&svc.comp.Name, "name", "", "Component name; environment variable 'KUBEFOX_COMPONENT'. (required)")
 	flag.StringVar(&svc.comp.Commit, "commit", "", "Commit the Component was built from; environment variable 'KUBEFOX_COMPONENT_COMMIT'. (required)")
-	flag.StringVar(&svc.brokerAddr, "broker-addr", "127.0.0.1:6060", "Address of the Broker gRPC server; environment variable 'KUBEFOX_BROKER_GRPC_ADDR'.")
+	flag.StringVar(&svc.brokerAddr, "broker-addr", "127.0.0.1:6060", "Address of the Broker gRPC server; environment variable 'KUBEFOX_BROKER_ADDR'.")
+	flag.StringVar(&healthAddr, "health-addr", "127.0.0.1:1111", `Address and port the HTTP health server should bind to, set to "false" to disable; environment variable 'KUBEFOX_HEALTH_ADDR'.`)
 	flag.StringVar(&logFormat, "log-format", "console", "Log format; environment variable 'KUBEFOX_LOG_FORMAT'. [options 'json', 'console']")
 	flag.StringVar(&logLevel, "log-level", "debug", "Log level; environment variable 'KUBEFOX_LOG_LEVEL'. [options 'debug', 'info', 'warn', 'error']")
 	flag.BoolVar(&help, "help", false, "Show usage for component.")
@@ -90,7 +98,8 @@ Flags:
 
 	svc.comp.Name = utils.ResolveFlag(svc.comp.Name, "KUBEFOX_COMPONENT", "")
 	svc.comp.Commit = utils.ResolveFlag(svc.comp.Commit, "KUBEFOX_COMPONENT_COMMIT", "")
-	svc.brokerAddr = utils.ResolveFlag(svc.brokerAddr, "KUBEFOX_BROKER_GRPC_ADDR", "127.0.0.1:6060")
+	svc.brokerAddr = utils.ResolveFlag(svc.brokerAddr, "KUBEFOX_BROKER_ADDR", "127.0.0.1:6060")
+	healthAddr = utils.ResolveFlag(healthAddr, "KUBEFOX_HEALTH_ADDR", "127.0.0.1:1111")
 	logFormat = utils.ResolveFlag(logFormat, "KUBEFOX_LOG_FORMAT", "console")
 	logLevel = utils.ResolveFlag(logLevel, "KUBEFOX_LOG_LEVEL", "debug")
 
@@ -104,6 +113,25 @@ Flags:
 
 	svc.log = logkf.Global
 	svc.log.Debugf("gitCommit: %s, gitRef: %s", kubefox.GitCommit, kubefox.GitRef)
+
+	svc.httpSrv = &http.Server{
+		WriteTimeout: time.Second * 3,
+		ReadTimeout:  time.Second * 3,
+		IdleTimeout:  time.Second * 30,
+		Handler:      svc,
+	}
+	ln, err := net.Listen("tcp", healthAddr)
+	if err != nil {
+		svc.log.Fatal("unable to open tcp socket for health server: %v", err)
+	}
+	go func() {
+		err := svc.httpSrv.Serve(ln)
+		if err != nil && !errors.Is(err, http.ErrServerClosed) {
+			svc.log.Error(err)
+			os.Exit(1)
+		}
+	}()
+	svc.log.Debug("health server started")
 
 	svc.log.Info("🦊 kit created")
 
@@ -137,10 +165,11 @@ func (svc *kit) Start() {
 
 	for retry < maxRetry {
 		retry, err = svc.run(retry)
+		svc.healthy.Store(false)
 		svc.log.Warnf("broker subscription closed, retry %d: %v", retry, err)
 		time.Sleep(time.Second * time.Duration(rand.Intn(2)+1))
 	}
-	svc.log.Fatalf("exceeded max retries: %v", err)
+	svc.log.Fatalf("exceeded max retries connection to broker: %v", err)
 }
 
 func (svc *kit) run(retry int) (int, error) {
@@ -198,6 +227,7 @@ func (svc *kit) run(retry int) (int, error) {
 		return retry + 1, fmt.Errorf("unable to register with broker: %v", err)
 	}
 
+	svc.healthy.Store(true)
 	svc.log.Info("kit subscribed to broker")
 
 	for {
@@ -220,6 +250,14 @@ func (svc *kit) run(retry int) (int, error) {
 			svc.log.Debug("default")
 		}
 	}
+}
+
+func (svc *kit) ServeHTTP(resp http.ResponseWriter, req *http.Request) {
+	status := http.StatusOK
+	if !svc.healthy.Load() {
+		status = http.StatusServiceUnavailable
+	}
+	resp.WriteHeader(status)
 }
 
 func (svc *kit) recvReq(req *kubefox.MatchedEvent) {
