@@ -49,7 +49,7 @@ nodes:
       - containerPort: 8443
         hostPort: 30443
 "
-kind create cluster --name kubefox --wait 5m
+kind create cluster --config /tmp/kind-cluster.yaml --wait 5m
 kubectl config use-context kind-kubefox-demo
 ```
 
