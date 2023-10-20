@@ -119,9 +119,9 @@ fox init
 Answer the prompts:
 
 ```text
-Are you only using KubeFox locally? [y/N] y
+Are you only using KubeFox with local Kind cluster? [y/N] y
 Enter the Kind cluster's name (default 'kind'): kubefox-demo
-Would you like to initialize the hello-world app? [y/N] y
+Would you like to initialize the 'hello-world' KubeFox app? [y/N] y
 ```
 
 ??? example "Output"
