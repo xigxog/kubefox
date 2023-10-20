@@ -80,44 +80,39 @@ kubectl config use-context kind-kubefox-demo
 Next we need to add the XigXog Helm Repo and install the KubeFox Helm Chart.
 
 ```shell
-helm repo add xigxog https://xigxog.github.io/helm-charts
-helm repo update
-helm install kubefox-demo xigxog/kubefox --create-namespace --namespace kubefox-system --wait
+helm install kubefox-demo kubefox \
+  --repo https://xigxog.github.io/helm-charts \
+  --create-namespace --namespace kubefox-system
 ```
 
 ??? example "Output"
 
     ```text
-    $ helm repo add xigxog https://xigxog.github.io/helm-charts
-    "xigxog" has been added to your repositories
+    $ helm install kubefox-demo kubefox \
+        --repo https://xigxog.github.io/helm-charts \
+        --create-namespace --namespace kubefox-system
 
-    $ helm repo update
-    Hang tight while we grab the latest from your chart repositories...
-    ...Successfully got an update from the "xigxog" chart repository
-    Update Complete. ⎈Happy Helming!⎈
-
-    $ helm install kubefox-demo xigxog/kubefox --create-namespace --namespace kubefox-system --wait
-    NAME: kubefox
+    NAME: kubefox-demo
     LAST DEPLOYED: Thu Jan  1 00:00:00 1970
     NAMESPACE: kubefox-system
     STATUS: deployed
     REVISION: 1
+    TEST SUITE: None
     ```
 
 ## Deploy KubeFox App
 
 Great now we're ready to create your first KubeFox app and deploy it to the a
 Platform running on the local Kind Cluster. We'll be using a local Git repo for
-the demo. To get things started let's create a new directory and use the Fox CLI
-to initialize the `hello-world` app. You'll want to run all the remaining
-commands from this directory. The export command tells Fox to print some extra
-info about what is going on. If you run into problems you can also pass the
-`--verbose` flag to print debug statements.
+the demo. To get things started let's create a new directory and use the Fox to
+initialize the `hello-world` app. You'll want to run all the remaining commands
+from this directory. The export command tells Fox to print some extra info about
+what is going on. If you run into problems you can also pass the `--verbose`
+flag to print debug statements.
 
 ```shell
 export FOX_INFO=true
-mkdir kubefox-hello-world
-cd kubefox-hello-world
+mkdir kubefox-hello-world && cd kubefox-hello-world
 fox init
 ```
 
@@ -132,8 +127,14 @@ Would you like to initialize the hello-world app? [y/N] y
 ??? example "Output"
 
     ```text
+    $ mkdir kubefox-hello-world && cd kubefox-hello-world
+
     $ fox init
-    info    It looks like this is the first time you are using Fox. Welcome!
+    info    It looks like this is the first time you are using 🦊 Fox. Welcome!
+
+    info    Fox needs some information from you to configure itself. The setup process only
+    info    needs to be run once, but if you ever want change things you can use the
+    info    command 'fox config setup'.
 
     info    Please make sure your workstation has Docker installed (https://docs.docker.com/engine/install)
     info    and that KubeFox is installed (https://docs.kubefox.io/install) on your Kubernetes cluster.
@@ -144,24 +145,27 @@ Would you like to initialize the hello-world app? [y/N] y
     info    Fox needs a place to store the KubeFox Component images it will build, normally
     info    this is a remote container registry. However, if you only want to use KubeFox
     info    locally with Kind you can skip this step.
-    Are you only using KubeFox locally? [y/N] y
-    Enter the Kind cluster's name (default 'kubefox'): kubefox-demo
+    Are you only using KubeFox with local Kind cluster? [y/N] y
+    Enter the Kind cluster's name (default 'kind'): kubefox-demo
+
+    info    Configuration successfully written to '/home/xadhatter/.config/kubefox/config.yaml'.
 
     info    Congrats, you are ready to use KubeFox!
     info    Check out the quickstart for next steps (https://docs.kubefox.io/quickstart/).
     info    If you run into any problems please let us know on GitHub (https://github.com/xigxog/kubefox/issues).
 
-    info    Let's initialize a KubeFox repo!
+    info    Let's initialize a KubeFox app!
 
-    info    To get things started quickly Fox can create a hello-world app which includes
-    info    two components and example environments for testing.
-    Would you like to initialize the hello-world app? [y/N] y
+    info    To get things started quickly 🦊 Fox can create a 'hello-world' KubeFox app which
+    info    includes two components and example environments for testing.
+    Would you like to initialize the 'hello-world' KubeFox app? [y/N] y
 
-    info    KubeFox repo initialization complete!
+    info    KubeFox app initialization complete!
     ```
 
 You should see some newly created directories and files. The `hello-world` app
-includes two components and example environments. Take a look around!
+includes two components and example environments. You might also notice Fox
+initialized a new Git repo for you. Take a look around!
 
 Let's get some environments created. Two sample environments are provided in the
 `hack` dir. Let's take a quick look at them, then use `kubectl` to send them to
@@ -204,33 +208,44 @@ the component's OCI images, load them onto the kind cluster, and deploy them to
 the KubeFox platform. The first run might take some time as it needs to download
 dependencies, but future runs should be much faster. Remember, you can add the
 `--verbose` flag for extra output if you want to see what's going on behind the
-scenes.
+scenes. Note that the first deployment will initialize the platform so it might
+take a couple minutes for all the pods to be ready. But don't worry, future
+deployments will be very fast.
 
 ```shell
-fox publish my-deployment
+fox publish my-deployment --wait 5m
 ```
 
 Answer the prompts:
 
 ```text
-Would you like to create a Platform? [Y/n] y
-Enter the Platform's name (required): dev
-Enter the Kubernetes namespace of the Platform (default 'kubefox-dev'): kubefox-dev
+Would you like to create a KubeFox platform? [Y/n] y
+Enter the KubeFox platform's name (required): dev
+Enter the Kubernetes namespace of the KubeFox platform (default 'kubefox-dev'): kubefox-dev
 ```
 
 ??? example "Output"
 
     ```text
-    $ fox publish my-deployment
-    info    Building component image 'localhost/kubefox/hello-world/backend:6c42fbb'.
-    info    Loading component image 'localhost/kubefox/hello-world/backend:6c42fbb' into Kind cluster 'kubefox-demo'.
-    info    Building component image 'localhost/kubefox/hello-world/frontend:6c42fbb'.
-    info    Loading component image 'localhost/kubefox/hello-world/frontend:6c42fbb' into Kind cluster 'kubefox-demo'.
-    error   No Platforms found. Ensure you have the correct context active (`kubectl config get-contexts`).
-    error   If so, Fox can create a Platform for you.
-    Would you like to create a Platform? [Y/n] y
-    Enter the Platform's name (required): dev
-    Enter the Kubernetes namespace of the Platform (default 'kubefox-dev'): kubefox-dev
+    $ fox publish my-deployment --wait 5m
+    info    Building component image 'localhost/kubefox/hello-world/backend:68beae1'.
+    info    Loading component image 'localhost/kubefox/hello-world/backend:68beae1' into Kind cluster 'kubefox-demo'.
+    
+    info    Building component image 'localhost/kubefox/hello-world/frontend:68beae1'.
+    info    Loading component image 'localhost/kubefox/hello-world/frontend:68beae1' into Kind cluster 'kubefox-demo'.
+
+    info    You need to have a KubeFox platform instance running to deploy your components.
+    info    Don't worry, 🦊 Fox can create one for you.
+    Would you like to create a KubeFox platform? [Y/n] y
+    Enter the KubeFox platform's name (required): dev
+    Enter the Kubernetes namespace of the KubeFox platform (default 'kubefox-dev'): kubefox-dev
+
+    info    Component image 'localhost/kubefox/hello-world/backend:68beae1' exists.
+    info    Component image 'localhost/kubefox/hello-world/frontend:68beae1' exists.
+
+    info    Waiting for KubeFox platform 'dev' to be ready.
+    info    Waiting for component 'backend' to be ready.
+    info    Waiting for component 'frontend' to be ready.
 
     apiVersion: kubefox.xigxog.io/v1alpha1
     kind: Deployment
@@ -239,31 +254,27 @@ Enter the Kubernetes namespace of the Platform (default 'kubefox-dev'): kubefox-
       generation: 1
       name: my-deployment
       namespace: kubefox-dev
-      resourceVersion: "3091"
-      uid: a6232ad4-47a9-4ed8-a554-fc6104395bd2
+      resourceVersion: "13326"
+      uid: 5ad9a257-01c0-43e0-b6be-92757a47ba7c
     spec:
       app:
-        commit: 6c42fbb
+        commit: 68beae1
         containerRegistry: localhost/kubefox/hello-world
         description: A simple app demonstrating the use of KubeFox.
-        gitRef: main
+        gitRef: refs/heads/main
         name: hello-world
         title: Hello World
       components:
         backend:
-          commit: 6c42fbb
+          commit: 68beae1
           env: {}
         frontend:
-          commit: 6c42fbb
+          commit: 68beae1
           env: {}
     status: {}
     ```
 
-We'll take a quick look at what is running on Kubernetes. Note that the first
-deployment will initialize the platform so it might take a couple minutes for
-all the pods to be ready. But don't worry, future deployments will be very fast.
-If you don't see all the pods listed below grab a cup of coffee, call your mom,
-or just wait a minute and try again.
+Now take a quick look at what is running on Kubernetes.
 
 ```shell
 kubectl get pods --namespace kubefox-dev
@@ -324,7 +335,7 @@ want and let Fox do the rest.
 ```shell
 git tag v0.1.0
 git checkout v0.1.0
-fox release dev --env world
+fox release dev --env world --wait 5m
 git switch -
 ```
 
@@ -352,7 +363,14 @@ git switch -
 
     HEAD is now at 6c42fbb And so it begins...
 
-    $ fox release dev --env world
+    $ fox release dev --env world --wait 5m
+    info    Component image 'localhost/kubefox/hello-world/backend:68beae1' exists.
+    info    Component image 'localhost/kubefox/hello-world/frontend:68beae1' exists.
+
+    info    Waiting for KubeFox platform 'dev' to be ready.
+    info    Waiting for component 'frontend' to be ready.
+    info    Waiting for component 'backend' to be ready.
+
     metadata:
       creationTimestamp: "1970-01-01T00:00:00Z"
       generation: 1
