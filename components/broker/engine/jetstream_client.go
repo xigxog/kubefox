@@ -17,7 +17,7 @@ import (
 
 // Content types
 const (
-	name                 = "jetstream-client"
+	jsSvcName            = "jetstream-client"
 	eventStream          = "EVENTS"
 	eventSubjectWildcard = "evt.>"
 	compBucket           = "COMPONENTS"
@@ -37,6 +37,8 @@ type JetStreamClient struct {
 	nc     *nats.Conn
 	compKV jetstream.KeyValue
 
+	consumerMap map[string]bool
+
 	brk Broker
 
 	mutex sync.Mutex
@@ -45,8 +47,9 @@ type JetStreamClient struct {
 
 func NewJetStreamClient(brk Broker) *JetStreamClient {
 	return &JetStreamClient{
-		log: logkf.Global,
-		brk: brk,
+		consumerMap: make(map[string]bool),
+		brk:         brk,
+		log:         logkf.Global,
 	}
 }
 
@@ -65,7 +68,7 @@ func (c *JetStreamClient) Connect(ctx context.Context) error {
 
 	c.nc, err = nats.Connect(
 		fmt.Sprintf("nats://%s", config.NATSAddr),
-		nats.Name("broker-"+c.brk.Id()),
+		nats.Name("broker-"+c.brk.Component().Id),
 		nats.RootCAs(kubefox.PathCACert),
 		nats.ClientCert(kubefox.PathTLSCert, kubefox.PathTLSKey),
 	)
@@ -175,85 +178,73 @@ func (c *JetStreamClient) Publish(subject string, evt *kubefox.Event) error {
 	})
 }
 
-func (c *JetStreamClient) PullEvents(sub ReplicaSubscription) error {
-	log := c.log.WithComponent(sub.Component())
+func (c *JetStreamClient) ConsumeEvents(ctx context.Context, name, subj, descrip string) error {
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
 
-	consumer, err := c.JetStream.CreateOrUpdateConsumer(sub.Context(), eventStream, jetstream.ConsumerConfig{
-		Name:              sub.Component().Key(),
-		FilterSubject:     sub.Component().Subject(),
+	if _, found := c.consumerMap[name]; found {
+		return nil
+	}
+
+	consumer, err := c.JetStream.CreateOrUpdateConsumer(ctx, eventStream, jetstream.ConsumerConfig{
+		Name:              name,
+		Description:       descrip,
+		FilterSubject:     subj,
 		DeliverPolicy:     jetstream.DeliverNewPolicy,
 		InactiveThreshold: config.EventTTL * 5,
 	})
 	if err != nil {
-		return log.ErrorN("unable to create JetStream consumer for component: %v", err)
+		return c.log.ErrorN("unable to create JetStream consumer '%s': %w", consumer, err)
 	}
 
-	var grpConsumer jetstream.Consumer
-	if sub.IsGroupEnabled() {
-		grpConsumer, err = c.JetStream.CreateOrUpdateConsumer(sub.Context(), eventStream, jetstream.ConsumerConfig{
-			Name:              sub.Component().GroupKey(),
-			FilterSubject:     sub.Component().GroupSubject(),
-			DeliverPolicy:     jetstream.DeliverNewPolicy,
-			InactiveThreshold: config.EventTTL * 5,
-		})
-		if err != nil {
-			return log.ErrorN("unable to create JetStream consumer for group: %v", err)
-		}
-	}
-
-	recvMsg := func(msg jetstream.Msg) {
-		evt := kubefox.NewEvent()
-		if err := proto.Unmarshal(msg.Data(), evt); err != nil {
-			evtId := msg.Headers().Get(kubefox.CloudEventId)
-			log.With(logkf.KeyEventId, evtId).Warn("message contains invalid event data: %v", err)
-			return
-		}
-		if md, err := msg.Metadata(); err == nil { // success
-			evt.ReduceTTL(md.Timestamp)
-		}
-
-		rEvt := &LiveEvent{
-			Event:        evt,
-			Receiver:     ReceiverJetStream,
-			ReceivedAt:   time.Now(),
-			Subscription: sub,
-		}
-		if err := c.brk.RecvEvent(rEvt); err != nil {
-			c.log.WithEvent(evt).Debug(err)
-			if evt.Target.Id == "" && errors.Is(err, ErrSubCanceled) {
-				// Any component replica can process, redeliver event.
-				log.Debug("nacking event from component group subject")
-				msg.Nak()
-				return
-			}
-		}
-		msg.Ack()
-	}
-
-	var (
-		consumerCtx    jetstream.ConsumeContext
-		grpConsumerCtx jetstream.ConsumeContext
-	)
-	if consumerCtx, err = consumer.Consume(recvMsg); err != nil {
+	consumerCtx, err := consumer.Consume(c.handleMsg)
+	if err != nil {
 		return err
 	}
-	if grpConsumer != nil {
-		if grpConsumerCtx, err = grpConsumer.Consume(recvMsg); err != nil {
-			consumerCtx.Stop()
-			return err
-		}
-	}
+	c.consumerMap[name] = true
+	c.log.Debug("consumer '%s' started", consumer)
+
 	go func() {
-		<-sub.Context().Done()
-		log.Debug("subscription closed, stopping consumers")
-		if grpConsumerCtx != nil {
-			grpConsumerCtx.Stop()
-		}
+		<-ctx.Done()
+		c.log.Debug("context done, stopping consumer '%s'", consumer)
+
+		c.mutex.Lock()
+		defer c.mutex.Unlock()
+
 		consumerCtx.Stop()
+		delete(c.consumerMap, name)
 	}()
 
-	log.Debug("consumers started")
 	return nil
+}
+
+func (c *JetStreamClient) handleMsg(msg jetstream.Msg) {
+	evt := kubefox.NewEvent()
+	if err := proto.Unmarshal(msg.Data(), evt); err != nil {
+		evtId := msg.Headers().Get(kubefox.CloudEventId)
+		c.log.With(logkf.KeyEventId, evtId).Warn("message contains invalid event data: %v", err)
+		return
+	}
+	if md, err := msg.Metadata(); err == nil { // success
+		evt.ReduceTTL(md.Timestamp)
+	}
+
+	rEvt := &LiveEvent{
+		Event:      evt,
+		Receiver:   ReceiverJetStream,
+		ReceivedAt: time.Now(),
+	}
+	if err := c.brk.RecvEvent(rEvt); err != nil {
+		log := c.log.WithEvent(evt)
+		log.Debug(err)
+		if evt.Target.Id == "" && errors.Is(err, ErrSubCanceled) {
+			// Any component replica can process, redeliver event.
+			log.Debug("nacking event from component group subject")
+			msg.Nak()
+			return
+		}
+	}
+	msg.Ack()
 }
 
 func (c *JetStreamClient) IsHealthy(ctx context.Context) bool {
@@ -261,5 +252,5 @@ func (c *JetStreamClient) IsHealthy(ctx context.Context) bool {
 }
 
 func (c *JetStreamClient) Name() string {
-	return name
+	return jsSvcName
 }

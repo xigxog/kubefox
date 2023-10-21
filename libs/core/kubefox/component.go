@@ -2,6 +2,10 @@ package kubefox
 
 import (
 	"fmt"
+	"os"
+	"strings"
+
+	"github.com/google/uuid"
 )
 
 type ComponentReg struct {
@@ -9,12 +13,24 @@ type ComponentReg struct {
 	DefaultHandler bool     `json:"defaultHandler"`
 }
 
-func (c *Component) IsEmpty() bool {
-	return c.Name == "" && c.Commit == "" && c.Id == ""
+func GenNameAndId() (string, string) {
+	id := uuid.NewString()
+	name := id
+	if p, _ := os.LookupEnv(EnvPodName); p != "" {
+		name = p
+		s := strings.Split(p, "-")
+		if len(s) > 1 {
+			id = s[len(s)-1]
+		}
+	} else if h, _ := os.Hostname(); h != "" {
+		name = h
+	}
+
+	return name, id
 }
 
 func (c *Component) IsFull() bool {
-	return c.Name != "" && c.Commit != "" && c.Id != ""
+	return c.Name != "" && c.Commit != "" && c.Id != "" && c.BrokerId != ""
 }
 
 func (lhs *Component) Equal(rhs *Component) bool {
@@ -23,7 +39,8 @@ func (lhs *Component) Equal(rhs *Component) bool {
 	}
 	return lhs.Name == rhs.Name &&
 		lhs.Commit == rhs.Commit &&
-		lhs.Id == rhs.Id
+		lhs.Id == rhs.Id &&
+		lhs.BrokerId == rhs.BrokerId
 }
 
 func (c *Component) Key() string {
@@ -35,6 +52,9 @@ func (c *Component) GroupKey() string {
 }
 
 func (c *Component) Subject() string {
+	if c.BrokerId != "" {
+		return c.BrokerSubject()
+	}
 	if c.Id == "" {
 		return c.GroupSubject()
 	}
@@ -54,6 +74,10 @@ func (c *Component) DirectSubject() string {
 		return fmt.Sprintf("evt.direct.%s.%s", c.Name, c.ShortCommit())
 	}
 	return fmt.Sprintf("evt.direct.%s.%s.%s", c.Name, c.ShortCommit(), c.Id)
+}
+
+func (c *Component) BrokerSubject() string {
+	return fmt.Sprintf("evt.brk.%s", c.BrokerId)
 }
 
 func (c *Component) ShortCommit() string {

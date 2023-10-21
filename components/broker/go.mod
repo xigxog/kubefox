@@ -4,7 +4,6 @@ go 1.21
 
 require (
 	github.com/go-logr/zapr v1.2.4
-	github.com/google/uuid v1.3.1
 	github.com/lestrrat-go/jwx v1.2.26
 	github.com/nats-io/nats.go v1.31.0
 	github.com/xigxog/kubefox/libs/api v0.2.1-alpha
@@ -56,6 +55,7 @@ require (
 	github.com/google/gnostic-models v0.6.8 // indirect
 	github.com/google/go-cmp v0.6.0 // indirect
 	github.com/google/gofuzz v1.2.0 // indirect
+	github.com/google/uuid v1.3.1 // indirect
 	github.com/gravitational/trace v1.3.1 // indirect
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.18.0 // indirect
 	github.com/imdario/mergo v0.3.16 // indirect

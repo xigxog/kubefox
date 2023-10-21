@@ -12,6 +12,8 @@ import (
 )
 
 const (
+	KeyBrokerId        = "brokerId"
+	KeyBrokerName      = "brokerName"
 	KeyComponentCommit = "componentCommit"
 	KeyComponentId     = "componentId"
 	KeyComponentName   = "componentName"
@@ -26,6 +28,7 @@ const (
 	KeyRelease         = "release"
 	KeyService         = "service"
 	KeySpanId          = "spanId"
+	KeyTargetBrokerId  = "targetBrokerId"
 	KeyTargetCommit    = "targetCommit"
 	KeyTargetId        = "targetId"
 	KeyTargetName      = "targetName"
@@ -162,6 +165,7 @@ func (log *Logger) WithComponent(comp *kubefox.Component) *Logger {
 		KeyComponentId, comp.Id,
 		KeyComponentCommit, comp.Commit,
 		KeyComponentName, comp.Name,
+		KeyBrokerId, comp.BrokerId,
 	)
 }
 
@@ -173,6 +177,7 @@ func (log *Logger) WithTarget(tgt *kubefox.Component) *Logger {
 		KeyTargetId, tgt.Id,
 		KeyTargetCommit, tgt.Commit,
 		KeyTargetName, tgt.Name,
+		KeyTargetBrokerId, tgt.BrokerId,
 	)
 }
 

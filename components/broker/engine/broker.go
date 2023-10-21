@@ -11,7 +11,7 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/google/uuid"
+	"github.com/go-logr/zapr"
 	"github.com/lestrrat-go/jwx/jwt"
 	"github.com/xigxog/kubefox/components/broker/config"
 	"github.com/xigxog/kubefox/components/broker/telemetry"
@@ -30,14 +30,19 @@ import (
 
 // OS status codes
 const (
-	ConfigurationExitCode = 10
-	JetStreamExitCode     = 11
-	GRPCServerExitCode    = 12
-	HTTPServerExitCode    = 13
-	TelemetryExitCode     = 14
-	ResourceStoreExitCode = 15
-	kubernetesExitCode    = 16
+	ExitCodeConfiguration = 10
+	ExitCodeJetStream     = 11
+	ExitCodeGRPCServer    = 12
+	ExitCodeHTTPServer    = 13
+	ExitCodeTelemetry     = 14
+	ExitCodeResourceStore = 15
+	ExitCodeKubernetes    = 16
 	InterruptCode         = 130
+)
+
+const (
+	FormatBrokerSubject  = "evt.brk.%s"
+	FormatBrokerConsumer = "broker-%s"
 )
 
 var (
@@ -53,11 +58,11 @@ type Broker interface {
 	AuthorizeComponent(context.Context, *kubefox.Component, string) error
 	Subscribe(context.Context, *SubscriptionConf) (ReplicaSubscription, error)
 	RecvEvent(*LiveEvent) error
-	Id() string
+	Component() *kubefox.Component
 }
 
 type broker struct {
-	id string
+	comp *kubefox.Component
 
 	grpcSrv *GRPCServer
 	httpSrv *HTTPServer
@@ -84,17 +89,26 @@ type broker struct {
 }
 
 func New() Engine {
-	id, _ := os.LookupEnv("KUBEFOX_POD")
-	if id == "" {
-		id, _ = os.Hostname()
-	}
-	if id == "" {
-		id = uuid.NewString()
-	}
+	name, id := kubefox.GenNameAndId()
+	logkf.Global = logkf.
+		BuildLoggerOrDie(config.LogFormat, config.LogLevel).
+		WithInstance(config.Instance).
+		WithPlatform(config.Platform).
+		WithService("broker").
+		With(logkf.KeyBrokerId, id).
+		With(logkf.KeyBrokerName, name)
+	ctrl.SetLogger(zapr.NewLogger(logkf.Global.Unwrap().Desugar()))
+
+	logkf.Global.Debugf("gitCommit: %s, gitRef: %s", kubefox.GitCommit, kubefox.GitRef)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	brk := &broker{
-		id:        id,
+		comp: &kubefox.Component{
+			Name:     name,
+			Commit:   kubefox.GitCommit,
+			Id:       id,
+			BrokerId: id,
+		},
 		healthSrv: telemetry.NewHealthServer(),
 		telClient: telemetry.NewClient(),
 		subMgr:    NewManager(),
@@ -113,57 +127,66 @@ func New() Engine {
 	return brk
 }
 
-func (brk *broker) Id() string {
-	return brk.id
+func (brk *broker) Component() *kubefox.Component {
+	return brk.comp
 }
 
 func (brk *broker) Start() {
 	// TODO log config
-	brk.log.Debug("broker starting")
+	brk.log.Debug("broker %s starting", brk.comp.Key())
 
 	ctx, cancel := context.WithTimeout(brk.ctx, timeout)
 	defer cancel()
 
 	cfg, err := ctrl.GetConfig()
 	if err != nil {
-		brk.shutdown(kubernetesExitCode, err)
+		brk.shutdown(ExitCodeKubernetes, err)
 	}
 	k8s, err := client.New(cfg, client.Options{})
 	if err != nil {
-		brk.shutdown(kubernetesExitCode, err)
+		brk.shutdown(ExitCodeKubernetes, err)
 	}
 	brk.k8sClient = k8s
 
 	if config.HealthSrvAddr != "false" {
 		if err := brk.healthSrv.Start(); err != nil {
-			brk.shutdown(TelemetryExitCode, err)
+			brk.shutdown(ExitCodeTelemetry, err)
 		}
 	}
 
 	if config.TelemetryAddr != "false" {
 		if err := brk.telClient.Start(ctx); err != nil {
-			brk.shutdown(TelemetryExitCode, err)
+			brk.shutdown(ExitCodeTelemetry, err)
 		}
 	}
 
 	if err := brk.jsClient.Connect(ctx); err != nil {
-		brk.shutdown(JetStreamExitCode, err)
+		brk.shutdown(ExitCodeJetStream, err)
 	}
 	brk.healthSrv.Register(brk.jsClient)
 
 	if err := brk.store.Open(brk.jsClient.ComponentsKV()); err != nil {
-		brk.shutdown(ResourceStoreExitCode, err)
+		brk.shutdown(ExitCodeResourceStore, err)
 	}
 
 	if err := brk.grpcSrv.Start(ctx); err != nil {
-		brk.shutdown(GRPCServerExitCode, err)
+		brk.shutdown(ExitCodeGRPCServer, err)
+	}
+
+	consumer := fmt.Sprintf("broker-%s", brk.comp.Id)
+	subj := brk.comp.BrokerSubject()
+	descrip := fmt.Sprintf("Consumer for broker; name: %s, commit: %s, id: %s",
+		brk.comp.Name, brk.comp.Commit, brk.comp.Id)
+
+	if err := brk.jsClient.ConsumeEvents(brk.ctx, consumer, subj, descrip); err != nil {
+		brk.shutdown(ExitCodeJetStream, err)
 	}
 
 	if err := brk.httpSrv.Start(); err != nil {
-		brk.shutdown(HTTPServerExitCode, err)
+		brk.shutdown(ExitCodeHTTPServer, err)
 	}
 	if err := brk.store.RegisterAdapter(ctx, brk.httpSrv.Component()); err != nil {
-		brk.shutdown(JetStreamExitCode, err)
+		brk.shutdown(ExitCodeJetStream, err)
 	}
 
 	brk.log.Infof("starting %d workers", config.NumWorkers)
@@ -184,7 +207,7 @@ func (brk *broker) Start() {
 }
 
 func (brk *broker) Subscribe(ctx context.Context, conf *SubscriptionConf) (ReplicaSubscription, error) {
-	sub, err := brk.subMgr.Create(ctx, conf, brk.recvCh)
+	sub, grpSub, err := brk.subMgr.Create(ctx, conf, brk.recvCh)
 	if err != nil {
 		return nil, err
 	}
@@ -193,11 +216,14 @@ func (brk *broker) Subscribe(ctx context.Context, conf *SubscriptionConf) (Repli
 		if err := brk.store.RegisterComponent(ctx, conf.Component, conf.CompReg); err != nil {
 			return nil, err
 		}
-	}
 
-	err = brk.jsClient.PullEvents(sub)
-	if err != nil {
-		return nil, err
+		comp := sub.Component()
+		consumer := comp.GroupKey()
+		subj := comp.GroupSubject()
+		descrip := fmt.Sprintf("Consumer for component group; name: %s, commit: %s", comp.Name, comp.Commit)
+		if err = brk.jsClient.ConsumeEvents(grpSub.Context(), consumer, subj, descrip); err != nil {
+			return nil, err
+		}
 	}
 
 	// TODO deal with health checks
@@ -279,9 +305,13 @@ func (brk *broker) startWorker(id int) {
 				}
 
 				log = log.WithEvent(evt.Event)
-				if errors.Is(err, ErrUnexpected) {
+
+				switch {
+				case errors.Is(err, ErrUnexpected):
 					log.Error(err)
-				} else {
+				case errors.Is(err, ErrBrokerMismatch):
+					log.Warn(err)
+				default:
 					log.Info(err)
 				}
 
@@ -298,6 +328,12 @@ func (brk *broker) routeEvent(log *logkf.Logger, evt *LiveEvent) error {
 
 	if evt.TTL() <= 0 {
 		return fmt.Errorf("%w: event timed out while waiting for worker", ErrEventTimeout)
+	}
+	if evt.Receiver == ReceiverJetStream &&
+		evt.Target != nil &&
+		evt.Target.BrokerId != "" &&
+		evt.Target.BrokerId != brk.comp.Id {
+		return fmt.Errorf("%w: event target broker id is %s", ErrBrokerMismatch, evt.Target.BrokerId)
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), evt.TTL())
@@ -339,6 +375,7 @@ func (brk *broker) routeEvent(log *logkf.Logger, evt *LiveEvent) error {
 			log.Debug("subscription found, sending event with gRPC")
 			err := sub.SendEvent(evt)
 			if evt.Receiver != ReceiverJetStream {
+				evt.Target.BrokerId = brk.comp.BrokerId
 				brk.archiveCh <- evt
 			}
 			return err
@@ -351,7 +388,6 @@ func (brk *broker) routeEvent(log *logkf.Logger, evt *LiveEvent) error {
 			if err != nil {
 				return err
 			}
-
 			return nil
 		}
 	}

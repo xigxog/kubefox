@@ -50,13 +50,19 @@ const (
 
 // Labels
 const (
-	LabelK8sComponent       string = "kubefox.xigxog.io/component"
-	LabelK8sComponentCommit string = "kubefox.xigxog.io/component-commit"
-	LabelK8sPlatform        string = "kubefox.xigxog.io/platform"
-	LabelOCIComponent       string = "com.xigxog.kubefox.component"
-	LabelOCICreated         string = "org.opencontainers.image.created"
-	LabelOCIRevision        string = "org.opencontainers.image.revision"
-	LabelOCISource          string = "org.opencontainers.image.source"
+	LabelK8sComponent       = "kubefox.xigxog.io/component"
+	LabelK8sComponentCommit = "kubefox.xigxog.io/component-commit"
+	LabelK8sPlatform        = "kubefox.xigxog.io/platform"
+	LabelOCIComponent       = "com.xigxog.kubefox.component"
+	LabelOCICreated         = "org.opencontainers.image.created"
+	LabelOCIRevision        = "org.opencontainers.image.revision"
+	LabelOCISource          = "org.opencontainers.image.source"
+)
+
+const (
+	EnvNodeName = "KUBEFOX_NODE"
+	EnvPodIP    = "KUBEFOX_POD_IP"
+	EnvPodName  = "KUBEFOX_POD"
 )
 
 // Keys for well known values.

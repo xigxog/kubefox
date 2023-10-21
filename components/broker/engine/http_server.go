@@ -37,9 +37,10 @@ type HTTPServer struct {
 
 func NewHTTPServer(brk Broker) *HTTPServer {
 	comp := &kubefox.Component{
-		Name:   "http-server",
-		Commit: kubefox.GitCommit,
-		Id:     brk.Id(),
+		Name:     "http-server",
+		Commit:   brk.Component().Commit,
+		Id:       brk.Component().Id,
+		BrokerId: brk.Component().BrokerId,
 	}
 	return &HTTPServer{
 		brk:        brk,
@@ -82,7 +83,7 @@ func (srv *HTTPServer) Start() (err error) {
 			err := srv.wrapped.Serve(ln)
 			if err != nil && !errors.Is(err, http.ErrServerClosed) {
 				srv.log.Error(err)
-				os.Exit(HTTPServerExitCode)
+				os.Exit(ExitCodeHTTPServer)
 			}
 		}()
 	}
@@ -96,7 +97,7 @@ func (srv *HTTPServer) Start() (err error) {
 			err := srv.wrapped.ServeTLS(lns, kubefox.PathTLSCert, kubefox.PathTLSKey)
 			if err != nil && !errors.Is(err, http.ErrServerClosed) {
 				srv.log.Error(err)
-				os.Exit(HTTPServerExitCode)
+				os.Exit(ExitCodeHTTPServer)
 			}
 		}()
 	}

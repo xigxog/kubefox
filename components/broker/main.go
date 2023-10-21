@@ -10,14 +10,11 @@ import (
 	// to ensure that exec-entrypoint and run can make use of them.
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 
-	"github.com/go-logr/zapr"
 	"github.com/xigxog/kubefox/components/broker/config"
 	"github.com/xigxog/kubefox/components/broker/engine"
 	"github.com/xigxog/kubefox/libs/core/kubefox"
 	"github.com/xigxog/kubefox/libs/core/logkf"
 	"github.com/xigxog/kubefox/libs/core/utils"
-
-	ctrl "sigs.k8s.io/controller-runtime"
 )
 
 func main() {
@@ -43,16 +40,7 @@ func main() {
 	utils.CheckRequiredFlag("platform", config.Platform)
 	utils.CheckRequiredFlag("namespace", config.Namespace)
 
-	logkf.Global = logkf.
-		BuildLoggerOrDie(config.LogFormat, config.LogLevel).
-		WithInstance(config.Instance).
-		WithPlatform(config.Platform).
-		WithService("broker")
 	defer logkf.Global.Sync()
-	ctrl.SetLogger(zapr.NewLogger(logkf.Global.Unwrap().Desugar()))
-
-	logkf.Global.Debugf("gitCommit: %s, gitRef: %s", kubefox.GitCommit, kubefox.GitRef)
-
 	engine.New().Start()
 
 }

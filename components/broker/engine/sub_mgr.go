@@ -11,7 +11,7 @@ import (
 )
 
 type SubscriptionMgr interface {
-	Create(ctx context.Context, cfg *SubscriptionConf, recvCh chan *LiveEvent) (ReplicaSubscription, error)
+	Create(ctx context.Context, cfg *SubscriptionConf, recvCh chan *LiveEvent) (ReplicaSubscription, GroupSubscription, error)
 	Subscription(comp *kubefox.Component) (Subscription, bool)
 	ReplicaSubscription(comp *kubefox.Component) (ReplicaSubscription, bool)
 	GroupSubscription(comp *kubefox.Component) (GroupSubscription, bool)
@@ -22,6 +22,7 @@ type SubscriptionMgr interface {
 type Subscription interface {
 	SendEvent(evt *LiveEvent) error
 	IsActive() bool
+	Context() context.Context
 }
 
 type GroupSubscription interface {
@@ -40,7 +41,6 @@ type ReplicaSubscription interface {
 	Component() *kubefox.Component
 	ComponentReg() *kubefox.ComponentReg
 	IsGroupEnabled() bool
-	Context() context.Context
 	Cancel(err error)
 	Err() error
 }
@@ -55,8 +55,11 @@ type subscriptionMgr struct {
 }
 
 type subscriptionGroup struct {
-	subMap map[string]struct{}
+	subMap map[string]bool
 	sendCh chan *evtRespCh
+
+	ctx    context.Context
+	cancel context.CancelFunc
 }
 
 type subscription struct {
@@ -91,10 +94,10 @@ func NewManager() SubscriptionMgr {
 	}
 }
 
-func (mgr *subscriptionMgr) Create(ctx context.Context, cfg *SubscriptionConf, recvCh chan *LiveEvent) (ReplicaSubscription, error) {
+func (mgr *subscriptionMgr) Create(ctx context.Context, cfg *SubscriptionConf, recvCh chan *LiveEvent) (ReplicaSubscription, GroupSubscription, error) {
 	log := mgr.log.WithComponent(cfg.Component)
 	if err := checkComp(cfg.Component); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	if sub, found := mgr.ReplicaSubscription(cfg.Component); found {
@@ -104,6 +107,23 @@ func (mgr *subscriptionMgr) Create(ctx context.Context, cfg *SubscriptionConf, r
 
 	mgr.mutex.Lock()
 	defer mgr.mutex.Unlock()
+
+	var grpSub *subscriptionGroup
+	if cfg.EnableGroup {
+		s, found := mgr.grpMap[cfg.Component.GroupKey()]
+		if !found {
+			ctx, cancel := context.WithCancel(context.Background())
+			s = &subscriptionGroup{
+				subMap: make(map[string]bool),
+				sendCh: make(chan *evtRespCh),
+				ctx:    ctx,
+				cancel: cancel,
+			}
+			mgr.grpMap[cfg.Component.GroupKey()] = s
+		}
+		s.subMap[cfg.Component.Id] = true
+		grpSub = s
+	}
 
 	subCtx, subCancel := context.WithCancelCause(ctx)
 	sub := &subscription{
@@ -116,24 +136,13 @@ func (mgr *subscriptionMgr) Create(ctx context.Context, cfg *SubscriptionConf, r
 		ctx:        subCtx,
 		cancel:     subCancel,
 	}
-	mgr.subMap[cfg.Component.Id] = sub
-
-	if cfg.EnableGroup {
-		grp, found := mgr.grpMap[cfg.Component.GroupKey()]
-		if !found {
-			grp = &subscriptionGroup{
-				subMap: make(map[string]struct{}),
-				sendCh: make(chan *evtRespCh),
-			}
-			mgr.grpMap[cfg.Component.GroupKey()] = grp
-		}
-		sub.sendCh = grp.sendCh
-		grp.subMap[cfg.Component.Id] = struct{}{}
-
+	if grpSub != nil {
+		sub.sendCh = grpSub.sendCh
 		go sub.processSendChan()
 	}
+	mgr.subMap[cfg.Component.Id] = sub
 
-	return sub, nil
+	return sub, grpSub, nil
 }
 
 func (mgr *subscriptionMgr) Subscription(comp *kubefox.Component) (Subscription, bool) {
@@ -189,14 +198,20 @@ func (mgr *subscriptionMgr) Close() {
 	mgr.log.Debug("subscription manager closed")
 }
 
-func (mgr *subscriptionMgr) remove(sub *subscription) {
+func (mgr *subscriptionMgr) cancel(sub *subscription, err error) {
 	mgr.mutex.Lock()
 	defer mgr.mutex.Unlock()
+
+	log := mgr.log.WithComponent(sub.comp)
+	log.Debug("canceling component subscription")
+	sub.cancel(err)
 
 	grp := mgr.grpMap[sub.comp.GroupKey()]
 	if grp != nil {
 		delete(grp.subMap, sub.comp.Id)
 		if len(grp.subMap) == 0 {
+			log.Debug("component group is empty, canceling")
+			grp.cancel()
 			delete(mgr.grpMap, sub.comp.GroupKey())
 		}
 	}
@@ -214,6 +229,10 @@ func (grp *subscriptionGroup) SendEvent(evt *LiveEvent) error {
 
 func (grp *subscriptionGroup) IsActive() bool {
 	return len(grp.subMap) > 0
+}
+
+func (sub *subscriptionGroup) Context() context.Context {
+	return sub.ctx
 }
 
 func (sub *subscription) SendEvent(evt *LiveEvent) error {
@@ -249,8 +268,7 @@ func (sub *subscription) Cancel(err error) {
 		return
 	}
 
-	sub.cancel(err)
-	sub.mgr.remove(sub)
+	sub.mgr.cancel(sub, err)
 }
 
 func (sub *subscription) Err() error {

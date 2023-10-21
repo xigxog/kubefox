@@ -19,9 +19,10 @@ type HTTPClient struct {
 
 func NewHTTPClient(brk Broker) *HTTPClient {
 	comp := &kubefox.Component{
-		Name:   "http-client",
-		Commit: kubefox.GitCommit,
-		Id:     brk.Id(),
+		Name:     "http-client",
+		Commit:   brk.Component().Commit,
+		Id:       brk.Component().Id,
+		BrokerId: brk.Component().BrokerId,
 	}
 	return &HTTPClient{
 		wrapped: &http.Client{},

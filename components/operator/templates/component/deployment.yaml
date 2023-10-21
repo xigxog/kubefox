@@ -49,8 +49,8 @@ spec:
               containerPort: 1111
               protocol: TCP
           readinessProbe:
-            periodSeconds: 3
-            failureThreshold: 2
+            periodSeconds: 5
+            failureThreshold: 3
             httpGet:
               port: health
           livenessProbe:

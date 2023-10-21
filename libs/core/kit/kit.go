@@ -22,7 +22,6 @@ import (
 	"github.com/xigxog/kubefox/libs/core/logkf"
 	"github.com/xigxog/kubefox/libs/core/utils"
 
-	"github.com/google/uuid"
 	gogrpc "google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 )
@@ -66,9 +65,10 @@ type route struct {
 }
 
 func New() Kit {
+	_, id := kubefox.GenNameAndId()
 	svc := &kit{
 		comp: &kubefox.Component{
-			Id: uuid.NewString(),
+			Id: id,
 		},
 		routes: make([]*route, 0),
 		reqMap: make(map[string]chan *kubefox.Event),

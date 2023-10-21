@@ -8,6 +8,7 @@ import (
 var (
 	ErrKubeFox = errors.New("")
 
+	ErrBrokerMismatch    = fmt.Errorf("%wbroker mismatch", ErrKubeFox)
 	ErrComponentGone     = fmt.Errorf("%wcomponent gone", ErrKubeFox)
 	ErrComponentMismatch = fmt.Errorf("%wcomponent mismatch", ErrKubeFox)
 	ErrEventInvalid      = fmt.Errorf("%wevent invalid", ErrKubeFox)

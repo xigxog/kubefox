@@ -17,6 +17,7 @@ message Component {
   string name = 1;
   string commit = 2;
   string id = 3;
+  string broker_id = 4;
 }
 
 message EventContext {
