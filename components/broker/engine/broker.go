@@ -553,11 +553,11 @@ func (brk *broker) startArchiver() {
 
 	for {
 		select {
-		case rEvt := <-brk.archiveCh:
-			log := log.WithEvent(rEvt.Event)
+		case evt := <-brk.archiveCh:
+			log := log.WithEvent(evt.Event)
 			log.Debug("publishing event to JetStream for archiving")
 
-			err := brk.jsClient.Publish(rEvt.Target.DirectSubject(), rEvt.Event)
+			err := brk.jsClient.Publish(evt.Target.DirectSubject(), evt.Event)
 			if err != nil {
 				// This event will be lost in time, never to be seen again :(
 				log.Warnf("unable to publish event to JetStream, event not archived: %v", err)

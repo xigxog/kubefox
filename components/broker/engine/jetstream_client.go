@@ -155,7 +155,7 @@ func (c *JetStreamClient) Publish(subject string, evt *kubefox.Event) error {
 	}
 
 	h := make(nats.Header)
-	// Note, use of `Nats-Msg-Id` would enable de-dupe and increase mem usage.
+	// Note, use of `Nats-Msg-Id` enables de-dupe and increases NATS mem usage.
 	h.Set(kubefox.CloudEventId, evt.Id)
 
 	// Headers create sizeable overhead for storage. Disabling most for now.
@@ -167,6 +167,8 @@ func (c *JetStreamClient) Publish(subject string, evt *kubefox.Event) error {
 	// h.Set("ce_dataschema", kubefox.DataSchemaKubefox)
 	// h.Set("ce_datacontenttype", kubefox.ContentTypeProtobuf)
 	//
+
+	// c.nc.RequestMsgWithContext()
 
 	// Note use of NATS directly instead of JetStream. This is done for
 	// performance and memory efficiency. The risk is a msg not getting
@@ -186,18 +188,24 @@ func (c *JetStreamClient) ConsumeEvents(ctx context.Context, name, subj, descrip
 		return nil
 	}
 
-	consumer, err := c.JetStream.CreateOrUpdateConsumer(ctx, eventStream, jetstream.ConsumerConfig{
-		Name:              name,
-		Description:       descrip,
-		FilterSubject:     subj,
-		DeliverPolicy:     jetstream.DeliverNewPolicy,
-		InactiveThreshold: config.EventTTL * 5,
-	})
+	jsctx, err := jetstream.New(c.nc)
+	if err != nil {
+		return err
+	}
+
+	consumer, err := jsctx.CreateOrUpdateConsumer(ctx, eventStream,
+		jetstream.ConsumerConfig{
+			Name:              name,
+			Description:       descrip,
+			FilterSubject:     subj,
+			DeliverPolicy:     jetstream.DeliverNewPolicy,
+			InactiveThreshold: config.EventTTL * 5,
+		})
 	if err != nil {
 		return c.log.ErrorN("unable to create JetStream consumer '%s': %w", consumer, err)
 	}
 
-	consumerCtx, err := consumer.Consume(c.handleMsg)
+	consumerCtx, err := consumer.Consume(c.handleMsg, jetstream.PullMaxMessages(1))
 	if err != nil {
 		return err
 	}
