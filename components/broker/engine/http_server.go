@@ -86,6 +86,7 @@ func (srv *HTTPServer) Start() (err error) {
 				os.Exit(ExitCodeHTTPServer)
 			}
 		}()
+		srv.log.Info("http server started")
 	}
 	if config.HTTPSSrvAddr != "false" {
 		srv.log.Debug("https server starting")
@@ -100,9 +101,9 @@ func (srv *HTTPServer) Start() (err error) {
 				os.Exit(ExitCodeHTTPServer)
 			}
 		}()
+		srv.log.Info("https server started")
 	}
 
-	srv.log.Info("http servers started")
 	return nil
 }
 
@@ -155,13 +156,13 @@ func (srv *HTTPServer) ServeHTTP(resWriter http.ResponseWriter, httpReq *http.Re
 		srv.mutex.Unlock()
 	}()
 
-	rEvt := &LiveEvent{
+	evt := &LiveEvent{
 		Event:      req,
 		Receiver:   ReceiverHTTPServer,
 		ReceivedAt: time.Now(),
 		ErrCh:      make(chan error),
 	}
-	if err := srv.brk.RecvEvent(rEvt); err != nil {
+	if err := srv.brk.RecvEvent(evt); err != nil {
 		writeError(resWriter, context.Cause(ctx), log)
 		return
 	}
@@ -173,7 +174,7 @@ func (srv *HTTPServer) ServeHTTP(resWriter http.ResponseWriter, httpReq *http.Re
 		log = srv.log.WithEvent(resp)
 		log.Debug("received response")
 
-	case err := <-rEvt.ErrCh:
+	case err := <-evt.ErrCh:
 		writeError(resWriter, err, log)
 		return
 

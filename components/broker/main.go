@@ -42,5 +42,4 @@ func main() {
 
 	defer logkf.Global.Sync()
 	engine.New().Start()
-
 }

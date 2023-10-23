@@ -168,8 +168,6 @@ func (c *JetStreamClient) Publish(subject string, evt *kubefox.Event) error {
 	// h.Set("ce_datacontenttype", kubefox.ContentTypeProtobuf)
 	//
 
-	// c.nc.RequestMsgWithContext()
-
 	// Note use of NATS directly instead of JetStream. This is done for
 	// performance and memory efficiency. The risk is a msg not getting
 	// delivered as there is no ACK from the server.
@@ -237,12 +235,12 @@ func (c *JetStreamClient) handleMsg(msg jetstream.Msg) {
 		evt.ReduceTTL(md.Timestamp)
 	}
 
-	rEvt := &LiveEvent{
+	lEvt := &LiveEvent{
 		Event:      evt,
 		Receiver:   ReceiverJetStream,
 		ReceivedAt: time.Now(),
 	}
-	if err := c.brk.RecvEvent(rEvt); err != nil {
+	if err := c.brk.RecvEvent(lEvt); err != nil {
 		log := c.log.WithEvent(evt)
 		log.Debug(err)
 		if evt.Target.Id == "" && errors.Is(err, ErrSubCanceled) {

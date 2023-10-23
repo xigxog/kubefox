@@ -336,6 +336,10 @@ func (brk *broker) routeEvent(log *logkf.Logger, evt *LiveEvent) error {
 		return fmt.Errorf("%w: event target broker id is %s", ErrBrokerMismatch, evt.Target.BrokerId)
 	}
 
+	// check that source is full
+	// if from grpc check target only has name or is full
+	// also check context is valid
+
 	ctx, cancel := context.WithTimeout(context.Background(), evt.TTL())
 	defer cancel()
 
@@ -488,6 +492,8 @@ func (brk *broker) matchEvent(ctx context.Context, evt *LiveEvent) error {
 }
 
 func (brk *broker) checkMatchedEvent(ctx context.Context, evt *LiveEvent) error {
+	// TODO check source is full
+	// TODO check source is part of context
 	if evt.Target == nil || evt.Target.Name == "" || evt.Context == nil {
 		return ErrComponentMismatch
 	}
