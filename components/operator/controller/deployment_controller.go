@@ -42,10 +42,6 @@ func (r *DeploymentReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Complete(r)
 }
 
-//+kubebuilder:rbac:groups=kubefox.xigxog.io,resources=deployments,verbs=get;list;watch;create;update;patch;delete
-//+kubebuilder:rbac:groups=kubefox.xigxog.io,resources=deployments/status,verbs=get;update;patch
-//+kubebuilder:rbac:groups=kubefox.xigxog.io,resources=deployments/finalizers,verbs=update
-
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
 func (r *DeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {

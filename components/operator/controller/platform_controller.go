@@ -70,10 +70,6 @@ func (r *PlatformReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Complete(r)
 }
 
-//+kubebuilder:rbac:groups=kubefox.xigxog.io,resources=platforms,verbs=get;list;watch
-//+kubebuilder:rbac:groups=kubefox.xigxog.io,resources=platforms/status,verbs=get;update;patch
-//+kubebuilder:rbac:groups=kubefox.xigxog.io,resources=platforms/finalizers,verbs=update
-
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
 func (r *PlatformReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
@@ -130,6 +126,7 @@ func (r *PlatformReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 				Name:           r.Instance,
 				Namespace:      r.Namespace,
 				BootstrapImage: BootstrapImage,
+				Version:        kubefox.Version(),
 			},
 			Component: templates.Component{
 				Name:  "vault",
@@ -172,6 +169,7 @@ func (r *PlatformReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 				Namespace:      r.Namespace,
 				RootCA:         string(cm.Data["ca.crt"]),
 				BootstrapImage: BootstrapImage,
+				Version:        kubefox.Version(),
 			},
 			Platform: templates.Platform{
 				Name:      p.Name,

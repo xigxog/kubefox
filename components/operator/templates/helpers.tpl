@@ -6,11 +6,9 @@ app.kubernetes.io/component: {{ . | quote }}
 {{- with .Component.Commit }}
 app.kubernetes.io/version: {{ . | quote }}
 {{- end }}
-{{- with .App.Commit }}
-kubefox.xigxog.io/app-commit: {{ . | quote }}
-{{- end }}
 app.kubernetes.io/managed-by: {{ printf "%s-operator" .Instance.Name | quote }}
-{{ .Labels | toYaml }}
+kubefox.xigxog.io/version: {{ .Instance.Version | quote }}
+{{ .ExtraLabels | toYaml }}
 {{- end }}
 
 {{- define "selectors" -}}

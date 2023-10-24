@@ -32,10 +32,6 @@ type ReleaseReconciler struct {
 	log *logkf.Logger
 }
 
-//+kubebuilder:rbac:groups=kubefox.xigxog.io,resources=releases,verbs=get;list;watch;create;update;patch;delete
-//+kubebuilder:rbac:groups=kubefox.xigxog.io,resources=releases/status,verbs=get;update;patch
-//+kubebuilder:rbac:groups=kubefox.xigxog.io,resources=releases/finalizers,verbs=update
-
 // SetupWithManager sets up the controller with the Manager.
 func (r *ReleaseReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	r.log = logkf.Global.With(logkf.KeyController, "release")

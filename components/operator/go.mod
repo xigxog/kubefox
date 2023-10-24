@@ -9,6 +9,7 @@ require (
 	github.com/hashicorp/vault/api/auth/kubernetes v0.5.0
 	github.com/xigxog/kubefox/libs/api v0.2.1-alpha
 	github.com/xigxog/kubefox/libs/core v0.2.1-alpha
+	golang.org/x/mod v0.13.0
 	k8s.io/api v0.28.3
 	k8s.io/apiextensions-apiserver v0.28.3
 	k8s.io/apimachinery v0.28.3

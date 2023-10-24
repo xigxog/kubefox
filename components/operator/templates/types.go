@@ -15,8 +15,8 @@ type Data struct {
 	App       App
 	Component Component
 
-	Labels map[string]string
-	Owner  []*metav1.OwnerReference
+	ExtraLabels map[string]string
+	Owner       []*metav1.OwnerReference
 
 	Values map[string]any
 }
@@ -28,6 +28,7 @@ type Instance struct {
 	LogLevel       string
 	LogFormat      string
 	BootstrapImage string
+	Version        string
 }
 
 type Platform struct {

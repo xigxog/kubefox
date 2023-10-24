@@ -1,5 +1,5 @@
 :root {
-  --md-tooltip-width: 300px;
+  --md-tooltip-width: 400px;
   --md-text-font: "Open Sans", sans-serif;
   --md-code-font: "Source Code Pro", monospace;
 }
@@ -28,8 +28,13 @@ img[alt="diagram"] {
 
 .md-typeset summary {
   font-size: 0.9em;
+  font-weight: 600;
 }
 
 .md-typeset details {
   font-size: 1em;
+}
+
+.md-tooltip {
+  text-align: center;
 }

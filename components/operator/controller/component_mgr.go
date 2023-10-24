@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 
+	"golang.org/x/mod/semver"
 	appsv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -41,6 +42,14 @@ func (cm *ComponentManager) SetupComponent(ctx context.Context, td *TemplateData
 	name := nn(td.Namespace(), td.ComponentFullName())
 	if err := cm.Client.Get(ctx, name, td.Obj); client.IgnoreNotFound(err) != nil {
 		return false, log.ErrorN("unable to fetch component workload: %w", err)
+	}
+
+	// TODO use kubefox.LabelK8sVersion on lib release
+	ver := td.Obj.GetLabels()["kubefox.xigxog.io/version"]
+
+	if semver.Compare(ver, kubefox.Version()) < 0 {
+		log.Infof("version upgrade detected, applying template to upgrade %s->%s", ver, kubefox.Version())
+		return false, cm.Client.ApplyTemplate(ctx, td.Template, &td.Data)
 	}
 
 	var available int32
@@ -116,6 +125,7 @@ func (cm *ComponentManager) ReconcileComponents(ctx context.Context, namespace s
 					Instance: templates.Instance{
 						Name:           cm.Instance,
 						BootstrapImage: BootstrapImage,
+						Version:        kubefox.Version(),
 					},
 					Platform: templates.Platform{
 						Name:      platform.Name,
