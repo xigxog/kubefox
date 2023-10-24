@@ -614,19 +614,11 @@ For fun tag the new version and update the existing `dev` release using the
 `universe` environment. Notice how fast the releases are.
 
 ```shell
-git tag v0.1.1 && git checkout v0.1.1
+git tag v0.1.1 && git checkout v0.1.1 && fox release dev --env world --wait 5m
 ```
 
 ```shell
-fox release dev --env world --wait 5m
-```
-
-```shell
-git checkout v0.1.0
-```
-
-```shell
-fox release qa --env universe --wait 5m
+git checkout v0.1.0 && fox release qa --env universe --wait 5m
 ```
 
 ```shell
@@ -636,10 +628,8 @@ git checkout main
 ??? example "Output"
 
     ```text
-    $ git tag v0.1.1 && git checkout v0.1.1
+    $ git tag v0.1.1 && git checkout v0.1.1 && fox release dev --env world --wait 5m
     HEAD is now at 780e2db updated frontend to say Hey
-
-    $ fox release dev --env world --wait 5m
     info    Component image 'localhost/kubefox/hello-world/backend:bb702a1' exists.
     info    Loading component image 'localhost/kubefox/hello-world/backend:bb702a1' into kind cluster 'kind'.
 
@@ -679,11 +669,9 @@ git checkout main
         name: world
     status: {}
 
-    $ git checkout v0.1.0
+    $ git checkout v0.1.0 && fox release qa --env universe --wait 5m
     Previous HEAD position was 780e2db updated frontend to say Hey
     HEAD is now at bb702a1 And so it begins...
-
-    $ fox release qa --env universe --wait 5m
     info    Component image 'localhost/kubefox/hello-world/backend:bb702a1' exists.
     info    Loading component image 'localhost/kubefox/hello-world/backend:bb702a1' into kind cluster 'kind'.
 
