@@ -13,7 +13,7 @@ type ComponentReg struct {
 	DefaultHandler bool     `json:"defaultHandler"`
 }
 
-func GenNameAndId() (string, string) {
+func GenerateNameAndId() (string, string) {
 	id := uuid.NewString()
 	name := id
 	if p, _ := os.LookupEnv(EnvPodName); p != "" {

@@ -89,7 +89,7 @@ type broker struct {
 }
 
 func New() Engine {
-	name, id := kubefox.GenNameAndId()
+	name, id := kubefox.GenerateNameAndId()
 	logkf.Global = logkf.
 		BuildLoggerOrDie(config.LogFormat, config.LogLevel).
 		WithInstance(config.Instance).

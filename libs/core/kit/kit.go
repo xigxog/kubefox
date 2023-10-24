@@ -65,7 +65,7 @@ type route struct {
 }
 
 func New() Kit {
-	_, id := kubefox.GenNameAndId()
+	_, id := kubefox.GenerateNameAndId()
 	svc := &kit{
 		comp: &kubefox.Component{
 			Id: id,
