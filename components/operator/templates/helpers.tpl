@@ -86,11 +86,11 @@ securityContext:
 {{- define "env" -}}
 {{- with .Component.Name }}
 - name: KUBEFOX_COMPONENT
-  value: {{ . }}
+  value: {{ . | quote }}
 {{- end }}
 {{- with .Component.Commit }}
 - name: KUBEFOX_COMMIT
-  value: {{ . }}
+  value: {{ . | quote }}
 {{- end }}
 - name: KUBEFOX_HOST_IP
   valueFrom:

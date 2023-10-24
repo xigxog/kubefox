@@ -10,17 +10,17 @@ metadata:
     {{- . | toYaml | nindent 4 }}
   {{- end }}
 data:
-  KUBEFOX_HOME: {{ homePath }}
-  KUBEFOX_INSTANCE_NAMESPACE: {{ .Instance.Namespace }}
-  KUBEFOX_INSTANCE: {{ .Instance.Name }}
-  KUBEFOX_NAMESPACE: {{ namespace }}
-  KUBEFOX_PLATFORM_FULL_NAME: {{ platformFullName }}
-  KUBEFOX_PLATFORM_NAMESPACE: {{ .Platform.Namespace }}
-  KUBEFOX_PLATFORM_VAULT_NAME: {{ platformVaultName }}
-  KUBEFOX_PLATFORM: {{ .Platform.Name }}
+  KUBEFOX_HOME: {{ homePath | quote }}
+  KUBEFOX_INSTANCE_NAMESPACE: {{ .Instance.Namespace | quote }}
+  KUBEFOX_INSTANCE: {{ .Instance.Name  | quote }}
+  KUBEFOX_NAMESPACE: {{ namespace | quote }}
+  KUBEFOX_PLATFORM_FULL_NAME: {{ platformFullName | quote }}
+  KUBEFOX_PLATFORM_NAMESPACE: {{ .Platform.Namespace | quote }}
+  KUBEFOX_PLATFORM_VAULT_NAME: {{ platformVaultName | quote }}
+  KUBEFOX_PLATFORM: {{ .Platform.Name | quote }}
   {{- with .Platform.LogFormat }}
-  KUBEFOX_LOG_FORMAT: {{ . }}
+  KUBEFOX_LOG_FORMAT: {{ . | quote }}
   {{- end }}
   {{- with .Platform.LogLevel }}
-  KUBEFOX_LOG_LEVEL: {{ . }}
+  KUBEFOX_LOG_LEVEL: {{ . | quote }}
   {{- end }}
