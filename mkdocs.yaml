@@ -38,6 +38,7 @@ extra:
 
 extra_css:
   - stylesheets/extra.css
+  - stylesheets/fonts.css
 
 theme:
   name: material
@@ -46,9 +47,9 @@ theme:
   icon:
     repo: fontawesome/brands/github
   # custom_dir: docs/overrides
-  font:
-    text: Nunito
-    code: Roboto Mono
+  font: false
+    # text: Open Sans
+    # code: Source Code Pro
   palette:
     - media: "(prefers-color-scheme: light)"
       scheme: default
@@ -68,7 +69,6 @@ theme:
         name: Switch to light mode
   features:
     - content.code.annotate
-    - content.code.copy
     - navigation.expand
     - navigation.instant
     - navigation.sections

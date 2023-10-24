@@ -1,5 +1,3 @@
-<!-- markdownlint-disable MD033 -->
-
 # Quickstart
 
 ## Prerequisites
@@ -35,7 +33,7 @@ Here are a few optional but recommended tools:
 You will start with setting up a local Kubernetes cluster using kind. The
 following command can be used to create the cluster.
 
-```shell
+```{ .shell .copy }
 kind create cluster --wait 5m
 ```
 
@@ -64,11 +62,11 @@ Next you need to install the KubeFox Helm Chart. This will start the KubeFox
 operator on your Kubernetes cluster. It is responsible for managing KubeFox
 platforms and apps.
 
-```shell
-helm install kubefox-demo kubefox \
+```{ .shell .copy }
+helm upgrade kubefox-demo kubefox \
   --repo https://xigxog.github.io/helm-charts \
   --create-namespace --namespace kubefox-system \
-  --wait
+  --install --wait
 ```
 
 ??? example "Output"
@@ -98,15 +96,12 @@ what is going on. You can also pass the `--verbose` flag to print debug
 statements. If this is your first time using Fox it will run you through
 one-time setup. You can answer the prompts as indicated below.
 
-```shell
-export FOX_INFO=true
+```{ .shell .copy }
+export FOX_INFO=true && \
+  mkdir kubefox-hello-world && cd kubefox-hello-world
 ```
 
-```shell
-mkdir kubefox-hello-world && cd kubefox-hello-world
-```
-
-```shell
+```{ .shell .copy }
 fox init
 ```
 
@@ -122,7 +117,8 @@ Enter URL for remote Git repo (optional): # Press ENTER to skip
 ??? example "Output"
 
     ```text
-    $ mkdir kubefox-hello-world && cd kubefox-hello-world
+    $ export FOX_INFO=true && \
+        mkdir kubefox-hello-world && cd kubefox-hello-world
 
     $ fox init
     info    It looks like this is the first time you are using 🦊 Fox. Welcome!
@@ -154,7 +150,7 @@ Enter URL for remote Git repo (optional): # Press ENTER to skip
     info    To get things started quickly 🦊 Fox can create a 'hello-world' KubeFox app which
     info    includes two components and example environments for testing.
     Would you like to initialize the 'hello-world' KubeFox app? [y/N] y
-    Enter URL for remote Git repo (optional): 
+    Enter URL for remote Git repo (optional):
 
     info    KubeFox app initialization complete!
     ```
@@ -169,14 +165,14 @@ environments are provided in the `hack` dir. Take a quick look at them, then use
 unique routes between environments. You can see how it used in the `frontend`
 component's `main.go` line 12.
 
-```go linenums="12"
+```{ .go .no-copy linenums="12" }
 k.Route("Path(`/{{.Env.subPath}}/hello`)", sayHello)
 ```
 
 Run the following commands to continue. Note the changes to the two environment
 variables on lines numbered 7,8 and 15,16.
 
-```shell
+```{ .shell .copy }
 cat -b hack/environments/* && kubectl apply --filename hack/environments/
 ```
 
@@ -215,7 +211,7 @@ the first deployment will initialize a platform so it might take a couple
 minutes for all the pods to be ready. But don't worry, future deployments will
 be much faster.
 
-```shell
+```{ .shell .copy }
 fox publish alpha --wait 5m
 ```
 
@@ -276,7 +272,7 @@ Enter the Kubernetes namespace of the KubeFox platform (default 'kubefox-dev'): 
 
 Now take a quick look at what is running on Kubernetes.
 
-```shell
+```{ .shell .copy }
 kubectl get pods --namespace kubefox-dev
 ```
 
@@ -301,9 +297,20 @@ facing load balancer, but setting that up is outside the scope of this
 quickstart. Instead you can use Fox to create a local proxy. In a new terminal
 start this command.
 
-```shell
+```{ .shell .copy }
 fox proxy 8080
 ```
+
+??? info "macOS Network Warning"
+
+    <figure markdown>
+      ![macosx-warning](images/fox-mac-net-warn.png)
+    </figure>
+
+    If you are using macOS you might notice this dialog popup when you start the
+    proxy. This is expected as Fox starts a local HTTP server. The server is
+    bound to the `localhost` interface and is only accessible from your
+    workstation. Please press `Allow` to continue.
 
 ??? example "Output"
 
@@ -318,7 +325,7 @@ it is released. But you can still test deployments by providing some context.
 KubeFox needs two pieces of information, the deployment to use and the
 environment to inject. These can be passed as headers or query parameters.
 
-```shell
+```{ .shell .copy }
 curl "http://localhost:8080/small/hello?kf-dep=alpha&kf-env=world"
 ```
 
@@ -336,7 +343,7 @@ request time instead of at deployment. Adding environments has nearly zero
 overhead! Be sure to change the `subPath` from `small` to `big` to reflect the
 change of environment.
 
-```shell
+```{ .shell .copy }
 curl "http://localhost:8080/big/hello?kf-dep=alpha&kf-env=universe"
 ```
 
@@ -355,15 +362,15 @@ of versions. Fox works against the active state of the Git repo. To deploy or
 release a different version of your app simply checkout the tag, branch, or
 commit you want and let Fox do the rest.
 
-```shell
+```{ .shell .copy }
 git tag v0.1.0 && git checkout v0.1.0
 ```
 
-```shell
+```{ .shell .copy }
 fox release dev --env world --wait 5m
 ```
 
-```shell
+```{ .shell .copy }
 git switch -
 ```
 
@@ -420,7 +427,7 @@ Try the same request from above, but this time don't specify the context. Since
 the app has been released the request will get matched by the component's route
 and the context information will be automatically injected by KubeFox.
 
-```shell
+```{ .shell .copy }
 curl "http://localhost:8080/small/hello"
 ```
 
@@ -434,7 +441,7 @@ curl "http://localhost:8080/small/hello"
 Take another look at the pods running on Kubernetes now that you performed a
 release.
 
-```shell
+```{ .shell .copy }
 kubectl get pods --namespace kubefox-dev
 ```
 
@@ -491,11 +498,11 @@ by the commit, in the example output below it is `780e2db`. The commit hashes
 are used to version the components as can be seen in the container OCI image
 tags.
 
-```shell
+```{ .shell .copy }
 git add . && git commit -m "updated frontend to say Hey"
 ```
 
-```shell
+```{ .shell .copy }
 fox publish beta --wait 5m
 ```
 
@@ -548,15 +555,15 @@ Fox didn't rebuild the `backend` component as no changes were made. Try testing
 out the new deployment. You can even switch back to `alpha` to verify the
 changes.
 
-```shell
+```{ .shell .copy }
 curl "http://localhost:8080/small/hello?kf-dep=beta&kf-env=world"
 ```
 
-```shell
+```{ .shell .copy }
 curl "http://localhost:8080/big/hello?kf-dep=beta&kf-env=universe"
 ```
 
-```shell
+```{ .shell .copy }
 curl "http://localhost:8080/big/hello?kf-dep=alpha&kf-env=universe"
 ```
 
@@ -575,7 +582,7 @@ curl "http://localhost:8080/big/hello?kf-dep=alpha&kf-env=universe"
 
 Again, take look at the pods running on Kubernetes with the new deployment.
 
-```shell
+```{ .shell .copy }
 kubectl get pods --namespace kubefox-dev
 ```
 
@@ -600,15 +607,15 @@ For fun tag the new version and use it to update the `dev` release with the
 `world` environment. Then release the original version `v0.1.0` using the
 `universe` environment. Check out those blazing fast the releases.
 
-```shell
+```{ .shell .copy }
 git tag v0.1.1 && git checkout v0.1.1 && fox release dev --env world --wait 5m
 ```
 
-```shell
+```{ .shell .copy }
 git checkout v0.1.0 && fox release qa --env universe --wait 5m
 ```
 
-```shell
+```{ .shell .copy }
 git checkout main
 ```
 
@@ -703,11 +710,11 @@ git checkout main
 
 Test it out when everything is done.
 
-```shell
+```{ .shell .copy }
 curl "http://localhost:8080/small/hello"
 ```
 
-```shell
+```{ .shell .copy }
 curl "http://localhost:8080/big/hello"
 ```
 
