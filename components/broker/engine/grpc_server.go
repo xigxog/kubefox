@@ -47,11 +47,6 @@ func NewGRPCServer(brk Broker) *GRPCServer {
 func (srv *GRPCServer) Start(ctx context.Context) error {
 	srv.log.Debug("grpc server starting")
 
-	// creds, err := kfp.NewGPRCSrvCreds(ctx, kfp.BrokerCertsDir)
-	// if err != nil {
-	// 	srv.log.Errorf("error reading cert: %v", err)
-	// 	os.Exit(model.RpcServerErrorCode)
-	// }
 	creds, err := credentials.NewServerTLSFromFile(kubefox.PathTLSCert, kubefox.PathTLSKey)
 	if err != nil {
 		return srv.log.ErrorN("%v", err)

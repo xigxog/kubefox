@@ -16,30 +16,7 @@ spec:
       hostNetwork: true
       dnsPolicy: ClusterFirstWithHostNet
       initContainers:
-        - name: pki-init
-          image: {{ .Values.pkiInitImage | quote }}
-          imagePullPolicy: {{ .Component.ImagePullPolicy | default "IfNotPresent" }}
-          {{- include "containerSecurityContext" . | nindent 10 }}
-          command:
-            - /pki-init.sh
-          env:
-          {{- include "env" . | nindent 12 }}
-            - name: KUBEFOX_COMPONENT_IP
-              valueFrom:
-                fieldRef:
-                  fieldPath: status.hostIP
-          envFrom:
-            - configMapRef:
-                name: {{ name }}-env
-          volumeMounts:
-            - name: pki-init
-              mountPath: /pki-init.sh
-              subPath: pki-init.sh
-            - name: root-ca
-              mountPath: {{ homePath }}/ca.crt
-              subPath: ca.crt
-            - name: kubefox
-              mountPath: {{ homePath }}
+        - {{- include "bootstrap" . | nindent 10 }}
       containers:
         - name: {{ .Component.Name }}
           image: {{ .Component.Image | default (printf "%s/%s:%s" .App.Registry .Component.Name .Component.Commit) | quote }}
@@ -50,7 +27,6 @@ spec:
             - -platform={{ .Platform.Name }}
             - -namespace={{ namespace }}
             - -grpc-addr=$(KUBEFOX_COMPONENT_IP):6060
-            - -vault-addr={{ .Instance.Name }}-vault.{{ .Instance.Namespace }}
             - -nats-addr={{ .Platform.Name }}-nats.{{ .Platform.Namespace }}
             - -http-addr=0.0.0.0:8080
             - -https-addr=0.0.0.0:8443
@@ -113,9 +89,5 @@ spec:
         - name: root-ca
           configMap:
             name: {{ .Instance.Name }}-root-ca
-        - name: pki-init
-          configMap:
-            name: {{ name }}-pki-init
-            defaultMode: 0777
         - name: kubefox
           emptyDir: {}

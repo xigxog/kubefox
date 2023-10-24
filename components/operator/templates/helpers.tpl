@@ -148,3 +148,37 @@ affinity:
   {{- .App.Affinity | toYaml | nindent 2 }}
 {{- end }}
 {{- end }}
+
+
+{{- define "bootstrap" -}}
+name: bootstrap
+image: {{ .Instance.BootstrapImage }}
+imagePullPolicy: {{ .Component.ImagePullPolicy | default "IfNotPresent" }}
+{{ include "containerSecurityContext" . }}
+args:
+  - -instance={{ .Instance.Name }}
+  - -platform={{ .Platform.Name }}
+  - -component={{ .Component.Name }}
+  - -component-ip=$(KUBEFOX_COMPONENT_IP)
+  - -namespace={{ namespace }}
+  - -vault-name={{ platformVaultName }}
+  - -vault-role={{ printf "%s-%s" platformVaultName .Component.Name }}
+  - -vault-addr={{ printf "%s-vault.%s:8200" .Instance.Name .Instance.Namespace }}
+  - -log-format={{ logFormat }}
+  - -log-level={{ logLevel }}
+env:
+{{- include "env" . | nindent 2 }}
+  - name: KUBEFOX_COMPONENT_IP
+    valueFrom:
+      fieldRef:
+        fieldPath: status.podIP
+envFrom:
+  - configMapRef:
+      name: {{ name }}-env
+volumeMounts:
+  - name: root-ca
+    mountPath: {{ homePath }}/ca.crt
+    subPath: ca.crt
+  - name: kubefox
+    mountPath: {{ homePath }}
+{{- end }}

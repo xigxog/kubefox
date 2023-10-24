@@ -114,7 +114,8 @@ func (cm *ComponentManager) ReconcileComponents(ctx context.Context, namespace s
 			td := TemplateData{
 				Data: templates.Data{
 					Instance: templates.Instance{
-						Name: cm.Instance,
+						Name:           cm.Instance,
+						BootstrapImage: BootstrapImage,
 					},
 					Platform: templates.Platform{
 						Name:      platform.Name,

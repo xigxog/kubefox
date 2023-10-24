@@ -22,11 +22,12 @@ type Data struct {
 }
 
 type Instance struct {
-	Name      string
-	Namespace string
-	RootCA    string
-	LogLevel  string
-	LogFormat string
+	Name           string
+	Namespace      string
+	RootCA         string
+	LogLevel       string
+	LogFormat      string
+	BootstrapImage string
 }
 
 type Platform struct {

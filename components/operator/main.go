@@ -73,7 +73,7 @@ func main() {
 	ctrl.SetLogger(zapr.NewLogger(logkf.Global.Unwrap().Desugar()))
 
 	log := logkf.Global
-	log.Debugf("gitCommit: %s, gitRef: %s", kubefox.GitCommit, kubefox.GitRef)
+	log.Infof("gitCommit: %s, gitRef: %s", kubefox.GitCommit, kubefox.GitRef)
 
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
 		Scheme: scheme,

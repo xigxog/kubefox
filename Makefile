@@ -22,7 +22,7 @@ TOOLS_DIR := $(abspath $(ROOT)/tools)
 CONTROLLER_GEN := $(TOOLS_DIR)/controller-gen
 CONTROLLER_TOOLS_VERSION := v0.13.0
 
-COMPONENTS := broker operator
+COMPONENTS := bootstrap broker operator
 PUSHES := $(addprefix push/,$(COMPONENTS))
 IMAGES := $(addprefix image/,$(COMPONENTS))
 BINS := $(addprefix bin/,$(COMPONENTS))

@@ -127,8 +127,9 @@ func (r *PlatformReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	td := &TemplateData{
 		Data: templates.Data{
 			Instance: templates.Instance{
-				Name:      r.Instance,
-				Namespace: r.Namespace,
+				Name:           r.Instance,
+				Namespace:      r.Namespace,
+				BootstrapImage: BootstrapImage,
 			},
 			Component: templates.Component{
 				Name:  "vault",
@@ -167,9 +168,10 @@ func (r *PlatformReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	td = &TemplateData{
 		Data: templates.Data{
 			Instance: templates.Instance{
-				Name:      r.Instance,
-				Namespace: r.Namespace,
-				RootCA:    string(cm.Data["ca.crt"]),
+				Name:           r.Instance,
+				Namespace:      r.Namespace,
+				RootCA:         string(cm.Data["ca.crt"]),
+				BootstrapImage: BootstrapImage,
 			},
 			Platform: templates.Platform{
 				Name:      p.Name,

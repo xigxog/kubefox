@@ -1,6 +1,7 @@
 go 1.21
 
 use (
+	./components/bootstrap
 	./components/broker
 	./components/operator
 	./libs/api

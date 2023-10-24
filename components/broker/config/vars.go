@@ -7,8 +7,6 @@ var (
 	Platform  string
 	Namespace string
 
-	CertDir string
-
 	NumWorkers        int
 	EventTTL          time.Duration
 	TelemetryInterval time.Duration
@@ -21,7 +19,6 @@ var (
 	HTTPSSrvAddr  string
 	HealthSrvAddr string
 
-	VaultAddr     string
 	NATSAddr      string
 	TelemetryAddr string
 )
