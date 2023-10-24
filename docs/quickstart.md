@@ -8,14 +8,14 @@ The following tools must be installed for this quickstart:
 
 - [Docker](https://docs.docker.com/engine/install/) - A container toolset and
   runtime. Used to build KubeFox Components' OCI images and run a local
-  Kubernetes cluster via Kind.
-- [Fox CLI](https://github.com/xigxog/kubefox-cli/releases/) -
-  CLI for communicating with the KubeFox Platform. Download the latest release
+  Kubernetes cluster via kind.
+- [Fox](https://github.com/xigxog/kubefox-cli/releases/) -
+  CLI for communicating with the KubeFox platform. Download the latest release
   and put the binary on your path.
 - [Git](https://github.com/git-guides/install-git) - A distributed version
   control system.
 - [Helm](https://helm.sh/docs/intro/install/) - Package manager for Kubernetes.
-  Used to install the KubeFox Platform on Kubernetes.
+  Used to install the KubeFox platform on Kubernetes.
 - [Kind](https://kind.sigs.k8s.io/docs/user/quick-start/) - **K**uberentes
   **in** **D**ocker. A tool for running local Kubernetes clusters using Docker
   container "nodes".
@@ -32,32 +32,18 @@ Here are a few optional but recommended tools:
 
 ## Install KubeFox Platform
 
-Let's start with setting up a local Kubernetes cluster using Kind. The following
-command can be used to create the cluster. It exposes some extra ports to the
-local host that allows communicating with the KubeFox Platform easier.
+You will start with setting up a local Kubernetes cluster using kind. The
+following command can be used to create the cluster.
 
 ```shell
-echo >/tmp/kind-cluster.yaml "\
-kind: Cluster
-apiVersion: kind.x-k8s.io/v1alpha4
-name: kubefox-demo
-nodes:
-  - role: control-plane
-    extraPortMappings:
-      - containerPort: 8080
-        hostPort: 30080
-      - containerPort: 8443
-        hostPort: 30443
-"
-kind create cluster --config /tmp/kind-cluster.yaml --wait 5m
-kubectl config use-context kind-kubefox-demo
+kind create cluster --wait 5m
 ```
 
 ??? example "Output"
 
     ```text
-    $ kind create cluster --name kubefox --wait 5m
-    Creating cluster "kubefox" ...
+    $ kind create cluster --wait 5m
+    Creating cluster "kind" ...
     ✓ Ensuring node image (kindest/node:v1.27.3) 🖼
     ✓ Preparing nodes 📦
     ✓ Writing configuration 📜
@@ -66,23 +52,23 @@ kubectl config use-context kind-kubefox-demo
     ✓ Installing StorageClass 💾
     ✓ Waiting ≤ 5m0s for control-plane = Ready ⏳
     • Ready after 15s 💚
-    Set kubectl context to "kind-kubefox"
+    Set kubectl context to "kind-kind"
     You can now use your cluster with:
 
-    kubectl cluster-info --context kind-kubefox
+    kubectl cluster-info --context kind-kind
 
     Have a nice day! 👋
-
-    $ kubectl config use-context kind-kubefox-demo
-    Switched to context "kind-kubefox-demo".
     ```
 
-Next we need to add the XigXog Helm Repo and install the KubeFox Helm Chart.
+Next you need to install the KubeFox Helm Chart. This will start the KubeFox
+operator on your Kubernetes cluster. It is responsible for managing KubeFox
+platforms and apps.
 
 ```shell
 helm install kubefox-demo kubefox \
   --repo https://xigxog.github.io/helm-charts \
-  --create-namespace --namespace kubefox-system
+  --create-namespace --namespace kubefox-system \
+  --wait
 ```
 
 ??? example "Output"
@@ -90,7 +76,8 @@ helm install kubefox-demo kubefox \
     ```text
     $ helm install kubefox-demo kubefox \
         --repo https://xigxog.github.io/helm-charts \
-        --create-namespace --namespace kubefox-system
+        --create-namespace --namespace kubefox-system \
+        --wait
 
     NAME: kubefox-demo
     LAST DEPLOYED: Thu Jan  1 00:00:00 1970
@@ -102,13 +89,14 @@ helm install kubefox-demo kubefox \
 
 ## Deploy KubeFox App
 
-Great now we're ready to create your first KubeFox app and deploy it to the a
-Platform running on the local Kind Cluster. We'll be using a local Git repo for
-the demo. To get things started let's create a new directory and use the Fox to
+Great now you're ready to create your first KubeFox app and deploy it to a
+KubeFox platform running on the local kind cluster. You'll be using a local Git
+repo for the demo. To get things started create a new directory and use Fox to
 initialize the `hello-world` app. You'll want to run all the remaining commands
 from this directory. The export command tells Fox to print some extra info about
-what is going on. If you run into problems you can also pass the `--verbose`
-flag to print debug statements.
+what is going on. You can also pass the `--verbose` flag to print debug
+statements. If this is your first time using Fox it will run you through
+one-time setup. You can answer the prompts as indicated below.
 
 ```shell
 export FOX_INFO=true
@@ -119,9 +107,10 @@ fox init
 Answer the prompts:
 
 ```text
-Are you only using KubeFox with local Kind cluster? [y/N] y
-Enter the Kind cluster's name (default 'kind'): kubefox-demo
+Are you only using KubeFox with local kind cluster? [y/N] y
+Enter the kind cluster's name (default 'kind'): kind
 Would you like to initialize the 'hello-world' KubeFox app? [y/N] y
+Enter URL for remote Git repo (optional): # Press ENTER to skip
 ```
 
 ??? example "Output"
@@ -139,14 +128,14 @@ Would you like to initialize the 'hello-world' KubeFox app? [y/N] y
     info    Please make sure your workstation has Docker installed (https://docs.docker.com/engine/install)
     info    and that KubeFox is installed (https://docs.kubefox.io/install) on your Kubernetes cluster.
 
-    info    If you don't have a Kubernetes cluster you can run one locally with Kind (https://kind.sigs.k8s.io)
+    info    If you don't have a Kubernetes cluster you can run one locally with kind (https://kind.sigs.k8s.io)
     info    to experiment with KubeFox.
 
     info    Fox needs a place to store the KubeFox Component images it will build, normally
     info    this is a remote container registry. However, if you only want to use KubeFox
-    info    locally with Kind you can skip this step.
-    Are you only using KubeFox with local Kind cluster? [y/N] y
-    Enter the Kind cluster's name (default 'kind'): kubefox-demo
+    info    locally with kind you can skip this step.
+    Are you only using KubeFox with local kind cluster? [y/N] y
+    Enter the kind cluster's name (default 'kind'): kind
 
     info    Configuration successfully written to '/home/xadhatter/.config/kubefox/config.yaml'.
 
@@ -159,6 +148,7 @@ Would you like to initialize the 'hello-world' KubeFox app? [y/N] y
     info    To get things started quickly 🦊 Fox can create a 'hello-world' KubeFox app which
     info    includes two components and example environments for testing.
     Would you like to initialize the 'hello-world' KubeFox app? [y/N] y
+    Enter URL for remote Git repo (optional):
 
     info    KubeFox app initialization complete!
     ```
@@ -167,53 +157,54 @@ You should see some newly created directories and files. The `hello-world` app
 includes two components and example environments. You might also notice Fox
 initialized a new Git repo for you. Take a look around!
 
-Let's get some environments created. Two sample environments are provided in the
-`hack` dir. Let's take a quick look at them, then use `kubectl` to send them to
-Kubernetes. Take note of the environment variable `who`.
+When you're ready it's time to create some environments. Two example
+environments are provided in the `hack` dir. Take a quick look at them, then use
+`kubectl` to apply them to Kubernetes. Take note of the environment variable
+`HELLO_WORLD_WHO`.
 
 ```shell
-cat hack/env-universe.yaml
-cat hack/env-world.yaml
-kubectl apply --filename hack/
+cat hack/environments/universe.yaml
+cat hack/environments/world.yaml
+kubectl apply --filename hack/environments/
 ```
 
 ??? example "Output"
 
     ```text
-    $ cat hack/env-universe.yaml
+    $ cat hack/environments/universe.yaml
     apiVersion: kubefox.xigxog.io/v1alpha1
     kind: Environment
     metadata:
       name: universe
     spec:
       vars:
-        who: Universe
+        HELLO_WORLD_WHO: Universe
 
-    $ cat hack/env-world.yaml
+    $ cat hack/environments/world.yaml
     apiVersion: kubefox.xigxog.io/v1alpha1
     kind: Environment
     metadata:
       name: world
     spec:
       vars:
-        who: World
+        HELLO_WORLD_WHO: World
 
-    $ kubectl apply --filename hack/
+    $ kubectl apply --filename hack/environments/
     environment.kubefox.xigxog.io/universe created
     environment.kubefox.xigxog.io/world created
     ```
 
-Now let's deploy the app and see what happens. The following command will build
-the component's OCI images, load them onto the kind cluster, and deploy them to
-the KubeFox platform. The first run might take some time as it needs to download
-dependencies, but future runs should be much faster. Remember, you can add the
-`--verbose` flag for extra output if you want to see what's going on behind the
-scenes. Note that the first deployment will initialize the platform so it might
-take a couple minutes for all the pods to be ready. But don't worry, future
-deployments will be very fast.
+Now you'll deploy the app. The following command will build the component's OCI
+images, load them onto the kind cluster, and deploy them to a KubeFox platform.
+The first run might take some time as it needs to download dependencies, but
+future runs should be much faster. Remember, you can add the `--verbose` flag
+for extra output if you want to see what's going on behind the scenes. Note that
+the first deployment will initialize a platform so it might take a couple
+minutes for all the pods to be ready. But don't worry, future deployments will
+be very fast.
 
 ```shell
-fox publish my-deployment --wait 5m
+fox publish deployment-a --wait 5m
 ```
 
 Answer the prompts:
@@ -227,21 +218,18 @@ Enter the Kubernetes namespace of the KubeFox platform (default 'kubefox-dev'): 
 ??? example "Output"
 
     ```text
-    $ fox publish my-deployment --wait 5m
+    $ fox publish deployment-a --wait 5m
     info    Building component image 'localhost/kubefox/hello-world/backend:68beae1'.
-    info    Loading component image 'localhost/kubefox/hello-world/backend:68beae1' into Kind cluster 'kubefox-demo'.
-    
+    info    Loading component image 'localhost/kubefox/hello-world/backend:68beae1' into kind cluster 'kind'.
+
     info    Building component image 'localhost/kubefox/hello-world/frontend:68beae1'.
-    info    Loading component image 'localhost/kubefox/hello-world/frontend:68beae1' into Kind cluster 'kubefox-demo'.
+    info    Loading component image 'localhost/kubefox/hello-world/frontend:68beae1' into kind cluster 'kind'.
 
     info    You need to have a KubeFox platform instance running to deploy your components.
     info    Don't worry, 🦊 Fox can create one for you.
     Would you like to create a KubeFox platform? [Y/n] y
     Enter the KubeFox platform's name (required): dev
     Enter the Kubernetes namespace of the KubeFox platform (default 'kubefox-dev'): kubefox-dev
-
-    info    Component image 'localhost/kubefox/hello-world/backend:68beae1' exists.
-    info    Component image 'localhost/kubefox/hello-world/frontend:68beae1' exists.
 
     info    Waiting for KubeFox platform 'dev' to be ready.
     info    Waiting for component 'backend' to be ready.
@@ -252,7 +240,7 @@ Enter the Kubernetes namespace of the KubeFox platform (default 'kubefox-dev'): 
     metadata:
       creationTimestamp: "1970-01-01T00:00:00Z"
       generation: 1
-      name: my-deployment
+      name: deployment-a
       namespace: kubefox-dev
       resourceVersion: "13326"
       uid: 5ad9a257-01c0-43e0-b6be-92757a47ba7c
@@ -291,46 +279,68 @@ kubectl get pods --namespace kubefox-dev
     hello-world-frontend-6c42fbb-5d998f5cb-t9qp6   1/1     Running   0          2s
     ```
 
-Awesome. When KubeFox deploys an app it starts the components but will not
-automatically send requests to it until it is released. But you can still test
-deployments by providing some context. KubeFox needs two pieces of information,
-the deployment to use and the environment to inject. These can be passed as
-headers or query parameters. Give it a shot.
+You can see the two components running that you just deployed,
+`hello-world-backend` and `hello-world-frontend`. The `broker` and `nats` pods
+are part of the KubeFox platform and were started by the operator when you
+created the platform above.
+
+Normally connections to the KubeFox platform would be made through a public
+facing load balancer, but setting that up is outside the scope of this
+quickstart. Instead you can use Fox to create a local proxy. In a new terminal
+start this command.
 
 ```shell
-curl "http://localhost:30080/hello?kf-dep=my-deployment&kf-env=world"
+fox proxy 8080
 ```
 
 ??? example "Output"
 
     ```text
-    $ curl "http://localhost:30080/hello?kf-dep=my-deployment&kf-env=world"
+    $ fox proxy 8080
+    HTTP proxy started on 127.0.0.1:8080
+    ```
+
+Now back in the original terminal you can test the deployment. When KubeFox
+deploys an app it starts the components but will not automatically send requests
+to it until it is released. But you can still test deployments by providing some
+context. KubeFox needs two pieces of information, the deployment to use and the
+environment to inject. These can be passed as headers or query parameters.
+
+```shell
+curl "http://localhost:8080/hello?kf-dep=deployment-a&kf-env=world"
+```
+
+??? example "Output"
+
+    ```text
+    $ curl "http://localhost:8080/hello?kf-dep=deployment-a&kf-env=world"
     👋 Hello World!
     ```
 
 Next try switching to the `universe` environment created earlier. With KubeFox
 there is no need to create another deployment to switch environments, simply
-change the query parameter!
+change the query parameter. This is possible because KubeFox injects context at
+request time instead of deployment. Adding environments has nearly zero
+overhead!
 
 ```shell
-curl "http://localhost:30080/hello?kf-dep=my-deployment&kf-env=universe"
+curl "http://localhost:8080/hello?kf-dep=deployment-a&kf-env=universe"
 ```
 
 ??? example "Output"
 
     ```text
-    $ curl "http://localhost:30080/hello?kf-dep=my-deployment&kf-env=universe"
+    $ curl "http://localhost:8080/hello?kf-dep=deployment-a&kf-env=universe"
     👋 Hello Universe!
     ```
 
 ## Release KubeFox App
 
-Now let's release the app so we don't have to specify all those details in the
-request. It is recommended to tag the repo for releases so we'll do that first,
-and then switch to the tag for the release. It is important to understand that
-Fox works against the active state of the Git repo. To deploy or release a
-different version of your app simply checkout the tag, branch, or commit you
-want and let Fox do the rest.
+Now you will release the app so you don't have to specify all those details in
+the request. It is recommended to tag the repo for releases to help keep track
+of versions. Fox works against the active state of the Git repo. To deploy or
+release a different version of your app simply checkout the tag, branch, or
+commit you want and let Fox do the rest.
 
 ```shell
 git tag v0.1.0
@@ -344,24 +354,10 @@ git switch -
     ```text
     $ git tag v0.1.0
     $ git checkout v0.1.0
-    Note: switching to 'v0.1.0'.
-
-    You are in 'detached HEAD' state. You can look around, make experimental
-    changes and commit them, and you can discard any commits you make in this
-    state without impacting any branches by switching back to a branch.
-
-    If you want to create a new branch to retain commits you create, you may
-    do so (now or later) by using -c with the switch command. Example:
-
-      git switch -c <new-branch-name>
-
-    Or undo this operation with:
-
-      git switch -
-
-    Turn off this advice by setting config variable advice.detachedHead to false
-
     HEAD is now at 6c42fbb And so it begins...
+
+    # You might see a note from Git about being in a 'detached HEAD' state. It
+    # can be disabled by running `git config advice.detachedHead false`, if you prefer.
 
     $ fox release dev --env world --wait 5m
     info    Component image 'localhost/kubefox/hello-world/backend:68beae1' exists.
@@ -404,18 +400,18 @@ the app has been released the request will get matched by the component's route
 and the context information will be automatically injected by KubeFox.
 
 ```shell
-curl "http://localhost:30080/hello"
+curl "http://localhost:8080/hello"
 ```
 
 ??? example "Output"
 
     ```text
-    $ curl "http://localhost:30080/hello"
+    $ curl "http://localhost:8080/hello"
     👋 Hello World!
     ```
 
-Let's take another look at the pods running on Kubernetes now that we performed
-a release.
+Take another look at the pods running on Kubernetes now that you performed a
+release.
 
 ```shell
 kubectl get pods --namespace kubefox-dev
@@ -432,8 +428,8 @@ kubectl get pods --namespace kubefox-dev
     hello-world-frontend-6c42fbb-5d998f5cb-t9qp6   1/1     Running   0          6m1s
     ```
 
-Surprise, nothing has changed! KubeFox dynamically injects context at request
-time, not at deployment time. That means it can continue to use the same pods.
+Surprise, nothing has changed! KubeFox is dynamically injecting the context per
+request just like when you changed environments above.
 
 Check out the rest of the docs for more. If you run into any problems please let
 us know on [GitHub Issues](https://github.com/xigxog/kubefox/issues).

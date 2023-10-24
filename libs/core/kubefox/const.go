@@ -53,6 +53,7 @@ const (
 	LabelK8sComponent       string = "kubefox.xigxog.io/component"
 	LabelK8sComponentCommit string = "kubefox.xigxog.io/component-commit"
 	LabelK8sPlatform        string = "kubefox.xigxog.io/platform"
+	LabelOCIApp             string = "com.xigxog.kubefox.app"
 	LabelOCIComponent       string = "com.xigxog.kubefox.component"
 	LabelOCICreated         string = "org.opencontainers.image.created"
 	LabelOCIRevision        string = "org.opencontainers.image.revision"
