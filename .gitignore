@@ -19,3 +19,4 @@ tools/
 workstation/
 *.ignore
 go.work.sum
+.DS_Store
