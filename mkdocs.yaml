@@ -67,6 +67,7 @@ theme:
         icon: material/weather-sunny
         name: Switch to light mode
   features:
+    - content.code.annotate
     - content.code.copy
     - navigation.expand
     - navigation.instant
@@ -93,7 +94,6 @@ markdown_extensions:
       emoji_index: !!python/name:material.extensions.emoji.twemoji 
       emoji_generator: !!python/name:material.extensions.emoji.to_svg
   - pymdownx.highlight:
-      linenums: true
       anchor_linenums: true
       line_spans: __span
       pygments_lang_class: true

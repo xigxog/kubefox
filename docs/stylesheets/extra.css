@@ -1,3 +1,7 @@
+:root {
+  --md-tooltip-width: 300px;
+}
+
 img[alt="diagram"] {
   border: 1.5rem solid white;
 }

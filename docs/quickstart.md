@@ -169,7 +169,7 @@ environments are provided in the `hack` dir. Take a quick look at them, then use
 unique routes between environments. You can see how it used in the `frontend`
 component's `main.go` line 12.
 
-```go
+```go linenums="12"
 k.Route("Path(`/{{.Env.subPath}}/hello`)", sayHello)
 ```
 
@@ -365,11 +365,7 @@ release a different version of your app simply checkout the tag, branch, or
 commit you want and let Fox do the rest.
 
 ```shell
-git tag v0.1.0
-```
-
-```shell
-git checkout v0.1.0
+git tag v0.1.0 && git checkout v0.1.0
 ```
 
 ```shell
@@ -383,8 +379,7 @@ git switch -
 ??? example "Output"
 
     ```text
-    $ git tag v0.1.0
-    $ git checkout v0.1.0
+    $ git tag v0.1.0 && git checkout v0.1.0
     HEAD is now at bb702a1 And so it begins...
 
     # You might see a note from Git about being in a 'detached HEAD' state. It
@@ -470,14 +465,14 @@ Next you'll make a modification to the `frontend` component and deploy it. Open
 up `components/frontend/main.go` in your favorite editor and update line 22 in
 the `sayHello` function to say something new.
 
-```go
+```go linenums="16" hl_lines="7"
 func sayHello(k kit.Kontext) error {
     r, err := k.Component("backend").Send()
     if err != nil {
         return err
     }
 
-    msg := fmt.Sprintf("👋 Hey %s!", r.Str()) // Update me! Hello->Hey
+    msg := fmt.Sprintf("👋 Hey %s!", r.Str()) //(1)
     k.Log().Info(msg)
 
     a := strings.ToLower(k.Header("accept"))
@@ -493,6 +488,8 @@ func sayHello(k kit.Kontext) error {
     }
 }
 ```
+
+1. Update me to say `Hey` instead of `Hello`.
 
 As noted earlier Fox operates against the current commit of the Git repo. That
 means before deploying you need to commit the changes to record them. Then you
@@ -534,7 +531,7 @@ fox publish beta --wait 5m
     apiVersion: kubefox.xigxog.io/v1alpha1
     kind: Deployment
     metadata:
-      creationTimestamp: "2023-10-24T13:10:11Z"
+      creationTimestamp: "1970-01-01T00:00:00Z"
       generation: 2
       name: beta
       namespace: kubefox-dev
@@ -610,13 +607,16 @@ two deployments and release. Because the `backend` component did not change
 between deployments KubeFox is able to share a single pod. Not only are
 environments injected per request, routing is performed dynamically.
 
-Try tagging the updated version of the app and then releasing the original
-version `v0.1.0` using the `universe` environment. Then update the existing
-`dev` release with the latest version using the `world` environment. Notice how
-fast the releases are. Test it out when everything is done.
+For fun tag the new version and update the existing `dev` release using the
+`world` environment. Then release the original version `v0.1.0` using the
+`universe` environment. Notice how fast the releases are.
 
 ```shell
-git tag v0.1.1
+git tag v0.1.1 && git checkout v0.1.1
+```
+
+```shell
+fox release dev --env world --wait 5m
 ```
 
 ```shell
@@ -628,73 +628,13 @@ fox release qa --env universe --wait 5m
 ```
 
 ```shell
-git checkout v0.1.1
-```
-
-```shell
-fox release dev --env world --wait 5m
-```
-
-```shell
 git checkout main
-```
-
-```shell
-curl "http://localhost:8080/big/hello"
-```
-
-```shell
-curl "http://localhost:8080/small/hello"
 ```
 
 ??? example "Output"
 
     ```text
-    $ git tag v0.1.1
-
-    $ git checkout v0.1.0
-    HEAD is now at bb702a1 And so it begins...
-
-    $ fox release qa --env universe --wait 5m
-    info    Component image 'localhost/kubefox/hello-world/backend:bb702a1' exists.
-    info    Loading component image 'localhost/kubefox/hello-world/backend:bb702a1' into kind cluster 'kind'.
-
-    info    Component image 'localhost/kubefox/hello-world/frontend:bb702a1' exists.
-    info    Loading component image 'localhost/kubefox/hello-world/frontend:bb702a1' into kind cluster 'kind'.
-
-    info    Waiting for KubeFox platform 'dev' to be ready...
-    info    Waiting for component 'backend' to be ready...
-    info    Waiting for component 'frontend' to be ready...
-
-    metadata:
-      creationTimestamp: "2023-10-24T14:37:33Z"
-      generation: 1
-      name: qa
-      namespace: kubefox-dev
-      resourceVersion: "2328"
-      uid: 64294db4-79a5-45b8-873a-d093e5aa2851
-    spec:
-      deployment:
-        app:
-          commit: bb702a1
-          containerRegistry: localhost/kubefox/hello-world
-          description: A simple app demonstrating the use of KubeFox.
-          gitRef: refs/tags/v0.1.0
-          name: hello-world
-          title: Hello World
-        components:
-          backend:
-            commit: bb702a1
-            env: {}
-          frontend:
-            commit: bb702a1
-            env: {}
-      environment:
-        name: universe
-    status: {}
-
-    $ git checkout v0.1.1
-    Previous HEAD position was bb702a1 And so it begins...
+    $ git tag v0.1.1 && git checkout v0.1.1
     HEAD is now at 780e2db updated frontend to say Hey
 
     $ fox release dev --env world --wait 5m
@@ -711,7 +651,7 @@ curl "http://localhost:8080/small/hello"
     apiVersion: kubefox.xigxog.io/v1alpha1
     kind: Release
     metadata:
-      creationTimestamp: "2023-10-24T14:30:31Z"
+      creationTimestamp: "1970-01-01T00:00:00Z"
       generation: 3
       name: dev
       namespace: kubefox-dev
@@ -737,14 +677,71 @@ curl "http://localhost:8080/small/hello"
         name: world
     status: {}
 
+    $ git checkout v0.1.0
+    Previous HEAD position was 780e2db updated frontend to say Hey
+    HEAD is now at bb702a1 And so it begins...
+
+    $ fox release qa --env universe --wait 5m
+    info    Component image 'localhost/kubefox/hello-world/backend:bb702a1' exists.
+    info    Loading component image 'localhost/kubefox/hello-world/backend:bb702a1' into kind cluster 'kind'.
+
+    info    Component image 'localhost/kubefox/hello-world/frontend:bb702a1' exists.
+    info    Loading component image 'localhost/kubefox/hello-world/frontend:bb702a1' into kind cluster 'kind'.
+
+    info    Waiting for KubeFox platform 'dev' to be ready...
+    info    Waiting for component 'backend' to be ready...
+    info    Waiting for component 'frontend' to be ready...
+
+    metadata:
+      creationTimestamp: "1970-01-01T00:00:00Z"
+      generation: 1
+      name: qa
+      namespace: kubefox-dev
+      resourceVersion: "2328"
+      uid: 64294db4-79a5-45b8-873a-d093e5aa2851
+    spec:
+      deployment:
+        app:
+          commit: bb702a1
+          containerRegistry: localhost/kubefox/hello-world
+          description: A simple app demonstrating the use of KubeFox.
+          gitRef: refs/tags/v0.1.0
+          name: hello-world
+          title: Hello World
+        components:
+          backend:
+            commit: bb702a1
+            env: {}
+          frontend:
+            commit: bb702a1
+            env: {}
+      environment:
+        name: universe
+    status: {}
+
     $ git checkout main
+    Previous HEAD position was bb702a1 And so it begins...
     Switched to branch 'main'
+    ```
+
+Test it out when everything is done.
+
+```shell
+curl "http://localhost:8080/small/hello"
+```
+
+```shell
+curl "http://localhost:8080/big/hello"
+```
+
+??? example "Output"
+
+    ```text
+    $ curl "http://localhost:8080/small/hello"
+    👋 Hey World!
 
     $ curl "http://localhost:8080/big/hello"
     👋 Hello Universe!
-
-    $ curl "http://localhost:8080/small/hello"
-    👋 Hey World!
     ```
 
 Check out the rest of the docs for more. If you run into any problems please let
