@@ -7,7 +7,7 @@
 The following tools must be installed for this quickstart:
 
 - [Docker](https://docs.docker.com/engine/install/) - A container toolset and
-  runtime. Used to build KubeFox Components' OCI images and run a local
+  runtime. Used to build KubeFox components' OCI images and run a local
   Kubernetes cluster via kind.
 - [Fox](https://github.com/xigxog/kubefox-cli/releases/) -
   CLI for communicating with the KubeFox platform. Download the latest release
@@ -127,7 +127,7 @@ Enter URL for remote Git repo (optional): # Press ENTER to skip
     $ fox init
     info    It looks like this is the first time you are using 🦊 Fox. Welcome!
 
-    info    Fox needs some information from you to configure itself. The setup process only
+    info    🦊 Fox needs some information from you to configure itself. The setup process only
     info    needs to be run once, but if you ever want change things you can use the
     info    command 'fox config setup'.
 
@@ -137,9 +137,9 @@ Enter URL for remote Git repo (optional): # Press ENTER to skip
     info    If you don't have a Kubernetes cluster you can run one locally with kind (https://kind.sigs.k8s.io)
     info    to experiment with KubeFox.
 
-    info    Fox needs a place to store the KubeFox Component images it will build, normally
-    info    this is a remote container registry. However, if you only want to use KubeFox
-    info    locally with kind you can skip this step.
+    info    🦊 Fox needs a place to store the component images it will build, normally this is
+    info    a remote container registry. However, if you only want to use KubeFox locally
+    info    with kind you can skip this step.
     Are you only using KubeFox with local kind cluster? [y/N] y
     Enter the kind cluster's name (default 'kind'): kind
 
@@ -154,13 +154,13 @@ Enter URL for remote Git repo (optional): # Press ENTER to skip
     info    To get things started quickly 🦊 Fox can create a 'hello-world' KubeFox app which
     info    includes two components and example environments for testing.
     Would you like to initialize the 'hello-world' KubeFox app? [y/N] y
-    Enter URL for remote Git repo (optional):
+    Enter URL for remote Git repo (optional): 
 
     info    KubeFox app initialization complete!
     ```
 
 You should see some newly created directories and files. The `hello-world` app
-includes two components and example environments. You might also notice Fox
+includes two components and example environments. You might have noticed Fox
 initialized a new Git repo for you. Take a look around!
 
 When you're ready it's time to create some environments. Two example
@@ -173,44 +173,35 @@ component's `main.go` line 12.
 k.Route("Path(`/{{.Env.subPath}}/hello`)", sayHello)
 ```
 
-Run the following commands to continue.
+Run the following commands to continue. Note the changes to the two environment
+variables on lines numbered 7,8 and 15,16.
 
 ```shell
-cat hack/environments/universe.yaml
-```
-
-```shell
-cat hack/environments/world.yaml
-```
-
-```shell
-kubectl apply --filename hack/environments/
+cat -b hack/environments/* && kubectl apply --filename hack/environments/
 ```
 
 ??? example "Output"
 
-    ```text
-    $ cat hack/environments/universe.yaml
-    apiVersion: kubefox.xigxog.io/v1alpha1
-    kind: Environment
-    metadata:
-      name: universe
-    spec:
-      vars:
-        subPath: big
-        who: Universe
+    ```text hl_lines="8 9 17 18"
+    $ cat -b hack/environments/* && kubectl apply --filename hack/environments/
+     1  apiVersion: kubefox.xigxog.io/v1alpha1
+     2  kind: Environment
+     3  metadata:
+     4    name: universe
+     5  spec:
+     6    vars:
+     7      subPath: big
+     8      who: Universe
 
-    $ cat hack/environments/world.yaml
-    apiVersion: kubefox.xigxog.io/v1alpha1
-    kind: Environment
-    metadata:
-      name: world
-    spec:
-      vars:
-        subPath: small
-        who: World
+     9  apiVersion: kubefox.xigxog.io/v1alpha1
+    10  kind: Environment
+    11  metadata:
+    12    name: world
+    13  spec:
+    14    vars:
+    15      subPath: small
+    16      who: World
 
-    $ kubectl apply --filename hack/environments/
     environment.kubefox.xigxog.io/universe created
     environment.kubefox.xigxog.io/world created
     ```
@@ -222,7 +213,7 @@ future runs should be much faster. Remember, you can add the `--verbose` flag
 for extra output if you want to see what's going on behind the scenes. Note that
 the first deployment will initialize a platform so it might take a couple
 minutes for all the pods to be ready. But don't worry, future deployments will
-be very fast.
+be much faster.
 
 ```shell
 fox publish alpha --wait 5m
@@ -303,7 +294,7 @@ kubectl get pods --namespace kubefox-dev
 You can see the two components running that you just deployed,
 `hello-world-backend` and `hello-world-frontend`. The `broker` and `nats` pods
 are part of the KubeFox platform and were started by the operator when you
-created the platform above.
+created the platform.
 
 Normally connections to the KubeFox platform would be made through a public
 facing load balancer, but setting that up is outside the scope of this
@@ -322,9 +313,9 @@ fox proxy 8080
     ```
 
 Now back in the original terminal you can test the deployment. When KubeFox
-deploys an app it starts the components but will not automatically send requests
-to it until it is released. But you can still test deployments by providing some
-context. KubeFox needs two pieces of information, the deployment to use and the
+deploys an app it starts the components but will not route requests to it until
+it is released. But you can still test deployments by providing some context.
+KubeFox needs two pieces of information, the deployment to use and the
 environment to inject. These can be passed as headers or query parameters.
 
 ```shell
@@ -495,15 +486,13 @@ func sayHello(k kit.Kontext) error {
 
 As noted earlier Fox operates against the current commit of the Git repo. That
 means before deploying you need to commit the changes to record them. Then you
-can publish a new deployment, `beta`, and test. Take note of the hash
-generated by the commit, in the example output below it is `780e2db`.
+can publish a new deployment, `beta`, and test. Take note of the hash generated
+by the commit, in the example output below it is `780e2db`. The commit hashes
+are used to version the components as can be seen in the container OCI image
+tags.
 
 ```shell
-git add .
-```
-
-```shell
-git commit -m "updated frontend to say Hey"
+git add . && git commit -m "updated frontend to say Hey"
 ```
 
 ```shell
@@ -512,10 +501,8 @@ fox publish beta --wait 5m
 
 ??? example "Output"
 
-    ```text
-    $ git add .
-
-    $ git commit -m "updated frontend to say Hey"
+    ```text hl_lines="2 9 10"
+    $ git add . && git commit -m "updated frontend to say Hey"
     [main 780e2db] updated frontend to say Hey
     1 file changed, 1 insertion(+)
 
@@ -557,9 +544,9 @@ fox publish beta --wait 5m
     status: {}
     ```
 
-Notice that Fox didn't rebuild the `backend` component as no changes were made.
-Try testing out the new deployment. You can even switch back to `alpha`
-to verify the changes.
+Fox didn't rebuild the `backend` component as no changes were made. Try testing
+out the new deployment. You can even switch back to `alpha` to verify the
+changes.
 
 ```shell
 curl "http://localhost:8080/small/hello?kf-dep=beta&kf-env=world"
@@ -609,9 +596,9 @@ two deployments and release. Because the `backend` component did not change
 between deployments KubeFox is able to share a single pod. Not only are
 environments injected per request, routing is performed dynamically.
 
-For fun tag the new version and update the existing `dev` release using the
+For fun tag the new version and use it to update the `dev` release with the
 `world` environment. Then release the original version `v0.1.0` using the
-`universe` environment. Notice how fast the releases are.
+`universe` environment. Check out those blazing fast the releases.
 
 ```shell
 git tag v0.1.1 && git checkout v0.1.1 && fox release dev --env world --wait 5m
