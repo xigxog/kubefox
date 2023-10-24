@@ -87,7 +87,7 @@ helm install kubefox-demo kubefox \
     TEST SUITE: None
     ```
 
-## Deploy KubeFox App
+## Deploy App
 
 Great now you're ready to create your first KubeFox app and deploy it to a
 KubeFox platform running on the local kind cluster. You'll be using a local Git
@@ -356,7 +356,7 @@ curl "http://localhost:8080/big/hello?kf-dep=alpha&kf-env=universe"
     👋 Hello Universe!
     ```
 
-## Release KubeFox App
+## Release App
 
 Now you will release the app so you don't have to specify all those details in
 the request. It is recommended to tag the repo for releases to help keep track
@@ -460,6 +460,8 @@ kubectl get pods --namespace kubefox-dev
 
 Surprise, nothing has changed! KubeFox is dynamically injecting the context per
 request just like when you changed environments above.
+
+## Version App
 
 Next you'll make a modification to the `frontend` component and deploy it. Open
 up `components/frontend/main.go` in your favorite editor and update line 22 in
