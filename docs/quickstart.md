@@ -364,28 +364,23 @@ release a different version of your app simply checkout the tag, branch, or
 commit you want and let Fox do the rest.
 
 ```{ .shell .copy }
-git tag v0.1.0 && git checkout v0.1.0
-```
-
-```{ .shell .copy }
-fox release testing --env qa --wait 5m
-```
-
-```{ .shell .copy }
-git switch -
+git tag v0.1.0 && git checkout v0.1.0 && \
+  fox release testing --env qa --wait 5m && \
+  git switch -
 ```
 
 ??? example "Output"
 
     ```text
-    $ git tag v0.1.0 && git checkout v0.1.0
+    $ git tag v0.1.0 && git checkout v0.1.0 && \
+        fox release testing --env qa --wait 5m && \
+        git switch -
     HEAD is now at bb702a1 And so it begins...
 
     # You might see a note from Git about being in a 'detached HEAD' state. It
     # can be disabled in the future by running `git config --global advice.detachedHead false`,
     # if you prefer.
 
-    $ fox release testing --env qa --wait 5m
     info    Component image 'localhost/kubefox/hello-world/backend:bb702a1' exists.
     info    Loading component image 'localhost/kubefox/hello-world/backend:bb702a1' into kind cluster 'kind'.
 
@@ -502,21 +497,18 @@ are used to version the components as can be seen in the container OCI image
 tags.
 
 ```{ .shell .copy }
-git add . && git commit -m "updated frontend to say Hey"
-```
-
-```{ .shell .copy }
-fox publish beta --wait 5m
+git add . && git commit -m "updated frontend to say Hey" && \
+  fox publish beta --wait 5m
 ```
 
 ??? example "Output"
 
     ```text hl_lines="2 9 10"
-    $ git add . && git commit -m "updated frontend to say Hey"
+    $ git add . && git commit -m "updated frontend to say Hey" && \
+        fox publish beta --wait 5m
     [main 780e2db] updated frontend to say Hey
     1 file changed, 1 insertion(+)
 
-    $ fox publish beta --wait 5m
     info    Component image 'localhost/kubefox/hello-world/backend:bb702a1' exists, skipping build.
     info    Loading component image 'localhost/kubefox/hello-world/backend:bb702a1' into kind cluster 'kind'.
 
@@ -611,22 +603,23 @@ create a new release of version `v0.1.0` using the `prod` environment. Check out
 those blazing fast the releases.
 
 ```{ .shell .copy }
-git tag v0.1.1 && git checkout v0.1.1 && fox release testing --env qa --wait 5m
-```
-
-```{ .shell .copy }
-git checkout v0.1.0 && fox release production --env prod --wait 5m
-```
-
-```{ .shell .copy }
-git checkout main
+git tag v0.1.1 && git checkout v0.1.1 && \
+  fox release testing --env qa --wait 5m && \
+  git checkout v0.1.0 && \
+  fox release production --env prod --wait 5m && \
+  git checkout main
 ```
 
 ??? example "Output"
 
     ```text
-    $ git tag v0.1.1 && git checkout v0.1.1 && fox release testing --env qa --wait 5m
+    $ git tag v0.1.1 && git checkout v0.1.1 && \
+        fox release testing --env qa --wait 5m && \
+        git checkout v0.1.0 && \
+        fox release production --env prod --wait 5m && \
+        git checkout main
     HEAD is now at 780e2db updated frontend to say Hey
+
     info    Component image 'localhost/kubefox/hello-world/backend:bb702a1' exists.
     info    Loading component image 'localhost/kubefox/hello-world/backend:bb702a1' into kind cluster 'kind'.
 
@@ -666,9 +659,9 @@ git checkout main
         name: qa
     status: {}
 
-    $ git checkout v0.1.0 && fox release production --env prod --wait 5m
     Previous HEAD position was 780e2db updated frontend to say Hey
     HEAD is now at bb702a1 And so it begins...
+
     info    Component image 'localhost/kubefox/hello-world/backend:bb702a1' exists.
     info    Loading component image 'localhost/kubefox/hello-world/backend:bb702a1' into kind cluster 'kind'.
 
@@ -708,7 +701,6 @@ git checkout main
         name: prod
     status: {}
 
-    $ git checkout main
     Previous HEAD position was bb702a1 And so it begins...
     Switched to branch 'main'
     ```
