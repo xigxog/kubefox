@@ -6,7 +6,7 @@
   </tr>
     <tr style="padding: 0">
     <td valign="top">
-      <p>Broker</p>
+      <p>Bootstrap</p>
     </td>
     <td valign="center" style="padding-top: 5px"><a href="https://goreportcard.com/report/github.com/xigxog/kubefox/components/bootstrap"><img src="https://goreportcard.com/badge/github.com/xigxog/kubefox/components/bootstrap"/></a>
     </td>
