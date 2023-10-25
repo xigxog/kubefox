@@ -4,10 +4,6 @@
   --md-code-font: "Source Code Pro", monospace;
 }
 
-:root code {
-  font-size: 0.9em;
-}
-
 img[alt="diagram"] {
   border: 1.5rem solid white;
 }

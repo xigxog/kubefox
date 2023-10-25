@@ -75,13 +75,13 @@ docs:
 	go install github.com/pseudomuto/protoc-gen-doc/cmd/protoc-gen-doc@v1.5.1
 	protoc \
 		--proto_path=$(PROTO_SRC) \
-		--doc_out=docs/reference/ --doc_opt=docs/protobuf.tmpl,protobuf_msgs.md \
-		protobuf_msgs.proto
+		--doc_out=docs/reference/ --doc_opt=docs/protobuf.tmpl,protobuf.md \
+		protobuf_msgs.proto broker_svc.proto
 
-	protoc \
-		--proto_path=$(PROTO_SRC) \
-		--doc_out=docs/reference/ --doc_opt=docs/protobuf.tmpl,broker_svc.md \
-		broker_svc.proto
+	# protoc \
+	# 	--proto_path=$(PROTO_SRC) \
+	# 	--doc_out=docs/reference/ --doc_opt=docs/protobuf.tmpl,broker_svc.md \
+	# 	broker_svc.proto
 
 	pipenv install
 	pipenv run mkdocs build

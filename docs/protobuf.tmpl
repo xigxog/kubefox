@@ -65,11 +65,3 @@
 {{end}} <!-- end services -->
 
 {{end}}
-
-## Scalar Value Types
-
-| .proto Type | Notes | C++ | Java | Python | Go | C# | PHP | Ruby |
-| ----------- | ----- | --- | ---- | ------ | -- | -- | --- | ---- |
-{{range .Scalars -}}
-  | <a name="{{.ProtoType | lower | replace "." ""}}" /> {{.ProtoType}} | {{.Notes}} | {{.CppType}} | {{.JavaType}} | {{.PythonType}} | {{.GoType}} | {{.CSharp}} | {{.PhpType}} | {{.RubyType}} |
-{{end}}
