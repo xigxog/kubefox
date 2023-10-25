@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"github.com/xigxog/kubefox/components/broker/config"
-	"github.com/xigxog/kubefox/libs/core/logkf"
+	"github.com/xigxog/kubefox/logkf"
 )
 
 type HealthProvider interface {

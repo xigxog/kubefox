@@ -12,9 +12,9 @@ import (
 	"github.com/go-logr/zapr"
 	"github.com/xigxog/kubefox/components/broker/config"
 	"github.com/xigxog/kubefox/components/broker/engine"
-	"github.com/xigxog/kubefox/libs/core/kubefox"
-	"github.com/xigxog/kubefox/libs/core/logkf"
-	"github.com/xigxog/kubefox/libs/core/utils"
+	kubefox "github.com/xigxog/kubefox/core"
+	"github.com/xigxog/kubefox/logkf"
+	"github.com/xigxog/kubefox/utils"
 
 	ctrl "sigs.k8s.io/controller-runtime"
 )

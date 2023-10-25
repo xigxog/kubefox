@@ -5,8 +5,8 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/xigxog/kubefox/libs/core/kubefox"
-	"github.com/xigxog/kubefox/libs/core/logkf"
+	kubefox "github.com/xigxog/kubefox/core"
+	"github.com/xigxog/kubefox/logkf"
 )
 
 type HTTPClient struct {

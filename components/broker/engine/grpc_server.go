@@ -10,10 +10,9 @@ import (
 	"time"
 
 	"github.com/xigxog/kubefox/components/broker/config"
-	"github.com/xigxog/kubefox/libs/core/grpc"
-	"github.com/xigxog/kubefox/libs/core/kubefox"
-	"github.com/xigxog/kubefox/libs/core/logkf"
-	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
+	kubefox "github.com/xigxog/kubefox/core"
+	"github.com/xigxog/kubefox/grpc"
+	"github.com/xigxog/kubefox/logkf"
 
 	gogrpc "google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -53,7 +52,7 @@ func (srv *GRPCServer) Start(ctx context.Context) error {
 	}
 	srv.wrapped = gogrpc.NewServer(
 		gogrpc.Creds(creds),
-		gogrpc.StreamInterceptor(otelgrpc.StreamServerInterceptor()),
+		// gogrpc.StreamInterceptor(otelgrpc.StreamServerInterceptor()),
 	)
 
 	grpc.RegisterBrokerServer(srv.wrapped, srv)

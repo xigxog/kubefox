@@ -10,9 +10,9 @@ import (
 
 	vapi "github.com/hashicorp/vault/api"
 	vauth "github.com/hashicorp/vault/api/auth/kubernetes"
-	"github.com/xigxog/kubefox/libs/core/kubefox"
-	"github.com/xigxog/kubefox/libs/core/logkf"
-	"github.com/xigxog/kubefox/libs/core/utils"
+	kubefox "github.com/xigxog/kubefox/core"
+	"github.com/xigxog/kubefox/logkf"
+	"github.com/xigxog/kubefox/utils"
 )
 
 const (

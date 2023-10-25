@@ -1,0 +1,11 @@
+syntax = "proto3";
+
+package kubefox.proto.v1;
+
+import "protobuf_msgs.proto";
+
+option go_package = "github.com/xigxog/kubefox/grpc";
+
+service Broker {
+  rpc Subscribe(stream Event) returns (stream MatchedEvent);
+}

@@ -6,16 +6,16 @@ IMAGE = $(IMAGE_REGISTRY)/kubefox/$(component)
 
 GIT_REF := $(shell git symbolic-ref -q --short HEAD || git describe --tags --exact-match)
 IMAGE_REGISTRY := ghcr.io/xigxog
-KIND_NAME := kubefox
+KIND_NAME := kind
 KIND_LOAD := false
 
 ROOT := $(dir $(abspath $(lastword $(MAKEFILE_LIST))))
 TARGET_DIR := $(abspath $(ROOT)/bin)
-API_DIR := $(abspath $(ROOT)/libs/api)
+API_DIR := $(abspath $(ROOT)/api)
 CRDS_DIR := $(abspath $(API_DIR)/crds)
 PROTO_SRC := $(abspath $(API_DIR)/protobuf)
-KUBEFOX_DIR := $(abspath $(ROOT)/libs/core/kubefox)
-GRPC_OUT := $(abspath $(ROOT)/libs/core/grpc)
+KUBEFOX_DIR := $(abspath $(ROOT)/core)
+GRPC_OUT := $(abspath $(ROOT)/grpc)
 DOCS_OUT := $(abspath $(ROOT)/site)
 
 TOOLS_DIR := $(abspath $(ROOT)/tools)
@@ -64,9 +64,9 @@ $(BINS):
 	CGO_ENABLED=0 go build \
 		-C "$(SRC_DIR)/" -o "$(TARGET_DIR)/$(component)" \
 		-ldflags " \
-		-X github.com/xigxog/kubefox/libs/core/kubefox.ComponentName=$(component) \
-		-X github.com/xigxog/kubefox/libs/core/kubefox.GitCommit=$(GIT_COMMIT) \
-		-X github.com/xigxog/kubefox/libs/core/kubefox.GitRef=$(GIT_REF)" \
+		-X github.com/xigxog/kubefox/core.ComponentName=$(component) \
+		-X github.com/xigxog/kubefox/core.GitCommit=$(GIT_COMMIT) \
+		-X github.com/xigxog/kubefox/core.GitRef=$(GIT_REF)" \
 		main.go
 
 .PHONY: docs

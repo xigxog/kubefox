@@ -11,7 +11,7 @@ package controller
 import (
 	"fmt"
 
-	"github.com/xigxog/kubefox/libs/core/kubefox"
+	kubefox "github.com/xigxog/kubefox/core"
 )
 
 var (
