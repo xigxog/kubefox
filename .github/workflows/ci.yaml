@@ -46,7 +46,7 @@ jobs:
           repo-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Generate docs
-        run: pip install pipenv && make docs
+        run: make docs
 
       - name: Upload docs
         uses: actions/upload-pages-artifact@v1
@@ -92,7 +92,7 @@ jobs:
 
       - name: Build and push component
         run: |
-          make push/${{ matrix.component }}
+          make push COMPONENT=${{ matrix.component }}
 
   release:
     name: Release

@@ -3,25 +3,9 @@ package core
 import (
 	"path"
 	"regexp"
-	"strings"
 
 	"github.com/xigxog/kubefox/utils"
 )
-
-// Injected at build time
-var (
-	ComponentName string
-	GitCommit     string
-	GitRef        string
-)
-
-func Version() string {
-	p := strings.Split(GitRef, "/")
-	if len(p) > 0 {
-		return p[len(p)-1]
-	}
-	return GitRef
-}
 
 type EventType string
 

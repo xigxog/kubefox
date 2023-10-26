@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/xigxog/kubefox/build"
 	kubefox "github.com/xigxog/kubefox/core"
 	"github.com/xigxog/kubefox/logkf"
 )
@@ -20,7 +21,7 @@ type HTTPClient struct {
 func NewHTTPClient(brk Broker) *HTTPClient {
 	comp := &kubefox.Component{
 		Name:   "http-client",
-		Commit: kubefox.GitCommit,
+		Commit: build.Commit,
 		Id:     brk.Id(),
 	}
 	return &HTTPClient{

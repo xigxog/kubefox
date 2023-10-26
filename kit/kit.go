@@ -108,7 +108,6 @@ Flags:
 	defer logkf.Global.Sync()
 
 	svc.log = logkf.Global
-	svc.log.Debugf("gitCommit: %s, gitRef: %s", kubefox.GitCommit, kubefox.GitRef)
 
 	svc.httpSrv = &http.Server{
 		WriteTimeout: time.Second * 3,

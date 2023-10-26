@@ -11,7 +11,7 @@ package controller
 import (
 	"fmt"
 
-	kubefox "github.com/xigxog/kubefox/core"
+	"github.com/xigxog/kubefox/build"
 )
 
 var (
@@ -24,6 +24,6 @@ const (
 )
 
 var (
-	BrokerImage    = fmt.Sprintf("ghcr.io/xigxog/kubefox/broker:%s", kubefox.Version())
-	BootstrapImage = fmt.Sprintf("ghcr.io/xigxog/kubefox/bootstrap:%s", kubefox.Version())
+	BrokerImage    = fmt.Sprintf("ghcr.io/xigxog/kubefox/broker:%s", build.Version)
+	BootstrapImage = fmt.Sprintf("ghcr.io/xigxog/kubefox/bootstrap:%s", build.Version)
 )

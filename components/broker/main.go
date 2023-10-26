@@ -12,7 +12,6 @@ import (
 	"github.com/go-logr/zapr"
 	"github.com/xigxog/kubefox/components/broker/config"
 	"github.com/xigxog/kubefox/components/broker/engine"
-	kubefox "github.com/xigxog/kubefox/core"
 	"github.com/xigxog/kubefox/logkf"
 	"github.com/xigxog/kubefox/utils"
 
@@ -47,8 +46,6 @@ func main() {
 		WithService("broker")
 	defer logkf.Global.Sync()
 	ctrl.SetLogger(zapr.NewLogger(logkf.Global.Unwrap().Desugar()))
-
-	logkf.Global.Infof("gitCommit: %s, gitRef: %s", kubefox.GitCommit, kubefox.GitRef)
 
 	engine.New().Start()
 

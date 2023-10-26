@@ -27,6 +27,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/xigxog/kubefox/api/kubernetes/v1alpha1"
+	"github.com/xigxog/kubefox/build"
 	"github.com/xigxog/kubefox/components/operator/templates"
 	kubefox "github.com/xigxog/kubefox/core"
 	"github.com/xigxog/kubefox/logkf"
@@ -126,7 +127,7 @@ func (r *PlatformReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 				Name:           r.Instance,
 				Namespace:      r.Namespace,
 				BootstrapImage: BootstrapImage,
-				Version:        kubefox.Version(),
+				Version:        build.Version,
 			},
 			Component: templates.Component{
 				Name:  "vault",
@@ -169,7 +170,7 @@ func (r *PlatformReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 				Namespace:      r.Namespace,
 				RootCA:         string(cm.Data["ca.crt"]),
 				BootstrapImage: BootstrapImage,
-				Version:        kubefox.Version(),
+				Version:        build.Version,
 			},
 			Platform: templates.Platform{
 				Name:      p.Name,

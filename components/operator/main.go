@@ -32,7 +32,6 @@ import (
 	"github.com/xigxog/kubefox/api"
 	"github.com/xigxog/kubefox/api/kubernetes/v1alpha1"
 	"github.com/xigxog/kubefox/components/operator/controller"
-	kubefox "github.com/xigxog/kubefox/core"
 	"github.com/xigxog/kubefox/logkf"
 	"github.com/xigxog/kubefox/utils"
 )
@@ -73,7 +72,6 @@ func main() {
 	ctrl.SetLogger(zapr.NewLogger(logkf.Global.Unwrap().Desugar()))
 
 	log := logkf.Global
-	log.Infof("gitCommit: %s, gitRef: %s", kubefox.GitCommit, kubefox.GitRef)
 
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
 		Scheme: scheme,

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/xigxog/kubefox/build"
 	kubefox "github.com/xigxog/kubefox/core"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
@@ -43,6 +44,7 @@ type Logger struct {
 
 func init() {
 	Global, _ = BuildLogger("console", "debug")
+	Global.Infof("%+v", build.VersionMap)
 }
 
 func BuildLoggerOrDie(format, level string) *Logger {

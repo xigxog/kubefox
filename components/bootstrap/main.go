@@ -65,7 +65,6 @@ func main() {
 	defer logkf.Global.Sync()
 	log := logkf.Global
 
-	log.Infof("gitCommit: %s, gitRef: %s", kubefox.GitCommit, kubefox.GitRef)
 	log.DebugInterface("flags:", f)
 
 	for retry := 0; retry < 3; retry++ {

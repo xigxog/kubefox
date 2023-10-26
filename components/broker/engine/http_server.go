@@ -12,6 +12,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/xigxog/kubefox/build"
 	"github.com/xigxog/kubefox/components/broker/config"
 	kubefox "github.com/xigxog/kubefox/core"
 	"github.com/xigxog/kubefox/logkf"
@@ -38,7 +39,7 @@ type HTTPServer struct {
 func NewHTTPServer(brk Broker) *HTTPServer {
 	comp := &kubefox.Component{
 		Name:   "http-server",
-		Commit: kubefox.GitCommit,
+		Commit: build.Commit,
 		Id:     brk.Id(),
 	}
 	return &HTTPServer{

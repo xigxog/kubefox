@@ -12,6 +12,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/xigxog/kubefox/api/kubernetes/v1alpha1"
+	"github.com/xigxog/kubefox/build"
 	"github.com/xigxog/kubefox/components/operator/templates"
 	kubefox "github.com/xigxog/kubefox/core"
 	"github.com/xigxog/kubefox/logkf"
@@ -47,8 +48,8 @@ func (cm *ComponentManager) SetupComponent(ctx context.Context, td *TemplateData
 	// TODO use kubefox.LabelK8sVersion on lib release
 	ver := td.Obj.GetLabels()["kubefox.xigxog.io/version"]
 
-	if semver.Compare(ver, kubefox.Version()) < 0 {
-		log.Infof("version upgrade detected, applying template to upgrade %s->%s", ver, kubefox.Version())
+	if semver.Compare(ver, build.Version) < 0 {
+		log.Infof("version upgrade detected, applying template to upgrade %s->%s", ver, build.Version)
 		return false, cm.Client.ApplyTemplate(ctx, td.Template, &td.Data)
 	}
 
@@ -125,7 +126,7 @@ func (cm *ComponentManager) ReconcileComponents(ctx context.Context, namespace s
 					Instance: templates.Instance{
 						Name:           cm.Instance,
 						BootstrapImage: BootstrapImage,
-						Version:        kubefox.Version(),
+						Version:        build.Version,
 					},
 					Platform: templates.Platform{
 						Name:      platform.Name,

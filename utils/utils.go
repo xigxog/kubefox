@@ -4,9 +4,14 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"path/filepath"
+	"regexp"
 	"strconv"
+	"strings"
 	"unsafe"
 )
+
+var RegexpSpecialChar = regexp.MustCompile(`[^a-z0-9]`)
 
 func ResolveFlag(curr, envVar, def string) string {
 	if curr != "" {
@@ -64,4 +69,14 @@ func UIntToByteArray(i uint64) []byte {
 
 func ByteArrayToUInt(b []byte) uint64 {
 	return *(*uint64)(unsafe.Pointer(&b[0]))
+}
+
+// CleanName returns name with all special characters replaced with dashes and
+// set to lowercase. If name is a path only the basename is used.
+func CleanName(name string) string {
+	cleaned := filepath.Base(name)
+	cleaned = strings.ToLower(cleaned)
+	cleaned = RegexpSpecialChar.ReplaceAllLiteralString(cleaned, "-")
+	cleaned = strings.TrimPrefix(strings.TrimSuffix(cleaned, "-"), "-")
+	return cleaned
 }
