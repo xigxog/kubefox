@@ -39,7 +39,7 @@ type HTTPServer struct {
 func NewHTTPServer(brk Broker) *HTTPServer {
 	comp := &kubefox.Component{
 		Name:   "http-server",
-		Commit: build.Commit,
+		Commit: build.Info.Commit,
 		Id:     brk.Id(),
 	}
 	return &HTTPServer{

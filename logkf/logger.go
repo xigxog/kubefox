@@ -44,7 +44,7 @@ type Logger struct {
 
 func init() {
 	Global, _ = BuildLogger("console", "debug")
-	Global.Infof("%+v", build.VersionMap)
+
 }
 
 func BuildLoggerOrDie(format, level string) *Logger {
@@ -55,6 +55,7 @@ func BuildLoggerOrDie(format, level string) *Logger {
 		return nil
 
 	} else {
+		l.Debugf("%+v", build.Info)
 		return l
 	}
 }

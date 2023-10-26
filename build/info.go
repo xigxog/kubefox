@@ -7,60 +7,54 @@ import (
 
 // Injected at build time.
 var (
-	BuildDate  string
-	Component  string
-	Commit     string
-	RootCommit string
-	HeadRef    string
-	TagRef     string
+	date       string
+	component  string
+	commit     string
+	rootCommit string
+	headRef    string
+	tagRef     string
 )
 
-// Set inside init.
-var (
-	Version    string
-	VersionMap map[string]string
-)
+type BuildInfo struct {
+	Date       string `json:"date,omitempty"`
+	Component  string `json:"component,omitempty"`
+	Commit     string `json:"commit,omitempty"`
+	RootCommit string `json:"rootCommit,omitempty"`
+	HeadRef    string `json:"headRef,omitempty"`
+	TagRef     string `json:"tagRef,omitempty"`
+	Version    string `json:"version,omitempty"`
+}
+
+// Constructed inside init.
+var Info BuildInfo
 
 func init() {
-	// Set Version.
-	var modVersion string
+	// Find Version
+	var modVersion, version string
 	if info, ok := debug.ReadBuildInfo(); ok {
 		if v := info.Main.Version; v != "" && v != "(devel)" {
 			modVersion = v
 		}
 	}
 
-	if p := strings.Split(TagRef, "/"); len(p) > 0 {
-		Version = p[len(p)-1]
+	if p := strings.Split(tagRef, "/"); tagRef != "" {
+		version = p[len(p)-1]
 	} else if modVersion != "" {
-		Version = modVersion
-	} else if p := strings.Split(HeadRef, "/"); len(p) > 0 {
-		Version = p[len(p)-1]
+		version = modVersion
+	} else if p := strings.Split(headRef, "/"); headRef != "" {
+		version = p[len(p)-1]
 	} else {
-		Version = RootCommit
+		version = rootCommit
 	}
 
-	// Set VersionMap.
-	VersionMap = make(map[string]string)
-	if BuildDate != "" {
-		VersionMap["date"] = BuildDate
-	}
-	if Component != "" {
-		VersionMap["component"] = Component
-	}
-	if Commit != "" {
-		VersionMap["commit"] = Commit
-	}
-	if RootCommit != "" {
-		VersionMap["rootCommit"] = RootCommit
-	}
-	if HeadRef != "" {
-		VersionMap["branch"] = HeadRef
-	}
-	if TagRef != "" {
-		VersionMap["tag"] = TagRef
-	}
-	if Version != "" {
-		VersionMap["version"] = Version
+	// Construct Info
+	Info = BuildInfo{
+		Date:       date,
+		Component:  component,
+		Commit:     commit,
+		RootCommit: rootCommit,
+		HeadRef:    headRef,
+		TagRef:     tagRef,
+		Version:    version,
 	}
 }

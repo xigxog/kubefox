@@ -127,7 +127,7 @@ func (r *PlatformReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 				Name:           r.Instance,
 				Namespace:      r.Namespace,
 				BootstrapImage: BootstrapImage,
-				Version:        build.Version,
+				Version:        build.Info.Version,
 			},
 			Component: templates.Component{
 				Name:  "vault",
@@ -170,7 +170,7 @@ func (r *PlatformReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 				Namespace:      r.Namespace,
 				RootCA:         string(cm.Data["ca.crt"]),
 				BootstrapImage: BootstrapImage,
-				Version:        build.Version,
+				Version:        build.Info.Version,
 			},
 			Platform: templates.Platform{
 				Name:      p.Name,
