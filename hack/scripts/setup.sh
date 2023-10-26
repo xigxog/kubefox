@@ -32,4 +32,9 @@ TAG_REF=$(git describe --tags --exact-match 2>/dev/null | xargs -I % echo "refs/
 IMAGE_TAG=${IMAGE_TAG:-$(git symbolic-ref -q --short HEAD || git describe --tags --exact-match)}
 IMAGE="ghcr.io/xigxog/kubefox/${COMPONENT}:${IMAGE_TAG}"
 
+export GO111MODULE=on
+export CGO_ENABLED=0
+export GOBIN="${REPO_ROOT}/${TOOLS_DIR}"
+export PATH="${PATH}:${GOBIN}"
+
 set -o pipefail -o xtrace -o nounset

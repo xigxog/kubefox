@@ -2,9 +2,6 @@
 
 source "$(dirname "${BASH_SOURCE[0]}")/setup.sh"
 
-export GO111MODULE=on
-export CGO_ENABLED=0
-
 BUILD_DATE=$(TZ=UTC date --iso-8601=seconds)
 
 if ! ${SKIP_GENERATE:-false}; then
