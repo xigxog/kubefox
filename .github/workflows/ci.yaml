@@ -46,7 +46,7 @@ jobs:
           repo-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Generate docs
-        run: make docs
+        run: pip install pipenv && make docs
 
       - name: Upload docs
         uses: actions/upload-pages-artifact@v1
