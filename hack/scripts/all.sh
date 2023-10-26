@@ -2,17 +2,13 @@
 
 source "$(dirname "${BASH_SOURCE[0]}")/setup.sh"
 
-SKIP_GENERATE=true
-RELEASE=${RELEASE:-false}
+export SKIP_GENERATE=true
 
 $SCRIPTS/generate.sh
 
 for dir in ${COMPONENTS_DIR}/*/; do
     export COMPONENT="$(basename ${dir})"
-
-    if ${RELEASE}; then
-        $SCRIPTS/push.sh
-    else
-        $SCRIPTS/image.sh
-    fi
+    $SCRIPTS/image.sh &
 done
+
+wait

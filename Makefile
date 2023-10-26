@@ -16,10 +16,6 @@ build:
 image:
 	$(REPO_ROOT)hack/scripts/image.sh
 
-.PHONY: push
-push:
-	$(REPO_ROOT)hack/scripts/push.sh
-
 .PHONY: docs
 docs:
 	$(REPO_ROOT)hack/scripts/docs.sh
