@@ -13,6 +13,8 @@ import (
 
 	"github.com/go-logr/zapr"
 	"github.com/lestrrat-go/jwx/jwt"
+	tikvcfg "github.com/tikv/client-go/v2/config"
+	"github.com/tikv/client-go/v2/rawkv"
 	"github.com/xigxog/kubefox/api/kubernetes/v1alpha1"
 	"github.com/xigxog/kubefox/build"
 	"github.com/xigxog/kubefox/components/broker/config"
@@ -21,6 +23,7 @@ import (
 	"github.com/xigxog/kubefox/logkf"
 	"github.com/xigxog/kubefox/matcher"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/structpb"
 	authv1 "k8s.io/api/authentication/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -65,7 +68,8 @@ type broker struct {
 
 	jsClient *JetStreamClient
 	// httpClient *HTTPClient
-	k8sClient client.Client
+	k8sClient  client.Client
+	tikvClient *rawkv.Client
 
 	healthSrv *telemetry.HealthServer
 	telClient *telemetry.Client
@@ -126,6 +130,12 @@ func (brk *broker) Start() {
 
 	ctx, cancel := context.WithTimeout(brk.ctx, timeout)
 	defer cancel()
+
+	c, err := rawkv.NewClient(ctx, []string{"basic-pd.tidb-cluster:2379"}, tikvcfg.DefaultConfig().Security)
+	if err != nil {
+		brk.shutdown(ExitCodeKubernetes, err)
+	}
+	brk.tikvClient = c
 
 	cfg, err := ctrl.GetConfig()
 	if err != nil {
@@ -389,6 +399,10 @@ func (brk *broker) routeEvent(log *logkf.Logger, evt *LiveEvent) error {
 		return fmt.Errorf("%w: unable to send event", err)
 	}
 
+	if evt.Receiver != ReceiverJetStream {
+		brk.archiveCh <- evt
+	}
+
 	return nil
 }
 
@@ -546,13 +560,24 @@ func (brk *broker) startArchiver() {
 		select {
 		case evt := <-brk.archiveCh:
 			log := log.WithEvent(evt.Event)
-			log.Debug("publishing event to JetStream for archiving")
+			log.Debug("storing event in tikv")
 
-			err := brk.jsClient.Publish(evt.Target.DirectSubject(), evt.Event)
+			dataBytes, err := proto.Marshal(evt.Event)
 			if err != nil {
-				// This event will be lost in time, never to be seen again :(
-				log.Warnf("unable to publish event to JetStream, event not archived: %v", err)
+				log.Warn(err)
 			}
+			err = brk.tikvClient.Put(context.TODO(), []byte(evt.Id), dataBytes)
+			if err != nil {
+				log.Warn(err)
+			}
+
+			// log.Debug("publishing event to JetStream for archiving")
+
+			// err := brk.jsClient.Publish(evt.Target.DirectSubject(), evt.Event)
+			// if err != nil {
+			// 	// This event will be lost in time, never to be seen again :(
+			// 	log.Warnf("unable to publish event to JetStream, event not archived: %v", err)
+			// }
 
 		case <-brk.ctx.Done():
 			return
