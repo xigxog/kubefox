@@ -9,6 +9,22 @@ on:
       - "v*.*.*"
 
 jobs:
+  setup:
+    name: Setup
+    runs-on: ubuntu-22.04
+    outputs:
+      components: ${{ steps.set-matrix.outputs.components }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - id: set-matrix
+        name: Output component builds
+        run: |
+          echo "components=$(ls ./components/ | jq -R -s -c 'split("\n")[:-1]')" >> $GITHUB_OUTPUT
+          cat $GITHUB_OUTPUT
+
   publish-docs:
     name: Publish docs
     runs-on: ubuntu-22.04
@@ -35,6 +51,12 @@ jobs:
           python-version: "3.12"
           cache: pipenv
 
+      - name: Cache tools
+        uses: actions/cache@v3
+        with:
+          path: ./tools
+          key: doc-tools
+
       - name: Generate docs
         run: pip install pipenv && make docs
 
@@ -46,9 +68,13 @@ jobs:
       - name: Publish docs
         uses: actions/deploy-pages@v2
 
-  publish-components:
-    name: Publish components
+  publish-component:
+    name: Publish component
     runs-on: ubuntu-22.04
+    needs: setup
+    strategy:
+      matrix:
+        component: ${{ fromJSON(needs.setup.outputs.components) }}
 
     permissions:
       contents: read
@@ -82,14 +108,20 @@ jobs:
           go-version-file: go.mod
           cache-dependency-path: go.sum
 
-      - name: Build and push components
-        run: make all COMPRESS=true PUSH=true
+      - name: Cache tools
+        uses: actions/cache@v3
+        with:
+          path: ./tools
+          key: build-tools
+
+      - name: Build and push component
+        run: make image COMPONENT=${{ matrix.component }} COMPRESS=true PUSH=true
 
   release:
     name: Release
     runs-on: ubuntu-22.04
     if: startsWith(github.ref, 'refs/tags/v')
-    needs: publish-components
+    needs: publish-component
 
     permissions:
       contents: write
