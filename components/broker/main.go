@@ -37,5 +37,11 @@ func main() {
 	utils.CheckRequiredFlag("namespace", config.Namespace)
 
 	defer logkf.Global.Sync()
+	logkf.Global = logkf.
+		BuildLoggerOrDie(config.LogFormat, config.LogLevel).
+		WithInstance(config.Instance).
+		WithPlatform(config.Platform).
+		WithService("broker")
+
 	engine.New().Start()
 }

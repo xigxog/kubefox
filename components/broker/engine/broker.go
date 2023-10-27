@@ -14,6 +14,7 @@ import (
 	"github.com/go-logr/zapr"
 	"github.com/lestrrat-go/jwx/jwt"
 	"github.com/xigxog/kubefox/api/kubernetes/v1alpha1"
+	"github.com/xigxog/kubefox/build"
 	"github.com/xigxog/kubefox/components/broker/config"
 	"github.com/xigxog/kubefox/components/broker/telemetry"
 	kubefox "github.com/xigxog/kubefox/core"
@@ -90,22 +91,16 @@ type broker struct {
 
 func New() Engine {
 	name, id := kubefox.GenerateNameAndId()
-	logkf.Global = logkf.
-		BuildLoggerOrDie(config.LogFormat, config.LogLevel).
-		WithInstance(config.Instance).
-		WithPlatform(config.Platform).
-		WithService("broker").
+	logkf.Global = logkf.Global.
 		With(logkf.KeyBrokerId, id).
 		With(logkf.KeyBrokerName, name)
 	ctrl.SetLogger(zapr.NewLogger(logkf.Global.Unwrap().Desugar()))
-
-	logkf.Global.Debugf("gitCommit: %s, gitRef: %s", kubefox.GitCommit, kubefox.GitRef)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	brk := &broker{
 		comp: &kubefox.Component{
 			Name:     name,
-			Commit:   kubefox.GitCommit,
+			Commit:   build.Info.Commit,
 			Id:       id,
 			BrokerId: id,
 		},

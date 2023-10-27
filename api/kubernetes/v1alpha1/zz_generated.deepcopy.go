@@ -6,6 +6,7 @@ package v1alpha1
 
 import (
 	"github.com/xigxog/kubefox/core"
+	"k8s.io/api/core/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 )
 
