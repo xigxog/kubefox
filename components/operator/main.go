@@ -105,6 +105,8 @@ func main() {
 		Namespace: namespace,
 		VaultAddr: vaultAddr,
 		Scheme:    mgr.GetScheme(),
+		LogLevel:  logLevel,
+		LogFormat: logFormat,
 	}).SetupWithManager(mgr); err != nil {
 		log.Fatalf("unable to create platform controller", err)
 	}

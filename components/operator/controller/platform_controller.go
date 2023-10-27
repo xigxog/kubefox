@@ -46,6 +46,9 @@ type PlatformReconciler struct {
 	Namespace string
 	VaultAddr string
 
+	LogLevel  string
+	LogFormat string
+
 	Scheme *runtime.Scheme
 
 	vClient *vapi.Client
@@ -175,6 +178,8 @@ func (r *PlatformReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 			Platform: templates.Platform{
 				Name:      p.Name,
 				Namespace: p.Namespace,
+				LogFormat: r.LogFormat,
+				LogLevel:  r.LogLevel,
 			},
 			Values: map[string]any{
 				"pkiInitImage": VaultImage,

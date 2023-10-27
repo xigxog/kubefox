@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/google/uuid"
+	"github.com/xigxog/kubefox/utils"
 )
 
 type ComponentReg struct {
@@ -26,7 +27,7 @@ func GenerateNameAndId() (string, string) {
 		name = h
 	}
 
-	return name, id
+	return utils.CleanName(name), id
 }
 
 func (c *Component) IsFull() bool {

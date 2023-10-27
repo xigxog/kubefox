@@ -41,11 +41,6 @@ const (
 	InterruptCode         = 130
 )
 
-const (
-	FormatBrokerSubject  = "evt.brk.%s"
-	FormatBrokerConsumer = "broker-%s"
-)
-
 var (
 	timeout    = 30 * time.Second
 	NoopCancel = func(err error) {}
@@ -127,8 +122,7 @@ func (brk *broker) Component() *kubefox.Component {
 }
 
 func (brk *broker) Start() {
-	// TODO log config
-	brk.log.Debug("broker %s starting", brk.comp.Key())
+	brk.log.Debugf("broker %s starting", brk.comp.Key())
 
 	ctx, cancel := context.WithTimeout(brk.ctx, timeout)
 	defer cancel()
@@ -170,10 +164,7 @@ func (brk *broker) Start() {
 
 	consumer := fmt.Sprintf("broker-%s", brk.comp.Id)
 	subj := brk.comp.BrokerSubject()
-	descrip := fmt.Sprintf("Consumer for broker; name: %s, commit: %s, id: %s",
-		brk.comp.Name, brk.comp.Commit, brk.comp.Id)
-
-	if err := brk.jsClient.ConsumeEvents(brk.ctx, consumer, subj, descrip); err != nil {
+	if err := brk.jsClient.ConsumeEvents(brk.ctx, consumer, subj); err != nil {
 		brk.shutdown(ExitCodeJetStream, err)
 	}
 
@@ -215,8 +206,7 @@ func (brk *broker) Subscribe(ctx context.Context, conf *SubscriptionConf) (Repli
 		comp := sub.Component()
 		consumer := comp.GroupKey()
 		subj := comp.GroupSubject()
-		descrip := fmt.Sprintf("Consumer for component group; name: %s, commit: %s", comp.Name, comp.Commit)
-		if err = brk.jsClient.ConsumeEvents(grpSub.Context(), consumer, subj, descrip); err != nil {
+		if err = brk.jsClient.ConsumeEvents(grpSub.Context(), consumer, subj); err != nil {
 			return nil, err
 		}
 	}
@@ -375,7 +365,7 @@ func (brk *broker) routeEvent(log *logkf.Logger, evt *LiveEvent) error {
 			err := sub.SendEvent(evt)
 			if evt.Receiver != ReceiverJetStream {
 				evt.Target.BrokerId = brk.comp.BrokerId
-				brk.archiveCh <- evt
+				// brk.archiveCh <- evt
 			}
 			return err
 		}

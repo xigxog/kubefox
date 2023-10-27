@@ -41,9 +41,10 @@ message Event {
   EventContext context = 7;
   Component source = 8;
   Component target = 9;
+  string response_subject = 10;
 
-  map<string, google.protobuf.Value> params = 10;
-  map<string, google.protobuf.Value> values = 11;
+  map<string, google.protobuf.Value> params = 11;
+  map<string, google.protobuf.Value> values = 12;
 
   string content_type = 14;
   bytes content = 15;

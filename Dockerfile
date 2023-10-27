@@ -8,6 +8,7 @@ COPY ./bin/${COMPONENT} /component
 RUN if ${COMPRESS}; then upx /component; fi
 
 # Runtime
-FROM ghcr.io/xigxog/base
+# FROM ghcr.io/xigxog/base
+FROM alpine
 COPY --from=upx /component /component
 ENTRYPOINT [ "/component" ]
