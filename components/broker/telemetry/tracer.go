@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/xigxog/kubefox/libs/core/kubefox"
+	kubefox "github.com/xigxog/kubefox/core"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
@@ -80,19 +80,19 @@ func traceAttrs(req *kubefox.Event) []attribute.KeyValue {
 	attrs := []attribute.KeyValue{}
 
 	if req != nil && req.Type != "" {
-		attrs = append(attrs, attribute.Key("kubefox.event.type").String(req.Type))
+		attrs = append(attrs, attribute.Key("core.event.type").String(req.Type))
 	}
 	if req != nil && req.Id != "" {
-		attrs = append(attrs, attribute.Key("kubefox.event.id").String(req.Id))
+		attrs = append(attrs, attribute.Key("core.event.id").String(req.Id))
 	}
 	if req != nil && req.ParentId != "" {
-		attrs = append(attrs, attribute.Key("kubefox.event.parent-id").String(req.ParentId))
+		attrs = append(attrs, attribute.Key("core.event.parent-id").String(req.ParentId))
 	}
 	if req != nil && req.Source != nil {
-		attrs = append(attrs, attribute.Key("kubefox.event.source").String(req.Source.Key()))
+		attrs = append(attrs, attribute.Key("core.event.source").String(req.Source.Key()))
 	}
 	if req != nil && req.Target != nil {
-		attrs = append(attrs, attribute.Key("kubefox.event.target").String(req.Source.Key()))
+		attrs = append(attrs, attribute.Key("core.event.target").String(req.Source.Key()))
 	}
 
 	return attrs

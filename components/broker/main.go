@@ -2,7 +2,6 @@ package main
 
 import (
 	"flag"
-	"path"
 	"runtime"
 	"time"
 
@@ -12,9 +11,8 @@ import (
 
 	"github.com/xigxog/kubefox/components/broker/config"
 	"github.com/xigxog/kubefox/components/broker/engine"
-	"github.com/xigxog/kubefox/libs/core/kubefox"
-	"github.com/xigxog/kubefox/libs/core/logkf"
-	"github.com/xigxog/kubefox/libs/core/utils"
+	"github.com/xigxog/kubefox/logkf"
+	"github.com/xigxog/kubefox/utils"
 )
 
 func main() {
@@ -25,8 +23,6 @@ func main() {
 	flag.StringVar(&config.HTTPSrvAddr, "http-addr", "127.0.0.1:8080", `Address and port the HTTP server should bind to, set to "false" to disable.`)
 	flag.StringVar(&config.HTTPSSrvAddr, "https-addr", "127.0.0.1:8443", `Address and port the HTTPS server should bind to, set to "false" to disable.`)
 	flag.StringVar(&config.HealthSrvAddr, "health-addr", "127.0.0.1:1111", `Address and port the HTTP health server should bind to, set to "false" to disable.`)
-	flag.StringVar(&config.CertDir, "cert-dir", path.Join(kubefox.KubeFoxHome, "broker"), "Path of dir containing TLS certificate, private key, and root CA certificate.")
-	flag.StringVar(&config.VaultAddr, "vault-addr", "127.0.0.1:8200", "Address and port of Vault server.")
 	flag.StringVar(&config.NATSAddr, "nats-addr", "127.0.0.1:4222", "Address and port of NATS JetStream server.")
 	flag.StringVar(&config.TelemetryAddr, "telemetry-addr", "127.0.0.1:4318", `Address and port of telemetry collector, set to "false" to disable.`)
 	flag.DurationVar(&config.TelemetryInterval, "telemetry-interval", time.Minute, "Interval at which to report telemetry.")

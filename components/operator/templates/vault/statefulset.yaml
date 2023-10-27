@@ -33,7 +33,7 @@ spec:
                 fieldRef:
                   fieldPath: status.podIP
             - name: VAULT_LOG_FORMAT
-              value: {{ .Values.vaultLogFormat | default "json" }}
+              value: {{ .Values.vaultLogFormat | default "json" | quote }}
           envFrom:
             - configMapRef:
                 name: {{ name }}-env

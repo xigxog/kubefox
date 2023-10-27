@@ -1,3 +1,9 @@
+:root {
+  --md-tooltip-width: 400px;
+  --md-text-font: "Open Sans", sans-serif;
+  --md-code-font: "Source Code Pro", monospace;
+}
+
 img[alt="diagram"] {
   border: 1.5rem solid white;
 }
@@ -14,4 +20,17 @@ img[alt="diagram"] {
 
 .md-logo img {
   height: 3rem !important;
+}
+
+.md-typeset summary {
+  font-size: 0.9em;
+  font-weight: 600;
+}
+
+.md-typeset details {
+  font-size: 1em;
+}
+
+.md-tooltip {
+  text-align: center;
 }

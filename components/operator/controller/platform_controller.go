@@ -26,10 +26,11 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	"github.com/xigxog/kubefox/api/kubernetes/v1alpha1"
+	"github.com/xigxog/kubefox/build"
 	"github.com/xigxog/kubefox/components/operator/templates"
-	"github.com/xigxog/kubefox/libs/api/kubernetes/v1alpha1"
-	"github.com/xigxog/kubefox/libs/core/kubefox"
-	"github.com/xigxog/kubefox/libs/core/logkf"
+	kubefox "github.com/xigxog/kubefox/core"
+	"github.com/xigxog/kubefox/logkf"
 )
 
 const (
@@ -69,10 +70,6 @@ func (r *PlatformReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Owns(&appsv1.StatefulSet{}).
 		Complete(r)
 }
-
-//+kubebuilder:rbac:groups=kubefox.xigxog.io,resources=platforms,verbs=get;list;watch
-//+kubebuilder:rbac:groups=kubefox.xigxog.io,resources=platforms/status,verbs=get;update;patch
-//+kubebuilder:rbac:groups=kubefox.xigxog.io,resources=platforms/finalizers,verbs=update
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
@@ -127,8 +124,10 @@ func (r *PlatformReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	td := &TemplateData{
 		Data: templates.Data{
 			Instance: templates.Instance{
-				Name:      r.Instance,
-				Namespace: r.Namespace,
+				Name:           r.Instance,
+				Namespace:      r.Namespace,
+				BootstrapImage: BootstrapImage,
+				Version:        build.Info.Version,
 			},
 			Component: templates.Component{
 				Name:  "vault",
@@ -167,9 +166,11 @@ func (r *PlatformReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	td = &TemplateData{
 		Data: templates.Data{
 			Instance: templates.Instance{
-				Name:      r.Instance,
-				Namespace: r.Namespace,
-				RootCA:    string(cm.Data["ca.crt"]),
+				Name:           r.Instance,
+				Namespace:      r.Namespace,
+				RootCA:         string(cm.Data["ca.crt"]),
+				BootstrapImage: BootstrapImage,
+				Version:        build.Info.Version,
 			},
 			Platform: templates.Platform{
 				Name:      p.Name,

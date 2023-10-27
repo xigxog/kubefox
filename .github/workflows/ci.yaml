@@ -45,6 +45,18 @@ jobs:
           version: "3.x"
           repo-token: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.12"
+          cache: pipenv
+
+      - name: Cache tools
+        uses: actions/cache@v3
+        with:
+          path: ./tools
+          key: doc-tools
+
       - name: Generate docs
         run: pip install pipenv && make docs
 
@@ -57,11 +69,10 @@ jobs:
         uses: actions/deploy-pages@v2
 
   publish-component:
-    name: Publish components
+    name: Publish component
     runs-on: ubuntu-22.04
     needs: setup
     strategy:
-      fail-fast: false
       matrix:
         component: ${{ fromJSON(needs.setup.outputs.components) }}
 
@@ -85,15 +96,26 @@ jobs:
           username: ${{ env.REGISTRY_USERNAME }}
           password: ${{ env.REGISTRY_PASSWORD }}
 
+      - name: Install Protoc
+        uses: arduino/setup-protoc@v1
+        with:
+          version: "3.x"
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Setup Go
         uses: actions/setup-go@v4
         with:
-          go-version-file: components/${{ matrix.component }}/go.mod
-          cache-dependency-path: components/${{ matrix.component }}/go.sum
+          go-version-file: go.mod
+          cache-dependency-path: go.sum
+
+      - name: Cache tools
+        uses: actions/cache@v3
+        with:
+          path: ./tools
+          key: build-tools
 
       - name: Build and push component
-        run: |
-          make push/${{ matrix.component }}
+        run: make image COMPONENT=${{ matrix.component }} COMPRESS=true PUSH=true
 
   release:
     name: Release

@@ -17,8 +17,8 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	"github.com/xigxog/kubefox/libs/api/kubernetes/v1alpha1"
-	"github.com/xigxog/kubefox/libs/core/logkf"
+	"github.com/xigxog/kubefox/api/kubernetes/v1alpha1"
+	"github.com/xigxog/kubefox/logkf"
 )
 
 // ReleaseReconciler reconciles a Release object
@@ -31,10 +31,6 @@ type ReleaseReconciler struct {
 	cm  *ComponentManager
 	log *logkf.Logger
 }
-
-//+kubebuilder:rbac:groups=kubefox.xigxog.io,resources=releases,verbs=get;list;watch;create;update;patch;delete
-//+kubebuilder:rbac:groups=kubefox.xigxog.io,resources=releases/status,verbs=get;update;patch
-//+kubebuilder:rbac:groups=kubefox.xigxog.io,resources=releases/finalizers,verbs=update
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *ReleaseReconciler) SetupWithManager(mgr ctrl.Manager) error {

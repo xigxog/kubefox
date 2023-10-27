@@ -15,18 +15,20 @@ type Data struct {
 	App       App
 	Component Component
 
-	Labels map[string]string
-	Owner  []*metav1.OwnerReference
+	ExtraLabels map[string]string
+	Owner       []*metav1.OwnerReference
 
 	Values map[string]any
 }
 
 type Instance struct {
-	Name      string
-	Namespace string
-	RootCA    string
-	LogLevel  string
-	LogFormat string
+	Name           string
+	Namespace      string
+	RootCA         string
+	LogLevel       string
+	LogFormat      string
+	BootstrapImage string
+	Version        string
 }
 
 type Platform struct {

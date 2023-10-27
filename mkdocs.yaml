@@ -8,21 +8,20 @@ site_author: John Long
 copyright: Copyright © XigXog
 
 nav:
-  - 'Overview': 'index.md'
-  - 'Quickstart': 'quickstart.md'
-  - 'Challenges in Kubernetes': 'kubernetes_challenges.md'
-  - 'Why KubeFox?': 'why_kubefox.md'
-  - 'Concepts': 'concepts.md'
-  - 'Design': 'design.md'
-  - 'Versioned Deployments': 'versioned_deployments.md'
-  - 'Deployment Distillation': 'deployment_distillation.md'
-  - 'Dynamic Routing': 'dynamic_routing.md'
-  - 'Virtual Environments': 'virtual_environments.md'
-  - 'Telemetry': 'telemetry.md'
+  - index.md
+  - quickstart.md
+  - kubernetes_challenges.md
+  - why_kubefox.md
+  - concepts.md
+  - design.md
+  - versioned_deployments.md
+  - deployment_distillation.md
+  - dynamic_routing.md
+  - virtual_environments.md
+  - telemetry.md
   - Reference:
       - reference/events.md
-      - reference/protobuf_msgs.md
-      - reference/broker_svc.md
+      - reference/protobuf.md
 
 extra:
   homepage: https://kubefox.io
@@ -38,6 +37,7 @@ extra:
 
 extra_css:
   - stylesheets/extra.css
+  - stylesheets/fonts.css
 
 theme:
   name: material
@@ -45,10 +45,7 @@ theme:
   favicon: images/favicon.ico
   icon:
     repo: fontawesome/brands/github
-  # custom_dir: docs/overrides
-  font:
-    text: Nunito
-    code: Roboto Mono
+  font: false
   palette:
     - media: "(prefers-color-scheme: light)"
       scheme: default
@@ -67,7 +64,7 @@ theme:
         icon: material/weather-sunny
         name: Switch to light mode
   features:
-    - content.code.copy
+    - content.code.annotate
     - navigation.expand
     - navigation.instant
     - navigation.sections
@@ -90,10 +87,9 @@ markdown_extensions:
   - def_list
   - pymdownx.details
   - pymdownx.emoji:
-      emoji_index: !!python/name:material.extensions.emoji.twemoji 
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
       emoji_generator: !!python/name:material.extensions.emoji.to_svg
   - pymdownx.highlight:
-      linenums: true
       anchor_linenums: true
       line_spans: __span
       pygments_lang_class: true

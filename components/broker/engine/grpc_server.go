@@ -10,10 +10,9 @@ import (
 	"time"
 
 	"github.com/xigxog/kubefox/components/broker/config"
-	"github.com/xigxog/kubefox/libs/core/grpc"
-	"github.com/xigxog/kubefox/libs/core/kubefox"
-	"github.com/xigxog/kubefox/libs/core/logkf"
-	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
+	kubefox "github.com/xigxog/kubefox/core"
+	"github.com/xigxog/kubefox/grpc"
+	"github.com/xigxog/kubefox/logkf"
 
 	gogrpc "google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -47,18 +46,13 @@ func NewGRPCServer(brk Broker) *GRPCServer {
 func (srv *GRPCServer) Start(ctx context.Context) error {
 	srv.log.Debug("grpc server starting")
 
-	// creds, err := kfp.NewGPRCSrvCreds(ctx, kfp.BrokerCertsDir)
-	// if err != nil {
-	// 	srv.log.Errorf("error reading cert: %v", err)
-	// 	os.Exit(model.RpcServerErrorCode)
-	// }
 	creds, err := credentials.NewServerTLSFromFile(kubefox.PathTLSCert, kubefox.PathTLSKey)
 	if err != nil {
 		return srv.log.ErrorN("%v", err)
 	}
 	srv.wrapped = gogrpc.NewServer(
 		gogrpc.Creds(creds),
-		gogrpc.StreamInterceptor(otelgrpc.StreamServerInterceptor()),
+		// gogrpc.StreamInterceptor(otelgrpc.StreamServerInterceptor()),
 	)
 
 	grpc.RegisterBrokerServer(srv.wrapped, srv)

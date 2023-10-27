@@ -4,7 +4,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/xigxog/kubefox/libs/core/kubefox"
+	kubefox "github.com/xigxog/kubefox/core"
 )
 
 type Receiver int

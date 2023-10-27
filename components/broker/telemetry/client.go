@@ -5,7 +5,8 @@ import (
 	"time"
 
 	"github.com/xigxog/kubefox/components/broker/config"
-	"github.com/xigxog/kubefox/libs/core/logkf"
+	"github.com/xigxog/kubefox/logkf"
+
 	"go.opentelemetry.io/contrib/instrumentation/host"
 	"go.opentelemetry.io/contrib/instrumentation/runtime"
 	"go.opentelemetry.io/otel"

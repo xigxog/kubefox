@@ -13,8 +13,8 @@ import (
 	"time"
 
 	"github.com/xigxog/kubefox/components/broker/config"
-	"github.com/xigxog/kubefox/libs/core/kubefox"
-	"github.com/xigxog/kubefox/libs/core/logkf"
+	kubefox "github.com/xigxog/kubefox/core"
+	"github.com/xigxog/kubefox/logkf"
 	"go.opentelemetry.io/contrib/propagators/b3"
 	"go.opentelemetry.io/contrib/propagators/jaeger"
 	"go.opentelemetry.io/otel/propagation"

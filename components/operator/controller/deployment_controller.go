@@ -14,8 +14,8 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 
-	"github.com/xigxog/kubefox/libs/api/kubernetes/v1alpha1"
-	"github.com/xigxog/kubefox/libs/core/logkf"
+	"github.com/xigxog/kubefox/api/kubernetes/v1alpha1"
+	"github.com/xigxog/kubefox/logkf"
 )
 
 // DeploymentReconciler reconciles a Deployment object
@@ -41,10 +41,6 @@ func (r *DeploymentReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		For(&v1alpha1.Deployment{}).
 		Complete(r)
 }
-
-//+kubebuilder:rbac:groups=kubefox.xigxog.io,resources=deployments,verbs=get;list;watch;create;update;patch;delete
-//+kubebuilder:rbac:groups=kubefox.xigxog.io,resources=deployments/status,verbs=get;update;patch
-//+kubebuilder:rbac:groups=kubefox.xigxog.io,resources=deployments/finalizers,verbs=update
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
