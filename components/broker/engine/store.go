@@ -157,8 +157,12 @@ func (str *Store) Component(ctx context.Context, comp *kubefox.Component) (*kube
 	return str.getReg(ctx, fmt.Sprintf(TplComponentKey, comp.GroupKey()))
 }
 
-func (str *Store) Adapter(ctx context.Context, comp *kubefox.Component) bool {
-	r, err := str.getReg(ctx, fmt.Sprintf(TplAdapterKey, comp.Key()))
+func (str *Store) Adapter(ctx context.Context, comp *kubefox.Component) (*kubefox.ComponentReg, error) {
+	return str.getReg(ctx, fmt.Sprintf(TplAdapterKey, comp.Key()))
+}
+
+func (str *Store) IsAdapter(ctx context.Context, comp *kubefox.Component) bool {
+	r, err := str.Adapter(ctx, comp)
 	return r != nil && err == nil
 }
 

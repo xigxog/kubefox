@@ -202,11 +202,11 @@ func (r *PlatformReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		Image: NATSImage,
 		Resources: &v1.ResourceRequirements{
 			Requests: v1.ResourceList{
-				"memory": resource.MustParse("460Mi"), // 90% of limit, used to set GOMEMLIMIT
+				"memory": resource.MustParse("115Mi"), // 90% of limit, used to set GOMEMLIMIT
 				"cpu":    resource.MustParse("250m"),
 			},
 			Limits: v1.ResourceList{
-				"memory": resource.MustParse("512Mi"),
+				"memory": resource.MustParse("128"),
 				"cpu":    resource.MustParse("2"),
 			},
 		},
@@ -222,11 +222,11 @@ func (r *PlatformReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		Image: BrokerImage,
 		Resources: &v1.ResourceRequirements{
 			Requests: v1.ResourceList{
-				"memory": resource.MustParse("115Mi"), // 90% of limit, used to set GOMEMLIMIT
+				"memory": resource.MustParse("144Mi"), // 90% of limit, used to set GOMEMLIMIT
 				"cpu":    resource.MustParse("250m"),
 			},
 			Limits: v1.ResourceList{
-				"memory": resource.MustParse("128Mi"),
+				"memory": resource.MustParse("160Mi"),
 				"cpu":    resource.MustParse("2"),
 			},
 		},

@@ -1,0 +1,4 @@
+FROM alpine
+ARG COMPONENT
+COPY ./bin/${COMPONENT} /component
+ENTRYPOINT [ "/component" ]

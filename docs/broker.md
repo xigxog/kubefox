@@ -21,7 +21,7 @@
    events.
 5. Broker puts component's registration into NATS k/v store using the component
    name + commit as key (not id).
-6. Broker creates JetStream consumer which listens for new messages on the
+6. Broker creates NATS consumer which listens for new messages on the
    component group's subject (evt.js.{compName}.{compCommit}).
 
 ## Process Genesis Event
@@ -57,7 +57,7 @@
    commit, and matched route id.
 7. broker checks if a matching component is subscribed locally via grpc and if
    so sends the event to that component.
-8. otherwise the event is publish onto the component group's jetstream subject
+8. otherwise the event is publish onto the component group's NATS subject
    so that another broker with a subscription for that component can process it.
 9. ttl is updated before sending
 
@@ -87,13 +87,13 @@
 8. if they are not event is dropped.
 9. broker checks if a matching component is subscribed locally via grpc and if
    so sends the event to that component.
-10. otherwise the event is publish onto the component's jetstream subject so
+10. otherwise the event is publish onto the component's NATS subject so
     that another broker with a subscription for that component can process it.
 11. ttl is updated before sending
 
-## Process Event from JetStream
+## Process Event from NATS
 
-### JetStream Client
+### NATS Client
 
 1. Receives and unmarshals event, ttl is updated based on when msg was created.
 2. Sends event to broker for routing.

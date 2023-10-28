@@ -13,8 +13,6 @@ import (
 
 	"github.com/go-logr/zapr"
 	"github.com/lestrrat-go/jwx/jwt"
-	tikvcfg "github.com/tikv/client-go/v2/config"
-	"github.com/tikv/client-go/v2/rawkv"
 	"github.com/xigxog/kubefox/api/kubernetes/v1alpha1"
 	"github.com/xigxog/kubefox/build"
 	"github.com/xigxog/kubefox/components/broker/config"
@@ -23,7 +21,6 @@ import (
 	"github.com/xigxog/kubefox/logkf"
 	"github.com/xigxog/kubefox/matcher"
 	"google.golang.org/grpc/status"
-	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/structpb"
 	authv1 "k8s.io/api/authentication/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -35,7 +32,7 @@ import (
 // OS status codes
 const (
 	ExitCodeConfiguration = 10
-	ExitCodeJetStream     = 11
+	ExitCodeNATS          = 11
 	ExitCodeGRPCServer    = 12
 	ExitCodeHTTPServer    = 13
 	ExitCodeTelemetry     = 14
@@ -66,17 +63,15 @@ type broker struct {
 	grpcSrv *GRPCServer
 	httpSrv *HTTPServer
 
-	jsClient *JetStreamClient
+	natsClient *NATSClient
 	// httpClient *HTTPClient
-	k8sClient  client.Client
-	tikvClient *rawkv.Client
+	k8sClient client.Client
 
 	healthSrv *telemetry.HealthServer
 	telClient *telemetry.Client
 
-	subMgr    SubscriptionMgr
-	recvCh    chan *LiveEvent
-	archiveCh chan *LiveEvent
+	subMgr SubscriptionMgr
+	recvCh chan *LiveEvent
 
 	store *Store
 
@@ -107,7 +102,6 @@ func New() Engine {
 		telClient: telemetry.NewClient(),
 		subMgr:    NewManager(),
 		recvCh:    make(chan *LiveEvent),
-		archiveCh: make(chan *LiveEvent),
 		store:     NewStore(config.Namespace),
 		ctx:       ctx,
 		cancel:    cancel,
@@ -115,7 +109,7 @@ func New() Engine {
 	}
 	brk.grpcSrv = NewGRPCServer(brk)
 	brk.httpSrv = NewHTTPServer(brk)
-	brk.jsClient = NewJetStreamClient(brk)
+	brk.natsClient = NewNATSClient(brk)
 	// brk.httpClient = NewHTTPClient(brk)
 
 	return brk
@@ -130,12 +124,6 @@ func (brk *broker) Start() {
 
 	ctx, cancel := context.WithTimeout(brk.ctx, timeout)
 	defer cancel()
-
-	c, err := rawkv.NewClient(ctx, []string{"basic-pd.tidb-cluster:2379"}, tikvcfg.DefaultConfig().Security)
-	if err != nil {
-		brk.shutdown(ExitCodeKubernetes, err)
-	}
-	brk.tikvClient = c
 
 	cfg, err := ctrl.GetConfig()
 	if err != nil {
@@ -159,12 +147,12 @@ func (brk *broker) Start() {
 		}
 	}
 
-	if err := brk.jsClient.Connect(ctx); err != nil {
-		brk.shutdown(ExitCodeJetStream, err)
+	if err := brk.natsClient.Connect(ctx); err != nil {
+		brk.shutdown(ExitCodeNATS, err)
 	}
-	brk.healthSrv.Register(brk.jsClient)
+	brk.healthSrv.Register(brk.natsClient)
 
-	if err := brk.store.Open(brk.jsClient.ComponentsKV()); err != nil {
+	if err := brk.store.Open(brk.natsClient.ComponentsKV()); err != nil {
 		brk.shutdown(ExitCodeResourceStore, err)
 	}
 
@@ -174,20 +162,19 @@ func (brk *broker) Start() {
 
 	consumer := fmt.Sprintf("broker-%s", brk.comp.Id)
 	subj := brk.comp.BrokerSubject()
-	if err := brk.jsClient.ConsumeEvents(brk.ctx, consumer, subj); err != nil {
-		brk.shutdown(ExitCodeJetStream, err)
+	if err := brk.natsClient.ConsumeEvents(brk.ctx, consumer, subj); err != nil {
+		brk.shutdown(ExitCodeNATS, err)
 	}
 
 	if err := brk.httpSrv.Start(); err != nil {
 		brk.shutdown(ExitCodeHTTPServer, err)
 	}
 	if err := brk.store.RegisterAdapter(ctx, brk.httpSrv.Component()); err != nil {
-		brk.shutdown(ExitCodeJetStream, err)
+		brk.shutdown(ExitCodeNATS, err)
 	}
 
 	brk.log.Infof("starting %d workers", config.NumWorkers)
-	brk.wg.Add(config.NumWorkers + 2) // +2 for archiver and updater
-	go brk.startArchiver()
+	brk.wg.Add(config.NumWorkers + 1) // +1 for reg updater
 	go brk.startRegUpdater()
 	for i := 0; i < config.NumWorkers; i++ {
 		go brk.startWorker(i)
@@ -216,7 +203,7 @@ func (brk *broker) Subscribe(ctx context.Context, conf *SubscriptionConf) (Repli
 		comp := sub.Component()
 		consumer := comp.GroupKey()
 		subj := comp.GroupSubject()
-		if err = brk.jsClient.ConsumeEvents(grpSub.Context(), consumer, subj); err != nil {
+		if err = brk.natsClient.ConsumeEvents(grpSub.Context(), consumer, subj); err != nil {
 			return nil, err
 		}
 	}
@@ -265,10 +252,9 @@ func (brk *broker) RecvEvent(evt *LiveEvent) error {
 	switch {
 	case evt == nil || evt.Event == nil:
 		return ErrEventInvalid
+
 	case evt.TTL() <= 0:
 		return ErrEventTimeout
-	case evt.Subscription != nil && !evt.Subscription.IsActive():
-		return ErrSubCanceled
 	}
 
 	brk.recvCh <- evt
@@ -310,8 +296,14 @@ func (brk *broker) startWorker(id int) {
 					log.Info(err)
 				}
 
-				evt.Err(err)
+				if evt.ErrCh != nil {
+					evt.ErrCh <- err
+				}
+
+			} else if evt.SentCh != nil {
+				close(evt.SentCh)
 			}
+
 		case <-brk.ctx.Done():
 			return
 		}
@@ -321,22 +313,12 @@ func (brk *broker) startWorker(id int) {
 func (brk *broker) routeEvent(log *logkf.Logger, evt *LiveEvent) error {
 	log.WithEvent(evt.Event).Debugf("routing event from receiver '%s'", evt.Receiver)
 
-	if evt.TTL() <= 0 {
-		return fmt.Errorf("%w: event timed out while waiting for worker", ErrEventTimeout)
-	}
-	if evt.Receiver == ReceiverJetStream &&
-		evt.Target != nil &&
-		evt.Target.BrokerId != "" &&
-		evt.Target.BrokerId != brk.comp.Id {
-		return fmt.Errorf("%w: event target broker id is %s", ErrBrokerMismatch, evt.Target.BrokerId)
-	}
-
-	// check that source is full
-	// if from grpc check target only has name or is full
-	// also check context is valid
-
 	ctx, cancel := context.WithTimeout(context.Background(), evt.TTL())
 	defer cancel()
+
+	if err := brk.checkEvent(evt); err != nil {
+		return err
+	}
 
 	if err := brk.matchEvent(ctx, evt); err != nil {
 		return err
@@ -346,7 +328,7 @@ func (brk *broker) routeEvent(log *logkf.Logger, evt *LiveEvent) error {
 	log = log.WithEvent(evt.Event)
 	log.Debug("matched event to target")
 
-	if err := brk.checkMatchedEvent(ctx, evt); err != nil {
+	if err := brk.matchComponents(ctx, evt); err != nil {
 		return err
 	}
 
@@ -354,9 +336,6 @@ func (brk *broker) routeEvent(log *logkf.Logger, evt *LiveEvent) error {
 
 	var sub Subscription
 	switch {
-	case evt.Subscription != nil:
-		sub = evt.Subscription
-
 	case evt.Target.Equal(brk.httpSrv.Component()):
 		sub = brk.httpSrv.Subscription()
 
@@ -372,22 +351,13 @@ func (brk *broker) routeEvent(log *logkf.Logger, evt *LiveEvent) error {
 	case sub != nil:
 		sendEvent = func(evt *LiveEvent) error {
 			log.Debug("subscription found, sending event with gRPC")
-			err := sub.SendEvent(evt)
-			if evt.Receiver != ReceiverJetStream {
-				evt.Target.BrokerId = brk.comp.BrokerId
-				// brk.archiveCh <- evt
-			}
-			return err
+			return sub.SendEvent(evt)
 		}
 
 	default:
 		sendEvent = func(evt *LiveEvent) error {
-			log.Debug("subscription not found, sending event with JetStream")
-			err := brk.jsClient.Publish(evt.Target.Subject(), evt.Event)
-			if err != nil {
-				return err
-			}
-			return nil
+			log.Debug("subscription not found, sending event with nats")
+			return brk.natsClient.Publish(evt.Target.Subject(), evt.Event)
 		}
 	}
 
@@ -395,15 +365,7 @@ func (brk *broker) routeEvent(log *logkf.Logger, evt *LiveEvent) error {
 		return fmt.Errorf("%w: event timed out during routing", ErrEventTimeout)
 	}
 
-	if err := sendEvent(evt); err != nil {
-		return fmt.Errorf("%w: unable to send event", err)
-	}
-
-	if evt.Receiver != ReceiverJetStream {
-		brk.archiveCh <- evt
-	}
-
-	return nil
+	return sendEvent(evt)
 }
 
 func (brk *broker) matchEvent(ctx context.Context, evt *LiveEvent) error {
@@ -490,22 +452,43 @@ func (brk *broker) matchEvent(ctx context.Context, evt *LiveEvent) error {
 	return nil
 }
 
-func (brk *broker) checkMatchedEvent(ctx context.Context, evt *LiveEvent) error {
-	// TODO check source is full
-	// TODO check source is part of context
+func (brk *broker) checkEvent(evt *LiveEvent) error {
+	if evt.TTL() <= 0 {
+		return fmt.Errorf("%w: event timed out while waiting for worker", ErrEventTimeout)
+	}
+
+	if !evt.Source.IsFull() {
+		return fmt.Errorf("%w: event source is invalid", ErrEventInvalid)
+	}
+
+	switch evt.Receiver {
+	case ReceiverNATS:
+		if evt.Target != nil &&
+			evt.Target.BrokerId != "" &&
+			evt.Target.BrokerId != brk.comp.Id {
+			return fmt.Errorf("%w: event target broker id is %s", ErrBrokerMismatch, evt.Target.BrokerId)
+		}
+
+	case ReceiverGRPCServer:
+		if !evt.Target.IsFull() && !evt.Target.IsNameOnly() {
+			return fmt.Errorf("%w: event target is invalid", ErrEventInvalid)
+		}
+
+		// If a valid context is not present reject.
+		if !evt.Context.IsDeployment() && !evt.Context.IsRelease() {
+			return fmt.Errorf("%w: event context is invalid", ErrEventInvalid)
+		}
+	}
+
+	return nil
+}
+
+func (brk *broker) matchComponents(ctx context.Context, evt *LiveEvent) error {
 	if evt.Target == nil || evt.Target.Name == "" || evt.Context == nil {
 		return ErrComponentMismatch
 	}
 
-	// Check if target is local adapter.
-	switch {
-	case evt.Target.Equal(brk.httpSrv.Component()):
-		return nil
-	}
-
-	var (
-		depSpec v1alpha1.DeploymentSpec
-	)
+	var depSpec v1alpha1.DeploymentSpec
 	switch {
 	case evt.Context.IsRelease():
 		if rel, err := brk.store.Release(evt.Context.Release); err != nil {
@@ -525,11 +508,12 @@ func (brk *broker) checkMatchedEvent(ctx context.Context, evt *LiveEvent) error 
 		return ErrUnexpected
 	}
 
+	// Check if target is part of deployment spec.
 	depComp, found := depSpec.Components[evt.Target.Name]
 	switch {
 	case !found:
-		if adapter := brk.store.Adapter(ctx, evt.Target); !adapter {
-			return fmt.Errorf("%w: component not part of deployment", ErrComponentMismatch)
+		if !brk.isAdapter(ctx, evt.Target) {
+			return fmt.Errorf("%w: target component not part of deployment", ErrComponentMismatch)
 		}
 
 	case evt.Target.Commit == "" && evt.MatchedEvent.RouteId == kubefox.DefaultRouteId:
@@ -539,50 +523,37 @@ func (brk *broker) checkMatchedEvent(ctx context.Context, evt *LiveEvent) error 
 			return err
 		}
 		if !reg.DefaultHandler {
-			return fmt.Errorf("%w: component does not have default handler", ErrRouteNotFound)
+			return fmt.Errorf("%w: target component does not have default handler", ErrRouteNotFound)
 		}
 
 	case evt.Target.Commit != depComp.Commit:
-		return fmt.Errorf("%w: component commit does not match deployment", ErrComponentMismatch)
+		return fmt.Errorf("%w: target component commit does not match deployment", ErrComponentMismatch)
+	}
+
+	// Check if source is part of deployment spec.
+	depComp, found = depSpec.Components[evt.Source.Name]
+	switch {
+	case !found:
+		if !brk.isAdapter(ctx, evt.Source) {
+			return fmt.Errorf("%w: source component not part of deployment", ErrComponentMismatch)
+		}
+
+	case evt.Source.Commit != depComp.Commit:
+		return fmt.Errorf("%w: source component commit does not match deployment", ErrComponentMismatch)
 	}
 
 	return nil
 }
 
-func (brk *broker) startArchiver() {
-	log := brk.log.With(logkf.KeyWorker, "archiver")
-	defer func() {
-		log.Info("archiver stopped")
-		brk.wg.Done()
-	}()
-
-	for {
-		select {
-		case evt := <-brk.archiveCh:
-			log := log.WithEvent(evt.Event)
-			log.Debug("storing event in tikv")
-
-			dataBytes, err := proto.Marshal(evt.Event)
-			if err != nil {
-				log.Warn(err)
-			}
-			err = brk.tikvClient.Put(context.TODO(), []byte(evt.Id), dataBytes)
-			if err != nil {
-				log.Warn(err)
-			}
-
-			// log.Debug("publishing event to JetStream for archiving")
-
-			// err := brk.jsClient.Publish(evt.Target.DirectSubject(), evt.Event)
-			// if err != nil {
-			// 	// This event will be lost in time, never to be seen again :(
-			// 	log.Warnf("unable to publish event to JetStream, event not archived: %v", err)
-			// }
-
-		case <-brk.ctx.Done():
-			return
-		}
+func (brk *broker) isAdapter(ctx context.Context, c *kubefox.Component) bool {
+	// Check if component is local adapter.
+	switch {
+	case c.Equal(brk.httpSrv.Component()):
+		return true
 	}
+
+	// Check if component is remote adapter.
+	return brk.store.IsAdapter(ctx, c)
 }
 
 func (brk *broker) startRegUpdater() {
@@ -642,7 +613,7 @@ func (brk *broker) shutdown(code int, err error) {
 
 	brk.store.Close()
 
-	brk.jsClient.Close()
+	brk.natsClient.Close()
 	brk.telClient.Shutdown(timeout)
 
 	os.Exit(code)

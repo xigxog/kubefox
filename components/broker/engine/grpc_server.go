@@ -194,13 +194,14 @@ func (srv *GRPCServer) Subscribe(stream grpc.Broker_SubscribeServer) error {
 
 			if evt.Source == nil {
 				evt.Source = comp
-			}
-			if !evt.Source.Equal(comp) {
+
+			} else if !evt.Source.Equal(comp) {
 				err := fmt.Errorf("%w: received event from component '%s' claiming to be '%s', dropping event and canceling subscription",
 					ErrComponentMismatch, comp.Key(), evt.Source.Key())
 				log.Warn(err.Error())
 				return err
 			}
+
 			evt.Source.BrokerId = srv.brk.Component().Id
 
 			err = srv.brk.RecvEvent(&LiveEvent{

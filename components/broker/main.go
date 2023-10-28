@@ -23,7 +23,7 @@ func main() {
 	flag.StringVar(&config.HTTPSrvAddr, "http-addr", "127.0.0.1:8080", `Address and port the HTTP server should bind to, set to "false" to disable.`)
 	flag.StringVar(&config.HTTPSSrvAddr, "https-addr", "127.0.0.1:8443", `Address and port the HTTPS server should bind to, set to "false" to disable.`)
 	flag.StringVar(&config.HealthSrvAddr, "health-addr", "127.0.0.1:1111", `Address and port the HTTP health server should bind to, set to "false" to disable.`)
-	flag.StringVar(&config.NATSAddr, "nats-addr", "127.0.0.1:4222", "Address and port of NATS JetStream server.")
+	flag.StringVar(&config.NATSAddr, "nats-addr", "127.0.0.1:4222", "Address and port of NATS server.")
 	flag.StringVar(&config.TelemetryAddr, "telemetry-addr", "127.0.0.1:4318", `Address and port of telemetry collector, set to "false" to disable.`)
 	flag.DurationVar(&config.TelemetryInterval, "telemetry-interval", time.Minute, "Interval at which to report telemetry.")
 	flag.IntVar(&config.NumWorkers, "num-workers", runtime.NumCPU(), "Number of worker threads to start, default is number of logical CPUs.")

@@ -4,7 +4,7 @@ source "$(dirname "${BASH_SOURCE[0]}")/setup.sh"
 
 CONTROLLER_GEN_VERSION="v0.13.0"
 PROTOC_GEN_GO_VERSION="v1.28"
-PROTOC_GEN_GO_GRPC_VERSION="v1.2"
+PROTOC_GEN_GO_GRPC_VERSION="1.2.0" # --version does not output 'v'
 
 rm -rf ${CRDS_OUT}
 mkdir -p ${TOOLS_DIR} ${CRDS_OUT}
@@ -17,7 +17,7 @@ ${TOOLS_DIR}/protoc-gen-go --version | grep -q ${PROTOC_GEN_GO_VERSION} ||
     go install google.golang.org/protobuf/cmd/protoc-gen-go@${PROTOC_GEN_GO_VERSION}
 
 ${TOOLS_DIR}/protoc-gen-go-grpc --version | grep -q ${PROTOC_GEN_GO_GRPC_VERSION} ||
-    go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@${PROTOC_GEN_GO_GRPC_VERSION}
+    go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@v${PROTOC_GEN_GO_GRPC_VERSION}
 ###
 
 # Generate code containing DeepCopy, DeepCopyInto, DeepCopyObject and CRDs.

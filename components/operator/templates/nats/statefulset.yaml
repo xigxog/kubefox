@@ -64,7 +64,7 @@ spec:
               mountPath: /etc/nats
             - name: pid
               mountPath: /var/run/nats
-            - name: jetstream
+            - name: nats
               mountPath: /data
             - name: root-ca
               mountPath: {{ homePath }}/ca.crt
@@ -113,7 +113,7 @@ spec:
           emptyDir: {}
   volumeClaimTemplates:
     - metadata:
-        name: jetstream
+        name: nats
       spec:
         accessModes:
           - ReadWriteOnce

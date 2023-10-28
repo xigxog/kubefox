@@ -10,7 +10,7 @@ import (
 type Receiver int
 
 const (
-	ReceiverJetStream Receiver = iota
+	ReceiverNATS Receiver = iota
 	ReceiverGRPCServer
 	ReceiverHTTPServer
 	ReceiverHTTPClient
@@ -24,10 +24,10 @@ type LiveEvent struct {
 
 	MatchedEvent *kubefox.MatchedEvent
 
-	Receiver     Receiver
-	ReceivedAt   time.Time
-	Subscription ReplicaSubscription
-	ErrCh        chan error
+	Receiver   Receiver
+	ReceivedAt time.Time
+	SentCh     chan struct{}
+	ErrCh      chan error
 
 	tick  time.Time
 	mutex sync.Mutex
@@ -47,16 +47,18 @@ func (evt *LiveEvent) TTL() time.Duration {
 	return evt.Event.TTL()
 }
 
-func (evt *LiveEvent) Err(err error) {
-	if evt.ErrCh != nil {
-		evt.ErrCh <- err
-	}
+func (evt *LiveEvent) Err() chan error {
+	return evt.ErrCh
+}
+
+func (evt *LiveEvent) Sent() chan struct{} {
+	return evt.SentCh
 }
 
 func (r Receiver) String() string {
 	switch r {
-	case ReceiverJetStream:
-		return "jetstream"
+	case ReceiverNATS:
+		return "nats-client"
 	case ReceiverGRPCServer:
 		return "grpc-server"
 	case ReceiverHTTPServer:

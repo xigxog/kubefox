@@ -2,10 +2,8 @@
 
 source "$(dirname "${BASH_SOURCE[0]}")/setup.sh"
 
-BUILD_DATE=$(TZ=UTC date --iso-8601=seconds)
-
-if ! ${SKIP_GENERATE:-false}; then
-	$SCRIPTS/generate.sh
+if ! ${SKIP_GENERATE}; then
+	${SCRIPTS}/generate.sh
 fi
 
 mkdir -p "${BUILD_OUT}"

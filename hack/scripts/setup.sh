@@ -37,4 +37,15 @@ export CGO_ENABLED=0
 export GOBIN="${REPO_ROOT}/${TOOLS_DIR}"
 export PATH="${PATH}:${GOBIN}"
 
+BUILD_DATE=$(TZ=UTC date --iso-8601=seconds)
+
+PUSH=${PUSH:-false}
+COMPRESS=${COMPRESS:-false}
+DEBUG=${DEBUG:-false}
+SKIP_GENERATE=${SKIP_GENERATE:-false}
+
+KIND_NAME=${KIND_NAME:-"kind"}
+KIND_LOAD=${KIND_LOAD:-false}
+DOCKERFILE=""
+
 set -o pipefail -o xtrace -o nounset

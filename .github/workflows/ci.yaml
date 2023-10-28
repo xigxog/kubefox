@@ -115,7 +115,7 @@ jobs:
           key: build-tools
 
       - name: Build and push component
-        run: make image COMPONENT=${{ matrix.component }} COMPRESS=true PUSH=true
+        run: make image COMPONENT=${{ matrix.component }} SKIP_GENERATE=true COMPRESS=true PUSH=true
 
   release:
     name: Release

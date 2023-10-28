@@ -34,6 +34,10 @@ func (c *Component) IsFull() bool {
 	return c.Name != "" && c.Commit != "" && c.Id != "" && c.BrokerId != ""
 }
 
+func (c *Component) IsNameOnly() bool {
+	return c.Name != "" && c.Commit == "" && c.Id == "" && c.BrokerId == ""
+}
+
 func (lhs *Component) Equal(rhs *Component) bool {
 	if rhs == nil {
 		return false
@@ -64,17 +68,6 @@ func (c *Component) Subject() string {
 
 func (c *Component) GroupSubject() string {
 	return fmt.Sprintf("evt.js.%s.%s", c.Name, c.ShortCommit())
-}
-
-// DirectSubject returns the name of the JetStream subject that Events sent
-// directly from Broker to Component should be placed so they are accessible for
-// replay and lookup. Use of this subject is not required if Events are sent
-// using JetStream as they will be available on that subject.
-func (c *Component) DirectSubject() string {
-	if c.Id == "" {
-		return fmt.Sprintf("evt.direct.%s.%s", c.Name, c.ShortCommit())
-	}
-	return fmt.Sprintf("evt.direct.%s.%s.%s", c.Name, c.ShortCommit(), c.Id)
 }
 
 func (c *Component) BrokerSubject() string {
