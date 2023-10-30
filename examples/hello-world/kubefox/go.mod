@@ -2,9 +2,9 @@ module github.com/xigxog/kubefox/examples/hello-world/kubefox
 
 go 1.21
 
-replace github.com/xigxog/kubefox => ../../../
+// replace github.com/xigxog/kubefox => ../../../
 
-require github.com/xigxog/kubefox v0.0.0
+require github.com/xigxog/kubefox v0.2.5-alpha.0.20231030185832-519fa63e00a6
 
 require (
 	github.com/Masterminds/goutils v1.1.1 // indirect
