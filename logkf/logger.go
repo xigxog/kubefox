@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/xigxog/kubefox/build"
 	kubefox "github.com/xigxog/kubefox/core"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
@@ -58,7 +57,6 @@ func BuildLoggerOrDie(format, level string) *Logger {
 		return nil
 
 	} else {
-		l.Debugf("%+v", build.Info)
 		return l
 	}
 }
