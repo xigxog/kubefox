@@ -13,6 +13,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/xigxog/kubefox/build"
 	kubefox "github.com/xigxog/kubefox/core"
 	"github.com/xigxog/kubefox/grpc"
 	"github.com/xigxog/kubefox/logkf"
@@ -108,6 +109,7 @@ Flags:
 	defer logkf.Global.Sync()
 
 	svc.log = logkf.Global
+	svc.log.DebugInterface("build info:", build.Info)
 
 	svc.httpSrv = &http.Server{
 		WriteTimeout: time.Second * 3,

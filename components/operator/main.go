@@ -48,14 +48,14 @@ func init() {
 
 func main() {
 	var (
-		instance, namespace   string
-		vaultAddr, healthAddr string
-		logFormat, logLevel   string
-		leaderElection        bool
+		instance, namespace  string
+		vaultURL, healthAddr string
+		logFormat, logLevel  string
+		leaderElection       bool
 	)
 	flag.StringVar(&instance, "instance", "", "The name of the KubeFox instance. (required)")
 	flag.StringVar(&namespace, "namespace", "", "The Kubernetes Namespace of the Operator. (required)")
-	flag.StringVar(&vaultAddr, "vault-addr", "", "The host and port of Vault server.")
+	flag.StringVar(&vaultURL, "vault-url", "", "The URL of Vault server. (required)")
 	flag.StringVar(&healthAddr, "health-addr", "0.0.0.0:1111", "Address and port the HTTP health server should bind to.")
 	flag.BoolVar(&leaderElection, "leader-elect", true, "Enable leader election for controller manager. Enabling this will ensure there is only one active controller manager.")
 	flag.StringVar(&logFormat, "log-format", "console", `Log format; one of ["json", "console"].`)
@@ -64,6 +64,7 @@ func main() {
 
 	utils.CheckRequiredFlag("instance", instance)
 	utils.CheckRequiredFlag("namespace", namespace)
+	utils.CheckRequiredFlag("vault-url", vaultURL)
 
 	logkf.Global = logkf.
 		BuildLoggerOrDie(logFormat, logLevel).
@@ -103,7 +104,7 @@ func main() {
 		Client:    ctrlClient,
 		Instance:  instance,
 		Namespace: namespace,
-		VaultAddr: vaultAddr,
+		VaultURL:  vaultURL,
 		Scheme:    mgr.GetScheme(),
 		LogLevel:  logLevel,
 		LogFormat: logFormat,

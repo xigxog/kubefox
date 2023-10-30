@@ -21,7 +21,9 @@ spec:
         - name: {{ .Component.Name }}
           image: {{ .Component.Image | default (printf "%s/%s:%s" .App.Registry .Component.Name .Component.Commit) | quote }}
           imagePullPolicy: {{ .Component.ImagePullPolicy | default "IfNotPresent" }}
-          {{- include "containerSecurityContext" . | nindent 10 }}
+          {{- include "securityContext" . | nindent 10 }}
+          {{- include "resources" . | nindent 10 }}
+          {{- include "probes" . | nindent 10 }}
           args:
             - -instance={{ .Instance.Name }}
             - -platform={{ .Platform.Name }}
@@ -34,13 +36,6 @@ spec:
             - -health-addr=0.0.0.0:1111
             - -log-format={{ logFormat }}
             - -log-level={{ logLevel }}
-          {{- if .Component.Resources }}
-          resources:
-            {{- .Component.Resources | toYaml | nindent 12 }}
-          {{- else if .App.Resources }}
-          resources:
-            {{- .App.Resources | toYaml | nindent 12 }}
-          {{- end }}
           env:
           {{- include "env" . | nindent 12 }}
             - name: KUBEFOX_COMPONENT_IP
@@ -73,12 +68,6 @@ spec:
             - name: health
               containerPort: 1111
               protocol: TCP
-          readinessProbe:
-            httpGet:
-              port: health
-          livenessProbe:
-            httpGet:
-              port: health
           volumeMounts:
             - name: root-ca
               mountPath: {{ homePath }}/ca.crt

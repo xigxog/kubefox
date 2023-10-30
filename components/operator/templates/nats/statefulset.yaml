@@ -23,18 +23,13 @@ spec:
         - name: {{ .Component.Name }}
           image: {{ .Component.Image | default (printf "%s/%s:%s" .App.Registry .Component.Name .Component.Commit) | quote }}
           imagePullPolicy: {{ .Component.ImagePullPolicy | default "IfNotPresent" }}
-          {{- include "containerSecurityContext" . | nindent 10 }}
+          {{- include "securityContext" . | nindent 10 }}
+          {{- include "resources" . | nindent 10 }}
+          {{- include "probes" . | nindent 10 }}
           command:
             - "nats-server"
             - "--config"
             - "/etc/nats/nats.conf"
-          {{- if .Component.Resources }}
-          resources:
-            {{- .Component.Resources | toYaml | nindent 12 }}
-          {{- else if .App.Resources }}
-          resources:
-            {{- .App.Resources | toYaml | nindent 12 }}
-          {{- end }}
           env:
           {{- include "env" . | nindent 12 }}
             - name: KUBEFOX_COMPONENT_IP
@@ -71,26 +66,6 @@ spec:
               subPath: ca.crt
             - name: kubefox
               mountPath: {{ homePath }}
-          startupProbe:
-            httpGet:
-              path: /healthz
-              port: monitor
-            periodSeconds: 5
-            failureThreshold: 90
-          readinessProbe:
-            httpGet:
-              path: /healthz?js-server-only=true
-              port: monitor
-            timeoutSeconds: 3
-            periodSeconds: 10
-            failureThreshold: 3
-          livenessProbe:
-            httpGet:
-              path: /healthz?js-enabled-only=true
-              port: monitor
-            timeoutSeconds: 3
-            periodSeconds: 30
-            failureThreshold: 3
           lifecycle:
             preStop:
               exec:

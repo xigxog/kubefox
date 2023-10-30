@@ -73,14 +73,6 @@ kind: ServiceAccount
 {{ include "metadata" . }}
 {{- end }}
 
-{{- define "containerSecurityContext" -}}
-securityContext:
-  allowPrivilegeEscalation: false
-  capabilities:
-    drop:
-      - ALL
-{{- end }}
-
 {{- define "env" -}}
 {{- with .Component.Name }}
 - name: KUBEFOX_COMPONENT
@@ -130,12 +122,10 @@ nodeSelector:
   {{- .App.NodeSelector | toYaml | nindent 2 }}
 {{- end }}
 
-{{- if .Component.Tolerations }}
-tolerations:
-  {{- .Component.Tolerations | toYaml | nindent 2 }}
-{{- else if .App.Tolerations }}
-tolerations:
-  {{- .App.Tolerations | toYaml | nindent 2 }}
+{{- if .Component.NodeName }}
+nodeName: {{ .Component.NodeName | quote }}
+{{- else if .App.NodeName }}
+nodeName: {{ .App.NodeName | quote  }}
 {{- end }}
 
 {{- if .Component.Affinity }}
@@ -145,14 +135,51 @@ affinity:
 affinity:
   {{- .App.Affinity | toYaml | nindent 2 }}
 {{- end }}
+
+{{- if .Component.Tolerations }}
+tolerations:
+  {{- .Component.Tolerations | toYaml | nindent 2 }}
+{{- else if .App.Tolerations }}
+tolerations:
+  {{- .App.Tolerations | toYaml | nindent 2 }}
+{{- end }}
 {{- end }}
 
+{{- define "securityContext" -}}
+securityContext:
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop:
+      - ALL
+{{- end }}
+
+{{- define "resources" -}}
+{{- with .Component.Resources }}
+resources:
+  {{- . | toYaml | nindent 2 }}
+{{- end }}
+{{- end }}
+
+{{- define "probes" -}}
+{{- with .Component.LivenessProbe }}
+livenessProbe:
+  {{- . | toYaml | nindent 2 }}
+{{- end }}
+{{- with .Component.ReadinessProbe }}
+readinessProbe:
+  {{- . | toYaml | nindent 2 }}
+{{- end }}
+{{- with .Component.StartupProbe }}
+startupProbe:
+  {{- . | toYaml | nindent 2 }}
+{{- end }}
+{{- end }}
 
 {{- define "bootstrap" -}}
 name: bootstrap
 image: {{ .Instance.BootstrapImage }}
 imagePullPolicy: {{ .Component.ImagePullPolicy | default "IfNotPresent" }}
-{{ include "containerSecurityContext" . }}
+{{ include "securityContext" . }}
 args:
   - -instance={{ .Instance.Name }}
   - -platform={{ .Platform.Name }}

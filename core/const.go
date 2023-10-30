@@ -37,7 +37,7 @@ const (
 	LabelK8sComponent       string = "kubefox.xigxog.io/component"
 	LabelK8sComponentCommit string = "kubefox.xigxog.io/component-commit"
 	LabelK8sPlatform        string = "kubefox.xigxog.io/platform"
-	LabelK8sVersion         string = "kubefox.xigxog.io/version"
+	LabelK8sKubeFoxVersion  string = "kubefox.xigxog.io/version"
 	LabelOCIApp             string = "com.xigxog.kubefox.app"
 	LabelOCIComponent       string = "com.xigxog.kubefox.component"
 	LabelOCICreated         string = "org.opencontainers.image.created"
@@ -95,7 +95,7 @@ const (
 var (
 	RegexpCommit = regexp.MustCompile(`^[0-9a-f]{40}$`)
 	RegexpGitRef = regexp.MustCompile(`^[a-z0-9][a-z0-9-\\.]{0,28}[a-z0-9]$`)
-	RegexpImage  = regexp.MustCompile(`^.*:[a-z0-9-]{7}$`)
+	RegexpImage  = regexp.MustCompile(`^.*:[a-z0-9-]{40}$`)
 	RegexpName   = regexp.MustCompile(`^[a-z0-9][a-z0-9-]{0,28}[a-z0-9]$`)
 	RegexpUUID   = regexp.MustCompile(`^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`)
 )

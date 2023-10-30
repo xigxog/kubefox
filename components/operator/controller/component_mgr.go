@@ -45,7 +45,7 @@ func (cm *ComponentManager) SetupComponent(ctx context.Context, td *TemplateData
 		return false, log.ErrorN("unable to fetch component workload: %w", err)
 	}
 
-	ver := td.Obj.GetLabels()[kubefox.LabelK8sVersion]
+	ver := td.Obj.GetLabels()[kubefox.LabelK8sKubeFoxVersion]
 
 	if semver.Compare(ver, build.Info.Version) < 0 {
 		log.Infof("version upgrade detected, applying template to upgrade %s->%s", ver, build.Info.Version)
@@ -134,14 +134,14 @@ func (cm *ComponentManager) ReconcileComponents(ctx context.Context, namespace s
 					App: templates.App{
 						Name:            d.App.Name,
 						Commit:          d.App.Commit,
-						GitRef:          d.App.GitRef,
+						Branch:          d.App.Branch,
+						Tag:             d.App.Tag,
 						Registry:        d.App.ContainerRegistry,
 						ImagePullSecret: d.App.ImagePullSecret,
 					},
 					Component: templates.Component{
 						Name:   n,
 						Commit: c.Commit,
-						GitRef: c.GitRef,
 						Image:  c.Image,
 					},
 					Owner: []*metav1.OwnerReference{metav1.NewControllerRef(platform, platform.GroupVersionKind())},
@@ -180,6 +180,8 @@ func (cm *ComponentManager) ReconcileComponents(ctx context.Context, namespace s
 			rdy = rdy && r
 		}
 	}
+
+	log.Debugf("components reconciled")
 
 	return rdy, nil
 }

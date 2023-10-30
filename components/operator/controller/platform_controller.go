@@ -23,6 +23,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -44,7 +45,7 @@ type PlatformReconciler struct {
 
 	Instance  string
 	Namespace string
-	VaultAddr string
+	VaultURL  string
 
 	LogLevel  string
 	LogFormat string
@@ -91,7 +92,6 @@ func (r *PlatformReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		}
 		return ctrl.Result{}, log.ErrorN("unable to fetch namespace: %w", err)
 	}
-
 	if ns.Status.Phase == v1.NamespaceTerminating {
 		log.Debug("namespace is terminating")
 		return ctrl.Result{}, nil
@@ -107,9 +107,9 @@ func (r *PlatformReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		return ctrl.Result{}, r.Update(ctx, ns)
 	}
 
-	platformReady := false
+	ready := false
 	defer func() {
-		p.Status.Ready = platformReady
+		p.Status.Ready = ready
 		r.Status().Update(ctx, p)
 	}()
 
@@ -124,49 +124,11 @@ func (r *PlatformReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		}
 	}
 
-	td := &TemplateData{
-		Data: templates.Data{
-			Instance: templates.Instance{
-				Name:           r.Instance,
-				Namespace:      r.Namespace,
-				BootstrapImage: BootstrapImage,
-				Version:        build.Info.Version,
-			},
-			Component: templates.Component{
-				Name:  "vault",
-				Image: VaultImage,
-				Resources: &v1.ResourceRequirements{
-					Requests: v1.ResourceList{
-						"memory": resource.MustParse("115Mi"), // 90% of limit, used to set GOMEMLIMIT
-						"cpu":    resource.MustParse("0"),
-					},
-					Limits: v1.ResourceList{
-						"memory": resource.MustParse("128Mi"),
-						"cpu":    resource.MustParse("1"),
-					},
-				},
-			},
-		},
-		Obj:      &appsv1.StatefulSet{},
-		Template: "vault",
-	}
-	if err := r.ApplyTemplate(ctx, "instance", &td.Data); err != nil {
-		return ctrl.Result{}, log.ErrorN("problem setting up instance: %w", err)
-	}
-	if rdy, err := r.cm.SetupComponent(ctx, td); !rdy || err != nil {
-		return ctrl.Result{RequeueAfter: time.Second * 3}, err
-	}
-	vaultURL := fmt.Sprintf("https://%s.%s:8200", td.ComponentFullName(), td.Instance.Namespace)
-	if r.VaultAddr != "" {
-		vaultURL = fmt.Sprintf("https://%s", r.VaultAddr)
-	}
-
 	cm := &v1.ConfigMap{}
 	if err := r.Get(ctx, nn(r.Namespace, r.Instance+"-root-ca"), cm); err != nil {
 		return ctrl.Result{}, log.ErrorN("unable to fetch root CA configmap: %w", err)
 	}
-
-	td = &TemplateData{
+	td := &TemplateData{
 		Data: templates.Data{
 			Instance: templates.Instance{
 				Name:           r.Instance,
@@ -175,19 +137,26 @@ func (r *PlatformReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 				BootstrapImage: BootstrapImage,
 				Version:        build.Info.Version,
 			},
-			Platform: templates.Platform{
-				Name:      p.Name,
-				Namespace: p.Namespace,
-				LogFormat: r.LogFormat,
-				LogLevel:  r.LogLevel,
-			},
 			Values: map[string]any{
 				"pkiInitImage": VaultImage,
 			},
-			Owner: []*metav1.OwnerReference{metav1.NewControllerRef(p, p.GroupVersionKind())},
 		},
 	}
-	if err := r.setupVault(ctx, td, vaultURL); err != nil {
+	if err := r.ApplyTemplate(ctx, "instance", &td.Data); err != nil {
+		return ctrl.Result{}, log.ErrorN("problem setting up instance: %w", err)
+	}
+
+	td.Platform = templates.Platform{
+		Name:      p.Name,
+		Namespace: p.Namespace,
+		LogFormat: r.LogFormat,
+		LogLevel:  r.LogLevel,
+	}
+	td.Owner = []*metav1.OwnerReference{
+		metav1.NewControllerRef(p, p.GroupVersionKind()),
+	}
+
+	if err := r.setupVault(ctx, td); err != nil {
 		return ctrl.Result{}, log.ErrorN("problem setting up vault: %w", err)
 	}
 
@@ -198,18 +167,60 @@ func (r *PlatformReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	td.Template = "nats"
 	td.Obj = &appsv1.StatefulSet{}
 	td.Component = templates.Component{
-		Name:  "nats",
-		Image: NATSImage,
-		Resources: &v1.ResourceRequirements{
+		Name:          "nats",
+		Image:         NATSImage,
+		PodSpec:       p.Spec.NATS.PodSpec,
+		ContainerSpec: p.Spec.NATS.ContainerSpec,
+	}
+	if td.Component.Resources == nil {
+		td.Component.Resources = &v1.ResourceRequirements{
 			Requests: v1.ResourceList{
 				"memory": resource.MustParse("115Mi"), // 90% of limit, used to set GOMEMLIMIT
 				"cpu":    resource.MustParse("250m"),
 			},
 			Limits: v1.ResourceList{
-				"memory": resource.MustParse("128"),
+				"memory": resource.MustParse("128Mi"),
 				"cpu":    resource.MustParse("2"),
 			},
-		},
+		}
+	}
+	if td.Component.LivenessProbe == nil {
+		td.Component.LivenessProbe = &v1.Probe{
+			ProbeHandler: v1.ProbeHandler{
+				HTTPGet: &v1.HTTPGetAction{
+					Path: "/healthz?js-enabled-only=true",
+					Port: intstr.FromString("monitor"),
+				},
+			},
+			TimeoutSeconds:   3,
+			PeriodSeconds:    30,
+			FailureThreshold: 3,
+		}
+	}
+	if td.Component.ReadinessProbe == nil {
+		td.Component.ReadinessProbe = &v1.Probe{
+			ProbeHandler: v1.ProbeHandler{
+				HTTPGet: &v1.HTTPGetAction{
+					Path: "/healthz?js-enabled-only=true",
+					Port: intstr.FromString("monitor"),
+				},
+			},
+			TimeoutSeconds:   3,
+			PeriodSeconds:    10,
+			FailureThreshold: 3,
+		}
+	}
+	if td.Component.StartupProbe == nil {
+		td.Component.StartupProbe = &v1.Probe{
+			ProbeHandler: v1.ProbeHandler{
+				HTTPGet: &v1.HTTPGetAction{
+					Path: "/healthz",
+					Port: intstr.FromString("monitor"),
+				},
+			},
+			PeriodSeconds:    5,
+			FailureThreshold: 90,
+		}
 	}
 	if rdy, err := r.cm.SetupComponent(ctx, td); !rdy || err != nil {
 		return ctrl.Result{}, err
@@ -218,9 +229,13 @@ func (r *PlatformReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	td.Template = "broker"
 	td.Obj = &appsv1.DaemonSet{}
 	td.Component = templates.Component{
-		Name:  "broker",
-		Image: BrokerImage,
-		Resources: &v1.ResourceRequirements{
+		Name:          "broker",
+		Image:         BrokerImage,
+		PodSpec:       p.Spec.Broker.PodSpec,
+		ContainerSpec: p.Spec.Broker.ContainerSpec,
+	}
+	if td.Component.Resources == nil {
+		td.Component.Resources = &v1.ResourceRequirements{
 			Requests: v1.ResourceList{
 				"memory": resource.MustParse("144Mi"), // 90% of limit, used to set GOMEMLIMIT
 				"cpu":    resource.MustParse("250m"),
@@ -229,33 +244,49 @@ func (r *PlatformReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 				"memory": resource.MustParse("160Mi"),
 				"cpu":    resource.MustParse("2"),
 			},
-		},
+		}
+	}
+	if td.Component.LivenessProbe == nil {
+		td.Component.LivenessProbe = &v1.Probe{
+			ProbeHandler: v1.ProbeHandler{
+				HTTPGet: &v1.HTTPGetAction{
+					Port: intstr.FromString("health"),
+				},
+			},
+		}
+	}
+	if td.Component.ReadinessProbe == nil {
+		td.Component.ReadinessProbe = &v1.Probe{
+			ProbeHandler: v1.ProbeHandler{
+				HTTPGet: &v1.HTTPGetAction{
+					Port: intstr.FromString("health"),
+				},
+			},
+		}
 	}
 	if rdy, err := r.cm.SetupComponent(ctx, td); !rdy || err != nil {
 		return ctrl.Result{}, err
 	}
 
-	// Used by defer block above.
-	platformReady = true
+	// Used by defer func created above.
+	ready = true
+	log.Debug("platform reconciled")
 
-	if rdy, err := r.cm.ReconcileComponents(ctx, req.Namespace); !rdy || err != nil {
+	if rdy, err := r.cm.ReconcileComponents(ctx, p.Namespace); !rdy || err != nil {
 		return ctrl.Result{}, err
 	}
-
-	log.Debug("platform reconciled")
 
 	return ctrl.Result{}, nil
 }
 
-func (r *PlatformReconciler) setupVault(ctx context.Context, td *TemplateData, url string) error {
-	vault, err := r.vaultClient(ctx, url, []byte(td.Instance.RootCA))
+func (r *PlatformReconciler) setupVault(ctx context.Context, td *TemplateData) error {
+	vault, err := r.vaultClient(ctx, r.VaultURL, []byte(td.Instance.RootCA))
 	if err != nil {
 		return err
 	}
 
 	vName := td.PlatformVaultName()
 	pkiPath := "pki/int/platform/" + vName
-	natsPath := "nats/platform/" + vName
 	if cfg, _ := vault.Sys().MountConfig(pkiPath); cfg == nil {
 		err = vault.Sys().Mount(pkiPath, &vapi.MountInput{
 			Type: "pki",
@@ -267,8 +298,8 @@ func (r *PlatformReconciler) setupVault(ctx context.Context, td *TemplateData, u
 			return err
 		}
 		_, err := vault.Logical().Write(pkiPath+"/config/urls", map[string]interface{}{
-			"issuing_certificates":    url + "/v1/" + pkiPath + "/ca",
-			"crl_distribution_points": url + "/v1/" + pkiPath + "/crl",
+			"issuing_certificates":    r.VaultURL + "/v1/" + pkiPath + "/ca",
+			"crl_distribution_points": r.VaultURL + "/v1/" + pkiPath + "/crl",
 		})
 		if err != nil {
 			return err
@@ -316,32 +347,10 @@ func (r *PlatformReconciler) setupVault(ctx context.Context, td *TemplateData, u
 		return err
 	}
 
-	if cfg, _ := vault.Sys().MountConfig(natsPath); cfg == nil {
-		err = vault.Sys().Mount(natsPath, &vapi.MountInput{
-			Type: "nats",
-		})
-		if err != nil {
-			return err
-		}
-		_, err := vault.Logical().Write(natsPath+"/config", map[string]interface{}{
-			"service_url": "nats://" + td.Platform.Name + "-nats." + td.Platform.Namespace + ":4222",
-		})
-		if err != nil {
-			return err
-		}
-	}
-
 	err = vault.Sys().PutPolicyWithContext(ctx, vName+"-broker", `
 // issue broker certs
 path "`+pkiPath+`/issue/broker" {
 	capabilities = ["create", "update"]
-}
-// issue NATS JWTs
-path "`+natsPath+`/config" {
-	capabilities = ["read"]
-}
-path "`+natsPath+`/jwt/*" {
-	capabilities = ["create"]
 }
 	`)
 	if err != nil {
@@ -352,13 +361,6 @@ path "`+natsPath+`/jwt/*" {
 // issue nats certs
 path "`+pkiPath+`/issue/nats" {
 	capabilities = ["create", "update"]
-}
-// issue NATS JWTs
-path "`+natsPath+`/config" {
-	capabilities = ["read"]
-}
-path "`+natsPath+`/jwt/*" {
-	capabilities = ["create"]
 }
 	`)
 	if err != nil {

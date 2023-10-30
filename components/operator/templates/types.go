@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	corev1 "k8s.io/api/core/v1"
+	"github.com/xigxog/kubefox/api/kubernetes/v1alpha1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
@@ -39,29 +39,26 @@ type Platform struct {
 }
 
 type App struct {
+	v1alpha1.PodSpec
+
 	Name            string
 	Commit          string
-	GitRef          string
+	Branch          string
+	Tag             string
 	Registry        string
 	ImagePullSecret string
-	Resources       *corev1.ResourceRequirements
-	NodeSelector    *corev1.NodeSelector
-	Tolerations     []*corev1.Toleration
-	Affinity        *corev1.Affinity
 	LogLevel        string
 	LogFormat       string
 }
 
 type Component struct {
+	v1alpha1.PodSpec
+	v1alpha1.ContainerSpec
+
 	Name            string
 	Commit          string
-	GitRef          string
 	Image           string
 	ImagePullPolicy string
-	Resources       *corev1.ResourceRequirements
-	NodeSelector    *corev1.NodeSelector
-	Tolerations     []*corev1.Toleration
-	Affinity        *corev1.Affinity
 	LogLevel        string
 	LogFormat       string
 }
@@ -107,6 +104,11 @@ func (d Data) ComponentFullName() string {
 		return ""
 	}
 
+	commit := d.Component.Commit
+	if len(d.Component.Commit) > 7 {
+		commit = commit[0:7]
+	}
+
 	name := d.App.Name
 	if name == "" {
 		name = d.Platform.Name
@@ -114,7 +116,7 @@ func (d Data) ComponentFullName() string {
 	if name == "" {
 		name = d.Instance.Name
 	}
-	name = fmt.Sprintf("%s-%s-%s", name, d.Component.Name, d.Component.Commit)
+	name = fmt.Sprintf("%s-%s-%s", name, d.Component.Name, commit)
 	return strings.TrimSuffix(name, "-")
 }
 
