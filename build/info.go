@@ -20,8 +20,8 @@ type BuildInfo struct {
 	Component  string `json:"component,omitempty"`
 	Commit     string `json:"commit,omitempty"`
 	RootCommit string `json:"rootCommit,omitempty"`
-	HeadRef    string `json:"headRef,omitempty"`
-	TagRef     string `json:"tagRef,omitempty"`
+	Branch     string `json:"branch,omitempty"`
+	Tag        string `json:"tag,omitempty"`
 	Version    string `json:"version,omitempty"`
 }
 
@@ -53,8 +53,8 @@ func init() {
 		Component:  component,
 		Commit:     commit,
 		RootCommit: rootCommit,
-		HeadRef:    headRef,
-		TagRef:     tagRef,
+		Branch:     headRef,
+		Tag:        tagRef,
 		Version:    version,
 	}
 }
