@@ -50,20 +50,22 @@ spec:
                       - type
                       type: object
                     type: object
+                  branch:
+                    type: string
                   commit:
-                    pattern: ^[a-z0-9]{7}$
+                    pattern: ^[a-z0-9]{40}$
                     type: string
                   containerRegistry:
                     type: string
                   description:
                     type: string
-                  gitRef:
-                    type: string
-                  gitRepo:
-                    type: string
                   imagePullSecret:
                     type: string
                   name:
+                    type: string
+                  repoURL:
+                    type: string
+                  tag:
                     type: string
                   title:
                     type: string
@@ -76,7 +78,7 @@ spec:
                 additionalProperties:
                   properties:
                     commit:
-                      pattern: ^[a-z0-9]{7}$
+                      pattern: ^[a-z0-9]{40}$
                       type: string
                     description:
                       type: string
@@ -105,8 +107,6 @@ spec:
                             type: object
                           type: object
                       type: object
-                    gitRef:
-                      type: string
                     image:
                       type: string
                     title:

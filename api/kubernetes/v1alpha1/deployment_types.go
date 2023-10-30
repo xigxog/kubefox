@@ -22,10 +22,11 @@ type App struct {
 	Title       string `json:"title,omitempty"`
 	Description string `json:"description,omitempty"`
 	Name        string `json:"name"`
-	GitRef      string `json:"gitRef,omitempty"`
-	// +kubebuilder:validation:Pattern="^[a-z0-9]{7}$"
+	Branch      string `json:"branch,omitempty"`
+	Tag         string `json:"tag,omitempty"`
+	// +kubebuilder:validation:Pattern="^[a-z0-9]{40}$"
 	Commit            string              `json:"commit"`
-	GitRepo           string              `json:"gitRepo,omitempty"`
+	RepoURL           string              `json:"repoURL,omitempty"`
 	ContainerRegistry string              `json:"containerRegistry"`
 	ImagePullSecret   string              `json:"imagePullSecret,omitempty"`
 	Adapters          map[string]*Adapter `json:"adapters,omitempty"`
@@ -34,8 +35,7 @@ type App struct {
 type Component struct {
 	Title       string `json:"title,omitempty"`
 	Description string `json:"description,omitempty"`
-	GitRef      string `json:"gitRef,omitempty"`
-	// +kubebuilder:validation:Pattern="^[a-z0-9]{7}$"
+	// +kubebuilder:validation:Pattern="^[a-z0-9]{40}$"
 	Commit    string    `json:"commit"`
 	Image     string    `json:"image,omitempty"`
 	EnvSchema EnvSchema `json:"env,omitempty"`
