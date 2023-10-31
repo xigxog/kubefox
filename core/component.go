@@ -9,9 +9,31 @@ import (
 	"github.com/xigxog/kubefox/utils"
 )
 
-type ComponentReg struct {
-	Routes         []*Route `json:"routes"`
-	DefaultHandler bool     `json:"defaultHandler"`
+type EnvVarType string
+type ComponentType string
+
+type ComponentConf struct {
+	Component      *Component              `json:"component"`
+	Title          string                  `json:"title,omitempty"`
+	Description    string                  `json:"description,omitempty"`
+	Routes         []*Route                `json:"routes"`
+	DefaultHandler bool                    `json:"defaultHandler"`
+	EnvSchema      map[string]EnvVarSchema `json:"envSchema,omitempty"`
+	Dependencies   map[string]Dependency   `json:"dependencies,omitempty"`
+}
+
+type EnvVarSchema struct {
+	Name        string     `json:"name"`
+	Type        EnvVarType `json:"type"`
+	Required    bool       `json:"required"`
+	Title       string     `json:"title,omitempty"`
+	Description string     `json:"description,omitempty"`
+}
+
+// Definition for component dependency.
+type Dependency struct {
+	Name string        `json:"name,omitempty"`
+	Type ComponentType `json:"type,omitempty"`
 }
 
 func GenerateNameAndId() (string, string) {
@@ -80,4 +102,21 @@ func (c *Component) ShortCommit() string {
 	}
 
 	return ""
+}
+
+func (c *Dependency) GetName() string {
+	return c.Name
+}
+
+func (c *Dependency) GetType() ComponentType {
+	return c.Type
+}
+
+func (c *Dependency) GetEventType() EventType {
+	switch c.Type {
+	case ComponentTypeHTTPAdapter:
+		return EventTypeHTTP
+	default:
+		return EventTypeKubeFox
+	}
 }

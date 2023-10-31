@@ -255,7 +255,7 @@ of the Git repo. To deploy or release a different version of your app simply
 checkout the tag, branch, or commit you want and let Fox do the rest.
 
 ```shell
-fox release dev --env qa --wait 5m
+fox release qa --create-tag v0.1.0 --wait 5m
 ```
 
 Try the same request from above, but this time don't specify the context. Since

@@ -25,7 +25,6 @@ type HTTPServer struct {
 
 	brk    Broker
 	comp   *kubefox.Component
-	sub    ReplicaSubscription
 	reqMap map[string]chan *kubefox.Event
 
 	mutex sync.Mutex
@@ -63,15 +62,6 @@ func (srv *HTTPServer) Start() (err error) {
 		},
 	}
 
-	srv.sub, err = srv.brk.Subscribe(context.Background(), &SubscriptionConf{
-		Component:   srv.comp,
-		SendFunc:    srv.sendEvent,
-		EnableGroup: false,
-	})
-	if err != nil {
-		return srv.log.ErrorN("%v", err)
-	}
-
 	// Start listener outside of goroutine to deal with address and port issues.
 	if config.HTTPSrvAddr != "false" {
 		srv.log.Debug("http server starting")
@@ -83,7 +73,7 @@ func (srv *HTTPServer) Start() (err error) {
 			err := srv.wrapped.Serve(ln)
 			if err != nil && !errors.Is(err, http.ErrServerClosed) {
 				srv.log.Error(err)
-				os.Exit(ExitCodeHTTPServer)
+				os.Exit(ExitCodeHTTP)
 			}
 		}()
 		srv.log.Info("http server started")
@@ -98,7 +88,7 @@ func (srv *HTTPServer) Start() (err error) {
 			err := srv.wrapped.ServeTLS(lns, kubefox.PathTLSCert, kubefox.PathTLSKey)
 			if err != nil && !errors.Is(err, http.ErrServerClosed) {
 				srv.log.Error(err)
-				os.Exit(ExitCodeHTTPServer)
+				os.Exit(ExitCodeHTTP)
 			}
 		}()
 		srv.log.Info("https server started")
@@ -117,10 +107,6 @@ func (srv *HTTPServer) Shutdown(timeout time.Duration) {
 		if err := srv.wrapped.Shutdown(ctx); err != nil {
 			srv.log.Error(err)
 		}
-	}
-
-	if srv.sub != nil {
-		srv.sub.Cancel(nil)
 	}
 }
 
@@ -212,11 +198,7 @@ func (srv *HTTPServer) Component() *kubefox.Component {
 	return srv.comp
 }
 
-func (srv *HTTPServer) Subscription() Subscription {
-	return srv.sub
-}
-
-func (srv *HTTPServer) sendEvent(mEvt *LiveEvent) error {
+func (srv *HTTPServer) SendEvent(mEvt *LiveEvent) error {
 	resp := mEvt.Event
 	srv.mutex.Lock()
 	respCh, found := srv.reqMap[resp.ParentId]

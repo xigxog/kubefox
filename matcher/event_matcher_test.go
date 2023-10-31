@@ -21,7 +21,7 @@ func TestPath(t *testing.T) {
 		Component:    &kubefox.Component{},
 		EventContext: &kubefox.EventContext{},
 	}
-	if err := r1.Resolve(v); err != nil {
+	if err := r1.Resolve(v, nil); err != nil {
 		t.Log(err)
 		t.FailNow()
 	}
@@ -32,7 +32,7 @@ func TestPath(t *testing.T) {
 		Component:    &kubefox.Component{},
 		EventContext: &kubefox.EventContext{},
 	}
-	if err := r2.Resolve(v); err != nil {
+	if err := r2.Resolve(v, nil); err != nil {
 		t.Log(err)
 		t.FailNow()
 	}

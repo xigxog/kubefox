@@ -34,7 +34,7 @@ const (
 	ExitCodeConfiguration = 10
 	ExitCodeNATS          = 11
 	ExitCodeGRPCServer    = 12
-	ExitCodeHTTPServer    = 13
+	ExitCodeHTTP          = 13
 	ExitCodeTelemetry     = 14
 	ExitCodeResourceStore = 15
 	ExitCodeKubernetes    = 16
@@ -64,8 +64,8 @@ type broker struct {
 	httpSrv *HTTPServer
 
 	natsClient *NATSClient
-	// httpClient *HTTPClient
-	k8sClient client.Client
+	httpClient *HTTPClient
+	k8sClient  client.Client
 
 	healthSrv *telemetry.HealthServer
 	telClient *telemetry.Client
@@ -108,9 +108,9 @@ func New() Engine {
 		log:       logkf.Global,
 	}
 	brk.grpcSrv = NewGRPCServer(brk)
-	brk.httpSrv = NewHTTPServer(brk)
 	brk.natsClient = NewNATSClient(brk)
-	// brk.httpClient = NewHTTPClient(brk)
+	brk.httpSrv = NewHTTPServer(brk)
+	brk.httpClient = NewHTTPClient(brk)
 
 	return brk
 }
@@ -167,7 +167,7 @@ func (brk *broker) Start() {
 	}
 
 	if err := brk.httpSrv.Start(); err != nil {
-		brk.shutdown(ExitCodeHTTPServer, err)
+		brk.shutdown(ExitCodeHTTP, err)
 	}
 	if err := brk.store.RegisterAdapter(ctx, brk.httpSrv.Component()); err != nil {
 		brk.shutdown(ExitCodeNATS, err)
@@ -336,9 +336,6 @@ func (brk *broker) routeEvent(log *logkf.Logger, evt *LiveEvent) error {
 
 	var sub Subscription
 	switch {
-	case evt.Target.Equal(brk.httpSrv.Component()):
-		sub = brk.httpSrv.Subscription()
-
 	case evt.Target.Id != "":
 		sub, _ = brk.subMgr.ReplicaSubscription(evt.Target)
 
@@ -353,6 +350,12 @@ func (brk *broker) routeEvent(log *logkf.Logger, evt *LiveEvent) error {
 			log.Debug("subscription found, sending event with gRPC")
 			return sub.SendEvent(evt)
 		}
+
+	case evt.Target.Equal(brk.httpSrv.Component()):
+		sendEvent = brk.httpSrv.SendEvent
+
+	case evt.Target.Equal(brk.httpClient.Component()):
+		sendEvent = brk.httpClient.SendEvent
 
 	default:
 		sendEvent = func(evt *LiveEvent) error {
@@ -369,13 +372,22 @@ func (brk *broker) routeEvent(log *logkf.Logger, evt *LiveEvent) error {
 }
 
 func (brk *broker) matchEvent(ctx context.Context, evt *LiveEvent) error {
-	if evt.Category == kubefox.Category_RESPONSE {
+	switch evt.Category {
+	case kubefox.Category_RESPONSE:
 		if evt.Target == nil || !evt.Target.IsFull() {
 			return fmt.Errorf("%w: response target is missing required attribute", ErrRouteInvalid)
 		}
 
 		evt.MatchedEvent = &kubefox.MatchedEvent{Event: evt.Event}
 		return nil
+
+	case kubefox.Category_REQUEST:
+		// TODO better checking for "http-client" adapter
+		if evt.Target != nil && evt.Target.IsNameOnly() && evt.Target.Name == "http-client" {
+			evt.Target = brk.httpClient.Component()
+			evt.MatchedEvent = &kubefox.MatchedEvent{Event: evt.Event}
+			return nil
+		}
 	}
 
 	var (
@@ -549,6 +561,9 @@ func (brk *broker) isAdapter(ctx context.Context, c *kubefox.Component) bool {
 	// Check if component is local adapter.
 	switch {
 	case c.Equal(brk.httpSrv.Component()):
+		return true
+
+	case c.Equal(brk.httpClient.Component()):
 		return true
 	}
 

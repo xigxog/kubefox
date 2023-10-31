@@ -126,7 +126,7 @@ func (srv *GRPCServer) Subscribe(stream grpc.Broker_SubscribeServer) error {
 	if regEvt.Type != string(kubefox.EventTypeRegister) {
 		return log.ErrorN("component registration failed: expected event of type %s but got %s", kubefox.EventTypeRegister, regEvt.Type)
 	}
-	compReg := &kubefox.ComponentReg{}
+	compReg := &kubefox.ComponentConf{}
 	if err := regEvt.Bind(compReg); err != nil {
 		return log.ErrorN("component registration failed: %v", err)
 	}

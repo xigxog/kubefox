@@ -29,8 +29,9 @@ ROOT_COMMIT=$(git rev-parse HEAD)
 HEAD_REF=$(git symbolic-ref -q HEAD)
 TAG_REF=$(git describe --tags --exact-match 2>/dev/null | xargs -I % echo "refs/tags/%")
 
+CONTAINER_REGISTRY=${CONTAINER_REGISTRY:-"ghcr.io/xigxog"}
 IMAGE_TAG=${IMAGE_TAG:-$(git symbolic-ref -q --short HEAD || git describe --tags --exact-match)}
-IMAGE="ghcr.io/xigxog/kubefox/${COMPONENT}:${IMAGE_TAG}"
+IMAGE=${IMAGE:-"${CONTAINER_REGISTRY}/kubefox/${COMPONENT}:${IMAGE_TAG}"}
 
 export GO111MODULE=on
 export CGO_ENABLED=0

@@ -14,41 +14,39 @@ import (
 
 // DeploymentSpec defines the desired state of Deployment
 type DeploymentSpec struct {
-	App        App                   `json:"app"`
+	App        DeploymentApp         `json:"app"`
 	Components map[string]*Component `json:"components"`
 }
 
 type App struct {
-	Title       string `json:"title,omitempty"`
-	Description string `json:"description,omitempty"`
-	Name        string `json:"name"`
-	Branch      string `json:"branch,omitempty"`
-	Tag         string `json:"tag,omitempty"`
+	Name              string `json:"name"`
+	ContainerRegistry string `json:"containerRegistry"`
+	Title             string `json:"title,omitempty"`
+	Description       string `json:"description,omitempty"`
+}
+
+type DeploymentApp struct {
+	App `json:",inline"`
+
+	Branch string `json:"branch,omitempty"`
+	Tag    string `json:"tag,omitempty"`
 	// +kubebuilder:validation:Pattern="^[a-z0-9]{40}$"
-	Commit            string              `json:"commit"`
-	RepoURL           string              `json:"repoURL,omitempty"`
-	ContainerRegistry string              `json:"containerRegistry"`
-	ImagePullSecret   string              `json:"imagePullSecret,omitempty"`
-	Adapters          map[string]*Adapter `json:"adapters,omitempty"`
+	Commit              string `json:"commit"`
+	RepoURL             string `json:"repoURL,omitempty"`
+	ImagePullSecretName string `json:"imagePullSecretName,omitempty"`
 }
 
 type Component struct {
 	Title       string `json:"title,omitempty"`
 	Description string `json:"description,omitempty"`
 	// +kubebuilder:validation:Pattern="^[a-z0-9]{40}$"
-	Commit    string    `json:"commit"`
-	Image     string    `json:"image,omitempty"`
-	EnvSchema EnvSchema `json:"env,omitempty"`
-}
-
-type Adapter struct {
-	// +kubebuilder:validation:Enum=graphql;http;kv;object
-	Type string `json:"type"`
+	Commit string `json:"commit"`
+	Image  string `json:"image,omitempty"`
 }
 
 // DeploymentStatus defines the observed state of Deployment
 type DeploymentStatus struct {
-	// Ready bool `json:"ready"`
+	Ready bool `json:"ready"`
 }
 
 //+kubebuilder:object:root=true

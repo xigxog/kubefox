@@ -503,7 +503,7 @@ git add . && git commit -m "updated frontend to say Hey" && \
 
 ??? example "Output"
 
-    ```text hl_lines="2 9 10"
+    ```text hl_lines="3 9 38"
     $ git add . && git commit -m "updated frontend to say Hey" && \
         fox publish beta --wait 5m
     [main 780e2db] updated frontend to say Hey

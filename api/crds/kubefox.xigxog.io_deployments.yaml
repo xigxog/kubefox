@@ -36,20 +36,6 @@ spec:
             properties:
               app:
                 properties:
-                  adapters:
-                    additionalProperties:
-                      properties:
-                        type:
-                          enum:
-                          - graphql
-                          - http
-                          - kv
-                          - object
-                          type: string
-                      required:
-                      - type
-                      type: object
-                    type: object
                   branch:
                     type: string
                   commit:
@@ -59,7 +45,7 @@ spec:
                     type: string
                   description:
                     type: string
-                  imagePullSecret:
+                  imagePullSecretName:
                     type: string
                   name:
                     type: string
@@ -82,31 +68,6 @@ spec:
                       type: string
                     description:
                       type: string
-                    env:
-                      properties:
-                        required:
-                          items:
-                            type: string
-                          type: array
-                        vars:
-                          additionalProperties:
-                            properties:
-                              description:
-                                type: string
-                              title:
-                                type: string
-                              type:
-                                enum:
-                                - array
-                                - boolean
-                                - number
-                                - string
-                                type: string
-                            required:
-                            - type
-                            type: object
-                          type: object
-                      type: object
                     image:
                       type: string
                     title:
@@ -121,6 +82,11 @@ spec:
             type: object
           status:
             description: DeploymentStatus defines the observed state of Deployment
+            properties:
+              ready:
+                type: boolean
+            required:
+            - ready
             type: object
         type: object
     served: true

@@ -182,13 +182,13 @@ func (c *NATSClient) ConsumeEvents(ctx context.Context, name, subj string) error
 
 	go func() {
 		<-ctx.Done()
-		c.log.Debug("broker subscription context done, draining nats subscription '%s'", name)
+		c.log.Debugf("broker subscription context done, draining nats subscription '%s'", name)
 
 		c.mutex.Lock()
 		defer c.mutex.Unlock()
 
 		if err := sub.Drain(); err != nil {
-			c.log.Error("error draining nats subscription '%s': %v", name, err)
+			c.log.Errorf("error draining nats subscription '%s': %v", name, err)
 		}
 		delete(c.consumerMap, name)
 	}()

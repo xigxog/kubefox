@@ -11,10 +11,10 @@ type EventType string
 
 // Component event types
 const (
-	EventTypeComponent  EventType = "io.kubefox.component"
 	EventTypeCron       EventType = "io.kubefox.cron"
 	EventTypeDapr       EventType = "io.kubefox.dapr"
 	EventTypeHTTP       EventType = "io.kubefox.http"
+	EventTypeKubeFox    EventType = "io.kubefox.kubefox"
 	EventTypeKubernetes EventType = "io.kubefox.kubernetes"
 )
 
@@ -119,4 +119,16 @@ const (
 
 const (
 	CloudEventId = "ce_id"
+)
+
+const (
+	EnvVarTypeArray   EnvVarType = "array"
+	EnvVarTypeBoolean EnvVarType = "boolean"
+	EnvVarTypeNumber  EnvVarType = "number"
+	EnvVarTypeString  EnvVarType = "string"
+)
+
+const (
+	ComponentTypeHTTPAdapter      ComponentType = "http-adapter"
+	ComponentTypeKubeFoxComponent ComponentType = "kubefox-component"
 )

@@ -502,11 +502,15 @@ func (evt *Event) HTTPResponse() *http.Response {
 }
 
 func (evt *Event) SetHTTPRequest(httpReq *http.Request) error {
-	content, err := io.ReadAll(httpReq.Body)
-	if err != nil {
-		return err
+	if httpReq.Body != nil {
+		content, err := io.ReadAll(httpReq.Body)
+		if err != nil {
+			return err
+		}
+		evt.Content = content
+	} else {
+		evt.Content = nil
 	}
-	evt.Content = content
 	evt.ContentType = httpReq.Header.Get("Content-Type")
 	evt.Category = Category_REQUEST
 
@@ -525,6 +529,12 @@ func (evt *Event) SetHTTPRequest(httpReq *http.Request) error {
 			evt.Type = string(EventTypeHTTP)
 		}
 	}
+
+	DelParamOrHeader(httpReq,
+		HeaderEnv, HeaderAbbrvEnv, HeaderShortEnv,
+		HeaderDep, HeaderAbbrvDep, HeaderShortDep,
+		HeaderEventType, HeaderAbbrvEventType, HeaderShortEventType,
+	)
 
 	url := httpReq.URL
 	if host := httpReq.Header.Get("X-Forwarded-Host"); host != "" {
@@ -558,12 +568,17 @@ func (evt *Event) SetHTTPRequest(httpReq *http.Request) error {
 }
 
 func (evt *Event) SetHTTPResponse(httpResp *http.Response) error {
-	defer httpResp.Body.Close()
-	content, err := io.ReadAll(httpResp.Body)
-	if err != nil {
-		return err
+	if httpResp.Body != nil {
+		defer httpResp.Body.Close()
+		content, err := io.ReadAll(httpResp.Body)
+		if err != nil {
+			return err
+		}
+		evt.Content = content
+	} else {
+		evt.Content = nil
 	}
-	evt.Content = content
+
 	evt.ContentType = httpResp.Header.Get("Content-Type")
 	evt.Category = Category_RESPONSE
 
@@ -601,4 +616,15 @@ func GetParamOrHeader(httpReq *http.Request, keys ...string) string {
 	}
 
 	return ""
+}
+
+// DelParamOrHeader deletes all query parameters and headers that match provided
+// keys.
+func DelParamOrHeader(httpReq *http.Request, keys ...string) {
+	query := httpReq.URL.Query()
+	for _, key := range keys {
+		query.Del(strings.ToLower(key))
+		httpReq.Header.Del(key)
+	}
+	httpReq.URL.RawQuery = query.Encode()
 }

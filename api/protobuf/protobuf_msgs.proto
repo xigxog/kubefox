@@ -53,5 +53,4 @@ message MatchedEvent {
   Event event = 1;
   int64 route_id = 2;
   map<string, google.protobuf.Value> env = 3;
-  map<string, Component> adapters = 4;
 }

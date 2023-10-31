@@ -4,8 +4,6 @@ import (
 	"regexp"
 	"strings"
 	"text/template"
-
-	sprig "github.com/go-task/slim-sprig"
 )
 
 // Takes an Event and returns true or false if rule matches.
@@ -34,7 +32,7 @@ var (
 	paramRegexp = regexp.MustCompile(`([^\\])({[^}]+})`)
 )
 
-func (r *Route) Resolve(envVars map[string]*Val) error {
+func (r *Route) Resolve(envVars map[string]*Val, funcMap template.FuncMap) error {
 	r.ResolvedRule = ""
 	// removes any extra whitespace
 	resolved := strings.Join(strings.Fields(r.Rule), " ")
@@ -63,7 +61,9 @@ func (r *Route) Resolve(envVars map[string]*Val) error {
 	// Resolve template fields from vars.
 	if r.tpl == nil {
 		tpl := template.New("route").Option("missingkey=zero")
-		tpl.Funcs(sprig.FuncMap())
+		if funcMap != nil {
+			tpl.Funcs(funcMap)
+		}
 		if _, err := tpl.Parse(resolved); err != nil {
 			return err
 		}

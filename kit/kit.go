@@ -2,6 +2,7 @@ package kit
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
@@ -27,30 +28,24 @@ const (
 	maxRetry = 5
 )
 
-type EventHandlerFunc func(kit Kontext) error
-
-type Kit interface {
-	Start()
-	Route(string, EventHandlerFunc)
-	Default(EventHandlerFunc)
-	Log() *logkf.Logger
-}
-
 type kit struct {
-	comp       *kubefox.Component
-	defHandler EventHandlerFunc
+	conf kubefox.ComponentConf
+
 	routes     []*route
+	defHandler EventHandler
 
 	brk    grpc.Broker_SubscribeClient
 	reqMap map[string]chan *kubefox.Event
 
-	httpSrv *http.Server
-	healthy atomic.Bool
+	healthSrv *http.Server
+	healthy   atomic.Bool
 
 	reqMapMutex sync.Mutex
 	sendMutex   sync.Mutex
 
 	brokerAddr string
+
+	export bool
 
 	log *logkf.Logger
 }
@@ -58,28 +53,46 @@ type kit struct {
 type route struct {
 	kubefox.Route
 
-	handler EventHandlerFunc
+	handler EventHandler
+}
+
+type envVar struct {
+	name string
+	typ  EnvVarType
+}
+
+type EnvVarSchema struct {
+	Type        EnvVarType
+	Required    bool
+	Title       string
+	Description string
 }
 
 func New() Kit {
 	_, id := kubefox.GenerateNameAndId()
 	svc := &kit{
-		comp: &kubefox.Component{
-			Id: id,
-		},
 		routes: make([]*route, 0),
+		conf: kubefox.ComponentConf{
+			Component: &kubefox.Component{
+				Id: id,
+			},
+			Routes:       make([]*kubefox.Route, 0),
+			EnvSchema:    make(map[string]kubefox.EnvVarSchema),
+			Dependencies: make(map[string]kubefox.Dependency),
+		},
 		reqMap: make(map[string]chan *kubefox.Event),
 	}
 
 	var help bool
 	var healthAddr, logFormat, logLevel string
 	//-tls-skip-verify
-	flag.StringVar(&svc.comp.Name, "name", "", "Component name; environment variable 'KUBEFOX_COMPONENT'. (required)")
-	flag.StringVar(&svc.comp.Commit, "commit", "", "Commit the Component was built from; environment variable 'KUBEFOX_COMPONENT_COMMIT'. (required)")
+	flag.StringVar(&svc.conf.Component.Name, "name", "", "Component name; environment variable 'KUBEFOX_COMPONENT'. (required)")
+	flag.StringVar(&svc.conf.Component.Commit, "commit", "", "Commit the Component was built from; environment variable 'KUBEFOX_COMPONENT_COMMIT'. (required)")
 	flag.StringVar(&svc.brokerAddr, "broker-addr", "127.0.0.1:6060", "Address of the Broker gRPC server; environment variable 'KUBEFOX_BROKER_ADDR'.")
 	flag.StringVar(&healthAddr, "health-addr", "127.0.0.1:1111", `Address and port the HTTP health server should bind to, set to "false" to disable; environment variable 'KUBEFOX_HEALTH_ADDR'.`)
 	flag.StringVar(&logFormat, "log-format", "console", "Log format; environment variable 'KUBEFOX_LOG_FORMAT'. [options 'json', 'console']")
 	flag.StringVar(&logLevel, "log-level", "debug", "Log level; environment variable 'KUBEFOX_LOG_LEVEL'. [options 'debug', 'info', 'warn', 'error']")
+	flag.BoolVar(&svc.export, "export", false, "Exports component configuration in JSON and exits.")
 	flag.BoolVar(&help, "help", false, "Show usage for component.")
 	flag.Parse()
 
@@ -93,42 +106,31 @@ Flags:
 		os.Exit(0)
 	}
 
-	svc.comp.Name = utils.ResolveFlag(svc.comp.Name, "KUBEFOX_COMPONENT", "")
-	svc.comp.Commit = utils.ResolveFlag(svc.comp.Commit, "KUBEFOX_COMPONENT_COMMIT", "")
+	svc.conf.Component.Name = utils.ResolveFlag(svc.conf.Component.Name, "KUBEFOX_COMPONENT", "")
+	svc.conf.Component.Commit = utils.ResolveFlag(svc.conf.Component.Commit, "KUBEFOX_COMPONENT_COMMIT", "")
 	svc.brokerAddr = utils.ResolveFlag(svc.brokerAddr, "KUBEFOX_BROKER_ADDR", "127.0.0.1:6060")
 	healthAddr = utils.ResolveFlag(healthAddr, "KUBEFOX_HEALTH_ADDR", "127.0.0.1:1111")
 	logFormat = utils.ResolveFlag(logFormat, "KUBEFOX_LOG_FORMAT", "console")
 	logLevel = utils.ResolveFlag(logLevel, "KUBEFOX_LOG_LEVEL", "debug")
 
-	utils.CheckRequiredFlag("name", svc.comp.Name)
-	utils.CheckRequiredFlag("commit", svc.comp.Commit)
+	utils.CheckRequiredFlag("name", svc.conf.Component.Name)
+	utils.CheckRequiredFlag("commit", svc.conf.Component.Commit)
+
+	if svc.export {
+		logLevel = "error"
+	}
 
 	logkf.Global = logkf.
 		BuildLoggerOrDie(logFormat, logLevel).
-		WithComponent(svc.comp)
+		WithComponent(svc.conf.Component)
 	defer logkf.Global.Sync()
 
 	svc.log = logkf.Global
 	svc.log.DebugInterface("build info:", build.Info)
 
-	svc.httpSrv = &http.Server{
-		WriteTimeout: time.Second * 3,
-		ReadTimeout:  time.Second * 3,
-		IdleTimeout:  time.Second * 30,
-		Handler:      svc,
+	if !svc.export {
+		svc.startHealthSrv(healthAddr)
 	}
-	ln, err := net.Listen("tcp", healthAddr)
-	if err != nil {
-		svc.log.Fatal("unable to open tcp socket for health server: %v", err)
-	}
-	go func() {
-		err := svc.httpSrv.Serve(ln)
-		if err != nil && !errors.Is(err, http.ErrServerClosed) {
-			svc.log.Error(err)
-			os.Exit(1)
-		}
-	}()
-	svc.log.Debug("health server started")
 
 	svc.log.Info("🦊 kit created")
 
@@ -139,7 +141,15 @@ func (svc *kit) Log() *logkf.Logger {
 	return svc.log
 }
 
-func (svc *kit) Route(rule string, handler EventHandlerFunc) {
+func (svc *kit) Title(title string) {
+	svc.conf.Title = title
+}
+
+func (svc *kit) Description(description string) {
+	svc.conf.Title = description
+}
+
+func (svc *kit) Route(rule string, handler EventHandler) {
 	r := &route{
 		Route: kubefox.Route{
 			Id:   len(svc.routes),
@@ -148,18 +158,67 @@ func (svc *kit) Route(rule string, handler EventHandlerFunc) {
 		handler: handler,
 	}
 	svc.routes = append(svc.routes, r)
+	svc.conf.Routes = append(svc.conf.Routes, &r.Route)
 }
 
-func (svc *kit) Default(handler EventHandlerFunc) {
+func (svc *kit) Default(handler EventHandler) {
 	svc.defHandler = handler
+	svc.conf.DefaultHandler = handler != nil
+}
+
+func (svc *kit) EnvVar(name string, opts ...EnvVarOption) EnvVar {
+	if name == "" {
+		svc.log.Fatal("environment variable name is required")
+	}
+
+	schema := kubefox.EnvVarSchema{Name: name}
+	for _, o := range opts {
+		o(&schema)
+	}
+	if schema.Type == "" {
+		schema.Type = kubefox.EnvVarTypeString
+	}
+	svc.conf.EnvSchema[name] = schema
+
+	return &envVar{
+		name: name,
+		typ:  EnvVarType(schema.Type),
+	}
+}
+
+func (svc *kit) Component(name string) Dependency {
+	c := kubefox.Dependency{
+		Name: name,
+		Type: kubefox.ComponentTypeKubeFoxComponent,
+	}
+	svc.conf.Dependencies[name] = c
+
+	return &c
+}
+
+func (svc *kit) HTTPAdapter(name string) Dependency {
+	c := kubefox.Dependency{
+		Name: name,
+		Type: kubefox.ComponentTypeHTTPAdapter,
+	}
+	svc.conf.Dependencies[name] = c
+
+	return &c
 }
 
 func (svc *kit) Start() {
+	if svc.export {
+		c, _ := json.MarshalIndent(svc.conf, "", "  ")
+		fmt.Println(string(c))
+		os.Exit(0)
+	}
+
+	svc.log.DebugInterface("configuration:", svc.conf)
+
 	var (
 		retry int
 		err   error
 	)
-
 	for retry < maxRetry {
 		retry, err = svc.run(retry)
 		svc.healthy.Store(false)
@@ -167,6 +226,27 @@ func (svc *kit) Start() {
 		time.Sleep(time.Second * time.Duration(rand.Intn(2)+1))
 	}
 	svc.log.Fatalf("exceeded max retries connection to broker: %v", err)
+}
+
+func (svc *kit) startHealthSrv(addr string) {
+	svc.healthSrv = &http.Server{
+		WriteTimeout: time.Second * 3,
+		ReadTimeout:  time.Second * 3,
+		IdleTimeout:  time.Second * 30,
+		Handler:      svc,
+	}
+	ln, err := net.Listen("tcp", addr)
+	if err != nil {
+		svc.log.Fatal("unable to open tcp socket for health server: %v", err)
+	}
+	go func() {
+		err := svc.healthSrv.Serve(ln)
+		if err != nil && !errors.Is(err, http.ErrServerClosed) {
+			svc.log.Error(err)
+			os.Exit(1)
+		}
+	}()
+	svc.log.Debug("health server started")
 }
 
 func (svc *kit) run(retry int) (int, error) {
@@ -205,19 +285,11 @@ func (svc *kit) run(retry int) (int, error) {
 		return retry + 1, fmt.Errorf("subscribing to broker failed: %v", err)
 	}
 
-	reg := &kubefox.ComponentReg{
-		Routes:         make([]*kubefox.Route, len(svc.routes)),
-		DefaultHandler: svc.defHandler != nil,
-	}
-	for i := range svc.routes {
-		reg.Routes[i] = &svc.routes[i].Route
-	}
-
 	regEvt := kubefox.NewMsg(kubefox.EventOpts{
 		Type:   kubefox.EventTypeRegister,
-		Source: svc.comp,
+		Source: svc.conf.Component,
 	})
-	if err := regEvt.SetJSON(reg); err != nil {
+	if err := regEvt.SetJSON(svc.conf); err != nil {
 		svc.log.Fatalf("unable to marshal registration: %v", err)
 	}
 	if err := svc.sendEvent(regEvt); err != nil {
@@ -268,7 +340,7 @@ func (svc *kit) recvReq(req *kubefox.MatchedEvent) {
 		Event: req.Event,
 		resp: kubefox.NewResp(kubefox.EventOpts{
 			Parent: req.Event,
-			Source: svc.comp,
+			Source: svc.conf.Component,
 			Target: req.Event.Source,
 		}),
 		kit: svc,
@@ -365,13 +437,45 @@ func (svc *kit) GetRequestMetadata(ctx context.Context, uri ...string) (map[stri
 	token := string(b)
 
 	return map[string]string{
-		"componentId":     svc.comp.Id,
-		"componentName":   svc.comp.Name,
-		"componentCommit": svc.comp.Commit,
+		"componentId":     svc.conf.Component.Id,
+		"componentName":   svc.conf.Component.Name,
+		"componentCommit": svc.conf.Component.Commit,
 		"authToken":       token,
 	}, nil
 }
 
 func (svc *kit) RequireTransportSecurity() bool {
 	return true
+}
+
+func (v *envVar) GetName() string {
+	return v.name
+}
+
+func (v *envVar) GetType() EnvVarType {
+	return v.typ
+}
+
+func Type(typ EnvVarType) EnvVarOption {
+	return func(evs *kubefox.EnvVarSchema) {
+		evs.Type = kubefox.EnvVarType(typ)
+	}
+}
+
+func Required() EnvVarOption {
+	return func(evs *kubefox.EnvVarSchema) {
+		evs.Required = true
+	}
+}
+
+func Title(title string) EnvVarOption {
+	return func(evs *kubefox.EnvVarSchema) {
+		evs.Title = title
+	}
+}
+
+func Description(description string) EnvVarOption {
+	return func(evs *kubefox.EnvVarSchema) {
+		evs.Description = description
+	}
 }

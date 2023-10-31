@@ -3,6 +3,7 @@ package controller
 import (
 	"context"
 	"errors"
+	"fmt"
 
 	"golang.org/x/mod/semver"
 	appsv1 "k8s.io/api/apps/v1"
@@ -137,14 +138,16 @@ func (cm *ComponentManager) ReconcileComponents(ctx context.Context, namespace s
 						Branch:          d.App.Branch,
 						Tag:             d.App.Tag,
 						Registry:        d.App.ContainerRegistry,
-						ImagePullSecret: d.App.ImagePullSecret,
+						ImagePullSecret: d.App.ImagePullSecretName,
 					},
 					Component: templates.Component{
 						Name:   n,
 						Commit: c.Commit,
 						Image:  c.Image,
 					},
-					Owner: []*metav1.OwnerReference{metav1.NewControllerRef(platform, platform.GroupVersionKind())},
+					Owner: []*metav1.OwnerReference{
+						metav1.NewControllerRef(platform, platform.GroupVersionKind()),
+					},
 				},
 				Template: "component",
 				Obj:      &appsv1.Deployment{},
@@ -172,18 +175,50 @@ func (cm *ComponentManager) ReconcileComponents(ctx context.Context, namespace s
 		}
 	}
 
-	rdy := true
+	allReady := true
+	compReadyMap := make(map[string]bool, len(compMap))
 	for _, compTD := range compMap {
-		if r, err := cm.SetupComponent(ctx, &compTD); err != nil {
+		ready, err := cm.SetupComponent(ctx, &compTD)
+		if err != nil {
 			return false, err
-		} else {
-			rdy = rdy && r
 		}
+
+		allReady = allReady && ready
+		compReadyMap[CompReadyKey(compTD.Component.Name, compTD.Component.Commit)] = ready
+	}
+
+	for _, r := range relList.Items {
+		r.Status.Ready = IsDeploymentReady(&r.Spec.Deployment, compReadyMap)
+		if err := cm.Client.Status().Update(ctx, &r); err != nil {
+			return false, err
+		}
+		log.Debugf("release '%s.%s' ready: %t", r.Name, r.Namespace, r.Status.Ready)
+	}
+	for _, d := range depList.Items {
+		d.Status.Ready = IsDeploymentReady(&d.Spec, compReadyMap)
+		if err := cm.Client.Status().Update(ctx, &d); err != nil {
+			return false, err
+		}
+		log.Debugf("deployment '%s.%s' ready: %t", d.Name, d.Namespace, d.Status.Ready)
 	}
 
 	log.Debugf("components reconciled")
 
-	return rdy, nil
+	return allReady, nil
+}
+
+func CompReadyKey(name, commit string) string {
+	return fmt.Sprintf("%s-%s", name, commit)
+}
+
+func IsDeploymentReady(spec *v1alpha1.DeploymentSpec, compReadyMap map[string]bool) bool {
+	for name, c := range spec.Components {
+		key := CompReadyKey(name, c.Commit)
+		if found, ready := compReadyMap[key]; !found || !ready {
+			return false
+		}
+	}
+	return true
 }
 
 func IgnoreNotFound(err error) error {
