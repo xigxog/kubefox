@@ -81,13 +81,17 @@ func (it *item[T]) String() string {
 // sweep deletes items from the cache that have expired.
 func (c *cache[_]) sweep() {
 	for range c.tick.C {
-		c.mutex.Lock()
+		c.mutex.RLock()
 		now := time.Now().Unix()
 		for k, v := range c.m {
 			if (now - v.aTime) >= int64(c.ttl.Seconds()) {
+				c.mutex.RUnlock()
+				c.mutex.Lock()
 				delete(c.m, k)
+				c.mutex.Unlock()
+				c.mutex.RLock()
 			}
 		}
-		c.mutex.Unlock()
+		c.mutex.RUnlock()
 	}
 }

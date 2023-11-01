@@ -52,13 +52,18 @@ func (r *ReleaseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		"namespace", req.Namespace,
 		"name", req.Name,
 	)
-	log.Debug("reconciling release")
+	log.Debug("reconciling kubefox release '%s.%s'", req.Name, req.Namespace)
 
 	rel := &v1alpha1.Release{}
 	err := r.Get(ctx, req.NamespacedName, rel)
 	if client.IgnoreNotFound(err) != nil {
 		return ctrl.Result{}, err
 	}
+
+	// TODO environment checks (mutating webhook)
+	// - check for required vars
+	// - check for unique vars
+	// - check for var type
 	if !apierrors.IsNotFound(err) {
 		// TODO move to mutating/admission webhook
 		relEnv := &rel.Spec.Environment
@@ -83,11 +88,11 @@ func (r *ReleaseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		}
 	}
 
-	if rdy, err := r.cm.ReconcileComponents(ctx, req.Namespace); !rdy || err != nil {
+	if rdy, err := r.cm.ReconcileApps(ctx, req.Namespace); !rdy || err != nil {
 		log.Debug("platform not ready, platform controller will reconcile")
 		return ctrl.Result{}, err
 	}
 
-	log.Debug("release reconciled")
+	log.Debug("kubefox release reconciled '%s.%s'", req.Name, req.Namespace)
 	return ctrl.Result{}, nil
 }

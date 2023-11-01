@@ -27,6 +27,8 @@ type EventReader interface {
 	ParamV(key string) *Val
 	ParamDef(key string, def string) string
 
+	URL() string
+
 	Query(key string) string
 	QueryV(key string) *Val
 	QueryDef(key string, def string) string
@@ -352,6 +354,10 @@ func (evt *Event) SetTraceFlags(val byte) {
 	evt.SetValueV(ValKeyTraceFlags, ValInt(int(val)))
 }
 
+func (evt *Event) URL() string {
+	return evt.Value(ValKeyURL)
+}
+
 func (evt *Event) Query(key string) string {
 	return evt.ValueMapKey(ValKeyQuery, key)
 }
@@ -536,7 +542,7 @@ func (evt *Event) SetHTTPRequest(httpReq *http.Request) error {
 		HeaderEventType, HeaderAbbrvEventType, HeaderShortEventType,
 	)
 
-	url := httpReq.URL
+	url := *httpReq.URL
 	if host := httpReq.Header.Get("X-Forwarded-Host"); host != "" {
 		if port := httpReq.Header.Get("X-Forwarded-Port"); port != "" {
 			url.Host = fmt.Sprintf("%s:%s", host, port)
@@ -586,7 +592,7 @@ func (evt *Event) SetHTTPResponse(httpResp *http.Response) error {
 		evt.Type = string(EventTypeHTTP)
 	}
 
-	evt.SetValue("status", httpResp.Status)
+	evt.SetValue(ValKeyStatus, httpResp.Status)
 	evt.SetValueV(ValKeyStatusCode, ValInt(httpResp.StatusCode))
 	evt.SetValueMap(ValKeyHeader, httpResp.Header)
 

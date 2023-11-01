@@ -7,22 +7,28 @@ import (
 
 // Injected at build time.
 var (
-	date       string
-	component  string
-	commit     string
-	rootCommit string
-	headRef    string
-	tagRef     string
+	brokerCommit   string
+	commit         string
+	component      string
+	date           string
+	headRef        string
+	httpsrvCommit  string
+	operatorCommit string
+	rootCommit     string
+	tagRef         string
 )
 
 type BuildInfo struct {
-	Date       string `json:"date,omitempty"`
-	Component  string `json:"component,omitempty"`
-	Commit     string `json:"commit,omitempty"`
-	RootCommit string `json:"rootCommit,omitempty"`
-	Branch     string `json:"branch,omitempty"`
-	Tag        string `json:"tag,omitempty"`
-	Version    string `json:"version,omitempty"`
+	Branch         string `json:"branch,omitempty"`
+	BrokerCommit   string `json:"brokerCommit,omitempty"`
+	Commit         string `json:"commit,omitempty"`
+	Component      string `json:"component,omitempty"`
+	Date           string `json:"date,omitempty"`
+	HTTPSrvCommit  string `json:"httpsrvCommit,omitempty"`
+	OperatorCommit string `json:"operatorCommit,omitempty"`
+	RootCommit     string `json:"rootCommit,omitempty"`
+	Tag            string `json:"tag,omitempty"`
+	Version        string `json:"version,omitempty"`
 }
 
 // Constructed inside init.
@@ -49,12 +55,15 @@ func init() {
 
 	// Construct Info
 	Info = BuildInfo{
-		Date:       date,
-		Component:  component,
-		Commit:     commit,
-		RootCommit: rootCommit,
-		Branch:     headRef,
-		Tag:        tagRef,
-		Version:    version,
+		Branch:         headRef,
+		BrokerCommit:   brokerCommit,
+		Commit:         commit,
+		Component:      component,
+		Date:           date,
+		HTTPSrvCommit:  httpsrvCommit,
+		OperatorCommit: operatorCommit,
+		RootCommit:     rootCommit,
+		Tag:            tagRef,
+		Version:        version,
 	}
 }

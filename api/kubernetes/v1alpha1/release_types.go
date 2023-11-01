@@ -9,7 +9,6 @@ one at https://mozilla.org/MPL/2.0/.
 package v1alpha1
 
 import (
-	kubefox "github.com/xigxog/kubefox/core"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 )
@@ -21,14 +20,11 @@ type ReleaseSpec struct {
 }
 
 type ReleaseEnv struct {
+	EnvironmentSpec `json:",inline"`
+
 	Name            string    `json:"name"`
 	UID             types.UID `json:"uid,omitempty"`
 	ResourceVersion string    `json:"resourceVersion,omitempty"`
-
-	// +kubebuilder:validation:Schemaless
-	// +kubebuilder:validation:Type=object
-	// +kubebuilder:pruning:PreserveUnknownFields
-	Vars map[string]*kubefox.Val `json:"vars,omitempty"`
 }
 
 // ReleaseStatus defines the observed state of Release

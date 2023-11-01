@@ -52,6 +52,8 @@ type PlatformReconciler struct {
 
 	Scheme *runtime.Scheme
 
+	vaultMap map[string]bool
+
 	vClient *vapi.Client
 	cm      *ComponentManager
 	log     *logkf.Logger
@@ -62,6 +64,7 @@ type PlatformReconciler struct {
 // SetupWithManager sets up the controller with the Manager.
 func (r *PlatformReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	r.log = logkf.Global.With(logkf.KeyController, "platform")
+	r.vaultMap = make(map[string]bool)
 	r.cm = &ComponentManager{
 		Instance: r.Instance,
 		Client:   r.Client,
@@ -174,6 +177,7 @@ func (r *PlatformReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	}
 	if td.Component.Resources == nil {
 		td.Component.Resources = &v1.ResourceRequirements{
+			// TODO calc and set correct values and use those in headers
 			Requests: v1.ResourceList{
 				"memory": resource.MustParse("115Mi"), // 90% of limit, used to set GOMEMLIMIT
 				"cpu":    resource.MustParse("250m"),
@@ -230,12 +234,14 @@ func (r *PlatformReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	td.Obj = &appsv1.DaemonSet{}
 	td.Component = templates.Component{
 		Name:          "broker",
+		Commit:        build.Info.BrokerCommit,
 		Image:         BrokerImage,
 		PodSpec:       p.Spec.Broker.PodSpec,
 		ContainerSpec: p.Spec.Broker.ContainerSpec,
 	}
 	if td.Component.Resources == nil {
 		td.Component.Resources = &v1.ResourceRequirements{
+			// TODO calc and set correct values and use those in headers
 			Requests: v1.ResourceList{
 				"memory": resource.MustParse("144Mi"), // 90% of limit, used to set GOMEMLIMIT
 				"cpu":    resource.MustParse("250m"),
@@ -269,9 +275,10 @@ func (r *PlatformReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	}
 
 	td.Template = "httpsrv"
-	td.Obj = &appsv1.DaemonSet{}
+	td.Obj = &appsv1.Deployment{}
 	td.Component = templates.Component{
 		Name:          "httpsrv",
+		Commit:        build.Info.HTTPSrvCommit,
 		Image:         HTTPSrvImage,
 		PodSpec:       p.Spec.HTTPSrv.PodSpec,
 		ContainerSpec: p.Spec.HTTPSrv.ContainerSpec,
@@ -319,7 +326,7 @@ func (r *PlatformReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	ready = true
 	log.Debug("platform reconciled")
 
-	if rdy, err := r.cm.ReconcileComponents(ctx, p.Namespace); !rdy || err != nil {
+	if rdy, err := r.cm.ReconcileApps(ctx, p.Namespace); !rdy || err != nil {
 		return ctrl.Result{}, err
 	}
 
@@ -327,13 +334,28 @@ func (r *PlatformReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 }
 
 func (r *PlatformReconciler) setupVault(ctx context.Context, td *TemplateData) error {
+	r.mutex.Lock()
+	setup := r.vaultMap[td.Platform.Name]
+	r.mutex.Unlock()
+	if setup {
+		r.log.Debugf("vault already setup for platform '%s'", td.Platform.Name)
+		return nil
+	}
+
+	r.log.Debugf("setting up vault for platform '%s'", td.Platform.Name)
+
+	// Ensure there are valid commits for platform components.
+	if !kubefox.RegexpCommit.MatchString(build.Info.BrokerCommit) ||
+		!kubefox.RegexpCommit.MatchString(build.Info.HTTPSrvCommit) {
+		return fmt.Errorf("broker or httpsrv commit from build info is invalid")
+	}
+
 	vault, err := r.vaultClient(ctx, r.VaultURL, []byte(td.Instance.RootCA))
 	if err != nil {
 		return err
 	}
 
-	vName := td.PlatformVaultName()
-	pkiPath := "pki/int/platform/" + vName
+	pkiPath := fmt.Sprintf("pki/int/platform/%s", td.PlatformVaultName())
 	if cfg, _ := vault.Sys().MountConfig(pkiPath); cfg == nil {
 		err = vault.Sys().Mount(pkiPath, &vapi.MountInput{
 			Type: "pki",
@@ -373,29 +395,34 @@ func (r *PlatformReconciler) setupVault(ctx context.Context, td *TemplateData) e
 			return err
 		}
 	}
-	_, err = vault.Logical().Write(pkiPath+"/roles/nats", map[string]interface{}{
+
+	r.setupVaultComponent(ctx, "nats", "", "", td, vault)
+	r.setupVaultComponent(ctx, "broker", build.Info.BrokerCommit, "kv-kubefox-reader", td, vault)
+	r.setupVaultComponent(ctx, "httpsrv", build.Info.HTTPSrvCommit, "", td, vault)
+
+	r.mutex.Lock()
+	r.vaultMap[td.Platform.Name] = true
+	r.mutex.Unlock()
+
+	r.log.Debugf("vault successfully setup for platform '%s'", td.Platform.Name)
+
+	return nil
+}
+
+func (r *PlatformReconciler) setupVaultComponent(
+	ctx context.Context,
+	comp, commit, additionalPolicies string,
+	td *TemplateData, vault *vapi.Client) error {
+
+	r.log.Debugf("setting up vault for platform '%s' component '%s'", td.Platform.Name, comp)
+
+	pkiPath := fmt.Sprintf("pki/int/platform/%s", td.PlatformVaultName())
+
+	path := fmt.Sprintf("%s/roles/%s", pkiPath, comp)
+	domain := fmt.Sprintf("%s-%s.%s", td.Platform.Name, comp, td.Platform.Namespace)
+	_, err := vault.Logical().Write(path, map[string]interface{}{
 		"issuer_ref":         "default",
-		"allowed_domains":    td.Platform.Name + "-nats." + td.Platform.Namespace,
-		"allow_localhost":    true,
-		"allow_bare_domains": true,
-		"max_ttl":            TenYears,
-	})
-	if err != nil {
-		return err
-	}
-	_, err = vault.Logical().Write(pkiPath+"/roles/broker", map[string]interface{}{
-		"issuer_ref":         "default",
-		"allowed_domains":    td.Platform.Name + "-broker." + td.Platform.Namespace,
-		"allow_localhost":    true,
-		"allow_bare_domains": true,
-		"max_ttl":            TenYears,
-	})
-	if err != nil {
-		return err
-	}
-	_, err = vault.Logical().Write(pkiPath+"/roles/httpsrv", map[string]interface{}{
-		"issuer_ref":         "default",
-		"allowed_domains":    td.Platform.Name + "-httpsrv." + td.Platform.Namespace,
+		"allowed_domains":    domain,
 		"allow_localhost":    true,
 		"allow_bare_domains": true,
 		"max_ttl":            TenYears,
@@ -404,54 +431,32 @@ func (r *PlatformReconciler) setupVault(ctx context.Context, td *TemplateData) e
 		return err
 	}
 
-	err = vault.Sys().PutPolicyWithContext(ctx, vName+"-nats", `
-	// issue nats certs
-	path "`+pkiPath+`/issue/nats" {
+	policy := fmt.Sprintf("%s-%s", td.PlatformVaultName(), comp)
+	err = vault.Sys().PutPolicyWithContext(ctx, policy, `
+	// issue certs
+	path "`+pkiPath+`/issue/`+comp+`" {
 		capabilities = ["create", "update"]
 	}
 		`)
 	if err != nil {
 		return err
 	}
-	err = vault.Sys().PutPolicyWithContext(ctx, vName+"-broker", `
-	// issue broker certs
-	path "`+pkiPath+`/issue/broker" {
-		capabilities = ["create", "update"]
+
+	path = fmt.Sprintf("auth/kubernetes/role/%s-%s", td.PlatformVaultName(), comp)
+	saName := fmt.Sprintf("%s-%s", td.Platform.Name, comp)
+	if commit != "" {
+		saName = fmt.Sprintf("%s-%s", saName, commit[0:7])
 	}
-	`)
-	if err != nil {
-		return err
-	}
-	err = vault.Sys().PutPolicyWithContext(ctx, vName+"-httpsrv", `
-	// issue httpsrv certs
-	path "`+pkiPath+`/issue/httpsrv" {
-		capabilities = ["create", "update"]
-	}
-	`)
-	if err != nil {
-		return err
+	if additionalPolicies != "" {
+		policy = fmt.Sprintf("%s,%s", policy, additionalPolicies)
 	}
 
-	_, err = vault.Logical().Write("auth/kubernetes/role/"+vName+"-nats", map[string]interface{}{
-		"bound_service_account_names":      td.Platform.Name + "-nats",
+	r.log.Debugf("writing role; path: %s, sa: %s, policy: %s", path, saName, policy)
+
+	_, err = vault.Logical().Write(path, map[string]interface{}{
+		"bound_service_account_names":      saName,
 		"bound_service_account_namespaces": td.Platform.Namespace,
-		"token_policies":                   vName + "-nats",
-	})
-	if err != nil {
-		return err
-	}
-	_, err = vault.Logical().Write("auth/kubernetes/role/"+vName+"-broker", map[string]interface{}{
-		"bound_service_account_names":      td.Platform.Name + "-broker",
-		"bound_service_account_namespaces": td.Platform.Namespace,
-		"token_policies":                   vName + "-broker,kv-kubefox-reader",
-	})
-	if err != nil {
-		return err
-	}
-	_, err = vault.Logical().Write("auth/kubernetes/role/"+vName+"-httpsrv", map[string]interface{}{
-		"bound_service_account_names":      td.Platform.Name + "-httpsrv",
-		"bound_service_account_namespaces": td.Platform.Namespace,
-		"token_policies":                   vName + "-httpsrv",
+		"token_policies":                   policy,
 	})
 	if err != nil {
 		return err
@@ -471,7 +476,7 @@ func (r *PlatformReconciler) vaultClient(ctx context.Context, url string, caCert
 	cfg := vapi.DefaultConfig()
 	cfg.Address = url
 	cfg.MaxRetries = 3
-	cfg.HttpClient.Timeout = time.Minute
+	cfg.HttpClient.Timeout = time.Second * 5
 	cfg.ConfigureTLS(&vapi.TLSConfig{
 		CACertBytes: caCert,
 	})

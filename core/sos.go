@@ -25,7 +25,7 @@ type Secret struct {
 // UnmarshalJSON implements the json.Unmarshaller interface.
 func (sos *StringOrSecret) UnmarshalJSON(value []byte) error {
 	if value[0] == '"' {
-		sos.Type = SoSTypeSecret
+		sos.Type = SoSTypeString
 		return json.Unmarshal(value, &sos.StringVal)
 	}
 	sos.Type = SoSTypeSecret

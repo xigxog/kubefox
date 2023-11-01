@@ -34,10 +34,11 @@ const (
 
 // Kubernetes Labels
 const (
+	LabelK8sAppName         string = "app.kubernetes.io/name"
 	LabelK8sComponent       string = "kubefox.xigxog.io/component"
 	LabelK8sComponentCommit string = "kubefox.xigxog.io/component-commit"
-	LabelK8sPlatform        string = "kubefox.xigxog.io/platform"
 	LabelK8sKubeFoxVersion  string = "kubefox.xigxog.io/version"
+	LabelK8sPlatform        string = "kubefox.xigxog.io/platform"
 )
 
 // Container Labels

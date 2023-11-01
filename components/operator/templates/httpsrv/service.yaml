@@ -1,6 +1,14 @@
 apiVersion: v1
 kind: Service
-{{ include "metadata" . }}
+metadata:
+  name: {{ .Component.Name }}
+  namespace: {{ namespace }}
+  labels:
+    {{- include "labels" . | nindent 4 }}
+  {{- with .Owner }}
+  ownerReferences:
+    {{- . | toYaml | nindent 4 }}
+  {{- end }}
 spec:
   type: {{ .Values.serviceType | default "ClusterIP" }}
   selector:
@@ -11,6 +19,6 @@ spec:
       targetPort: http
       protocol: TCP
     - name: https
-      port:  {{ .Values.httpPort | default 443 }}
+      port:  {{ .Values.httpsPort | default 443 }}
       targetPort: https
       protocol: TCP

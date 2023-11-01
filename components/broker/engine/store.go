@@ -27,11 +27,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-const (
-	TplComponentKey = "component/%s"
-	TplAdapterKey   = "adapter/%s"
-)
-
 type Store struct {
 	namespace string
 
@@ -130,47 +125,24 @@ func (str *Store) Close() {
 }
 
 func (str *Store) RegisterComponent(ctx context.Context, comp *kubefox.Component, reg *kubefox.ComponentSpec) error {
-	id := fmt.Sprintf(TplComponentKey, comp.GroupKey())
-	return str.setReg(ctx, id, reg)
-}
-
-func (str *Store) RegisterAdapter(ctx context.Context, comp *kubefox.Component) error {
-	id := fmt.Sprintf(TplAdapterKey, comp.Key())
-	return str.setReg(ctx, id, &kubefox.ComponentSpec{})
-}
-
-func (str *Store) setReg(ctx context.Context, id string, reg *kubefox.ComponentSpec) error {
-	str.log.Debugf("registering component '%s'", id)
+	str.log.Debugf("registering component '%s' of type '%s'", comp.GroupKey(), reg.Type)
 	b, err := json.Marshal(reg)
 	if err != nil {
 		return err
 	}
 
-	if _, err := str.compSpecKV.Put(ctx, id, b); err != nil {
+	if _, err := str.compSpecKV.Put(ctx, comp.GroupKey(), b); err != nil {
 		return err
 	}
-	str.compSpecCache.Set(id, reg)
+	str.compSpecCache.Set(comp.GroupKey(), reg)
 
 	return nil
 }
 
 func (str *Store) Component(ctx context.Context, comp *kubefox.Component) (*kubefox.ComponentSpec, error) {
-	return str.getReg(ctx, fmt.Sprintf(TplComponentKey, comp.GroupKey()))
-}
-
-func (str *Store) Adapter(ctx context.Context, comp *kubefox.Component) (*kubefox.ComponentSpec, error) {
-	return str.getReg(ctx, fmt.Sprintf(TplAdapterKey, comp.Key()))
-}
-
-func (str *Store) IsAdapter(ctx context.Context, comp *kubefox.Component) bool {
-	r, err := str.Adapter(ctx, comp)
-	return r != nil && err == nil
-}
-
-func (str *Store) getReg(ctx context.Context, id string) (*kubefox.ComponentSpec, error) {
-	compSpec, found := str.compSpecCache.Get(id)
+	compSpec, found := str.compSpecCache.Get(comp.GroupKey())
 	if !found {
-		entry, err := str.compSpecKV.Get(ctx, id)
+		entry, err := str.compSpecKV.Get(ctx, comp.GroupKey())
 		if errors.Is(err, nats.ErrKeyNotFound) {
 			return nil, fmt.Errorf("%w: component is not registered", kubefox.ErrRouteNotFound)
 		} else if err != nil {
@@ -183,10 +155,18 @@ func (str *Store) getReg(ctx context.Context, id string) (*kubefox.ComponentSpec
 			return nil, err
 		}
 
-		str.compSpecCache.Set(id, compSpec)
+		str.compSpecCache.Set(comp.GroupKey(), compSpec)
 	}
 
 	return compSpec, nil
+}
+
+func (str *Store) IsGenesisAdapter(ctx context.Context, comp *kubefox.Component) bool {
+	r, err := str.Component(ctx, comp)
+	if err != nil || r == nil {
+		return false
+	}
+	return r.Type == kubefox.ComponentTypeGenesis
 }
 
 func (str *Store) Deployment(name string) (*v1alpha1.Deployment, error) {

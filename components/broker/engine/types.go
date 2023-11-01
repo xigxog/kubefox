@@ -4,6 +4,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/xigxog/kubefox/api/kubernetes/v1alpha1"
 	kubefox "github.com/xigxog/kubefox/core"
 )
 
@@ -23,6 +24,9 @@ type LiveEvent struct {
 	*kubefox.Event
 
 	MatchedEvent *kubefox.MatchedEvent
+
+	TargetAdapter *v1alpha1.Adapter
+	Adapters      map[string]*v1alpha1.Adapter
 
 	Receiver   Receiver
 	ReceivedAt time.Time

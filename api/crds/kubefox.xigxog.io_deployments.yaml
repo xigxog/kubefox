@@ -130,7 +130,6 @@ spec:
                       type: string
                   required:
                   - commit
-                  - defaultHandler
                   - type
                   type: object
                 type: object

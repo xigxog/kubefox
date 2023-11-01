@@ -133,7 +133,6 @@ spec:
                           type: string
                       required:
                       - commit
-                      - defaultHandler
                       - type
                       type: object
                     type: object
@@ -143,6 +142,22 @@ spec:
                 type: object
               environment:
                 properties:
+                  adapters:
+                    additionalProperties:
+                      properties:
+                        headers:
+                          x-kubernetes-preserve-unknown-fields: true
+                        type:
+                          enum:
+                          - kubefox
+                          - http
+                          type: string
+                        url:
+                          x-kubernetes-preserve-unknown-fields: true
+                      required:
+                      - type
+                      type: object
+                    type: object
                   name:
                     type: string
                   resourceVersion:

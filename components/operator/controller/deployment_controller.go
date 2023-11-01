@@ -49,13 +49,13 @@ func (r *DeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 		"namespace", req.Namespace,
 		"name", req.Name,
 	)
-	log.Debug("reconciling deployment")
+	log.Debugf("reconciling kubefox deployment '%s.%s'", req.Name, req.Namespace)
 
-	if rdy, err := r.cm.ReconcileComponents(ctx, req.Namespace); !rdy || err != nil {
+	if rdy, err := r.cm.ReconcileApps(ctx, req.Namespace); !rdy || err != nil {
 		log.Debug("platform not ready, platform controller will reconcile")
 		return ctrl.Result{}, err
 	}
 
-	log.Debug("deployment reconciled")
+	log.Debugf("kubefox deployment reconciled '%s.%s'", req.Name, req.Namespace)
 	return ctrl.Result{}, nil
 }

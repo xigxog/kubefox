@@ -23,6 +23,22 @@
         "-log-format=console",
         "-log-level=debug"
       ]
+    },
+    {
+      "name": "operator",
+      "type": "go",
+      "request": "launch",
+      "mode": "auto",
+      "program": "components/operator/main.go",
+      "args": [
+        "-instance=kubefox",
+        "-namespace=kubefox-system",
+        "-vault-url=https://127.0.0.1:8200",
+        "-health-addr=0.0.0.0:1111",
+        "-log-format=console",
+        "-log-level=debug",
+        "-leader-elect=false"
+      ]
     }
   ]
 }

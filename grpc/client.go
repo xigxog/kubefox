@@ -28,7 +28,7 @@ type Client struct {
 	ClientOpts
 
 	brk    Broker_SubscribeClient
-	reqMap map[string]chan *kubefox.Event
+	reqMap map[string]*reqChan
 
 	recvCh chan *kubefox.MatchedEvent
 	errCh  chan error
@@ -42,14 +42,22 @@ type Client struct {
 	log *logkf.Logger
 }
 
+type reqChan struct {
+	ch      chan *kubefox.Event
+	expires time.Time
+}
+
 func NewClient(opts ClientOpts) *Client {
-	return &Client{
+	c := &Client{
 		ClientOpts: opts,
-		reqMap:     make(map[string]chan *kubefox.Event),
+		reqMap:     make(map[string]*reqChan),
 		recvCh:     make(chan *kubefox.MatchedEvent),
 		errCh:      make(chan error),
 		log:        logkf.Global,
 	}
+	go c.startReqMapReaper()
+
+	return c
 }
 
 func (c *Client) Start(spec *kubefox.ComponentSpec) error {
@@ -99,6 +107,7 @@ func (c *Client) Start(spec *kubefox.ComponentSpec) error {
 
 	go func() {
 		defer func() {
+			c.healthy.Store(false)
 			if err := conn.Close(); err != nil {
 				c.log.Error(err)
 			}
@@ -107,7 +116,6 @@ func (c *Client) Start(spec *kubefox.ComponentSpec) error {
 		for {
 			evt, err := c.brk.Recv()
 			if err != nil {
-				c.healthy.Store(false)
 				c.errCh <- err
 				return
 			}
@@ -154,18 +162,13 @@ func (c *Client) SendReq(ctx context.Context, req *kubefox.Event) (*kubefox.Even
 func (c *Client) SendReqChan(req *kubefox.Event) (chan *kubefox.Event, error) {
 	c.log.WithEvent(req).Debug("send request")
 
-	c.reqMapMutex.Lock()
 	respCh := make(chan *kubefox.Event)
-	c.reqMap[req.Id] = respCh
+	c.reqMapMutex.Lock()
+	c.reqMap[req.Id] = &reqChan{
+		ch:      respCh,
+		expires: time.Now().Add(req.TTL()),
+	}
 	c.reqMapMutex.Unlock()
-
-	go func() {
-		time.Sleep(req.TTL())
-
-		c.reqMapMutex.Lock()
-		delete(c.reqMap, req.Id)
-		c.reqMapMutex.Unlock()
-	}()
 
 	if err := c.send(req); err != nil {
 		return nil, err
@@ -188,16 +191,17 @@ func (c *Client) recvResp(resp *kubefox.Event) {
 	log := c.log.WithEvent(resp)
 	log.Debug("receive response")
 
-	c.reqMapMutex.RLock()
-	respCh, found := c.reqMap[resp.ParentId]
-	c.reqMapMutex.RUnlock()
+	c.reqMapMutex.Lock()
+	respCh := c.reqMap[resp.ParentId]
+	delete(c.reqMap, resp.ParentId)
+	c.reqMapMutex.Unlock()
 
-	if !found {
-		log.Error("request for response not found")
+	if respCh == nil {
+		log.Warn("request for response not found")
 		return
 	}
 
-	respCh <- resp
+	respCh.ch <- resp
 }
 
 func (c *Client) send(evt *kubefox.Event) error {
@@ -259,6 +263,33 @@ func (c *Client) GetRequestMetadata(ctx context.Context, uri ...string) (map[str
 	}, nil
 }
 
-func (svc *Client) RequireTransportSecurity() bool {
+func (c *Client) RequireTransportSecurity() bool {
 	return true
+}
+
+func (c *Client) startReqMapReaper() {
+	log := c.log.With(logkf.KeyWorker, "request-map-reaper")
+	defer func() {
+		log.Info("request-map-reaper")
+	}()
+
+	ticker := time.NewTicker(time.Second * 30)
+	for range ticker.C {
+		log.Debugf("reaping request map of size %d", len(c.reqMap))
+		c.reqMapMutex.RLock()
+		// Add a 5 second buffer to expiration.
+		now := time.Now().Add(time.Second * 5)
+		for k, v := range c.reqMap {
+			// If request has expired delete it.
+			if now.After(v.expires) {
+				c.reqMapMutex.RUnlock()
+				c.reqMapMutex.Lock()
+				log.Debugf("request '%s' expired, deleting", k)
+				delete(c.reqMap, k)
+				c.reqMapMutex.Unlock()
+				c.reqMapMutex.RLock()
+			}
+		}
+		c.reqMapMutex.RUnlock()
+	}
 }

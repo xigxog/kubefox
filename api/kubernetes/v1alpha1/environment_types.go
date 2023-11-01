@@ -26,11 +26,9 @@ type Adapter struct {
 	kubefox.ComponentTypeVar `json:",inline"`
 
 	// +kubebuilder:validation:Schemaless
-	// +kubebuilder:validation:Type=object
 	// +kubebuilder:pruning:PreserveUnknownFields
 	URL kubefox.StringOrSecret `json:"url,omitempty"`
 	// +kubebuilder:validation:Schemaless
-	// +kubebuilder:validation:Type=object
 	// +kubebuilder:pruning:PreserveUnknownFields
 	Headers map[string]*kubefox.StringOrSecret `json:"headers,omitempty"`
 }

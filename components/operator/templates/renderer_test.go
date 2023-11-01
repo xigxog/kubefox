@@ -7,6 +7,7 @@ import (
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
 func TestRenderPlatform(t *testing.T) {
@@ -116,6 +117,67 @@ func TestRenderBroker(t *testing.T) {
 		},
 	}
 	if s, err := renderStr("list.tpl", "broker/*", d); err != nil {
+		t.Errorf("%v", err)
+	} else {
+		t.Logf("\n%s", s)
+	}
+}
+
+func TestRenderHTTPSrv(t *testing.T) {
+	d := &Data{
+		Values: map[string]any{
+			"serviceType": "",
+			"httpPort":    0,
+			"httpsPort":   0,
+		},
+		Instance: Instance{
+			Name:      "kubefox",
+			Namespace: "kubefox-system",
+		},
+		Platform: Platform{
+			Name:      "dev",
+			Namespace: "kubefox-platform",
+		},
+		Component: Component{
+			Name:  "httpsrv",
+			Image: "ghcr.io/xigxog/kubefox/httpsrv:v0.0.1",
+			ContainerSpec: v1alpha1.ContainerSpec{
+				Resources: &v1.ResourceRequirements{
+					Requests: v1.ResourceList{
+						"memory": resource.MustParse("144Mi"), // 90% of limit, used to set GOMEMLIMIT
+						"cpu":    resource.MustParse("250m"),
+					},
+					Limits: v1.ResourceList{
+						"memory": resource.MustParse("160Mi"),
+						"cpu":    resource.MustParse("2"),
+					},
+				},
+				LivenessProbe: &v1.Probe{
+					ProbeHandler: v1.ProbeHandler{
+						HTTPGet: &v1.HTTPGetAction{
+							Port: intstr.FromString("health"),
+						},
+					},
+				},
+				ReadinessProbe: &v1.Probe{
+					ProbeHandler: v1.ProbeHandler{
+						HTTPGet: &v1.HTTPGetAction{
+							Port: intstr.FromString("health"),
+						},
+					},
+				},
+			},
+		},
+		Owner: []*metav1.OwnerReference{
+			{
+				APIVersion: "kubefox.xigxog.io/v1alpha1",
+				Kind:       "Platform",
+				UID:        "123",
+				Name:       "kubefox-dev",
+			},
+		},
+	}
+	if s, err := renderStr("list.tpl", "httpsrv/*", d); err != nil {
 		t.Errorf("%v", err)
 	} else {
 		t.Logf("\n%s", s)

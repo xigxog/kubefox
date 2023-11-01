@@ -25,7 +25,7 @@ type ComponentSpec struct {
 	Title          string                       `json:"title,omitempty"`
 	Description    string                       `json:"description,omitempty"`
 	Routes         []RouteSpec                  `json:"routes,omitempty"`
-	DefaultHandler bool                         `json:"defaultHandler"`
+	DefaultHandler bool                         `json:"defaultHandler,omitempty"`
 	EnvSchema      map[string]*EnvVarSchema     `json:"envSchema,omitempty"`
 	Dependencies   map[string]*ComponentTypeVar `json:"dependencies,omitempty"`
 }

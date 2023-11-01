@@ -3,11 +3,9 @@
 {{- with .Component.Name }}
 app.kubernetes.io/component: {{ . | quote }}
 {{- end }}
-{{- with .Component.Commit }}
-app.kubernetes.io/version: {{ . | quote }}
-{{- end }}
 app.kubernetes.io/managed-by: {{ printf "%s-operator" .Instance.Name | quote }}
 kubefox.xigxog.io/version: {{ .Instance.Version | quote }}
+app.kubernetes.io/version: {{ .Instance.Version | quote }}
 {{ .ExtraLabels | toYaml }}
 {{- end }}
 

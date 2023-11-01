@@ -14,6 +14,10 @@ import (
 	"github.com/xigxog/kubefox/build"
 )
 
+// Injected at build time.
+// TODO reset to empty string, add check to make sure they are present? move to build info?
+var ()
+
 var (
 	ErrNotFound = fmt.Errorf("not found")
 )

@@ -24,6 +24,9 @@ GRPC_OUT="grpc"
 PROTO_OUT="core"
 
 COMPONENT_COMMIT=$(git log -n 1 --format="%H" -- ${COMPONENT_SRC}/)
+BROKER_COMMIT=$(git log -n 1 --format="%H" -- ${COMPONENTS_DIR}/broker/)
+HTTPSRV_COMMIT=$(git log -n 1 --format="%H" -- ${COMPONENTS_DIR}/httpsrv/)
+OPERATOR_COMMIT=$(git log -n 1 --format="%H" -- ${COMPONENTS_DIR}/operator/)
 ROOT_COMMIT=$(git rev-parse HEAD)
 
 HEAD_REF=$(git symbolic-ref -q HEAD)

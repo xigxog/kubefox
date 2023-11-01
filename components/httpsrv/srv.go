@@ -45,6 +45,12 @@ func (srv *HTTPServer) Run() error {
 		return nil
 	}
 
+	if healthAddr != "" && healthAddr != "false" {
+		if err := srv.brk.StartHealthSrv(); err != nil {
+			return err
+		}
+	}
+
 	srv.wrapped = &http.Server{
 		Handler: srv,
 		TLSConfig: &tls.Config{
@@ -142,6 +148,7 @@ func (srv *HTTPServer) ServeHTTP(resWriter http.ResponseWriter, httpReq *http.Re
 	resp, err := srv.brk.SendReq(ctx, req)
 	if err != nil {
 		writeError(resWriter, err, log)
+		return
 	}
 
 	if resp.TraceId() != "" {

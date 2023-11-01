@@ -36,10 +36,10 @@ func (cm *ComponentManager) SetupComponent(ctx context.Context, td *TemplateData
 	log := cm.Log.With(
 		logkf.KeyInstance, td.Instance.Name,
 		logkf.KeyPlatform, td.Platform.Name,
-		logkf.KeyComponentName, td.Component.Name,
+		logkf.KeyComponentName, td.ComponentFullName(),
 	)
 
-	log.Debug("setting up component")
+	log.Debugf("setting up component '%s'", td.ComponentFullName())
 
 	name := nn(td.Namespace(), td.ComponentFullName())
 	if err := cm.Client.Get(ctx, name, td.Obj); client.IgnoreNotFound(err) != nil {
@@ -69,11 +69,11 @@ func (cm *ComponentManager) SetupComponent(ctx context.Context, td *TemplateData
 		return false, cm.Client.ApplyTemplate(ctx, td.Template, &td.Data)
 	}
 
-	log.Debug("component ready")
+	log.Debugf("component '%s' ready", td.ComponentFullName())
 	return true, nil
 }
 
-func (cm *ComponentManager) ReconcileComponents(ctx context.Context, namespace string) (bool, error) {
+func (cm *ComponentManager) ReconcileApps(ctx context.Context, namespace string) (bool, error) {
 	platform, err := cm.Client.GetPlatform(ctx, namespace)
 	if err != nil {
 		return false, IgnoreNotFound(err)
@@ -108,12 +108,12 @@ func (cm *ComponentManager) ReconcileComponents(ctx context.Context, namespace s
 	for _, d := range depList.Items {
 		specs = append(specs, d.Spec)
 	}
-	log.Debugf("found %d releases and %d deployments", len(relList.Items), len(depList.Items))
+	log.Debugf("found %d kubefox releases and %d kubefox deployments", len(relList.Items), len(depList.Items))
 
 	compDepList := &appsv1.DeploymentList{}
 	if err := cm.Client.List(ctx, compDepList,
 		client.InNamespace(platform.Namespace),
-		client.HasLabels{kubefox.LabelK8sComponent},
+		client.HasLabels{kubefox.LabelK8sComponent, kubefox.LabelK8sAppName},
 	); err != nil {
 		return false, err
 	}
@@ -155,11 +155,11 @@ func (cm *ComponentManager) ReconcileComponents(ctx context.Context, namespace s
 			compMap[td.ComponentFullName()] = td
 		}
 	}
-	log.Debugf("found %d unique components", len(compMap))
+	log.Debugf("found %d unique app components", len(compMap))
 
 	for _, d := range compDepList.Items {
 		if _, found := compMap[d.Name]; !found {
-			log.Debugw("deleting component", logkf.KeyComponentName, d.Name)
+			log.Debugf("deleting app component '%s'", d.Name)
 			if err := cm.Client.Delete(ctx, &d); err != nil {
 				return false, err
 			}
@@ -192,17 +192,17 @@ func (cm *ComponentManager) ReconcileComponents(ctx context.Context, namespace s
 		if err := cm.Client.Status().Update(ctx, &r); err != nil {
 			return false, err
 		}
-		log.Debugf("release '%s.%s' ready: %t", r.Name, r.Namespace, r.Status.Ready)
+		log.Debugf("kubefox release '%s.%s' ready: %t", r.Name, r.Namespace, r.Status.Ready)
 	}
 	for _, d := range depList.Items {
 		d.Status.Ready = IsDeploymentReady(&d.Spec, compReadyMap)
 		if err := cm.Client.Status().Update(ctx, &d); err != nil {
 			return false, err
 		}
-		log.Debugf("deployment '%s.%s' ready: %t", d.Name, d.Namespace, d.Status.Ready)
+		log.Debugf("kubefox deployment '%s.%s' ready: %t", d.Name, d.Namespace, d.Status.Ready)
 	}
 
-	log.Debugf("components reconciled")
+	log.Debugf("apps reconciled")
 
 	return allReady, nil
 }

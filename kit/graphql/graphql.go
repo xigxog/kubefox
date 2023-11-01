@@ -14,16 +14,17 @@ type Client struct {
 }
 
 func New(ktx kit.Kontext, dependency kit.Dependency) *Client {
-	c := graphql.NewClient("http://hasura-graphql-engine.default:8080/v1/graphql", &http.Client{
-		Transport: ktx.Transport(dependency),
-	}).WithRequestModifier(func(r *http.Request) {
-		r.Header.Set("x-hasura-admin-secret", "hasura")
-	})
+	// c := graphql.NewClient("http://hasura-graphql-engine.default:8080/v1/graphql", &http.Client{
+	// 	Transport: ktx.Transport(dependency),
+	// }).WithRequestModifier(func(r *http.Request) {
+	// 	r.Header.Set("x-hasura-admin-secret", "hasura")
+	// })
 
 	return &Client{
 		ktx: ktx,
-		// TODO url should be set in broker by config
-		wrapped: c,
+		wrapped: graphql.NewClient("", &http.Client{
+			Transport: ktx.Transport(dependency),
+		}),
 	}
 }
 
