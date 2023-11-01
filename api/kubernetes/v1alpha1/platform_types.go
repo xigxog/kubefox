@@ -9,6 +9,7 @@ one at https://mozilla.org/MPL/2.0/.
 package v1alpha1
 
 import (
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -17,8 +18,9 @@ type PlatformSpec struct {
 	Broker  Broker  `json:"broker,omitempty"`
 	HTTPSrv HTTPSrv `json:"httpsrv,omitempty"`
 	NATS    NATS    `json:"nats,omitempty"`
-	// +kubebuilder:validation:Minimum=0
-	DefaultEventTTLSeconds uint `json:"defaultEventTTLSeconds,omitempty"`
+	// +kubebuilder:validation:Minimum=3
+	EventTTLSeconds uint              `json:"defaultEventTTLSeconds,omitempty"`
+	EventMaxSize    resource.Quantity `json:"eventMaxSize,omitempty"`
 }
 
 type NATS struct {

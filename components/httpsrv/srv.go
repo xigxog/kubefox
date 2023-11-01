@@ -20,7 +20,7 @@ const (
 	maxAttempts = 5
 )
 
-type HTTPServer struct {
+type HTTPSrv struct {
 	wrapped *http.Server
 
 	brk *grpc.Client
@@ -28,8 +28,8 @@ type HTTPServer struct {
 	log *logkf.Logger
 }
 
-func NewHTTPServer() *HTTPServer {
-	return &HTTPServer{
+func NewHTTPSrv() *HTTPSrv {
+	return &HTTPSrv{
 		brk: grpc.NewClient(grpc.ClientOpts{
 			Component:     comp,
 			BrokerAddr:    brokerAddr,
@@ -40,7 +40,7 @@ func NewHTTPServer() *HTTPServer {
 	}
 }
 
-func (srv *HTTPServer) Run() error {
+func (srv *HTTPSrv) Run() error {
 	if httpAddr == "false" && httpsAddr == "false" {
 		return nil
 	}
@@ -102,7 +102,7 @@ func (srv *HTTPServer) Run() error {
 	return err
 }
 
-func (srv *HTTPServer) run(attempt int) (int, error) {
+func (srv *HTTPSrv) run(attempt int) (int, error) {
 	if err := srv.brk.Start(spec); err != nil {
 		return attempt + 1, err
 	}
@@ -112,7 +112,7 @@ func (srv *HTTPServer) run(attempt int) (int, error) {
 	return 0, err
 }
 
-func (srv *HTTPServer) Shutdown() {
+func (srv *HTTPSrv) Shutdown() {
 	srv.log.Info("http server shutting down")
 
 	ctx, cancel := context.WithTimeout(context.Background(), eventTTL)
@@ -125,7 +125,7 @@ func (srv *HTTPServer) Shutdown() {
 	}
 }
 
-func (srv *HTTPServer) ServeHTTP(resWriter http.ResponseWriter, httpReq *http.Request) {
+func (srv *HTTPSrv) ServeHTTP(resWriter http.ResponseWriter, httpReq *http.Request) {
 	ctx, cancel := context.WithTimeoutCause(httpReq.Context(), eventTTL, kubefox.ErrEventTimeout)
 	defer cancel()
 

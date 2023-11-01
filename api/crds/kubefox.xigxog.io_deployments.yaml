@@ -42,6 +42,7 @@ spec:
                     pattern: ^[a-z0-9]{40}$
                     type: string
                   containerRegistry:
+                    format: uri
                     type: string
                   description:
                     type: string
@@ -50,6 +51,7 @@ spec:
                   name:
                     type: string
                   repoURL:
+                    format: uri
                     type: string
                   tag:
                     type: string

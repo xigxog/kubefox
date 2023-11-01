@@ -1465,8 +1465,14 @@ spec:
                     type: array
                 type: object
               defaultEventTTLSeconds:
-                minimum: 0
+                minimum: 3
                 type: integer
+              eventMaxSize:
+                anyOf:
+                - type: integer
+                - type: string
+                pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                x-kubernetes-int-or-string: true
               httpsrv:
                 properties:
                   affinity:

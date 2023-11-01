@@ -12,7 +12,8 @@ import (
 
 // +kubebuilder:object:generate=true
 type App struct {
-	Name              string `json:"name"`
+	Name string `json:"name"`
+	// +kubebuilder:validation:Format=uri
 	ContainerRegistry string `json:"containerRegistry,omitempty"`
 	Title             string `json:"title,omitempty"`
 	Description       string `json:"description,omitempty"`
@@ -44,6 +45,11 @@ type EnvVarSchema struct {
 type ComponentTypeVar struct {
 	// +kubebuilder:validation:Enum=kubefox;http
 	Type ComponentType `json:"type"`
+}
+
+func GenerateId() string {
+	_, id := GenerateNameAndId()
+	return id
 }
 
 func GenerateNameAndId() (string, string) {

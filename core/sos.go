@@ -13,13 +13,13 @@ const (
 )
 
 type StringOrSecret struct {
-	Type      SoSType
-	StringVal string
-	SecretVal Secret
+	Type      SoSType `json:"-"`
+	StringVal string  `json:"-"`
+	SecretVal Secret  `json:"-"`
 }
 
 type Secret struct {
-	SecretRef string `json:"secretRef"`
+	SecretRef string `json:"secretRef,omitempty"`
 }
 
 // UnmarshalJSON implements the json.Unmarshaller interface.

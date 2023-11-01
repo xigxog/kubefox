@@ -25,7 +25,8 @@ type App struct {
 	Branch string `json:"branch,omitempty"`
 	Tag    string `json:"tag,omitempty"`
 	// +kubebuilder:validation:Pattern="^[a-z0-9]{40}$"
-	Commit              string `json:"commit"`
+	Commit string `json:"commit"`
+	// +kubebuilder:validation:Format=uri
 	RepoURL             string `json:"repoURL,omitempty"`
 	ImagePullSecretName string `json:"imagePullSecretName,omitempty"`
 }

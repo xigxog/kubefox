@@ -47,8 +47,7 @@ func New() Kit {
 		},
 	}
 
-	_, id := kubefox.GenerateNameAndId()
-	comp := &kubefox.Component{Id: id}
+	comp := &kubefox.Component{Id: kubefox.GenerateId()}
 
 	var help bool
 	var brokerAddr, healthAddr, logFormat, logLevel string
@@ -82,6 +81,11 @@ Flags:
 
 	utils.CheckRequiredFlag("name", comp.Name)
 	utils.CheckRequiredFlag("commit", comp.Commit)
+
+	if comp.Commit != build.Info.Commit {
+		fmt.Fprintf(os.Stderr, "commit '%s' does not match build info commit '%s'", comp.Commit, build.Info.Commit)
+		os.Exit(1)
+	}
 
 	if svc.export {
 		logLevel = "error"
