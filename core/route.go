@@ -1,3 +1,4 @@
+// +kubebuilder:object:generate=false
 package core
 
 import (
@@ -9,17 +10,22 @@ import (
 // Takes an Event and returns true or false if rule matches.
 type EventPredicate func(e *Event) bool
 
-type Route struct {
+// +kubebuilder:object:generate=true
+type RouteSpec struct {
 	Id       int    `json:"id"`
 	Rule     string `json:"rule"`
-	Priority int    `json:"priority"`
+	Priority int    `json:"priority,omitempty"`
+}
 
-	ResolvedRule string         `json:"-"`
-	Predicate    EventPredicate `json:"-"`
-	ParseErr     error          `json:"-"`
+type Route struct {
+	RouteSpec
 
-	Component    *Component    `json:"-"`
-	EventContext *EventContext `json:"-"`
+	ResolvedRule string
+	Predicate    EventPredicate
+	ParseErr     error
+
+	Component    *Component
+	EventContext *EventContext
 
 	tpl *template.Template
 }

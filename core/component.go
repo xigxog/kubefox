@@ -1,3 +1,4 @@
+// +kubebuilder:object:generate=false
 package core
 
 import (
@@ -9,31 +10,40 @@ import (
 	"github.com/xigxog/kubefox/utils"
 )
 
-type EnvVarType string
-type ComponentType string
-
-type ComponentConf struct {
-	Component      *Component              `json:"component"`
-	Title          string                  `json:"title,omitempty"`
-	Description    string                  `json:"description,omitempty"`
-	Routes         []*Route                `json:"routes"`
-	DefaultHandler bool                    `json:"defaultHandler"`
-	EnvSchema      map[string]EnvVarSchema `json:"envSchema,omitempty"`
-	Dependencies   map[string]Dependency   `json:"dependencies,omitempty"`
+// +kubebuilder:object:generate=true
+type App struct {
+	Name              string `json:"name"`
+	ContainerRegistry string `json:"containerRegistry,omitempty"`
+	Title             string `json:"title,omitempty"`
+	Description       string `json:"description,omitempty"`
 }
 
+// +kubebuilder:object:generate=true
+type ComponentSpec struct {
+	ComponentTypeVar `json:",inline"`
+
+	Title          string                       `json:"title,omitempty"`
+	Description    string                       `json:"description,omitempty"`
+	Routes         []RouteSpec                  `json:"routes,omitempty"`
+	DefaultHandler bool                         `json:"defaultHandler"`
+	EnvSchema      map[string]*EnvVarSchema     `json:"envSchema,omitempty"`
+	Dependencies   map[string]*ComponentTypeVar `json:"dependencies,omitempty"`
+}
+
+// +kubebuilder:object:generate=true
 type EnvVarSchema struct {
-	Name        string     `json:"name"`
+	// +kubebuilder:validation:Enum=array;boolean;number;string
 	Type        EnvVarType `json:"type"`
 	Required    bool       `json:"required"`
+	Unique      bool       `json:"unique"`
 	Title       string     `json:"title,omitempty"`
 	Description string     `json:"description,omitempty"`
 }
 
-// Definition for component dependency.
-type Dependency struct {
-	Name string        `json:"name,omitempty"`
-	Type ComponentType `json:"type,omitempty"`
+// +kubebuilder:object:generate=true
+type ComponentTypeVar struct {
+	// +kubebuilder:validation:Enum=kubefox;http
+	Type ComponentType `json:"type"`
 }
 
 func GenerateNameAndId() (string, string) {
@@ -102,21 +112,4 @@ func (c *Component) ShortCommit() string {
 	}
 
 	return ""
-}
-
-func (c *Dependency) GetName() string {
-	return c.Name
-}
-
-func (c *Dependency) GetType() ComponentType {
-	return c.Type
-}
-
-func (c *Dependency) GetEventType() EventType {
-	switch c.Type {
-	case ComponentTypeHTTPAdapter:
-		return EventTypeHTTP
-	default:
-		return EventTypeKubeFox
-	}
 }

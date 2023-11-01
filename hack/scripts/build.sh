@@ -19,4 +19,3 @@ go build \
 		-X github.com/xigxog/kubefox/build.rootCommit=${ROOT_COMMIT} \
 		-X github.com/xigxog/kubefox/build.headRef=${HEAD_REF} \
 		-X github.com/xigxog/kubefox/build.tagRef=${TAG_REF}" \
-	main.go

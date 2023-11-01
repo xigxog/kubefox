@@ -18,7 +18,21 @@ type EnvironmentSpec struct {
 	// +kubebuilder:validation:Schemaless
 	// +kubebuilder:validation:Type=object
 	// +kubebuilder:pruning:PreserveUnknownFields
-	Vars map[string]*kubefox.Val `json:"vars,omitempty"`
+	Vars     map[string]*kubefox.Val `json:"vars,omitempty"`
+	Adapters map[string]*Adapter     `json:"adapters,omitempty"`
+}
+
+type Adapter struct {
+	kubefox.ComponentTypeVar `json:",inline"`
+
+	// +kubebuilder:validation:Schemaless
+	// +kubebuilder:validation:Type=object
+	// +kubebuilder:pruning:PreserveUnknownFields
+	URL kubefox.StringOrSecret `json:"url,omitempty"`
+	// +kubebuilder:validation:Schemaless
+	// +kubebuilder:validation:Type=object
+	// +kubebuilder:pruning:PreserveUnknownFields
+	Headers map[string]*kubefox.StringOrSecret `json:"headers,omitempty"`
 }
 
 // EnvironmentStatus defines the observed state of Environment
@@ -27,9 +41,9 @@ type EnvironmentStatus struct {
 
 //+kubebuilder:object:root=true
 //+kubebuilder:subresource:status
-// +kubebuilder:resource:path=environments,scope=Cluster
+//+kubebuilder:resource:path=environments,scope=Cluster
 
-// Environment is the Schema for the environments API
+// Environment is the Schema for the Environments API
 type Environment struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
@@ -40,7 +54,7 @@ type Environment struct {
 
 //+kubebuilder:object:root=true
 
-// EnvironmentList contains a list of Environment
+// EnvironmentList contains a list of Environments
 type EnvironmentList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`

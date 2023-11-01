@@ -7,6 +7,7 @@ import (
 	"net/http"
 
 	kubefox "github.com/xigxog/kubefox/core"
+	"github.com/xigxog/kubefox/grpc"
 	"github.com/xigxog/kubefox/logkf"
 
 	"google.golang.org/protobuf/types/known/structpb"
@@ -26,13 +27,13 @@ type kontext struct {
 type respKontext struct {
 	*kubefox.Event
 
-	kit *kit
+	brk *grpc.Client
 }
 
 type reqKontext struct {
 	*kubefox.Event
 
-	kit *kit
+	brk *grpc.Client
 	ctx context.Context
 }
 
@@ -64,7 +65,7 @@ func (k *kontext) EnvDef(v EnvVar, def string) string {
 func (k *kontext) Resp() Resp {
 	return &respKontext{
 		Event: k.resp,
-		kit:   k.kit,
+		brk:   k.kit.brk,
 	}
 }
 
@@ -73,10 +74,10 @@ func (k *kontext) Req(c Dependency) Req {
 		Event: kubefox.NewReq(kubefox.EventOpts{
 			Type:   c.GetEventType(),
 			Parent: k.Event,
-			Source: k.kit.conf.Component,
+			Source: k.kit.brk.Component,
 			Target: &kubefox.Component{Name: c.GetName()},
 		}),
-		kit: k.kit,
+		brk: k.kit.brk,
 		ctx: k.ctx,
 	}
 }
@@ -93,10 +94,10 @@ func (k *kontext) Transport(c Dependency) http.RoundTripper {
 			Event: kubefox.NewReq(kubefox.EventOpts{
 				Type:   c.GetEventType(),
 				Parent: k.Event,
-				Source: k.kit.conf.Component,
+				Source: k.kit.brk.Component,
 				Target: &kubefox.Component{Name: c.GetName()},
 			}),
-			kit: k.kit,
+			brk: k.kit.brk,
 			ctx: k.ctx,
 		},
 	}
@@ -137,7 +138,7 @@ func (resp *respKontext) SendBytes(contentType string, b []byte) error {
 }
 
 func (resp *respKontext) Send() error {
-	return resp.kit.sendEvent(resp.Event)
+	return resp.brk.SendResp(resp.Event)
 }
 
 func (req *reqKontext) SendStr(val string) (kubefox.EventReader, error) {
@@ -175,7 +176,7 @@ func (req *reqKontext) SendBytes(contentType string, b []byte) (kubefox.EventRea
 }
 
 func (req *reqKontext) Send() (kubefox.EventReader, error) {
-	resp, err := req.kit.sendReq(req.ctx, req.Event)
+	resp, err := req.brk.SendReq(req.ctx, req.Event)
 	if err != nil {
 		return nil, err
 	}

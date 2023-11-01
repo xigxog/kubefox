@@ -1,6 +1,8 @@
 package v1alpha1
 
-import corev1 "k8s.io/api/core/v1"
+import (
+	corev1 "k8s.io/api/core/v1"
+)
 
 type PodSpec struct {
 	// NodeSelector is a selector which must be true for the pod to fit on a

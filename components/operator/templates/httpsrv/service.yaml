@@ -2,15 +2,15 @@ apiVersion: v1
 kind: Service
 {{ include "metadata" . }}
 spec:
-  type: ClusterIP
+  type: {{ .Values.serviceType | default "ClusterIP" }}
   selector:
     {{- include "selectors" . | nindent 4 }}
   ports:
     - name: http
-      port: 80
-      targetPort: 8080
+      port:  {{ .Values.httpPort | default 80 }}
+      targetPort: http
       protocol: TCP
     - name: https
-      port: 443
-      targetPort: 8443
+      port:  {{ .Values.httpPort | default 443 }}
+      targetPort: https
       protocol: TCP

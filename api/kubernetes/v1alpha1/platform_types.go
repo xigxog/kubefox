@@ -14,8 +14,9 @@ import (
 
 // PlatformSpec defines the desired state of Platform
 type PlatformSpec struct {
-	Broker Broker `json:"broker,omitempty"`
-	NATS   NATS   `json:"nats,omitempty"`
+	Broker  Broker  `json:"broker,omitempty"`
+	HTTPSrv HTTPSrv `json:"httpsrv,omitempty"`
+	NATS    NATS    `json:"nats,omitempty"`
 	// +kubebuilder:validation:Minimum=0
 	DefaultEventTTLSeconds uint `json:"defaultEventTTLSeconds,omitempty"`
 }
@@ -25,20 +26,25 @@ type NATS struct {
 	ContainerSpec `json:",inline"`
 }
 
-type Broker struct {
+type HTTPSrv struct {
 	PodSpec       `json:",inline"`
 	ContainerSpec `json:",inline"`
 
-	Service BrokerService `json:"service,omitempty"`
+	Service HTTPSrvService `json:"service,omitempty"`
 }
 
-type BrokerService struct {
+type Broker struct {
+	PodSpec       `json:",inline"`
+	ContainerSpec `json:",inline"`
+}
+
+type HTTPSrvService struct {
 	// +kubebuilder:validation:Enum=ClusterIP;NodePort;LoadBalancer
-	Type  string             `json:"type,omitempty"`
-	Ports BrokerServicePorts `json:"ports,omitempty"`
+	Type  string       `json:"type,omitempty"`
+	Ports HTTPSrvPorts `json:"ports,omitempty"`
 }
 
-type BrokerServicePorts struct {
+type HTTPSrvPorts struct {
 	// +kubebuilder:validation:Maximum=65535
 	// +kubebuilder:validation:Minimum=1
 	HTTP uint `json:"http,omitempty"`
@@ -49,13 +55,14 @@ type BrokerServicePorts struct {
 
 // PlatformStatus defines the observed state of Platform
 type PlatformStatus struct {
+	// +kubebuilder:validation:Optional
 	Ready bool `json:"ready"`
 }
 
 //+kubebuilder:object:root=true
 //+kubebuilder:subresource:status
 
-// Platform is the Schema for the platforms API
+// Platform is the Schema for the Platforms API
 type Platform struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
@@ -66,7 +73,7 @@ type Platform struct {
 
 //+kubebuilder:object:root=true
 
-// PlatformList contains a list of Platform
+// PlatformList contains a list of Platforms
 type PlatformList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`

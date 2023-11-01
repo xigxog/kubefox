@@ -35,9 +35,9 @@ const (
 type Store struct {
 	namespace string
 
-	resCache     ctrlcache.Cache
-	compRegCache cache.Cache[*kubefox.ComponentConf]
-	compRegKV    jetstream.KeyValue
+	resCache      ctrlcache.Cache
+	compSpecCache cache.Cache[*kubefox.ComponentSpec]
+	compSpecKV    jetstream.KeyValue
 
 	depMatchers cache.Cache[*matcher.EventMatcher]
 	relMatcher  *matcher.EventMatcher
@@ -58,18 +58,18 @@ type Store struct {
 func NewStore(namespace string) *Store {
 	ctx, cancel := context.WithCancel(context.Background())
 	return &Store{
-		namespace:    namespace,
-		depMatchers:  cache.New[*matcher.EventMatcher](time.Minute * 15),
-		relMatcher:   new(matcher.EventMatcher),
-		compRegCache: cache.New[*kubefox.ComponentConf](time.Hour * 24),
-		ctx:          ctx,
-		cancel:       cancel,
-		log:          logkf.Global,
+		namespace:     namespace,
+		depMatchers:   cache.New[*matcher.EventMatcher](time.Minute * 15),
+		relMatcher:    new(matcher.EventMatcher),
+		compSpecCache: cache.New[*kubefox.ComponentSpec](time.Hour * 24),
+		ctx:           ctx,
+		cancel:        cancel,
+		log:           logkf.Global,
 	}
 }
 
-func (str *Store) Open(compRegKV jetstream.KeyValue) error {
-	str.compRegKV = compRegKV
+func (str *Store) Open(compSpecKV jetstream.KeyValue) error {
+	str.compSpecKV = compSpecKV
 	if err := v1alpha1.AddToScheme(scheme.Scheme); err != nil {
 		return str.log.ErrorN("adding KubeFox CRs to scheme failed: %v", err)
 	}
@@ -129,36 +129,36 @@ func (str *Store) Close() {
 	str.cancel()
 }
 
-func (str *Store) RegisterComponent(ctx context.Context, comp *kubefox.Component, reg *kubefox.ComponentConf) error {
+func (str *Store) RegisterComponent(ctx context.Context, comp *kubefox.Component, reg *kubefox.ComponentSpec) error {
 	id := fmt.Sprintf(TplComponentKey, comp.GroupKey())
 	return str.setReg(ctx, id, reg)
 }
 
 func (str *Store) RegisterAdapter(ctx context.Context, comp *kubefox.Component) error {
 	id := fmt.Sprintf(TplAdapterKey, comp.Key())
-	return str.setReg(ctx, id, &kubefox.ComponentConf{})
+	return str.setReg(ctx, id, &kubefox.ComponentSpec{})
 }
 
-func (str *Store) setReg(ctx context.Context, id string, reg *kubefox.ComponentConf) error {
+func (str *Store) setReg(ctx context.Context, id string, reg *kubefox.ComponentSpec) error {
 	str.log.Debugf("registering component '%s'", id)
 	b, err := json.Marshal(reg)
 	if err != nil {
 		return err
 	}
 
-	if _, err := str.compRegKV.Put(ctx, id, b); err != nil {
+	if _, err := str.compSpecKV.Put(ctx, id, b); err != nil {
 		return err
 	}
-	str.compRegCache.Set(id, reg)
+	str.compSpecCache.Set(id, reg)
 
 	return nil
 }
 
-func (str *Store) Component(ctx context.Context, comp *kubefox.Component) (*kubefox.ComponentConf, error) {
+func (str *Store) Component(ctx context.Context, comp *kubefox.Component) (*kubefox.ComponentSpec, error) {
 	return str.getReg(ctx, fmt.Sprintf(TplComponentKey, comp.GroupKey()))
 }
 
-func (str *Store) Adapter(ctx context.Context, comp *kubefox.Component) (*kubefox.ComponentConf, error) {
+func (str *Store) Adapter(ctx context.Context, comp *kubefox.Component) (*kubefox.ComponentSpec, error) {
 	return str.getReg(ctx, fmt.Sprintf(TplAdapterKey, comp.Key()))
 }
 
@@ -167,26 +167,26 @@ func (str *Store) IsAdapter(ctx context.Context, comp *kubefox.Component) bool {
 	return r != nil && err == nil
 }
 
-func (str *Store) getReg(ctx context.Context, id string) (*kubefox.ComponentConf, error) {
-	compReg, found := str.compRegCache.Get(id)
+func (str *Store) getReg(ctx context.Context, id string) (*kubefox.ComponentSpec, error) {
+	compSpec, found := str.compSpecCache.Get(id)
 	if !found {
-		entry, err := str.compRegKV.Get(ctx, id)
+		entry, err := str.compSpecKV.Get(ctx, id)
 		if errors.Is(err, nats.ErrKeyNotFound) {
-			return nil, fmt.Errorf("%w: component is not registered", ErrRouteNotFound)
+			return nil, fmt.Errorf("%w: component is not registered", kubefox.ErrRouteNotFound)
 		} else if err != nil {
 			return nil, err
 		}
 
-		compReg = &kubefox.ComponentConf{}
-		err = json.Unmarshal(entry.Value(), compReg)
+		compSpec = &kubefox.ComponentSpec{}
+		err = json.Unmarshal(entry.Value(), compSpec)
 		if err != nil {
 			return nil, err
 		}
 
-		str.compRegCache.Set(id, compReg)
+		str.compSpecCache.Set(id, compSpec)
 	}
 
-	return compReg, nil
+	return compSpec, nil
 }
 
 func (str *Store) Deployment(name string) (*v1alpha1.Deployment, error) {
@@ -359,19 +359,21 @@ func (str *Store) buildRoutes(
 	routes := make([]*kubefox.Route, 0)
 	for compName, resComp := range comps {
 		comp := &kubefox.Component{Name: compName, Commit: resComp.Commit}
-		compReg, err := str.Component(ctx, comp)
+		compSpec, err := str.Component(ctx, comp)
 		if err != nil {
 			return nil, err
 		}
 
-		for _, r := range compReg.Routes {
-			rCopy := *r
-			rCopy.Component = comp
-			rCopy.EventContext = evtCtx
-			if err := rCopy.Resolve(vars, sprig.FuncMap()); err != nil {
+		for _, r := range compSpec.Routes {
+			route := &kubefox.Route{
+				RouteSpec:    r,
+				Component:    comp,
+				EventContext: evtCtx,
+			}
+			if err := route.Resolve(vars, sprig.FuncMap()); err != nil {
 				return nil, err
 			}
-			routes = append(routes, &rCopy)
+			routes = append(routes, route)
 		}
 	}
 

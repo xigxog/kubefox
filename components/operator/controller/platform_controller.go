@@ -268,6 +268,53 @@ func (r *PlatformReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		return ctrl.Result{}, err
 	}
 
+	td.Template = "httpsrv"
+	td.Obj = &appsv1.DaemonSet{}
+	td.Component = templates.Component{
+		Name:          "httpsrv",
+		Image:         HTTPSrvImage,
+		PodSpec:       p.Spec.HTTPSrv.PodSpec,
+		ContainerSpec: p.Spec.HTTPSrv.ContainerSpec,
+	}
+	td.Values = map[string]any{
+		"serviceType": p.Spec.HTTPSrv.Service.Type,
+		"httpPort":    p.Spec.HTTPSrv.Service.Ports.HTTP,
+		"httpsPort":   p.Spec.HTTPSrv.Service.Ports.HTTPS,
+	}
+	if td.Component.Resources == nil {
+		td.Component.Resources = &v1.ResourceRequirements{
+			Requests: v1.ResourceList{
+				"memory": resource.MustParse("144Mi"), // 90% of limit, used to set GOMEMLIMIT
+				"cpu":    resource.MustParse("250m"),
+			},
+			Limits: v1.ResourceList{
+				"memory": resource.MustParse("160Mi"),
+				"cpu":    resource.MustParse("2"),
+			},
+		}
+	}
+	if td.Component.LivenessProbe == nil {
+		td.Component.LivenessProbe = &v1.Probe{
+			ProbeHandler: v1.ProbeHandler{
+				HTTPGet: &v1.HTTPGetAction{
+					Port: intstr.FromString("health"),
+				},
+			},
+		}
+	}
+	if td.Component.ReadinessProbe == nil {
+		td.Component.ReadinessProbe = &v1.Probe{
+			ProbeHandler: v1.ProbeHandler{
+				HTTPGet: &v1.HTTPGetAction{
+					Port: intstr.FromString("health"),
+				},
+			},
+		}
+	}
+	if rdy, err := r.cm.SetupComponent(ctx, td); !rdy || err != nil {
+		return ctrl.Result{}, err
+	}
+
 	// Used by defer func created above.
 	ready = true
 	log.Debug("platform reconciled")
@@ -346,32 +393,41 @@ func (r *PlatformReconciler) setupVault(ctx context.Context, td *TemplateData) e
 	if err != nil {
 		return err
 	}
-
-	err = vault.Sys().PutPolicyWithContext(ctx, vName+"-broker", `
-// issue broker certs
-path "`+pkiPath+`/issue/broker" {
-	capabilities = ["create", "update"]
-}
-	`)
+	_, err = vault.Logical().Write(pkiPath+"/roles/httpsrv", map[string]interface{}{
+		"issuer_ref":         "default",
+		"allowed_domains":    td.Platform.Name + "-httpsrv." + td.Platform.Namespace,
+		"allow_localhost":    true,
+		"allow_bare_domains": true,
+		"max_ttl":            TenYears,
+	})
 	if err != nil {
 		return err
 	}
 
 	err = vault.Sys().PutPolicyWithContext(ctx, vName+"-nats", `
-// issue nats certs
-path "`+pkiPath+`/issue/nats" {
-	capabilities = ["create", "update"]
-}
+	// issue nats certs
+	path "`+pkiPath+`/issue/nats" {
+		capabilities = ["create", "update"]
+	}
+		`)
+	if err != nil {
+		return err
+	}
+	err = vault.Sys().PutPolicyWithContext(ctx, vName+"-broker", `
+	// issue broker certs
+	path "`+pkiPath+`/issue/broker" {
+		capabilities = ["create", "update"]
+	}
 	`)
 	if err != nil {
 		return err
 	}
-
-	_, err = vault.Logical().Write("auth/kubernetes/role/"+vName+"-broker", map[string]interface{}{
-		"bound_service_account_names":      td.Platform.Name + "-broker",
-		"bound_service_account_namespaces": td.Platform.Namespace,
-		"token_policies":                   vName + "-broker,kv-kubefox-reader",
-	})
+	err = vault.Sys().PutPolicyWithContext(ctx, vName+"-httpsrv", `
+	// issue httpsrv certs
+	path "`+pkiPath+`/issue/httpsrv" {
+		capabilities = ["create", "update"]
+	}
+	`)
 	if err != nil {
 		return err
 	}
@@ -380,6 +436,22 @@ path "`+pkiPath+`/issue/nats" {
 		"bound_service_account_names":      td.Platform.Name + "-nats",
 		"bound_service_account_namespaces": td.Platform.Namespace,
 		"token_policies":                   vName + "-nats",
+	})
+	if err != nil {
+		return err
+	}
+	_, err = vault.Logical().Write("auth/kubernetes/role/"+vName+"-broker", map[string]interface{}{
+		"bound_service_account_names":      td.Platform.Name + "-broker",
+		"bound_service_account_namespaces": td.Platform.Namespace,
+		"token_policies":                   vName + "-broker,kv-kubefox-reader",
+	})
+	if err != nil {
+		return err
+	}
+	_, err = vault.Logical().Write("auth/kubernetes/role/"+vName+"-httpsrv", map[string]interface{}{
+		"bound_service_account_names":      td.Platform.Name + "-httpsrv",
+		"bound_service_account_namespaces": td.Platform.Namespace,
+		"token_policies":                   vName + "-httpsrv",
 	})
 	if err != nil {
 		return err

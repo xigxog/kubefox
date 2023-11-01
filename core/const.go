@@ -32,17 +32,21 @@ const (
 	EventTypeUnknown   EventType = "io.kubefox.unknown"
 )
 
-// Labels
+// Kubernetes Labels
 const (
 	LabelK8sComponent       string = "kubefox.xigxog.io/component"
 	LabelK8sComponentCommit string = "kubefox.xigxog.io/component-commit"
 	LabelK8sPlatform        string = "kubefox.xigxog.io/platform"
 	LabelK8sKubeFoxVersion  string = "kubefox.xigxog.io/version"
-	LabelOCIApp             string = "com.xigxog.kubefox.app"
-	LabelOCIComponent       string = "com.xigxog.kubefox.component"
-	LabelOCICreated         string = "org.opencontainers.image.created"
-	LabelOCIRevision        string = "org.opencontainers.image.revision"
-	LabelOCISource          string = "org.opencontainers.image.source"
+)
+
+// Container Labels
+const (
+	LabelOCIApp       string = "com.xigxog.kubefox.app"
+	LabelOCIComponent string = "com.xigxog.kubefox.component"
+	LabelOCICreated   string = "org.opencontainers.image.created"
+	LabelOCIRevision  string = "org.opencontainers.image.revision"
+	LabelOCISource    string = "org.opencontainers.image.source"
 )
 
 const (
@@ -121,6 +125,8 @@ const (
 	CloudEventId = "ce_id"
 )
 
+type EnvVarType string
+
 const (
 	EnvVarTypeArray   EnvVarType = "array"
 	EnvVarTypeBoolean EnvVarType = "boolean"
@@ -128,7 +134,11 @@ const (
 	EnvVarTypeString  EnvVarType = "string"
 )
 
+type ComponentType string
+
 const (
-	ComponentTypeHTTPAdapter      ComponentType = "http-adapter"
-	ComponentTypeKubeFoxComponent ComponentType = "kubefox-component"
+	ComponentTypeDatabase ComponentType = "db"
+	ComponentTypeGenesis  ComponentType = "genesis"
+	ComponentTypeHTTP     ComponentType = "http"
+	ComponentTypeKubeFox  ComponentType = "kubefox"
 )

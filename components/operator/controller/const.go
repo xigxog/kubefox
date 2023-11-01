@@ -26,4 +26,5 @@ const (
 var (
 	BrokerImage    = fmt.Sprintf("ghcr.io/xigxog/kubefox/broker:%s", build.Info.Version)
 	BootstrapImage = fmt.Sprintf("ghcr.io/xigxog/kubefox/bootstrap:%s", build.Info.Version)
+	HTTPSrvImage   = fmt.Sprintf("ghcr.io/xigxog/kubefox/httpsrv:%s", build.Info.Version)
 )

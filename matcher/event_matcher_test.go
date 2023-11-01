@@ -16,8 +16,10 @@ func TestPath(t *testing.T) {
 	}
 
 	r1 := &kubefox.Route{
-		Id:           1,
-		Rule:         "PathPrefix(`/customize/{{.Env.b}}`)",
+		RouteSpec: kubefox.RouteSpec{
+			Id:   1,
+			Rule: "PathPrefix(`/customize/{{.Env.b}}`)",
+		},
 		Component:    &kubefox.Component{},
 		EventContext: &kubefox.EventContext{},
 	}
@@ -27,8 +29,10 @@ func TestPath(t *testing.T) {
 	}
 
 	r2 := &kubefox.Route{
-		Id:           2,
-		Rule:         "Method(`PUT`,`GET`,`POST`) && (Query(`q1`, `{q[1-2]}`) && Header(`header-one`,`{[a-z0-9]+}`)) && Host(`{{.Env.a}}.0.0.{i}`) && Path(`/customize/{{.Env.b}}/{j:[a-z]+}`)",
+		RouteSpec: kubefox.RouteSpec{
+			Id:   2,
+			Rule: "Method(`PUT`,`GET`,`POST`) && (Query(`q1`, `{q[1-2]}`) && Header(`header-one`,`{[a-z0-9]+}`)) && Host(`{{.Env.a}}.0.0.{i}`) && Path(`/customize/{{.Env.b}}/{j:[a-z]+}`)",
+		},
 		Component:    &kubefox.Component{},
 		EventContext: &kubefox.EventContext{},
 	}

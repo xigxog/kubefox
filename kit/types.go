@@ -6,21 +6,11 @@ import (
 	"net/http"
 
 	kubefox "github.com/xigxog/kubefox/core"
+	"github.com/xigxog/kubefox/kit/env"
 	"github.com/xigxog/kubefox/logkf"
 )
 
 type EventHandler func(kit Kontext) error
-
-type EnvVarOption func(*kubefox.EnvVarSchema)
-
-type EnvVarType kubefox.EnvVarType
-
-const (
-	Array   EnvVarType = EnvVarType(kubefox.EnvVarTypeArray)
-	Boolean EnvVarType = EnvVarType(kubefox.EnvVarTypeBoolean)
-	Number  EnvVarType = EnvVarType(kubefox.EnvVarTypeNumber)
-	String  EnvVarType = EnvVarType(kubefox.EnvVarTypeString)
-)
 
 type Kit interface {
 	Start()
@@ -28,7 +18,7 @@ type Kit interface {
 	Route(string, EventHandler)
 	Default(EventHandler)
 
-	EnvVar(name string, opts ...EnvVarOption) EnvVar
+	EnvVar(name string, opts ...env.VarOption) EnvVar
 
 	Component(name string) Dependency
 	HTTPAdapter(name string) Dependency
@@ -80,10 +70,40 @@ type Resp interface {
 
 type EnvVar interface {
 	GetName() string
+	GetType() kubefox.EnvVarType
 }
 
 type Dependency interface {
 	GetName() string
 	GetType() kubefox.ComponentType
 	GetEventType() kubefox.EventType
+}
+
+type route struct {
+	kubefox.RouteSpec
+
+	handler EventHandler
+}
+
+type dependency struct {
+	kubefox.ComponentTypeVar
+
+	Name string
+}
+
+func (c *dependency) GetName() string {
+	return c.Name
+}
+
+func (c *dependency) GetType() kubefox.ComponentType {
+	return c.Type
+}
+
+func (c *dependency) GetEventType() kubefox.EventType {
+	switch c.Type {
+	case kubefox.ComponentTypeHTTP:
+		return kubefox.EventTypeHTTP
+	default:
+		return kubefox.EventTypeKubeFox
+	}
 }

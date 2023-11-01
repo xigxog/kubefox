@@ -33,6 +33,7 @@ type ReleaseEnv struct {
 
 // ReleaseStatus defines the observed state of Release
 type ReleaseStatus struct {
+	// +kubebuilder:validation:Optional
 	Ready bool `json:"ready"`
 }
 
@@ -50,7 +51,7 @@ type Release struct {
 
 //+kubebuilder:object:root=true
 
-// ReleaseList contains a list of Release
+// ReleaseList contains a list of Releases
 type ReleaseList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`

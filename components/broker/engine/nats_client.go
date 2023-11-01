@@ -217,7 +217,7 @@ func (c *NATSClient) handleMsg(msg *nats.Msg) {
 	if err := c.brk.RecvEvent(lEvt); err != nil {
 		log := c.log.WithEvent(evt)
 		log.Debug(err)
-		if evt.Target.Id == "" && errors.Is(err, ErrSubCanceled) {
+		if evt.Target.Id == "" && errors.Is(err, kubefox.ErrSubCanceled) {
 			// Any component replica can process, republish event.
 			log.Debug("republishing event from component group subject")
 			if err := c.nc.PublishMsg(msg); err != nil {

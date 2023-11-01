@@ -60,7 +60,6 @@ spec:
                         type: string
                     required:
                     - commit
-                    - containerRegistry
                     - name
                     type: object
                   components:
@@ -69,14 +68,73 @@ spec:
                         commit:
                           pattern: ^[a-z0-9]{40}$
                           type: string
+                        defaultHandler:
+                          type: boolean
+                        dependencies:
+                          additionalProperties:
+                            properties:
+                              type:
+                                enum:
+                                - kubefox
+                                - http
+                                type: string
+                            required:
+                            - type
+                            type: object
+                          type: object
                         description:
                           type: string
+                        envSchema:
+                          additionalProperties:
+                            properties:
+                              description:
+                                type: string
+                              required:
+                                type: boolean
+                              title:
+                                type: string
+                              type:
+                                enum:
+                                - array
+                                - boolean
+                                - number
+                                - string
+                                type: string
+                              unique:
+                                type: boolean
+                            required:
+                            - required
+                            - type
+                            - unique
+                            type: object
+                          type: object
                         image:
                           type: string
+                        routes:
+                          items:
+                            properties:
+                              id:
+                                type: integer
+                              priority:
+                                type: integer
+                              rule:
+                                type: string
+                            required:
+                            - id
+                            - rule
+                            type: object
+                          type: array
                         title:
+                          type: string
+                        type:
+                          enum:
+                          - kubefox
+                          - http
                           type: string
                       required:
                       - commit
+                      - defaultHandler
+                      - type
                       type: object
                     type: object
                 required:
@@ -110,8 +168,6 @@ spec:
             properties:
               ready:
                 type: boolean
-            required:
-            - ready
             type: object
         type: object
     served: true

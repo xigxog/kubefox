@@ -1,20 +1,21 @@
 apiVersion: apps/v1
-kind: DaemonSet
+kind: Deployment
 {{ include "metadata" . }}
 spec:
   selector:
     matchLabels:
       {{- include "selectors" . | nindent 6 }}
-  updateStrategy:
+  strategy:
     type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
   template:
     metadata:
       labels:
         {{- include "labels" . | nindent 8 }}
     spec:
       {{- include "podSpec" . | nindent 6 }}
-      hostNetwork: true
-      dnsPolicy: ClusterFirstWithHostNet
       initContainers:
         - {{- include "bootstrap" . | nindent 10 }}
       containers:
@@ -25,12 +26,9 @@ spec:
           {{- include "resources" . | nindent 10 }}
           {{- include "probes" . | nindent 10 }}
           args:
-            - -instance={{ .Instance.Name }}
-            - -platform={{ .Platform.Name }}
-            - -namespace={{ namespace }}
-            - -grpc-addr=$(KUBEFOX_COMPONENT_IP):6060
-            - -nats-addr={{ .Platform.Name }}-nats.{{ .Platform.Namespace }}
-            - -telemetry-addr=false
+            - -http-addr=0.0.0.0:8080
+            - -https-addr=0.0.0.0:8443
+            - -broker-addr=$(KUBEFOX_HOST_IP):6060
             - -health-addr=0.0.0.0:1111
             - -log-format={{ logFormat }}
             - -log-level={{ logLevel }}
@@ -39,7 +37,7 @@ spec:
             - name: KUBEFOX_COMPONENT_IP
               valueFrom:
                 fieldRef:
-                  fieldPath: status.hostIP
+                  fieldPath: status.podIP
             - name: GOMEMLIMIT
               valueFrom:
                 resourceFieldRef:
@@ -54,8 +52,11 @@ spec:
             - configMapRef:
                 name: {{ name }}-env
           ports:
-            - name: grpc
-              containerPort: 6060
+            - name: http
+              containerPort: 8080
+              protocol: TCP
+            - name: https
+              containerPort: 8443
               protocol: TCP
             - name: health
               containerPort: 1111

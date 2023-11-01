@@ -13,32 +13,21 @@ import (
 type HTTPClient struct {
 	wrapped *http.Client
 
-	brk  Broker
-	comp *kubefox.Component
+	brk Broker
 
 	log *logkf.Logger
 }
 
 func NewHTTPClient(brk Broker) *HTTPClient {
-	comp := &kubefox.Component{
-		Name:     "http-client",
-		Commit:   brk.Component().Commit,
-		Id:       brk.Component().Id,
-		BrokerId: brk.Component().BrokerId,
-	}
 
+	// TODO
 	http.DefaultTransport.(*http.Transport).TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
 
 	return &HTTPClient{
 		wrapped: http.DefaultClient,
 		brk:     brk,
-		comp:    comp,
 		log:     logkf.Global,
 	}
-}
-
-func (c *HTTPClient) Component() *kubefox.Component {
-	return c.comp
 }
 
 func (c *HTTPClient) SendEvent(req *LiveEvent) error {
@@ -49,12 +38,12 @@ func (c *HTTPClient) SendEvent(req *LiveEvent) error {
 	httpReq, err := req.Event.HTTPRequest(ctx)
 	if err != nil {
 		cancel()
-		return log.ErrorN("%w: error converting event to http request: %v", ErrEventInvalid, err)
+		return log.ErrorN("%w: error converting event to http request: %v", kubefox.ErrEventInvalid, err)
 	}
 
 	resp := kubefox.NewResp(kubefox.EventOpts{
 		Parent: req.Event,
-		Source: c.comp,
+		Source: req.Target,
 		Target: req.Source,
 	})
 

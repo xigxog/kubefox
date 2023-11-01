@@ -9,24 +9,18 @@ one at https://mozilla.org/MPL/2.0/.
 package v1alpha1
 
 import (
+	kubefox "github.com/xigxog/kubefox/core"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // DeploymentSpec defines the desired state of Deployment
 type DeploymentSpec struct {
-	App        DeploymentApp         `json:"app"`
+	App        App                   `json:"app"`
 	Components map[string]*Component `json:"components"`
 }
 
 type App struct {
-	Name              string `json:"name"`
-	ContainerRegistry string `json:"containerRegistry"`
-	Title             string `json:"title,omitempty"`
-	Description       string `json:"description,omitempty"`
-}
-
-type DeploymentApp struct {
-	App `json:",inline"`
+	kubefox.App `json:",inline"`
 
 	Branch string `json:"branch,omitempty"`
 	Tag    string `json:"tag,omitempty"`
@@ -37,8 +31,8 @@ type DeploymentApp struct {
 }
 
 type Component struct {
-	Title       string `json:"title,omitempty"`
-	Description string `json:"description,omitempty"`
+	kubefox.ComponentSpec `json:",inline"`
+
 	// +kubebuilder:validation:Pattern="^[a-z0-9]{40}$"
 	Commit string `json:"commit"`
 	Image  string `json:"image,omitempty"`
@@ -46,13 +40,14 @@ type Component struct {
 
 // DeploymentStatus defines the observed state of Deployment
 type DeploymentStatus struct {
+	// +kubebuilder:validation:Optional
 	Ready bool `json:"ready"`
 }
 
 //+kubebuilder:object:root=true
 //+kubebuilder:subresource:status
 
-// Deployment is the Schema for the deployments API
+// Deployment is the Schema for the Deployments API
 type Deployment struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
@@ -63,7 +58,7 @@ type Deployment struct {
 
 //+kubebuilder:object:root=true
 
-// DeploymentList contains a list of Deployment
+// DeploymentList contains a list of Deployments
 type DeploymentList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`

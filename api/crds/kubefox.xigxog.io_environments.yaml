@@ -17,7 +17,7 @@ spec:
   - name: v1alpha1
     schema:
       openAPIV3Schema:
-        description: Environment is the Schema for the environments API
+        description: Environment is the Schema for the Environments API
         properties:
           apiVersion:
             description: 'APIVersion defines the versioned schema of this representation
@@ -34,6 +34,24 @@ spec:
           spec:
             description: EnvironmentSpec defines the desired state of Environment
             properties:
+              adapters:
+                additionalProperties:
+                  properties:
+                    headers:
+                      type: object
+                      x-kubernetes-preserve-unknown-fields: true
+                    type:
+                      enum:
+                      - kubefox
+                      - http
+                      type: string
+                    url:
+                      type: object
+                      x-kubernetes-preserve-unknown-fields: true
+                  required:
+                  - type
+                  type: object
+                type: object
               vars:
                 type: object
                 x-kubernetes-preserve-unknown-fields: true
