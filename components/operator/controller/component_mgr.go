@@ -46,7 +46,7 @@ func (cm *ComponentManager) SetupComponent(ctx context.Context, td *TemplateData
 		return false, log.ErrorN("unable to fetch component workload: %w", err)
 	}
 
-	ver := td.Obj.GetLabels()[kubefox.LabelK8sKubeFoxVersion]
+	ver := td.Obj.GetLabels()[kubefox.LabelK8sRuntimeVersion]
 
 	if semver.Compare(ver, build.Info.Version) < 0 {
 		log.Infof("version upgrade detected, applying template to upgrade %s->%s", ver, build.Info.Version)

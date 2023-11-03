@@ -54,9 +54,9 @@ func (c *Client) Start(ctx context.Context) error {
 
 	res := resource.NewWithAttributes(
 		semconv.SchemaURL,
-		attribute.String("kubefox.cluster", config.Instance),
-		attribute.String("kubefox.platform", config.Platform),
-		attribute.String("kubefox.service", "broker"),
+		attribute.String("kubefox."+logkf.KeyInstance, config.Instance),
+		attribute.String("kubefox."+logkf.KeyPlatform, config.Platform),
+		attribute.String("kubefox."+logkf.KeyService, "broker"),
 	)
 
 	metricExp, err := otlpmetrichttp.New(ctx,

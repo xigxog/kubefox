@@ -22,6 +22,8 @@ type PodSpec struct {
 }
 
 type ContainerSpec struct {
+	LogConfig `json:",inline"`
+
 	// Compute Resources required by this container. Cannot be updated.
 	//
 	// More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
@@ -46,4 +48,11 @@ type ContainerSpec struct {
 	//
 	// More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes
 	StartupProbe *corev1.Probe `json:"startupProbe,omitempty"`
+}
+
+type LogConfig struct {
+	// +kubebuilder:validation:Enum=debug;info;warn;error
+	LogLevel string `json:"logLevel,omitempty"`
+	// +kubebuilder:validation:Enum=json;console
+	LogFormat string `json:"logFormat,omitempty"`
 }

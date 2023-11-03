@@ -5,9 +5,7 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
-	"math/rand"
 	"os"
-	"time"
 
 	"github.com/xigxog/kubefox/build"
 	kubefox "github.com/xigxog/kubefox/core"
@@ -192,31 +190,14 @@ func (svc *kit) Start() {
 		svc.log.Fatalf("error starting health server: %v", err)
 	}
 
-	var (
-		attempt int
-		err     error
-	)
-	for attempt < maxAttempts {
-		svc.log.Infof("subscribing to broker, attempt %d/%d", attempt+1, maxAttempts)
-		attempt, err = svc.run(attempt)
-		svc.log.Warnf("broker subscription closed: %v", err)
-		time.Sleep(time.Second * time.Duration(rand.Intn(2)+1))
-	}
-	svc.log.Fatalf("exceeded max attempts connecting to broker: %v", err)
-}
-
-func (svc *kit) run(attempt int) (int, error) {
-	if err := svc.brk.Start(svc.spec); err != nil {
-		return attempt + 1, err
-	}
+	go svc.brk.Start(svc.spec, maxAttempts)
 
 	for {
 		select {
 		case req := <-svc.brk.Req():
 			svc.recvReq(req)
 		case err := <-svc.brk.Err():
-			// Connection was made, reset attempt.
-			return 0, err
+			svc.log.Fatalf("broker unavailable: %v", err)
 		}
 	}
 }

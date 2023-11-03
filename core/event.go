@@ -574,6 +574,7 @@ func (evt *Event) SetHTTPRequest(httpReq *http.Request) error {
 }
 
 func (evt *Event) SetHTTPResponse(httpResp *http.Response) error {
+	// TODO check size of body, no bigger than max event size
 	if httpResp.Body != nil {
 		defer httpResp.Body.Close()
 		content, err := io.ReadAll(httpResp.Body)

@@ -35,10 +35,11 @@ const (
 // Kubernetes Labels
 const (
 	LabelK8sAppName         string = "app.kubernetes.io/name"
-	LabelK8sComponent       string = "kubefox.xigxog.io/component"
+	LabelK8sComponent       string = "app.kubernetes.io/component"
 	LabelK8sComponentCommit string = "kubefox.xigxog.io/component-commit"
-	LabelK8sKubeFoxVersion  string = "kubefox.xigxog.io/version"
+	LabelK8sInstance        string = "app.kubernetes.io/instance"
 	LabelK8sPlatform        string = "kubefox.xigxog.io/platform"
+	LabelK8sRuntimeVersion  string = "app.kubernetes.io/runtime-version"
 )
 
 // Container Labels
@@ -89,7 +90,7 @@ const (
 const (
 	CharSetUTF8 = "charset=UTF-8"
 
-	DataSchemaKubefox = "xigxog.proto.v1.KubeFoxData"
+	DataSchemaEvent = "kubefox.proto.v1.Event"
 
 	ContentTypeHTML     = "text/html"
 	ContentTypeJSON     = "application/json"

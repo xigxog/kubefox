@@ -88,36 +88,35 @@ func (str *Store) Open(compSpecKV jetstream.KeyValue) error {
 		}
 	}()
 
+	ctx, cancel := context.WithTimeout(str.ctx, time.Minute)
+	defer cancel()
+
 	// Getting the informer starts the sync process for the resource kind.
-	if inf, err := c.GetInformer(str.ctx, &v1alpha1.Deployment{}); err != nil {
-		return str.log.ErrorN("deployment informer failed: %v", err)
-	} else {
-		str.depInf = inf
-		k8scache.WaitForCacheSync(str.ctx.Done(), inf.HasSynced)
-		inf.AddEventHandler(str)
+
+	if str.depInf, err = str.startInformer(ctx, &v1alpha1.Deployment{}); err != nil {
+		return err
 	}
-	if inf, err := c.GetInformer(str.ctx, &v1alpha1.Environment{}); err != nil {
-		return str.log.ErrorN("environment informer failed: %v", err)
-	} else {
-		str.envInf = inf
-		k8scache.WaitForCacheSync(str.ctx.Done(), inf.HasSynced)
-		inf.AddEventHandler(str)
+	if str.envInf, err = str.startInformer(ctx, &v1alpha1.Environment{}); err != nil {
+		return nil
 	}
-	if inf, err := c.GetInformer(str.ctx, &v1alpha1.Release{}); err != nil {
-		return str.log.ErrorN("release informer failed: %v", err)
-	} else {
-		str.relInf = inf
-		k8scache.WaitForCacheSync(str.ctx.Done(), inf.HasSynced)
-		inf.AddEventHandler(str)
+	if str.relInf, err = str.startInformer(ctx, &v1alpha1.Release{}); err != nil {
+		return nil
 	}
-	if inf, err := c.GetInformer(str.ctx, &appsv1.DaemonSet{}); err != nil {
-		return str.log.ErrorN("daemonset informer failed: %v", err)
-	} else {
-		str.dsInf = inf
-		k8scache.WaitForCacheSync(str.ctx.Done(), inf.HasSynced)
+	if str.dsInf, err = str.startInformer(ctx, &appsv1.DaemonSet{}); err != nil {
+		return nil
 	}
 
 	return nil
+}
+
+func (str *Store) startInformer(ctx context.Context, obj client.Object) (ctrlcache.Informer, error) {
+	if inf, err := str.resCache.GetInformer(str.ctx, obj); err != nil {
+		return nil, err
+	} else {
+		k8scache.WaitForCacheSync(str.ctx.Done(), inf.HasSynced)
+		inf.AddEventHandler(str)
+		return inf, nil
+	}
 }
 
 func (str *Store) Close() {

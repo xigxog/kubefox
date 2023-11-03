@@ -5,11 +5,9 @@ import (
 	"crypto/tls"
 	"errors"
 	"fmt"
-	"math/rand"
 	"net"
 	"net/http"
 	"strconv"
-	"time"
 
 	kubefox "github.com/xigxog/kubefox/core"
 	"github.com/xigxog/kubefox/grpc"
@@ -88,28 +86,9 @@ func (srv *HTTPSrv) Run() error {
 		srv.log.Info("https server started")
 	}
 
-	var (
-		attempt int
-		err     error
-	)
-	for attempt < maxAttempts {
-		srv.log.Infof("subscribing to broker, attempt %d/%d", attempt+1, maxAttempts)
-		attempt, err = srv.run(attempt)
-		srv.log.Warnf("broker subscription closed: %v", err)
-		time.Sleep(time.Second * time.Duration(rand.Intn(2)+1))
-	}
+	go srv.brk.Start(spec, maxAttempts)
 
-	return err
-}
-
-func (srv *HTTPSrv) run(attempt int) (int, error) {
-	if err := srv.brk.Start(spec); err != nil {
-		return attempt + 1, err
-	}
-
-	err := <-srv.brk.Err()
-	// Connection was made, reset attempt.
-	return 0, err
+	return <-srv.brk.Err()
 }
 
 func (srv *HTTPSrv) Shutdown() {

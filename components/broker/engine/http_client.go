@@ -42,33 +42,33 @@ func (c *HTTPClient) SendEvent(req *LiveEvent) error {
 		return log.ErrorN("%w: error converting event to http request: %v", kubefox.ErrEventInvalid, err)
 	}
 
-	if a := req.TargetAdapter; a != nil {
-		if u, err := url.Parse(a.URL.StringVal); err == nil { // success
-			u = u.JoinPath(httpReq.URL.EscapedPath())
+	if adapter := req.TargetAdapter; adapter != nil {
+		if adapterURL, err := url.Parse(adapter.URL.StringVal); err == nil { // success
+			adapterURL = adapterURL.JoinPath(httpReq.URL.EscapedPath())
 
-			httpReq.URL.Scheme = u.Scheme
-			httpReq.URL.Host = u.Host
-			httpReq.URL.User = u.User
-			httpReq.URL.Path = u.Path
-			httpReq.URL.RawPath = u.RawPath
+			httpReq.URL.Scheme = adapterURL.Scheme
+			httpReq.URL.Host = adapterURL.Host
+			httpReq.URL.User = adapterURL.User
+			httpReq.URL.Path = adapterURL.Path
+			httpReq.URL.RawPath = adapterURL.RawPath
 
-			if u.Fragment != "" {
-				httpReq.URL.Fragment = u.Fragment
-				httpReq.URL.RawFragment = u.RawFragment
+			if adapterURL.Fragment != "" {
+				httpReq.URL.Fragment = adapterURL.Fragment
+				httpReq.URL.RawFragment = adapterURL.RawFragment
 			}
 
 			httpQuery := httpReq.URL.Query()
-			for k, v := range u.Query() {
+			for k, v := range adapterURL.Query() {
 				httpQuery[k] = v
 			}
 			httpReq.URL.RawQuery = httpQuery.Encode()
 
-		} else if a.URL.StringVal != "" {
+		} else if adapter.URL.StringVal != "" {
 			cancel()
 			return fmt.Errorf("error parsing adapter url: %v", err)
 		}
 
-		for k, v := range a.Headers {
+		for k, v := range adapter.Headers {
 			httpReq.Header.Set(k, v.StringVal)
 		}
 	}

@@ -25,7 +25,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/xigxog/kubefox/api/kubernetes/v1alpha1"
 	"github.com/xigxog/kubefox/build"
@@ -101,13 +100,8 @@ func (r *PlatformReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	}
 
 	p := &v1alpha1.Platform{}
-	if err := r.Get(ctx, req.NamespacedName, p); client.IgnoreNotFound(err) != nil {
-		return ctrl.Result{}, log.ErrorN("unable to fetch platform: %w", err)
-
-	} else if apierrors.IsNotFound(err) {
-		log.Debug("platform was deleted, removing namespace label")
-		delete(ns.Labels, kubefox.LabelK8sPlatform)
-		return ctrl.Result{}, r.Update(ctx, ns)
+	if err := r.Get(ctx, req.NamespacedName, p); err != nil {
+		return ctrl.Result{}, err
 	}
 
 	ready := false
@@ -115,17 +109,6 @@ func (r *PlatformReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		p.Status.Ready = ready
 		r.Status().Update(ctx, p)
 	}()
-
-	// TODO move to admission webhook
-	if lbl, found := ns.Labels[kubefox.LabelK8sPlatform]; found && lbl != req.Name {
-		return ctrl.Result{}, log.ErrorN("namespace belongs to platform '%s'", lbl)
-
-	} else if !found {
-		ns.Labels[kubefox.LabelK8sPlatform] = p.Name
-		if err := r.Update(ctx, ns); err != nil {
-			return ctrl.Result{}, err
-		}
-	}
 
 	cm := &v1.ConfigMap{}
 	if err := r.Get(ctx, nn(r.Namespace, r.Instance+"-root-ca"), cm); err != nil {
@@ -136,27 +119,20 @@ func (r *PlatformReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 			Instance: templates.Instance{
 				Name:           r.Instance,
 				Namespace:      r.Namespace,
-				RootCA:         string(cm.Data["ca.crt"]),
+				RootCA:         cm.Data["ca.crt"],
 				BootstrapImage: BootstrapImage,
 				Version:        build.Info.Version,
 			},
-			Values: map[string]any{
-				"pkiInitImage": VaultImage,
+			Platform: templates.Platform{
+				Name:      p.Name,
+				Namespace: p.Namespace,
+				LogFormat: r.LogFormat,
+				LogLevel:  r.LogLevel,
+			},
+			Owner: []*metav1.OwnerReference{
+				metav1.NewControllerRef(p, p.GroupVersionKind()),
 			},
 		},
-	}
-	if err := r.ApplyTemplate(ctx, "instance", &td.Data); err != nil {
-		return ctrl.Result{}, log.ErrorN("problem setting up instance: %w", err)
-	}
-
-	td.Platform = templates.Platform{
-		Name:      p.Name,
-		Namespace: p.Namespace,
-		LogFormat: r.LogFormat,
-		LogLevel:  r.LogLevel,
-	}
-	td.Owner = []*metav1.OwnerReference{
-		metav1.NewControllerRef(p, p.GroupVersionKind()),
 	}
 
 	if err := r.setupVault(ctx, td); err != nil {

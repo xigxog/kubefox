@@ -12,8 +12,7 @@ import (
 
 // +kubebuilder:object:generate=true
 type App struct {
-	Name string `json:"name"`
-	// +kubebuilder:validation:Format=uri
+	Name              string `json:"name"`
 	ContainerRegistry string `json:"containerRegistry,omitempty"`
 	Title             string `json:"title,omitempty"`
 	Description       string `json:"description,omitempty"`

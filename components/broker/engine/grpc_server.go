@@ -114,21 +114,7 @@ func (srv *GRPCServer) Subscribe(stream grpc.Broker_SubscribeServer) error {
 	log := srv.log.WithComponent(comp)
 
 	if err := srv.brk.AuthorizeComponent(stream.Context(), comp, authToken); err != nil {
-		log.Error(err)
-		return fmt.Errorf("unauthorized")
-	}
-
-	// The first event sent should be the component spec.
-	regEvt, err := stream.Recv()
-	if err != nil {
-		return log.ErrorN("component registration failed: %v", err)
-	}
-	if regEvt.Type != string(kubefox.EventTypeRegister) {
-		return log.ErrorN("component registration failed: expected event of type %s but got %s", kubefox.EventTypeRegister, regEvt.Type)
-	}
-	compSpec := &kubefox.ComponentSpec{}
-	if err := regEvt.Bind(compSpec); err != nil {
-		return log.ErrorN("component registration failed: %v", err)
+		return err
 	}
 
 	sendEvt := func(evt *LiveEvent) error {
@@ -139,19 +125,45 @@ func (srv *GRPCServer) Subscribe(stream grpc.Broker_SubscribeServer) error {
 		srv.log.WithEvent(evt.Event).Debug("send event")
 
 		if err := stream.Send(evt.MatchedEvent); err != nil {
-			return fmt.Errorf("%w: %v", kubefox.ErrComponentGone, err)
+			return err
 		}
 		return nil
 	}
 
-	sub, err = srv.brk.Subscribe(stream.Context(), &SubscriptionConf{
+	// The first event sent should be the component spec.
+	regEvt, err := stream.Recv()
+	if err != nil {
+		return err
+	}
+	if regEvt.Type != string(kubefox.EventTypeRegister) {
+		return fmt.Errorf("expected event of type %s but got %s", kubefox.EventTypeRegister, regEvt.Type)
+	}
+	compSpec := &kubefox.ComponentSpec{}
+	if err := regEvt.Bind(compSpec); err != nil {
+		return err
+	}
+
+	if s, err := srv.brk.Subscribe(stream.Context(), &SubscriptionConf{
 		Component:     comp,
 		ComponentSpec: compSpec,
 		SendFunc:      sendEvt,
 		EnableGroup:   true,
-	})
-	if err != nil {
-		return log.ErrorN("%v", err)
+	}); err != nil {
+		return err
+	} else {
+		sub = s
+	}
+
+	regResp := &LiveEvent{
+		Event: kubefox.NewResp(kubefox.EventOpts{
+			Type:   kubefox.EventTypeRegister,
+			Parent: regEvt,
+			Source: srv.brk.Component(),
+			Target: regEvt.Source,
+		}),
+	}
+	if err := sendEvt(regResp); err != nil {
+		return err
 	}
 
 	log.Info("component subscribed")
@@ -174,10 +186,10 @@ func (srv *GRPCServer) Subscribe(stream grpc.Broker_SubscribeServer) error {
 	for {
 		select {
 		case gRPCEvt := <-recvCh:
-			err := gRPCEvt.err
 			evt := gRPCEvt.evt
-			if err != nil {
+			if err := gRPCEvt.err; err != nil {
 				status, _ := status.FromError(err)
+				status.Code()
 				switch {
 				case err == io.EOF || evt == nil:
 					log.Debug("send stream closed")
@@ -196,15 +208,14 @@ func (srv *GRPCServer) Subscribe(stream grpc.Broker_SubscribeServer) error {
 				evt.Source = comp
 
 			} else if !evt.Source.Equal(comp) {
-				err := fmt.Errorf("%w: received event from component '%s' claiming to be '%s', dropping event and canceling subscription",
-					kubefox.ErrComponentMismatch, comp.Key(), evt.Source.Key())
+				fmt.Errorf("received event from component '%s' claiming to be '%s'", comp.Key(), evt.Source.Key())
 				log.Warn(err.Error())
 				return err
 			}
 
 			evt.Source.BrokerId = srv.brk.Component().Id
 
-			err = srv.brk.RecvEvent(&LiveEvent{
+			err := srv.brk.RecvEvent(&LiveEvent{
 				Event:      evt,
 				Receiver:   ReceiverGRPCServer,
 				ReceivedAt: time.Now(),

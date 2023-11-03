@@ -1,11 +1,8 @@
 {{- define "labels" -}}
 {{ include "selectors" . }}
-{{- with .Component.Name }}
-app.kubernetes.io/component: {{ . | quote }}
-{{- end }}
+app.kubernetes.io/version: {{ appVersion | quote }}
 app.kubernetes.io/managed-by: {{ printf "%s-operator" .Instance.Name | quote }}
-kubefox.xigxog.io/version: {{ .Instance.Version | quote }}
-app.kubernetes.io/version: {{ .Instance.Version | quote }}
+kubefox.xigxog.io/runtime-version: {{ .Instance.Version | quote }}
 {{ .ExtraLabels | toYaml }}
 {{- end }}
 
@@ -18,7 +15,7 @@ kubefox.xigxog.io/platform: {{ . | quote }}
 app.kubernetes.io/name: {{ . | quote }} 
 {{- end }}
 {{- with .Component.Name }}
-kubefox.xigxog.io/component: {{ . | quote }}
+app.kubernetes.io/component: {{ . | quote }}
 {{- end }}
 {{- with .Component.Commit }}
 kubefox.xigxog.io/component-commit: {{ . | quote }}

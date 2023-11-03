@@ -15,6 +15,8 @@ import (
 
 // PlatformSpec defines the desired state of Platform
 type PlatformSpec struct {
+	LogConfig `json:",inline"`
+
 	Broker  Broker  `json:"broker,omitempty"`
 	HTTPSrv HTTPSrv `json:"httpsrv,omitempty"`
 	NATS    NATS    `json:"nats,omitempty"`

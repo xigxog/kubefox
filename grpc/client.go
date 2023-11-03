@@ -4,6 +4,7 @@ import (
 	context "context"
 	"errors"
 	"fmt"
+	"math/rand"
 	"net"
 	"net/http"
 	"os"
@@ -60,10 +61,29 @@ func NewClient(opts ClientOpts) *Client {
 	return c
 }
 
-func (c *Client) Start(spec *kubefox.ComponentSpec) error {
+// Start connects to the broker and begins sending and receiving messages. It is
+// a blocking call.
+func (c *Client) Start(spec *kubefox.ComponentSpec, maxAttempts int) {
+	var (
+		attempt int
+		err     error
+	)
+	for attempt < maxAttempts {
+		c.log.Infof("subscribing to broker, attempt %d/%d", attempt+1, maxAttempts)
+
+		attempt, err = c.run(spec, attempt)
+
+		c.log.Warnf("broker subscription closed: %v", err)
+		time.Sleep(time.Second * time.Duration(rand.Intn(2)+1))
+	}
+
+	c.errCh <- err
+}
+
+func (c *Client) run(spec *kubefox.ComponentSpec, retry int) (int, error) {
 	creds, err := credentials.NewClientTLSFromFile(kubefox.PathCACert, "")
 	if err != nil {
-		return fmt.Errorf("unable to load root CA certificate: %v", err)
+		return retry + 1, fmt.Errorf("unable to load root CA certificate: %v", err)
 	}
 	grpcCfg := `{
 		"methodConfig": [{
@@ -84,56 +104,56 @@ func (c *Client) Start(spec *kubefox.ComponentSpec) error {
 		gogrpc.WithDefaultServiceConfig(grpcCfg),
 	)
 	if err != nil {
-		return fmt.Errorf("unable to connect to broker: %v", err)
+		return retry + 1, fmt.Errorf("unable to connect to broker: %v", err)
 	}
 
 	if c.brk, err = NewBrokerClient(conn).Subscribe(context.Background()); err != nil {
-		return fmt.Errorf("subscribing to broker failed: %v", err)
+		return retry + 1, fmt.Errorf("subscribing to broker failed: %v", err)
 	}
 
-	evt := kubefox.NewMsg(kubefox.EventOpts{
+	evt := kubefox.NewReq(kubefox.EventOpts{
 		Type:   kubefox.EventTypeRegister,
 		Source: c.Component,
 	})
 	if err := evt.SetJSON(spec); err != nil {
-		return fmt.Errorf("unable to marshal component spec: %v", err)
+		return retry + 1, fmt.Errorf("unable to marshal component spec: %v", err)
 	}
 	if err := c.send(evt); err != nil {
-		return fmt.Errorf("unable to register with broker: %v", err)
+		return retry + 1, fmt.Errorf("unable to register with broker: %v", err)
+	}
+	if _, err := c.brk.Recv(); err != nil {
+		// TODO deal with redirect when broker removed from host network
+		return retry + 1, fmt.Errorf("unable to register with broker: %v", err)
 	}
 
 	c.healthy.Store(true)
 	c.log.Info("subscribed to broker")
 
-	go func() {
-		defer func() {
-			c.healthy.Store(false)
-			if err := conn.Close(); err != nil {
-				c.log.Error(err)
-			}
-		}()
-
-		for {
-			evt, err := c.brk.Recv()
-			if err != nil {
-				c.errCh <- err
-				return
-			}
-
-			switch evt.Event.Category {
-			case kubefox.Category_REQUEST:
-				go c.recvReq(evt)
-
-			case kubefox.Category_RESPONSE:
-				go c.recvResp(evt.Event)
-
-			default:
-				c.log.Debug("default")
-			}
+	defer func() {
+		c.healthy.Store(false)
+		if err := conn.Close(); err != nil {
+			c.log.Error(err)
 		}
 	}()
 
-	return nil
+	for {
+		evt, err := c.brk.Recv()
+		if err != nil {
+			// Reset retry count after successful connection.
+			return 0, err
+		}
+
+		switch evt.Event.Category {
+		case kubefox.Category_REQUEST:
+			go c.recvReq(evt)
+
+		case kubefox.Category_RESPONSE:
+			go c.recvResp(evt.Event)
+
+		default:
+			c.log.Debug("default")
+		}
+	}
 }
 
 func (c *Client) Err() chan error {

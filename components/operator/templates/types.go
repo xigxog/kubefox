@@ -9,6 +9,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
+// TODO replace with types from API
 type Data struct {
 	Instance  Instance
 	Platform  Platform
@@ -97,6 +98,17 @@ func (d Data) PlatformVaultName() string {
 		name = "kubefox-" + name
 	}
 	return name
+}
+
+func (d Data) AppVersion() string {
+	if p := strings.Split(d.App.Tag, "/"); d.App.Tag != "" {
+		return p[len(p)-1]
+	}
+	if p := strings.Split(d.App.Branch, "/"); d.App.Branch != "" {
+		return p[len(p)-1]
+	}
+
+	return d.App.Commit
 }
 
 func (d Data) ComponentFullName() string {

@@ -10,28 +10,38 @@ package main
 
 import (
 	"context"
+	"encoding/base64"
 	"flag"
+	"fmt"
 	"io/fs"
+	"os"
 	"time"
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
+	"k8s.io/klog/v2"
 
 	"github.com/go-logr/zapr"
-	v1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+	apiv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
-	urt "k8s.io/apimachinery/pkg/util/runtime"
+	kutil "k8s.io/apimachinery/pkg/util/runtime"
 	kscheme "k8s.io/client-go/kubernetes/scheme"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/metrics/server"
+	"sigs.k8s.io/controller-runtime/pkg/webhook"
+	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 	"sigs.k8s.io/yaml"
 
 	"github.com/xigxog/kubefox/api"
 	"github.com/xigxog/kubefox/api/kubernetes/v1alpha1"
+	"github.com/xigxog/kubefox/build"
 	"github.com/xigxog/kubefox/components/operator/controller"
+	"github.com/xigxog/kubefox/components/operator/templates"
+	"github.com/xigxog/kubefox/core"
+
 	"github.com/xigxog/kubefox/logkf"
 	"github.com/xigxog/kubefox/utils"
 )
@@ -41,18 +51,19 @@ var (
 )
 
 func init() {
-	urt.Must(kscheme.AddToScheme(scheme))
-	urt.Must(v1alpha1.AddToScheme(scheme))
-	urt.Must(v1.AddToScheme(scheme))
+	kutil.Must(kscheme.AddToScheme(scheme))
+	kutil.Must(v1alpha1.AddToScheme(scheme))
+	kutil.Must(apiv1.AddToScheme(scheme))
 }
 
+var (
+	instance, namespace  string
+	vaultURL, healthAddr string
+	logFormat, logLevel  string
+	leaderElection       bool
+)
+
 func main() {
-	var (
-		instance, namespace  string
-		vaultURL, healthAddr string
-		logFormat, logLevel  string
-		leaderElection       bool
-	)
 	flag.StringVar(&instance, "instance", "", "The name of the KubeFox instance. (required)")
 	flag.StringVar(&namespace, "namespace", "", "The Kubernetes Namespace of the Operator. (required)")
 	flag.StringVar(&vaultURL, "vault-url", "", "The URL of Vault server. (required)")
@@ -71,6 +82,7 @@ func main() {
 		WithService("operator")
 	defer logkf.Global.Sync()
 	ctrl.SetLogger(zapr.NewLogger(logkf.Global.Unwrap().Desugar()))
+	klog.SetLogger(zapr.NewLogger(logkf.Global.Unwrap().Desugar()))
 
 	log := logkf.Global
 
@@ -80,9 +92,9 @@ func main() {
 			BindAddress: "0",
 		},
 		HealthProbeBindAddress: healthAddr,
-		// WebhookServer: webhook.NewServer(webhook.Options{
-		// 	CertDir: "/kubefox/operator/",
-		// }),
+		WebhookServer: webhook.NewServer(webhook.Options{
+			CertDir: core.KubeFoxHome,
+		}),
 		LeaderElection:          leaderElection,
 		LeaderElectionID:        "a2e4163f.kubefox.xigxog.io",
 		LeaderElectionNamespace: namespace,
@@ -98,7 +110,14 @@ func main() {
 
 	ctrlClient := &controller.Client{Client: mgr.GetClient()}
 
-	createdCRDs(ctrlClient)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+	if err := createdCRDs(ctx, ctrlClient); err != nil {
+		log.Fatalf("error creating crds: %v", err)
+	}
+	if err := setupWebhook(ctx, ctrlClient); err != nil {
+		log.Fatalf("error creating webhooks: %v", err)
+	}
+	cancel()
 
 	if err = (&controller.PlatformReconciler{
 		Client:    ctrlClient,
@@ -126,10 +145,12 @@ func main() {
 		log.Fatalf("unable to create release controller", err)
 	}
 
-	// if err = (&kubefoxv1alpha1.Platform{}).SetupWebhookWithManager(mgr); err != nil {
-	// 	setupLog.Error(err, "unable to create webhook", "webhook", "Platform")
-	// 	os.Exit(1)
-	// }
+	mgr.GetWebhookServer().Register("/v1alpha1-platform", &webhook.Admission{
+		Handler: &controller.PlatformWebhook{
+			Client:  ctrlClient,
+			Decoder: admission.NewDecoder(scheme),
+		},
+	})
 
 	if err := mgr.AddHealthzCheck("healthz", healthz.Ping); err != nil {
 		log.Fatal("unable to set up health check", err)
@@ -144,11 +165,11 @@ func main() {
 	}
 }
 
-func createdCRDs(ctrlClient *controller.Client) {
+func createdCRDs(ctx context.Context, c *controller.Client) error {
 	log := logkf.Global
 
 	created := false
-	fs.WalkDir(api.EFS, "crds",
+	err := fs.WalkDir(api.EFS, "crds",
 		func(path string, d fs.DirEntry, err error) error {
 			if d.IsDir() || err != nil {
 				return err
@@ -160,13 +181,13 @@ func createdCRDs(ctrlClient *controller.Client) {
 				return err
 			}
 
-			crd := &v1.CustomResourceDefinition{}
+			crd := &apiv1.CustomResourceDefinition{}
 			if err := yaml.Unmarshal(b, crd); err != nil {
 				log.Errorf("unable to parse crd %s: %v", path, err)
 				return err
 			}
 
-			err = ctrlClient.Create(context.Background(), crd)
+			err = c.Create(ctx, crd)
 			if errors.IsAlreadyExists(err) {
 				log.Debugf("crd %s already exists", crd.Name)
 				return nil
@@ -180,10 +201,45 @@ func createdCRDs(ctrlClient *controller.Client) {
 			return nil
 		},
 	)
+	if err != nil {
+		return err
+	}
 
 	if created {
 		// Need to let API settle before starting controllers.
 		log.Debug("crd was created, sleeping to allow API to settle")
 		time.Sleep(time.Second * 5)
 	}
+
+	return nil
+}
+
+func setupWebhook(ctx context.Context, c *controller.Client) error {
+	cname := fmt.Sprintf("%s-operator.%s.svc", instance, namespace)
+	pkg, err := utils.GeneratePKI(cname, time.Now().AddDate(10, 0, 0))
+	if err != nil {
+		return err
+	}
+	if err := os.WriteFile(core.PathTLSCert, []byte(pkg.Cert), 0600); err != nil {
+		return err
+	}
+	if err := os.WriteFile(core.PathTLSKey, []byte(pkg.CertPrivKey), 0600); err != nil {
+		return err
+	}
+
+	data := &templates.Data{
+		Instance: templates.Instance{
+			Name:      instance,
+			Namespace: namespace,
+			Version:   build.Info.Version,
+		},
+		Values: map[string]any{
+			"caBundle": base64.StdEncoding.EncodeToString([]byte(pkg.CA)),
+		},
+	}
+	if err := c.ApplyTemplate(ctx, "instance", data); err != nil {
+		return err
+	}
+
+	return nil
 }
