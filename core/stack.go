@@ -160,10 +160,10 @@ func (st StackTrace) formatSlice(s fmt.State, verb rune) {
 	io.WriteString(s, "]")
 }
 
-// stack represents a stack of program counters.
-type stack []uintptr
+// Stack represents a Stack of program counters.
+type Stack []uintptr
 
-func (s *stack) Format(st fmt.State, verb rune) {
+func (s *Stack) Format(st fmt.State, verb rune) {
 	switch verb {
 	case 'v':
 		switch {
@@ -176,20 +176,12 @@ func (s *stack) Format(st fmt.State, verb rune) {
 	}
 }
 
-func (s *stack) StackTrace() StackTrace {
+func (s *Stack) StackTrace() StackTrace {
 	f := make([]Frame, len(*s))
 	for i := 0; i < len(f); i++ {
 		f[i] = Frame((*s)[i])
 	}
 	return f
-}
-
-func callers() *stack {
-	const depth = 32
-	var pcs [depth]uintptr
-	n := runtime.Callers(4, pcs[:])
-	var st stack = pcs[0:n]
-	return &st
 }
 
 // funcname removes the path prefix component of a function's name reported by func.Name().

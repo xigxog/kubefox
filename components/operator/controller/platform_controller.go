@@ -309,6 +309,7 @@ func (r *PlatformReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	return ctrl.Result{}, nil
 }
 
+// TODO break operations into funcs and move to reusable vault client
 func (r *PlatformReconciler) setupVault(ctx context.Context, td *TemplateData) error {
 	r.mutex.Lock()
 	setup := r.vaultMap[td.Platform.Name]

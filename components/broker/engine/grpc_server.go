@@ -143,24 +143,25 @@ func (srv *GRPCServer) Subscribe(stream grpc.Broker_SubscribeServer) error {
 		return err
 	}
 
-	if s, err := srv.brk.Subscribe(stream.Context(), &SubscriptionConf{
+	sub, err = srv.brk.Subscribe(stream.Context(), &SubscriptionConf{
 		Component:     comp,
 		ComponentSpec: compSpec,
 		SendFunc:      sendEvt,
 		EnableGroup:   true,
-	}); err != nil {
+	})
+	if err != nil {
 		return err
-	} else {
-		sub = s
 	}
 
 	regResp := &LiveEvent{
-		Event: kubefox.NewResp(kubefox.EventOpts{
-			Type:   kubefox.EventTypeRegister,
-			Parent: regEvt,
-			Source: srv.brk.Component(),
-			Target: regEvt.Source,
-		}),
+		MatchedEvent: &kubefox.MatchedEvent{
+			Event: kubefox.NewResp(kubefox.EventOpts{
+				Type:   kubefox.EventTypeRegister,
+				Parent: regEvt,
+				Source: srv.brk.Component(),
+				Target: regEvt.Source,
+			}),
+		},
 	}
 	if err := sendEvt(regResp); err != nil {
 		return err
@@ -208,7 +209,7 @@ func (srv *GRPCServer) Subscribe(stream grpc.Broker_SubscribeServer) error {
 				evt.Source = comp
 
 			} else if !evt.Source.Equal(comp) {
-				fmt.Errorf("received event from component '%s' claiming to be '%s'", comp.Key(), evt.Source.Key())
+				err := fmt.Errorf("received event from component '%s' claiming to be '%s'", comp.Key(), evt.Source.Key())
 				log.Warn(err.Error())
 				return err
 			}

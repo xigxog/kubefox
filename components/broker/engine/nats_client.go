@@ -2,7 +2,6 @@ package engine
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"sync"
 	"time"
@@ -215,15 +214,7 @@ func (c *NATSClient) handleMsg(msg *nats.Msg) {
 		ReceivedAt: time.Now(),
 	}
 	if err := c.brk.RecvEvent(lEvt); err != nil {
-		log := c.log.WithEvent(evt)
-		log.Debug(err)
-		if evt.Target.Id == "" && errors.Is(err, kubefox.ErrSubCanceled) {
-			// Any component replica can process, republish event.
-			log.Debug("republishing event from component group subject")
-			if err := c.nc.PublishMsg(msg); err != nil {
-				log.Error("unable to republish event: %v", err)
-			}
-		}
+		c.log.WithEvent(evt).Debug(err)
 	}
 }
 

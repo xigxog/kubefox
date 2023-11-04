@@ -242,10 +242,10 @@ func (brk *broker) AuthorizeComponent(ctx context.Context, comp *kubefox.Compone
 func (brk *broker) RecvEvent(evt *LiveEvent) error {
 	switch {
 	case evt == nil || evt.Event == nil:
-		return kubefox.ErrEventInvalid
+		return kubefox.ErrInvalid
 
 	case evt.TTL() <= 0:
-		return kubefox.ErrEventTimeout
+		return kubefox.ErrTimeout
 	}
 
 	brk.recvCh <- evt
@@ -272,7 +272,7 @@ func (brk *broker) startWorker(id int) {
 				case apierrors.IsNotFound(err): // Not found error from K8s API
 					err = fmt.Errorf("%w: %v", kubefox.ErrRouteNotFound, err)
 
-				case !errors.Is(err, kubefox.ErrKubeFox): // Unknown
+				case !errors.Is(err, &kubefox.Err{}): // Unknown
 					err = fmt.Errorf("%w: %v", kubefox.ErrUnexpected, err)
 				}
 
@@ -358,7 +358,7 @@ func (brk *broker) routeEvent(log *logkf.Logger, evt *LiveEvent) error {
 	}
 
 	if evt.TTL() <= 0 {
-		return fmt.Errorf("%w: event timed out during routing", kubefox.ErrEventTimeout)
+		return fmt.Errorf("%w: event timed out during routing", kubefox.ErrTimeout)
 	}
 
 	return sendEvent(evt)
@@ -366,11 +366,11 @@ func (brk *broker) routeEvent(log *logkf.Logger, evt *LiveEvent) error {
 
 func (brk *broker) checkEvent(evt *LiveEvent) error {
 	if evt.TTL() <= 0 {
-		return fmt.Errorf("%w: event timed out while waiting for worker", kubefox.ErrEventTimeout)
+		return fmt.Errorf("%w: event timed out while waiting for worker", kubefox.ErrTimeout)
 	}
 
 	if evt.Source == nil || !evt.Source.IsFull() {
-		return fmt.Errorf("%w: event source is invalid", kubefox.ErrEventInvalid)
+		return fmt.Errorf("%w: event source is invalid", kubefox.ErrInvalid)
 	}
 
 	if evt.Category == kubefox.Category_RESPONSE && (evt.Target == nil || !evt.Target.IsFull()) {
@@ -387,12 +387,12 @@ func (brk *broker) checkEvent(evt *LiveEvent) error {
 
 	case ReceiverGRPCServer:
 		if evt.Target != nil && !evt.Target.IsFull() && !evt.Target.IsNameOnly() {
-			return fmt.Errorf("%w: event target is invalid", kubefox.ErrEventInvalid)
+			return fmt.Errorf("%w: event target is invalid", kubefox.ErrInvalid)
 		}
 
 		// If a valid context is not present reject.
 		if evt.Context == nil || !evt.Context.IsDeployment() && !evt.Context.IsRelease() {
-			return fmt.Errorf("%w: event context is invalid", kubefox.ErrEventInvalid)
+			return fmt.Errorf("%w: event context is invalid", kubefox.ErrInvalid)
 		}
 	}
 
@@ -427,7 +427,7 @@ func (brk *broker) matchEvent(ctx context.Context, evt *LiveEvent) error {
 		matcher, err = brk.store.DeploymentMatcher(ctx, evt.Context)
 
 	default:
-		return fmt.Errorf("%w: event missing deployment or environment context", kubefox.ErrEventInvalid)
+		return fmt.Errorf("%w: event missing deployment or environment context", kubefox.ErrInvalid)
 	}
 	if err != nil {
 		return fmt.Errorf("%w: error finding matchers: %v", kubefox.ErrUnexpected, err)

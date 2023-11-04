@@ -107,6 +107,13 @@ func (c *Client) run(spec *kubefox.ComponentSpec, retry int) (int, error) {
 		return retry + 1, fmt.Errorf("unable to connect to broker: %v", err)
 	}
 
+	defer func() {
+		c.healthy.Store(false)
+		if err := conn.Close(); err != nil {
+			c.log.Error(err)
+		}
+	}()
+
 	if c.brk, err = NewBrokerClient(conn).Subscribe(context.Background()); err != nil {
 		return retry + 1, fmt.Errorf("subscribing to broker failed: %v", err)
 	}
@@ -123,18 +130,11 @@ func (c *Client) run(spec *kubefox.ComponentSpec, retry int) (int, error) {
 	}
 	if _, err := c.brk.Recv(); err != nil {
 		// TODO deal with redirect when broker removed from host network
-		return retry + 1, fmt.Errorf("unable to register with broker: %v", err)
+		return retry + 1, fmt.Errorf("did not received response from broker: %v", err)
 	}
 
 	c.healthy.Store(true)
 	c.log.Info("subscribed to broker")
-
-	defer func() {
-		c.healthy.Store(false)
-		if err := conn.Close(); err != nil {
-			c.log.Error(err)
-		}
-	}()
 
 	for {
 		evt, err := c.brk.Recv()

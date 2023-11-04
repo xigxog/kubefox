@@ -4,7 +4,6 @@ import (
 	"bytes"
 	context "context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -14,10 +13,6 @@ import (
 
 	"github.com/google/uuid"
 	"google.golang.org/protobuf/types/known/structpb"
-)
-
-var (
-	ErrUnknownContentType = errors.New("unknown content type")
 )
 
 type EventReader interface {

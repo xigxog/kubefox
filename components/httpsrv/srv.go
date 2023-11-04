@@ -105,7 +105,7 @@ func (srv *HTTPSrv) Shutdown() {
 }
 
 func (srv *HTTPSrv) ServeHTTP(resWriter http.ResponseWriter, httpReq *http.Request) {
-	ctx, cancel := context.WithTimeoutCause(httpReq.Context(), eventTTL, kubefox.ErrEventTimeout)
+	ctx, cancel := context.WithTimeoutCause(httpReq.Context(), eventTTL, kubefox.ErrTimeout)
 	defer cancel()
 
 	resWriter.Header().Set(kubefox.HeaderAdapter, comp.Key())
@@ -115,7 +115,7 @@ func (srv *HTTPSrv) ServeHTTP(resWriter http.ResponseWriter, httpReq *http.Reque
 	})
 	req.Ttl = eventTTL.Microseconds()
 	if err := req.SetHTTPRequest(httpReq); err != nil {
-		err = fmt.Errorf("%w: error parsing event: %v", kubefox.ErrEventInvalid, err)
+		err = fmt.Errorf("%w: error parsing event: %v", kubefox.ErrInvalid, err)
 		writeError(resWriter, err, srv.log)
 		return
 	}
@@ -158,9 +158,9 @@ func (srv *HTTPSrv) ServeHTTP(resWriter http.ResponseWriter, httpReq *http.Reque
 func writeError(resWriter http.ResponseWriter, err error, log *logkf.Logger) {
 	log.Debugf("event failed: %v", err)
 	switch {
-	case errors.Is(err, kubefox.ErrEventTimeout):
+	case errors.Is(err, kubefox.ErrTimeout):
 		resWriter.WriteHeader(http.StatusGatewayTimeout)
-	case errors.Is(err, kubefox.ErrEventInvalid):
+	case errors.Is(err, kubefox.ErrInvalid):
 		resWriter.WriteHeader(http.StatusBadRequest)
 	case errors.Is(err, kubefox.ErrRouteNotFound):
 		resWriter.WriteHeader(http.StatusNotFound)

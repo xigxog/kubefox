@@ -39,7 +39,7 @@ func (c *HTTPClient) SendEvent(req *LiveEvent) error {
 	httpReq, err := req.Event.HTTPRequest(ctx)
 	if err != nil {
 		cancel()
-		return log.ErrorN("%w: error converting event to http request: %v", kubefox.ErrEventInvalid, err)
+		return log.ErrorN("%w: error converting event to http request: %v", kubefox.ErrInvalid, err)
 	}
 
 	if adapter := req.TargetAdapter; adapter != nil {
