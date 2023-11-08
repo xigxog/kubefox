@@ -73,6 +73,7 @@ func (Category) EnumDescriptor() ([]byte, []int) {
 	return file_protobuf_msgs_proto_rawDescGZIP(), []int{0}
 }
 
+// TODO add app?
 type Component struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache

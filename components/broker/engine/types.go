@@ -6,6 +6,7 @@ import (
 
 	"github.com/xigxog/kubefox/api/kubernetes/v1alpha1"
 	kubefox "github.com/xigxog/kubefox/core"
+	"google.golang.org/protobuf/types/known/structpb"
 )
 
 type Receiver int
@@ -17,27 +18,26 @@ const (
 	ReceiverHTTPClient
 )
 
-type SendEvent func(*LiveEvent) error
-type RecvEvent func(*LiveEvent) error
+type SendEvent func(*BrokerEvent) error
 
-type LiveEvent struct {
+type BrokerEvent struct {
 	*kubefox.Event
 
-	MatchedEvent *kubefox.MatchedEvent
+	EnvVars map[string]*kubefox.Val
+	RouteId int64
 
 	TargetAdapter *v1alpha1.Adapter
 	Adapters      map[string]*v1alpha1.Adapter
 
 	Receiver   Receiver
 	ReceivedAt time.Time
-	SentCh     chan struct{}
-	ErrCh      chan error
+	DoneCh     chan *kubefox.Err
 
 	tick  time.Time
 	mutex sync.Mutex
 }
 
-func (evt *LiveEvent) TTL() time.Duration {
+func (evt *BrokerEvent) TTL() time.Duration {
 	evt.mutex.Lock()
 	defer evt.mutex.Unlock()
 
@@ -51,12 +51,24 @@ func (evt *LiveEvent) TTL() time.Duration {
 	return evt.Event.TTL()
 }
 
-func (evt *LiveEvent) Err() chan error {
-	return evt.ErrCh
+func (evt *BrokerEvent) Done() chan *kubefox.Err {
+	return evt.DoneCh
 }
 
-func (evt *LiveEvent) Sent() chan struct{} {
-	return evt.SentCh
+func (evt *BrokerEvent) MatchedEvent() *kubefox.MatchedEvent {
+	var env map[string]*structpb.Value
+	if evt.EnvVars != nil {
+		env = make(map[string]*structpb.Value, len(evt.EnvVars))
+		for k, v := range evt.EnvVars {
+			env[k] = v.Proto()
+		}
+	}
+
+	return &kubefox.MatchedEvent{
+		Event:   evt.Event,
+		RouteId: evt.RouteId,
+		Env:     env,
+	}
 }
 
 func (r Receiver) String() string {

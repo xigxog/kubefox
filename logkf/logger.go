@@ -27,6 +27,10 @@ const (
 	KeyPlatform        = "platform"
 	KeyRelease         = "release"
 	KeyService         = "service"
+	KeySourceBrokerId  = "sourceBrokerId"
+	KeySourceCommit    = "sourceCommit"
+	KeySourceId        = "sourceId"
+	KeySourceName      = "sourceName"
 	KeySpanId          = "spanId"
 	KeyTargetBrokerId  = "targetBrokerId"
 	KeyTargetCommit    = "targetCommit"
@@ -100,6 +104,8 @@ func BuildLogger(format, level string) (*Logger, error) {
 	// ensures log messages are shown to be from caller instead of this logger
 	z = z.WithOptions(zap.AddCallerSkip(skip))
 
+	kubefox.RecordStackTraces = (level == "debug")
+
 	return &Logger{wrapped: z.Sugar()}, nil
 }
 
@@ -170,6 +176,18 @@ func (log *Logger) WithComponent(comp *kubefox.Component) *Logger {
 	)
 }
 
+func (log *Logger) WithSource(src *kubefox.Component) *Logger {
+	if src == nil {
+		return log
+	}
+	return log.With(
+		KeySourceId, src.Id,
+		KeySourceCommit, src.Commit,
+		KeySourceName, src.Name,
+		KeySourceBrokerId, src.BrokerId,
+	)
+}
+
 func (log *Logger) WithTarget(tgt *kubefox.Component) *Logger {
 	if tgt == nil {
 		return log
@@ -188,7 +206,7 @@ func (log *Logger) WithEvent(evt *kubefox.Event) *Logger {
 	}
 
 	return log.
-		WithComponent(evt.Source).
+		WithSource(evt.Source).
 		WithTarget(evt.Target).
 		With(
 			KeyEventId, evt.Id,

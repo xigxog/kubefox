@@ -2,12 +2,12 @@ package controller
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 
 	"golang.org/x/mod/semver"
 	appsv1 "k8s.io/api/apps/v1"
-	v1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -50,7 +50,7 @@ func (cm *ComponentManager) SetupComponent(ctx context.Context, td *TemplateData
 
 	if semver.Compare(ver, build.Info.Version) < 0 {
 		log.Infof("version upgrade detected, applying template to upgrade %s->%s", ver, build.Info.Version)
-		return false, cm.Client.ApplyTemplate(ctx, td.Template, &td.Data)
+		return false, cm.Client.ApplyTemplate(ctx, td.Template, &td.Data, log)
 	}
 
 	var available int32
@@ -66,7 +66,7 @@ func (cm *ComponentManager) SetupComponent(ctx context.Context, td *TemplateData
 	}
 	if available <= 0 {
 		log.Debug("component is not ready, applying template to ensure correct state")
-		return false, cm.Client.ApplyTemplate(ctx, td.Template, &td.Data)
+		return false, cm.Client.ApplyTemplate(ctx, td.Template, &td.Data, log)
 	}
 
 	log.Debugf("component '%s' ready", td.ComponentFullName())
@@ -160,17 +160,14 @@ func (cm *ComponentManager) ReconcileApps(ctx context.Context, namespace string)
 	for _, d := range compDepList.Items {
 		if _, found := compMap[d.Name]; !found {
 			log.Debugf("deleting app component '%s'", d.Name)
-			if err := cm.Client.Delete(ctx, &d); err != nil {
+
+			tdStr := d.Annotations[kubefox.AnnotationTemplateData]
+			data := &templates.Data{}
+			if err := json.Unmarshal([]byte(tdStr), data); err != nil {
 				return false, err
 			}
-			// Clean up ServiceAccount.
-			if err := cm.Client.Delete(ctx, &v1.ServiceAccount{
-				ObjectMeta: metav1.ObjectMeta{
-					Namespace: d.Namespace,
-					Name:      d.Name,
-				},
-			}); err != nil {
-				log.Debug(err)
+			if err := cm.Client.DeleteTemplate(ctx, "component", data, log); err != nil {
+				return false, err
 			}
 		}
 	}

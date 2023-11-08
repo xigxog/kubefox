@@ -5,16 +5,20 @@ import kubefox "github.com/xigxog/kubefox/core"
 type VarOption func(*kubefox.EnvVarSchema)
 
 type Var struct {
-	Name string
-	Type kubefox.EnvVarType
+	name string
+	typ  kubefox.EnvVarType
 }
 
-func (v *Var) GetName() string {
-	return v.Name
+func NewVar(name string, typ kubefox.EnvVarType) *Var {
+	return &Var{name: name, typ: typ}
 }
 
-func (v *Var) GetType() kubefox.EnvVarType {
-	return v.Type
+func (v *Var) Name() string {
+	return v.name
+}
+
+func (v *Var) Type() kubefox.EnvVarType {
+	return v.typ
 }
 
 func Array() VarOption {

@@ -11,7 +11,7 @@ import (
 )
 
 type SubscriptionMgr interface {
-	Create(ctx context.Context, cfg *SubscriptionConf, recvCh chan *LiveEvent) (ReplicaSubscription, GroupSubscription, error)
+	Create(ctx context.Context, cfg *SubscriptionConf, recvCh chan *BrokerEvent) (ReplicaSubscription, GroupSubscription, error)
 	Subscription(comp *kubefox.Component) (Subscription, bool)
 	ReplicaSubscription(comp *kubefox.Component) (ReplicaSubscription, bool)
 	GroupSubscription(comp *kubefox.Component) (GroupSubscription, bool)
@@ -20,7 +20,7 @@ type SubscriptionMgr interface {
 }
 
 type Subscription interface {
-	SendEvent(evt *LiveEvent) error
+	SendEvent(evt *BrokerEvent) error
 	IsActive() bool
 	Context() context.Context
 }
@@ -68,7 +68,7 @@ type subscription struct {
 	mgr      *subscriptionMgr
 
 	sendFunc   SendEvent
-	recvCh     chan *LiveEvent
+	recvCh     chan *BrokerEvent
 	sendCh     chan *evtRespCh
 	grpEnabled bool
 
@@ -78,7 +78,7 @@ type subscription struct {
 }
 
 type evtRespCh struct {
-	mEvt   *LiveEvent
+	mEvt   *BrokerEvent
 	respCh chan *sendResp
 }
 
@@ -94,14 +94,13 @@ func NewManager() SubscriptionMgr {
 	}
 }
 
-func (mgr *subscriptionMgr) Create(ctx context.Context, cfg *SubscriptionConf, recvCh chan *LiveEvent) (ReplicaSubscription, GroupSubscription, error) {
-	log := mgr.log.WithComponent(cfg.Component)
+func (mgr *subscriptionMgr) Create(ctx context.Context, cfg *SubscriptionConf, recvCh chan *BrokerEvent) (ReplicaSubscription, GroupSubscription, error) {
 	if err := checkComp(cfg.Component); err != nil {
 		return nil, nil, err
 	}
 
 	if sub, found := mgr.ReplicaSubscription(cfg.Component); found {
-		log.Warn("subscription for component already exists")
+		mgr.log.WithComponent(cfg.Component).Warn("subscription for component already exists")
 		sub.Cancel(nil)
 	}
 
@@ -219,7 +218,7 @@ func (mgr *subscriptionMgr) cancel(sub *subscription, err error) {
 	delete(mgr.subMap, sub.comp.Id)
 }
 
-func (grp *subscriptionGroup) SendEvent(evt *LiveEvent) error {
+func (grp *subscriptionGroup) SendEvent(evt *BrokerEvent) error {
 	respCh := make(chan *sendResp)
 	grp.sendCh <- &evtRespCh{mEvt: evt, respCh: respCh}
 	resp := <-respCh
@@ -235,7 +234,7 @@ func (sub *subscriptionGroup) Context() context.Context {
 	return sub.ctx
 }
 
-func (sub *subscription) SendEvent(evt *LiveEvent) error {
+func (sub *subscription) SendEvent(evt *BrokerEvent) error {
 	if err := sub.sendFunc(evt); err != nil {
 		return err
 	}

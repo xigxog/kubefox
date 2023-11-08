@@ -143,7 +143,7 @@ func (str *Store) Component(ctx context.Context, comp *kubefox.Component) (*kube
 	if !found {
 		entry, err := str.compSpecKV.Get(ctx, comp.GroupKey())
 		if errors.Is(err, nats.ErrKeyNotFound) {
-			return nil, fmt.Errorf("%w: component is not registered", kubefox.ErrRouteNotFound)
+			return nil, kubefox.ErrRouteNotFound(fmt.Errorf("component is not registered"))
 		} else if err != nil {
 			return nil, err
 		}

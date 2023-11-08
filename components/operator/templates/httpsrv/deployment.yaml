@@ -27,7 +27,7 @@ spec:
           {{- include "probes" . | nindent 10 }}
           args:
             - -name={{ .Component.Name }}
-            - -commit={{ .Component.Commit }}
+            - -commit={{ .BuildInfo.HTTPSrvCommit }}
             - -http-addr=0.0.0.0:8080
             - -https-addr=0.0.0.0:8443
             - -broker-addr=$(KUBEFOX_HOST_IP):6060

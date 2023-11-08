@@ -2,6 +2,7 @@ package templates
 
 import (
 	"embed"
+	"encoding/json"
 	"path"
 	"strings"
 	"text/template"
@@ -65,6 +66,18 @@ func initFuncs(tpl *template.Template, data *Data) {
 		return s
 	}
 
+	funcMap["toJSON"] = func(v any) string {
+		data, err := json.Marshal(v)
+		if err != nil {
+			return ""
+		}
+		s := strings.TrimSuffix(string(data), "\n")
+		if s == "null" {
+			s = ""
+		}
+		return s
+	}
+
 	funcMap["file"] = func(name string) string {
 		if s, err := renderStr(path.Base(name), name, data); err != nil {
 			return ""
@@ -78,6 +91,7 @@ func initFuncs(tpl *template.Template, data *Data) {
 	funcMap["platformFullName"] = data.PlatformFullName
 	funcMap["platformVaultName"] = data.PlatformVaultName
 	funcMap["componentFullName"] = data.ComponentFullName
+	funcMap["componentVaultName"] = data.ComponentVaultName
 	funcMap["appVersion"] = data.AppVersion
 	funcMap["homePath"] = data.HomePath
 	funcMap["logLevel"] = data.LogLevel

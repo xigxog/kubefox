@@ -176,14 +176,11 @@ image: {{ .Instance.BootstrapImage }}
 imagePullPolicy: {{ .Component.ImagePullPolicy | default "IfNotPresent" }}
 {{ include "securityContext" . }}
 args:
-  - -instance={{ .Instance.Name }}
-  - -platform={{ .Platform.Name }}
-  - -component={{ .Component.Name }}
+  - -platform-vault-name={{ platformVaultName }}
+  - -component-vault-name={{ componentVaultName }}
+  - -component-service-name={{ printf "%s.%s" componentFullName namespace }}
   - -component-ip=$(KUBEFOX_COMPONENT_IP)
-  - -namespace={{ namespace }}
-  - -vault-name={{ platformVaultName }}
-  - -vault-role={{ printf "%s-%s" platformVaultName .Component.Name }}
-  - -vault-addr={{ printf "%s-vault.%s:8200" .Instance.Name .Instance.Namespace }}
+  - -vault-url={{ .Values.vaultURL }}
   - -log-format={{ logFormat }}
   - -log-level={{ logLevel }}
 env:

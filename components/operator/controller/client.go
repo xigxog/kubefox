@@ -11,6 +11,7 @@ import (
 	"github.com/xigxog/kubefox/api/kubernetes/v1alpha1"
 	"github.com/xigxog/kubefox/components/operator/templates"
 	kubefox "github.com/xigxog/kubefox/core"
+	"github.com/xigxog/kubefox/logkf"
 )
 
 const (
@@ -21,14 +22,31 @@ type Client struct {
 	client.Client
 }
 
-func (c *Client) ApplyTemplate(ctx context.Context, name string, data *templates.Data) error {
+func (c *Client) ApplyTemplate(ctx context.Context, name string, data *templates.Data, log *logkf.Logger) error {
 	objs, err := templates.Render(name, data)
 	if err != nil {
 		return err
 	}
 
 	for _, obj := range objs {
+		log.Debugf("applying template resource '%s'", toString(obj))
 		if err := c.Apply(ctx, obj); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (c *Client) DeleteTemplate(ctx context.Context, name string, data *templates.Data, log *logkf.Logger) error {
+	objs, err := templates.Render(name, data)
+	if err != nil {
+		return err
+	}
+
+	for _, obj := range objs {
+		log.Debugf("deleting template resource '%s'", toString(obj))
+		if err := c.Delete(ctx, obj); err != nil {
 			return err
 		}
 	}
@@ -84,4 +102,13 @@ func nn(namespace, name string) types.NamespacedName {
 		Namespace: namespace,
 		Name:      name,
 	}
+}
+
+func toString(obj client.Object) string {
+	gvk := obj.GetObjectKind().GroupVersionKind()
+	grp := gvk.Group
+	if grp == "" {
+		grp = "core"
+	}
+	return fmt.Sprintf("%s/%s/%s/%s", grp, gvk.Version, gvk.Kind, obj.GetName())
 }

@@ -31,6 +31,15 @@ type Adapter struct {
 	// +kubebuilder:validation:Type=object
 	// +kubebuilder:pruning:PreserveUnknownFields
 	Headers map[string]*kubefox.StringOrSecret `json:"headers,omitempty"`
+	// InsecureSkipVerify controls whether a client verifies the server's
+	// certificate chain and host name. If InsecureSkipVerify is true, any
+	// certificate presented by the server and any host name in that certificate
+	// is accepted. In this mode, TLS is susceptible to machine-in-the-middle
+	// attacks.
+	InsecureSkipVerify bool `json:"insecureSkipVerify,omitempty"`
+	// Defaults to never.
+	// +kubebuilder:validation:Enum=Never;Always;SameHost
+	FollowRedirects kubefox.FollowRedirects `json:"followRedirects,omitempty"`
 }
 
 // EnvironmentStatus defines the observed state of Environment

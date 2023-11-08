@@ -6,6 +6,9 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"runtime"
+	"sync"
+	"time"
 
 	"github.com/xigxog/kubefox/build"
 	kubefox "github.com/xigxog/kubefox/core"
@@ -25,7 +28,8 @@ type kit struct {
 	routes     []*route
 	defHandler EventHandler
 
-	brk *grpc.Client
+	brk        *grpc.Client
+	numWorkers int
 
 	export bool
 
@@ -54,6 +58,7 @@ func New() Kit {
 	flag.StringVar(&comp.Commit, "commit", "", "Commit the Component was built from; environment variable 'KUBEFOX_COMPONENT_COMMIT'. (required)")
 	flag.StringVar(&brokerAddr, "broker-addr", "127.0.0.1:6060", "Address of the Broker gRPC server; environment variable 'KUBEFOX_BROKER_ADDR'.")
 	flag.StringVar(&healthAddr, "health-addr", "127.0.0.1:1111", `Address and port the HTTP health server should bind to, set to "false" to disable; environment variable 'KUBEFOX_HEALTH_ADDR'.`)
+	flag.IntVar(&svc.numWorkers, "num-workers", runtime.NumCPU(), "Number of worker threads to start, default is number of logical CPUs.")
 	flag.StringVar(&logFormat, "log-format", "console", "Log format; environment variable 'KUBEFOX_LOG_FORMAT'. [options 'json', 'console']")
 	flag.StringVar(&logLevel, "log-level", "debug", "Log level; environment variable 'KUBEFOX_LOG_LEVEL'. [options 'debug', 'info', 'warn', 'error']")
 	flag.BoolVar(&svc.export, "export", false, "Exports component configuration in JSON and exits.")
@@ -151,10 +156,7 @@ func (svc *kit) EnvVar(name string, opts ...env.VarOption) EnvVar {
 	}
 	svc.spec.EnvSchema[name] = schema
 
-	return &env.Var{
-		Name: name,
-		Type: schema.Type,
-	}
+	return env.NewVar(name, schema.Type)
 }
 
 func (svc *kit) Component(name string) Dependency {
@@ -167,12 +169,10 @@ func (svc *kit) HTTPAdapter(name string) Dependency {
 
 func (svc *kit) dependency(name string, typ kubefox.ComponentType) Dependency {
 	c := &dependency{
-		ComponentTypeVar: kubefox.ComponentTypeVar{
-			Type: typ,
-		},
-		Name: name,
+		typ:  typ,
+		name: name,
 	}
-	svc.spec.Dependencies[name] = &c.ComponentTypeVar
+	svc.spec.Dependencies[name] = &kubefox.ComponentTypeVar{Type: typ}
 
 	return c
 }
@@ -184,25 +184,49 @@ func (svc *kit) Start() {
 		os.Exit(0)
 	}
 
+	var err error
+	defer func() {
+		if err != nil {
+			logkf.Global.Sync()
+			os.Exit(1)
+		}
+	}()
+
 	svc.log.DebugInterface("component spec:", svc.spec)
 
-	if err := svc.brk.StartHealthSrv(); err != nil {
-		svc.log.Fatalf("error starting health server: %v", err)
+	if err = svc.brk.StartHealthSrv(); err != nil {
+		svc.log.Errorf("error starting health server: %v", err)
+		return
 	}
 
 	go svc.brk.Start(svc.spec, maxAttempts)
 
-	for {
-		select {
-		case req := <-svc.brk.Req():
-			svc.recvReq(req)
-		case err := <-svc.brk.Err():
-			svc.log.Fatalf("broker unavailable: %v", err)
-		}
+	var wg sync.WaitGroup
+	wg.Add(svc.numWorkers)
+	svc.log.Infof("starting %d workers", svc.numWorkers)
+
+	for i := 0; i < svc.numWorkers; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for {
+				select {
+				case req := <-svc.brk.Req():
+					svc.recvReq(req)
+				case err = <-svc.brk.Err():
+					svc.log.Errorf("broker error: %v", err)
+					return
+				}
+			}
+		}()
 	}
+
+	wg.Wait()
 }
 
-func (svc *kit) recvReq(req *kubefox.MatchedEvent) {
+func (svc *kit) recvReq(req *grpc.ComponentEvent) {
+	req.Event.ReduceTTL(req.ReceivedAt)
+
 	ctx, cancel := context.WithTimeout(context.Background(), req.Event.TTL())
 	defer cancel()
 
@@ -210,22 +234,18 @@ func (svc *kit) recvReq(req *kubefox.MatchedEvent) {
 
 	ktx := &kontext{
 		Event: req.Event,
-		resp: kubefox.NewResp(kubefox.EventOpts{
-			Parent: req.Event,
-			Source: svc.brk.Component,
-			Target: req.Event.Source,
-		}),
-		kit: svc,
-		env: req.Env,
-		ctx: ctx,
-		log: log,
+		kit:   svc,
+		env:   req.Env,
+		start: time.Now(),
+		ctx:   ctx,
+		log:   log,
 	}
 
 	var err error
 	switch {
 	case req.RouteId == kubefox.DefaultRouteId:
 		if svc.defHandler == nil {
-			err = fmt.Errorf("default handler not found")
+			err = kubefox.ErrNotFound(fmt.Errorf("default handler not found"))
 		} else {
 			err = svc.defHandler(ktx)
 		}
@@ -234,14 +254,14 @@ func (svc *kit) recvReq(req *kubefox.MatchedEvent) {
 		err = svc.routes[req.RouteId].handler(ktx)
 
 	default:
-		err = fmt.Errorf("invalid route id %d", req.RouteId)
+		err = kubefox.ErrNotFound(fmt.Errorf("invalid route id %d", req.RouteId))
 	}
 
 	if err != nil {
-		ktx.resp.Type = string(kubefox.EventTypeError)
-
 		log.Error(err)
-		if err := ktx.Resp().SendStr(err.Error()); err != nil {
+
+		errEvt := kubefox.NewErr(err, kubefox.EventOpts{})
+		if err := ktx.ForwardResp(errEvt).Send(); err != nil {
 			log.Error(err)
 		}
 	}

@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io"
 	"net"
-	"os"
 	"sync"
 	"time"
 
@@ -31,11 +30,6 @@ type GRPCServer struct {
 	log *logkf.Logger
 }
 
-type gRPCEvent struct {
-	evt *kubefox.Event
-	err error
-}
-
 func NewGRPCServer(brk Broker) *GRPCServer {
 	return &GRPCServer{
 		brk: brk,
@@ -48,7 +42,7 @@ func (srv *GRPCServer) Start(ctx context.Context) error {
 
 	creds, err := credentials.NewServerTLSFromFile(kubefox.PathTLSCert, kubefox.PathTLSKey)
 	if err != nil {
-		return srv.log.ErrorN("%v", err)
+		return kubefox.ErrUnexpected(err)
 	}
 	srv.wrapped = gogrpc.NewServer(
 		gogrpc.Creds(creds),
@@ -60,13 +54,12 @@ func (srv *GRPCServer) Start(ctx context.Context) error {
 
 	lis, err := net.Listen("tcp", config.GRPCSrvAddr)
 	if err != nil {
-		return srv.log.ErrorN("%v", err)
+		return kubefox.ErrPortUnavailable(err)
 	}
 
 	go func() {
 		if err = srv.wrapped.Serve(lis); err != nil {
-			srv.log.Error(err)
-			os.Exit(1)
+			srv.log.Fatal(err)
 		}
 	}()
 
@@ -100,6 +93,36 @@ func (srv *GRPCServer) Shutdown(timeout time.Duration) {
 }
 
 func (srv *GRPCServer) Subscribe(stream grpc.Broker_SubscribeServer) error {
+	sub, err := srv.subscribe(stream)
+
+	l := srv.log
+	if sub != nil {
+		l = l.WithComponent(sub.Component())
+	}
+
+	if err != nil {
+		status, _ := status.FromError(err)
+		switch {
+		case err == io.EOF:
+			l.Debug("send stream closed by component")
+		case status.Code() == codes.Canceled:
+			l.Debug("context canceled")
+		case status.Code() == codes.PermissionDenied:
+			l.Warn(err)
+		default:
+			l.Error(err)
+		}
+
+		if sub != nil {
+			sub.Cancel(err)
+		}
+	}
+
+	l.Info("component unsubscribed")
+	return err
+}
+
+func (srv *GRPCServer) subscribe(stream grpc.Broker_SubscribeServer) (ReplicaSubscription, error) {
 	var (
 		err       error
 		authToken string
@@ -109,23 +132,23 @@ func (srv *GRPCServer) Subscribe(stream grpc.Broker_SubscribeServer) error {
 	)
 
 	if authToken, comp, err = parseMD(stream); err != nil {
-		return srv.log.ErrorN("%v", err)
+		return nil, kubefox.ErrUnauthorized(err)
 	}
-	log := srv.log.WithComponent(comp)
+	subLog := srv.log.WithComponent(comp)
 
 	if err := srv.brk.AuthorizeComponent(stream.Context(), comp, authToken); err != nil {
-		return err
+		return nil, kubefox.ErrUnauthorized(err)
 	}
 
-	sendEvt := func(evt *LiveEvent) error {
+	sendEvt := func(evt *BrokerEvent) error {
 		// Protect the stream from being called by multiple threads.
 		sendMutex.Lock()
 		defer sendMutex.Unlock()
 
-		srv.log.WithEvent(evt.Event).Debug("send event")
+		subLog.WithEvent(evt.Event).Debug("send event")
 
-		if err := stream.Send(evt.MatchedEvent); err != nil {
-			return err
+		if err := stream.Send(evt.MatchedEvent()); err != nil {
+			return kubefox.ErrUnexpected(err)
 		}
 		return nil
 	}
@@ -133,14 +156,15 @@ func (srv *GRPCServer) Subscribe(stream grpc.Broker_SubscribeServer) error {
 	// The first event sent should be the component spec.
 	regEvt, err := stream.Recv()
 	if err != nil {
-		return err
+		return nil, kubefox.ErrUnauthorized(err)
 	}
-	if regEvt.Type != string(kubefox.EventTypeRegister) {
-		return fmt.Errorf("expected event of type %s but got %s", kubefox.EventTypeRegister, regEvt.Type)
+	if regEvt.EventType() != kubefox.EventTypeRegister {
+		return nil, kubefox.ErrUnauthorized(fmt.Errorf("expected event of type %s but got %s",
+			kubefox.EventTypeRegister, regEvt.Type))
 	}
 	compSpec := &kubefox.ComponentSpec{}
 	if err := regEvt.Bind(compSpec); err != nil {
-		return err
+		return nil, kubefox.ErrUnauthorized(err)
 	}
 
 	sub, err = srv.brk.Subscribe(stream.Context(), &SubscriptionConf{
@@ -150,87 +174,73 @@ func (srv *GRPCServer) Subscribe(stream grpc.Broker_SubscribeServer) error {
 		EnableGroup:   true,
 	})
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	regResp := &LiveEvent{
-		MatchedEvent: &kubefox.MatchedEvent{
-			Event: kubefox.NewResp(kubefox.EventOpts{
-				Type:   kubefox.EventTypeRegister,
-				Parent: regEvt,
-				Source: srv.brk.Component(),
-				Target: regEvt.Source,
-			}),
-		},
+	regResp := &BrokerEvent{
+		Event: kubefox.NewResp(kubefox.EventOpts{
+			Type:   kubefox.EventTypeRegister,
+			Parent: regEvt,
+			Source: srv.brk.Component(),
+			Target: regEvt.Source,
+		}),
 	}
 	if err := sendEvt(regResp); err != nil {
-		return err
+		return sub, err
 	}
 
-	log.Info("component subscribed")
-	defer func() {
-		sub.Cancel(err)
-		log.Info("component unsubscribed")
-	}()
+	subLog.Info("component subscribed")
 
 	// This simply receives events from the gRPC stream and places them on a
 	// channel. This makes checking for the context to be done easier by using a
 	// select in the next code block.
-	recvCh := make(chan *gRPCEvent)
+	recvCh := make(chan *kubefox.Event)
 	go func() {
 		for {
+			if !sub.IsActive() {
+				return
+			}
 			evt, err := stream.Recv()
-			recvCh <- &gRPCEvent{evt: evt, err: err}
+			if err != nil {
+				sub.Cancel(err)
+				return
+			}
+			recvCh <- evt
 		}
 	}()
 
 	for {
 		select {
-		case gRPCEvt := <-recvCh:
-			evt := gRPCEvt.evt
-			if err := gRPCEvt.err; err != nil {
-				status, _ := status.FromError(err)
-				status.Code()
-				switch {
-				case err == io.EOF || evt == nil:
-					log.Debug("send stream closed")
-				case status.Code() == codes.Canceled:
-					log.Debug("context canceled")
-				default:
-					log.Error(err)
-				}
-				return err
-			}
-
-			log = srv.log.WithEvent(evt)
-			log.Debug("receive event")
+		case evt := <-recvCh:
+			l := subLog.WithEvent(evt)
+			l.Debug("receive event")
 
 			if evt.Source == nil {
 				evt.Source = comp
-
 			} else if !evt.Source.Equal(comp) {
-				err := fmt.Errorf("received event from component '%s' claiming to be '%s'", comp.Key(), evt.Source.Key())
-				log.Warn(err.Error())
-				return err
+				return sub, kubefox.ErrUnauthorized(
+					fmt.Errorf("event from '%s' claiming to be '%s'", comp.Key(), evt.Source.Key()))
 			}
-
 			evt.Source.BrokerId = srv.brk.Component().Id
 
-			err := srv.brk.RecvEvent(&LiveEvent{
-				Event:      evt,
-				Receiver:   ReceiverGRPCServer,
-				ReceivedAt: time.Now(),
-			})
-			if err != nil {
-				log.Debug(err)
+			brkEvt := srv.brk.RecvEvent(evt, ReceiverGRPCServer)
+			if err := <-brkEvt.Done(); err != nil &&
+				evt.Category == kubefox.Category_REQUEST &&
+				err.Code() != kubefox.CodeTimeout {
+
+				errResp := kubefox.NewErr(err, kubefox.EventOpts{
+					Parent: evt,
+					Source: srv.brk.Component(),
+					Target: evt.Source,
+				})
+
+				if err := sendEvt(&BrokerEvent{Event: errResp}); err != nil {
+					return sub, err
+				}
 			}
 
 		case <-sub.Context().Done():
-			if sub.Err() != nil {
-				log.Error(sub.Err())
-			}
-
-			return sub.Err()
+			return sub, sub.Err()
 		}
 	}
 }

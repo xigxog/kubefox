@@ -20,16 +20,13 @@ const (
 )
 
 type Flags struct {
-	instance    string
-	platform    string
-	vaultName   string
-	component   string
-	componentIP string
-	namespace   string
-	vaultAddr   string
-	vaultRole   string
-	logFormat   string
-	logLevel    string
+	platformVaultName string
+	compVaultName     string
+	compSvcName       string
+	compIP            string
+	vaultURL          string
+	logFormat         string
+	logLevel          string
 }
 
 var (
@@ -37,30 +34,23 @@ var (
 )
 
 func main() {
-	flag.StringVar(&f.instance, "instance", "", "Name of KubeFox instance. (required)")
-	flag.StringVar(&f.platform, "platform", "", "Name of Platform. (required)")
-	flag.StringVar(&f.component, "component", "", "Name of Component to bootstrap. (required)")
-	flag.StringVar(&f.componentIP, "component-ip", "", "IP address of Component to bootstrap. (required)")
-	flag.StringVar(&f.namespace, "namespace", "", "Namespace of Platform. (required)")
-	flag.StringVar(&f.vaultName, "vault-name", "", "Name of Platform in Vault. (required)")
-	flag.StringVar(&f.vaultRole, "vault-role", "", "Name of Vault role to authenticate with. (required)")
-	flag.StringVar(&f.vaultAddr, "vault-addr", "127.0.0.1:8200", "Address and port of Vault server.")
+	flag.StringVar(&f.platformVaultName, "platform-vault-name", "", "Vault name of Platform. (required)")
+	flag.StringVar(&f.compVaultName, "component-vault-name", "", "Vault name of Component to bootstrap. (required)")
+	flag.StringVar(&f.compSvcName, "component-service-name", "", "Service name of Component to bootstrap. (required)")
+	flag.StringVar(&f.compIP, "component-ip", "", "IP address of Component to bootstrap. (required)")
+	flag.StringVar(&f.vaultURL, "vault-url", "", "URL of Vault server. (required)")
 	flag.StringVar(&f.logFormat, "log-format", "console", `Log format; one of ["json", "console"].`)
 	flag.StringVar(&f.logLevel, "log-level", "debug", `Log level; one of ["debug", "info", "warn", "error"].`)
 	flag.Parse()
 
-	utils.CheckRequiredFlag("instance", f.instance)
-	utils.CheckRequiredFlag("platform", f.platform)
-	utils.CheckRequiredFlag("component", f.component)
-	utils.CheckRequiredFlag("component-ip", f.componentIP)
-	utils.CheckRequiredFlag("namespace", f.namespace)
-	utils.CheckRequiredFlag("vault-name", f.vaultName)
-	utils.CheckRequiredFlag("vault-role", f.vaultRole)
+	utils.CheckRequiredFlag("platform-vault-name", f.platformVaultName)
+	utils.CheckRequiredFlag("component-vault-name", f.compVaultName)
+	utils.CheckRequiredFlag("component-service-name", f.compSvcName)
+	utils.CheckRequiredFlag("component-ip", f.compIP)
+	utils.CheckRequiredFlag("vault-url", f.vaultURL)
 
 	logkf.Global = logkf.
 		BuildLoggerOrDie(f.logFormat, f.logLevel).
-		WithInstance(f.instance).
-		WithPlatform(f.platform).
 		WithService("bootstrap")
 	defer logkf.Global.Sync()
 	log := logkf.Global
@@ -68,7 +58,7 @@ func main() {
 	log.DebugInterface("flags:", f)
 
 	for retry := 0; retry < 3; retry++ {
-		log.Infof("generating certificates using vault role %s, attempt %d of 3", f.vaultRole, retry+1)
+		log.Infof("generating certificates for component %s, attempt %d of 3", f.compVaultName, retry+1)
 		if err := generateCerts(log); err != nil {
 			log.Errorf("error generating certificates: %v", err)
 			time.Sleep(time.Second * time.Duration(rand.Intn(2)+1))
@@ -90,13 +80,12 @@ func generateCerts(log *logkf.Logger) error {
 		return err
 	}
 
-	cname := fmt.Sprintf("%s-%s.%s", f.platform, f.component, f.namespace)
-	path := fmt.Sprintf("pki/int/platform/%s/issue/%s", f.vaultName, f.component)
+	path := fmt.Sprintf("pki/int/platform/%s/issue/%s", f.platformVaultName, f.compVaultName)
 
 	s, err := c.Logical().WriteWithContext(ctx, path, map[string]interface{}{
-		"common_name": cname,
-		"alt_names":   fmt.Sprintf("%s@%s,localhost", f.component, cname),
-		"ip_sans":     fmt.Sprintf("%s,127.0.0.1", f.componentIP),
+		"common_name": fmt.Sprintf("%s.svc", f.compSvcName),
+		"alt_names":   fmt.Sprintf("%s@%s,%s,localhost", f.compVaultName, f.compSvcName, f.compSvcName),
+		"ip_sans":     fmt.Sprintf("%s,127.0.0.1", f.compIP),
 		"ttl":         TenYears,
 	})
 	if err != nil {
@@ -121,7 +110,7 @@ func generateCerts(log *logkf.Logger) error {
 
 func vaultClient(ctx context.Context) (*vapi.Client, error) {
 	cfg := vapi.DefaultConfig()
-	cfg.Address = fmt.Sprintf("https://%s", f.vaultAddr)
+	cfg.Address = f.vaultURL
 	cfg.MaxRetries = 3
 	cfg.HttpClient.Timeout = time.Second * 15
 	cfg.ConfigureTLS(&vapi.TLSConfig{
@@ -138,7 +127,7 @@ func vaultClient(ctx context.Context) (*vapi.Client, error) {
 		return nil, err
 	}
 	token := vauth.WithServiceAccountToken(string(b))
-	auth, err := vauth.NewKubernetesAuth(f.vaultRole, token)
+	auth, err := vauth.NewKubernetesAuth(f.compVaultName, token)
 	if err != nil {
 		return nil, err
 	}

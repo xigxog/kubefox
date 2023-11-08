@@ -42,6 +42,11 @@ const (
 	LabelK8sRuntimeVersion  string = "app.kubernetes.io/runtime-version"
 )
 
+// Kubernetes Annotations
+const (
+	AnnotationTemplateData string = "kubefox.xigxog.io/template-data"
+)
+
 // Container Labels
 const (
 	LabelOCIApp       string = "com.xigxog.kubefox.app"
@@ -143,4 +148,12 @@ const (
 	ComponentTypeGenesis  ComponentType = "genesis"
 	ComponentTypeHTTP     ComponentType = "http"
 	ComponentTypeKubeFox  ComponentType = "kubefox"
+)
+
+type FollowRedirects string
+
+const (
+	FollowRedirectsAlways   FollowRedirects = "Always"
+	FollowRedirectsNever    FollowRedirects = "Never"
+	FollowRedirectsSameHost FollowRedirects = "SameHost"
 )

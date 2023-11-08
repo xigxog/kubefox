@@ -35,10 +35,13 @@ type Kontext interface {
 	Env(v EnvVar) string
 	EnvV(v EnvVar) *kubefox.Val
 	EnvDef(v EnvVar, def string) string
+	EnvDefV(v EnvVar, def *kubefox.Val) *kubefox.Val
 
 	Resp() Resp
+	ForwardResp(resp kubefox.EventReader) Resp
 
 	Req(c Dependency) Req
+	Forward(c Dependency) Req
 	HTTP(c Dependency) *http.Client
 	Transport(c Dependency) http.RoundTripper
 
@@ -69,14 +72,14 @@ type Resp interface {
 }
 
 type EnvVar interface {
-	GetName() string
-	GetType() kubefox.EnvVarType
+	Name() string
+	Type() kubefox.EnvVarType
 }
 
 type Dependency interface {
-	GetName() string
-	GetType() kubefox.ComponentType
-	GetEventType() kubefox.EventType
+	Name() string
+	Type() kubefox.ComponentType
+	EventType() kubefox.EventType
 }
 
 type route struct {
@@ -86,21 +89,20 @@ type route struct {
 }
 
 type dependency struct {
-	kubefox.ComponentTypeVar
-
-	Name string
+	typ  kubefox.ComponentType
+	name string
 }
 
-func (c *dependency) GetName() string {
-	return c.Name
+func (c *dependency) Name() string {
+	return c.name
 }
 
-func (c *dependency) GetType() kubefox.ComponentType {
-	return c.Type
+func (c *dependency) Type() kubefox.ComponentType {
+	return c.typ
 }
 
-func (c *dependency) GetEventType() kubefox.EventType {
-	switch c.Type {
+func (c *dependency) EventType() kubefox.EventType {
+	switch c.typ {
 	case kubefox.ComponentTypeHTTP:
 		return kubefox.EventTypeHTTP
 	default:

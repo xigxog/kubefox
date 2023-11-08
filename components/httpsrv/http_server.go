@@ -8,6 +8,7 @@ import (
 	"net"
 	"net/http"
 	"strconv"
+	"time"
 
 	kubefox "github.com/xigxog/kubefox/core"
 	"github.com/xigxog/kubefox/grpc"
@@ -34,7 +35,7 @@ func NewHTTPSrv() *HTTPSrv {
 			HealthSrvAddr: healthAddr,
 		}),
 
-		log: logkf.Global.WithComponent(comp),
+		log: logkf.Global,
 	}
 }
 
@@ -105,7 +106,7 @@ func (srv *HTTPSrv) Shutdown() {
 }
 
 func (srv *HTTPSrv) ServeHTTP(resWriter http.ResponseWriter, httpReq *http.Request) {
-	ctx, cancel := context.WithTimeoutCause(httpReq.Context(), eventTTL, kubefox.ErrTimeout)
+	ctx, cancel := context.WithTimeoutCause(httpReq.Context(), eventTTL, kubefox.ErrTimeout())
 	defer cancel()
 
 	resWriter.Header().Set(kubefox.HeaderAdapter, comp.Key())
@@ -113,9 +114,9 @@ func (srv *HTTPSrv) ServeHTTP(resWriter http.ResponseWriter, httpReq *http.Reque
 	req := kubefox.NewReq(kubefox.EventOpts{
 		Source: comp,
 	})
-	req.Ttl = eventTTL.Microseconds()
+	req.SetTTL(eventTTL)
 	if err := req.SetHTTPRequest(httpReq); err != nil {
-		err = fmt.Errorf("%w: error parsing event: %v", kubefox.ErrInvalid, err)
+		err = fmt.Errorf("%v: %w", err, kubefox.ErrInvalid())
 		writeError(resWriter, err, srv.log)
 		return
 	}
@@ -123,10 +124,13 @@ func (srv *HTTPSrv) ServeHTTP(resWriter http.ResponseWriter, httpReq *http.Reque
 	log := srv.log.WithEvent(req)
 	log.Debug("receive request")
 
-	// TODO broker needs to return error for route not found
-	resp, err := srv.brk.SendReq(ctx, req)
-	if err != nil {
+	resp, err := srv.brk.SendReq(ctx, req, time.Now())
+	switch {
+	case err != nil:
 		writeError(resWriter, err, log)
+		return
+	case resp.Err() != nil:
+		writeError(resWriter, resp.Err(), log)
 		return
 	}
 
@@ -134,38 +138,27 @@ func (srv *HTTPSrv) ServeHTTP(resWriter http.ResponseWriter, httpReq *http.Reque
 		resWriter.Header().Set(kubefox.HeaderTraceId, resp.TraceId())
 	}
 
-	var statusCode int
-	switch {
-	case resp.Type == string(kubefox.EventTypeError):
-		statusCode = http.StatusInternalServerError
-
-	default:
-		httpResp := resp.HTTPResponse()
-		statusCode = httpResp.StatusCode
-		for key, val := range httpResp.Header {
-			for _, h := range val {
-				resWriter.Header().Add(key, h)
-			}
+	httpResp := resp.HTTPResponse()
+	for key, val := range httpResp.Header {
+		for _, h := range val {
+			resWriter.Header().Add(key, h)
 		}
 	}
-
 	resWriter.Header().Set("Content-Type", resp.ContentType)
 	resWriter.Header().Set("Content-Length", strconv.Itoa(len(resp.Content)))
-	resWriter.WriteHeader(statusCode)
+	resWriter.WriteHeader(httpResp.StatusCode)
 	resWriter.Write(resp.Content)
 }
 
 func writeError(resWriter http.ResponseWriter, err error, log *logkf.Logger) {
 	log.Debugf("event failed: %v", err)
-	switch {
-	case errors.Is(err, kubefox.ErrTimeout):
-		resWriter.WriteHeader(http.StatusGatewayTimeout)
-	case errors.Is(err, kubefox.ErrInvalid):
-		resWriter.WriteHeader(http.StatusBadRequest)
-	case errors.Is(err, kubefox.ErrRouteNotFound):
-		resWriter.WriteHeader(http.StatusNotFound)
-	default:
-		resWriter.WriteHeader(http.StatusInternalServerError)
+
+	statusCode := http.StatusInternalServerError
+	kfErr := &kubefox.Err{}
+	if ok := errors.As(err, &kfErr); ok {
+		statusCode = kfErr.HTTPCode()
 	}
+
+	resWriter.WriteHeader(statusCode)
 	resWriter.Write([]byte(err.Error()))
 }

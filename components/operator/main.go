@@ -237,7 +237,7 @@ func setupWebhook(ctx context.Context, c *controller.Client) error {
 			"caBundle": base64.StdEncoding.EncodeToString([]byte(pkg.CA)),
 		},
 	}
-	if err := c.ApplyTemplate(ctx, "instance", data); err != nil {
+	if err := c.ApplyTemplate(ctx, "instance", data, logkf.Global); err != nil {
 		return err
 	}
 

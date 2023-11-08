@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"time"
 
 	kubefox "github.com/xigxog/kubefox/core"
 	"github.com/xigxog/kubefox/grpc"
@@ -16,25 +17,27 @@ import (
 type kontext struct {
 	*kubefox.Event
 
-	kit  *kit
-	resp *kubefox.Event
-	env  map[string]*structpb.Value
+	kit *kit
+	env map[string]*structpb.Value
 
-	ctx context.Context
-	log *logkf.Logger
+	start time.Time
+	ctx   context.Context
+	log   *logkf.Logger
 }
 
 type respKontext struct {
 	*kubefox.Event
 
-	brk *grpc.Client
+	brk   *grpc.Client
+	start time.Time
 }
 
 type reqKontext struct {
 	*kubefox.Event
 
-	brk *grpc.Client
-	ctx context.Context
+	brk   *grpc.Client
+	start time.Time
+	ctx   context.Context
 }
 
 func (k *kontext) Context() context.Context {
@@ -50,7 +53,7 @@ func (k *kontext) Env(v EnvVar) string {
 }
 
 func (k *kontext) EnvV(v EnvVar) *kubefox.Val {
-	val, _ := kubefox.ValProto(k.env[v.GetName()])
+	val, _ := kubefox.ValProto(k.env[v.Name()])
 	return val
 }
 
@@ -62,23 +65,63 @@ func (k *kontext) EnvDef(v EnvVar, def string) string {
 	}
 }
 
+func (k *kontext) EnvDefV(v EnvVar, def *kubefox.Val) *kubefox.Val {
+	if val := k.EnvV(v); val == nil {
+		return def
+	} else {
+		return val
+	}
+}
+
+func (k *kontext) ForwardResp(resp kubefox.EventReader) Resp {
+	return &respKontext{
+		Event: kubefox.CloneToResp(resp.(*kubefox.Event), kubefox.EventOpts{
+			Parent: k.Event,
+			Source: k.kit.brk.Component,
+			Target: k.Event.Source,
+		}),
+		brk:   k.kit.brk,
+		start: k.start,
+	}
+}
+
 func (k *kontext) Resp() Resp {
 	return &respKontext{
-		Event: k.resp,
+		Event: kubefox.NewResp(kubefox.EventOpts{
+			Parent: k.Event,
+			Source: k.kit.brk.Component,
+			Target: k.Event.Source,
+		}),
 		brk:   k.kit.brk,
+		start: k.start,
 	}
 }
 
 func (k *kontext) Req(c Dependency) Req {
 	return &reqKontext{
 		Event: kubefox.NewReq(kubefox.EventOpts{
-			Type:   c.GetEventType(),
+			Type:   c.EventType(),
 			Parent: k.Event,
 			Source: k.kit.brk.Component,
-			Target: &kubefox.Component{Name: c.GetName()},
+			Target: &kubefox.Component{Name: c.Name()},
 		}),
-		brk: k.kit.brk,
-		ctx: k.ctx,
+		brk:   k.kit.brk,
+		start: k.start,
+		ctx:   k.ctx,
+	}
+}
+
+func (k *kontext) Forward(c Dependency) Req {
+	return &reqKontext{
+		Event: kubefox.CloneToReq(k.Event, kubefox.EventOpts{
+			Type:   c.EventType(),
+			Parent: k.Event,
+			Source: k.kit.brk.Component,
+			Target: &kubefox.Component{Name: c.Name()},
+		}),
+		brk:   k.kit.brk,
+		start: k.start,
+		ctx:   k.ctx,
 	}
 }
 
@@ -92,13 +135,14 @@ func (k *kontext) Transport(c Dependency) http.RoundTripper {
 	return &EventRoundTripper{
 		req: &reqKontext{
 			Event: kubefox.NewReq(kubefox.EventOpts{
-				Type:   c.GetEventType(),
+				Type:   c.EventType(),
 				Parent: k.Event,
 				Source: k.kit.brk.Component,
-				Target: &kubefox.Component{Name: c.GetName()},
+				Target: &kubefox.Component{Name: c.Name()},
 			}),
-			brk: k.kit.brk,
-			ctx: k.ctx,
+			brk:   k.kit.brk,
+			start: k.start,
+			ctx:   k.ctx,
 		},
 	}
 }
@@ -138,7 +182,7 @@ func (resp *respKontext) SendBytes(contentType string, b []byte) error {
 }
 
 func (resp *respKontext) Send() error {
-	return resp.brk.SendResp(resp.Event)
+	return resp.brk.SendResp(resp.Event, resp.start)
 }
 
 func (req *reqKontext) SendStr(val string) (kubefox.EventReader, error) {
@@ -176,10 +220,5 @@ func (req *reqKontext) SendBytes(contentType string, b []byte) (kubefox.EventRea
 }
 
 func (req *reqKontext) Send() (kubefox.EventReader, error) {
-	resp, err := req.brk.SendReq(req.ctx, req.Event)
-	if err != nil {
-		return nil, err
-	}
-
-	return resp, nil
+	return req.brk.SendReq(req.ctx, req.Event, req.start)
 }

@@ -31,7 +31,7 @@ type Client struct {
 	brk    Broker_SubscribeClient
 	reqMap map[string]*reqChan
 
-	recvCh chan *kubefox.MatchedEvent
+	recvCh chan *ComponentEvent
 	errCh  chan error
 
 	reqMapMutex sync.RWMutex
@@ -43,6 +43,12 @@ type Client struct {
 	log *logkf.Logger
 }
 
+type ComponentEvent struct {
+	*kubefox.MatchedEvent
+
+	ReceivedAt time.Time
+}
+
 type reqChan struct {
 	ch      chan *kubefox.Event
 	expires time.Time
@@ -52,7 +58,7 @@ func NewClient(opts ClientOpts) *Client {
 	c := &Client{
 		ClientOpts: opts,
 		reqMap:     make(map[string]*reqChan),
-		recvCh:     make(chan *kubefox.MatchedEvent),
+		recvCh:     make(chan *ComponentEvent),
 		errCh:      make(chan error),
 		log:        logkf.Global,
 	}
@@ -78,6 +84,7 @@ func (c *Client) Start(spec *kubefox.ComponentSpec, maxAttempts int) {
 	}
 
 	c.errCh <- err
+	close(c.errCh)
 }
 
 func (c *Client) run(spec *kubefox.ComponentSpec, retry int) (int, error) {
@@ -125,12 +132,12 @@ func (c *Client) run(spec *kubefox.ComponentSpec, retry int) (int, error) {
 	if err := evt.SetJSON(spec); err != nil {
 		return retry + 1, fmt.Errorf("unable to marshal component spec: %v", err)
 	}
-	if err := c.send(evt); err != nil {
-		return retry + 1, fmt.Errorf("unable to register with broker: %v", err)
+	if err := c.send(evt, time.Now()); err != nil {
+		return retry + 1, err
 	}
 	if _, err := c.brk.Recv(); err != nil {
 		// TODO deal with redirect when broker removed from host network
-		return retry + 1, fmt.Errorf("did not received response from broker: %v", err)
+		return retry + 1, err
 	}
 
 	c.healthy.Store(true)
@@ -143,6 +150,11 @@ func (c *Client) run(spec *kubefox.ComponentSpec, retry int) (int, error) {
 			return 0, err
 		}
 
+		if c.brk.Context().Err() != nil {
+			// Reset retry count after successful connection.
+			return 0, err
+		}
+
 		switch evt.Event.Category {
 		case kubefox.Category_REQUEST:
 			go c.recvReq(evt)
@@ -151,7 +163,7 @@ func (c *Client) run(spec *kubefox.ComponentSpec, retry int) (int, error) {
 			go c.recvResp(evt.Event)
 
 		default:
-			c.log.Debug("default")
+			c.log.WithEvent(evt.Event).Debug("received event on unexpected category, dropping")
 		}
 	}
 }
@@ -160,26 +172,29 @@ func (c *Client) Err() chan error {
 	return c.errCh
 }
 
-func (c *Client) Req() chan *kubefox.MatchedEvent {
+func (c *Client) Req() chan *ComponentEvent {
 	return c.recvCh
 }
 
-func (c *Client) SendReq(ctx context.Context, req *kubefox.Event) (*kubefox.Event, error) {
-	respCh, err := c.SendReqChan(req)
+func (c *Client) SendReq(ctx context.Context, req *kubefox.Event, start time.Time) (*kubefox.Event, error) {
+	respCh, err := c.SendReqChan(req, start)
 	if err != nil {
 		return nil, err
 	}
 
 	select {
 	case resp := <-respCh:
-		return resp, nil
+		return resp, resp.Err()
 
 	case <-ctx.Done():
-		return nil, ctx.Err()
+		return nil, kubefox.ErrTimeout(err)
+
+	case <-c.brk.Context().Done():
+		return nil, kubefox.ErrBrokerUnavailable(err)
 	}
 }
 
-func (c *Client) SendReqChan(req *kubefox.Event) (chan *kubefox.Event, error) {
+func (c *Client) SendReqChan(req *kubefox.Event, start time.Time) (chan *kubefox.Event, error) {
 	c.log.WithEvent(req).Debug("send request")
 
 	respCh := make(chan *kubefox.Event)
@@ -190,21 +205,21 @@ func (c *Client) SendReqChan(req *kubefox.Event) (chan *kubefox.Event, error) {
 	}
 	c.reqMapMutex.Unlock()
 
-	if err := c.send(req); err != nil {
+	if err := c.send(req, start); err != nil {
 		return nil, err
 	}
 
 	return respCh, nil
 }
 
-func (c *Client) SendResp(resp *kubefox.Event) error {
+func (c *Client) SendResp(resp *kubefox.Event, start time.Time) error {
 	c.log.WithEvent(resp).Debug("send response")
-	return c.send(resp)
+	return c.send(resp, start)
 }
 
 func (c *Client) recvReq(req *kubefox.MatchedEvent) {
 	c.log.WithEvent(req.Event).Debug("receive request")
-	c.recvCh <- req
+	c.recvCh <- &ComponentEvent{MatchedEvent: req, ReceivedAt: time.Now()}
 }
 
 func (c *Client) recvResp(resp *kubefox.Event) {
@@ -224,10 +239,15 @@ func (c *Client) recvResp(resp *kubefox.Event) {
 	respCh.ch <- resp
 }
 
-func (c *Client) send(evt *kubefox.Event) error {
+func (c *Client) send(evt *kubefox.Event, start time.Time) error {
 	// Need to protect the stream from being called by multiple threads.
 	c.sendMutex.Lock()
 	defer c.sendMutex.Unlock()
+
+	evt.ReduceTTL(start)
+	if evt.TTL() < 0 {
+		return kubefox.ErrTimeout()
+	}
 
 	return c.brk.Send(evt)
 }
@@ -298,7 +318,7 @@ func (c *Client) startReqMapReaper() {
 		log.Debugf("reaping request map of size %d", len(c.reqMap))
 		c.reqMapMutex.RLock()
 		// Add a 5 second buffer to expiration.
-		now := time.Now().Add(time.Second * 5)
+		now := time.Now().Add(time.Second * -30)
 		for k, v := range c.reqMap {
 			// If request has expired delete it.
 			if now.After(v.expires) {

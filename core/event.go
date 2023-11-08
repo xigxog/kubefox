@@ -4,14 +4,17 @@ import (
 	"bytes"
 	context "context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
 	"net/textproto"
+	"net/url"
 	"strings"
 	"time"
 
 	"github.com/google/uuid"
+	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/structpb"
 )
 
@@ -22,7 +25,7 @@ type EventReader interface {
 	ParamV(key string) *Val
 	ParamDef(key string, def string) string
 
-	URL() string
+	URL() (*url.URL, error)
 
 	Query(key string) string
 	QueryV(key string) *Val
@@ -48,6 +51,9 @@ type EventWriter interface {
 	SetParam(key, value string) EventWriter
 	SetParamV(key string, value *Val) EventWriter
 
+	SetURL(u *url.URL) EventWriter
+	TrimPathPrefix(prefix string) EventWriter
+
 	SetQuery(key, value string) EventWriter
 	SetQueryV(key string, value *Val) EventWriter
 	DelQuery(key string) EventWriter
@@ -69,15 +75,36 @@ type EventOpts struct {
 }
 
 func NewResp(opts EventOpts) *Event {
-	return newEvent(Category_RESPONSE, opts)
+	return applyOpts(NewEvent(), Category_RESPONSE, opts)
 }
 
 func NewReq(opts EventOpts) *Event {
-	return newEvent(Category_REQUEST, opts)
+	return applyOpts(NewEvent(), Category_REQUEST, opts)
 }
 
 func NewMsg(opts EventOpts) *Event {
-	return newEvent(Category_MESSAGE, opts)
+	return applyOpts(NewEvent(), Category_MESSAGE, opts)
+}
+
+func NewErr(err error, opts EventOpts) *Event {
+	opts.Type = EventTypeError
+
+	evt := NewEvent()
+	kfErr := &Err{}
+	if ok := errors.As(err, &kfErr); !ok {
+		kfErr = ErrUnexpected(err)
+	}
+	evt.SetJSON(kfErr)
+
+	return applyOpts(evt, Category_RESPONSE, opts)
+}
+
+func CloneToResp(evt *Event, opts EventOpts) *Event {
+	return clone(evt, Category_RESPONSE, opts)
+}
+
+func CloneToReq(evt *Event, opts EventOpts) *Event {
+	return clone(evt, Category_REQUEST, opts)
 }
 
 func NewEvent() *Event {
@@ -90,16 +117,29 @@ func NewEvent() *Event {
 	}
 }
 
-func newEvent(cat Category, opts EventOpts) *Event {
-	evt := NewEvent()
+func clone(evt *Event, cat Category, opts EventOpts) *Event {
+	clone := proto.Clone(evt).(*Event)
+	clone.Id = uuid.NewString()
+	clone.CreateTime = time.Now().UnixMicro()
+	if clone.Params == nil {
+		clone.Params = make(map[string]*structpb.Value)
+	}
+	if clone.Values == nil {
+		clone.Values = make(map[string]*structpb.Value)
+	}
+	if clone.Context == nil {
+		clone.Context = &EventContext{}
+	}
+	return applyOpts(clone, cat, opts)
+}
+
+func applyOpts(evt *Event, cat Category, opts EventOpts) *Event {
 	evt.SetParent(opts.Parent)
 	evt.Category = cat
 	evt.Source = opts.Source
 	evt.Target = opts.Target
-	if opts.Type != EventTypeUnknown {
+	if opts.Type != "" && opts.Type != EventTypeUnknown {
 		evt.Type = string(opts.Type)
-	} else if opts.Parent != nil {
-		evt.Type = opts.Parent.Type
 	}
 
 	return evt
@@ -115,7 +155,7 @@ func (evt *Event) SetParent(parent *Event) {
 	evt.SetTraceId(parent.TraceId())
 	evt.SetSpanId(parent.SpanId())
 	evt.SetTraceFlags(parent.TraceFlags())
-	if evt.Type == "" {
+	if evt.Type == "" || evt.Type == string(EventTypeUnknown) {
 		evt.Type = parent.Type
 	}
 }
@@ -131,6 +171,19 @@ func (evt *Event) SetContext(evtCtx *EventContext) {
 
 func (evt *Event) EventType() EventType {
 	return EventType(evt.Type)
+}
+
+func (evt *Event) Err() error {
+	if evt.EventType() != EventTypeError {
+		return nil
+	}
+
+	err := &Err{}
+	if e := evt.Bind(err); e != nil {
+		err = ErrUnexpected(e)
+	}
+
+	return err
 }
 
 func (evt *Event) Param(key string) string {
@@ -302,6 +355,10 @@ func (evt *Event) TTL() time.Duration {
 	return time.Duration(evt.Ttl) * time.Microsecond
 }
 
+func (evt *Event) SetTTL(t time.Duration) {
+	evt.Ttl = t.Microseconds()
+}
+
 func (evt *Event) ReduceTTL(start time.Time) time.Duration {
 	evt.Ttl = evt.Ttl - time.Since(start).Microseconds()
 	return evt.TTL()
@@ -349,8 +406,30 @@ func (evt *Event) SetTraceFlags(val byte) {
 	evt.SetValueV(ValKeyTraceFlags, ValInt(int(val)))
 }
 
-func (evt *Event) URL() string {
-	return evt.Value(ValKeyURL)
+func (evt *Event) URL() (*url.URL, error) {
+	return url.Parse(evt.Value(ValKeyURL))
+}
+
+func (evt *Event) SetURL(u *url.URL) EventWriter {
+	if u == nil {
+		u = &url.URL{}
+	}
+
+	evt.SetValue(ValKeyURL, u.String())
+	evt.SetValue(ValKeyHost, strings.ToLower(u.Host))
+	evt.SetValue(ValKeyPath, u.Path)
+	evt.SetValueMap(ValKeyQuery, u.Query())
+
+	return evt
+}
+
+func (evt *Event) TrimPathPrefix(prefix string) EventWriter {
+	if u, err := evt.URL(); err == nil { // success
+		u.Path = strings.TrimPrefix(u.Path, prefix)
+		evt.SetURL(u)
+	}
+
+	return evt
 }
 
 func (evt *Event) Query(key string) string {
@@ -474,7 +553,7 @@ func (evt *Event) bind(v any, strict bool) error {
 		}
 		return dec.Decode(v)
 	default:
-		return fmt.Errorf("%w: %s", ErrUnknownContentType, evt.ContentType)
+		return fmt.Errorf("%w: %s", ErrUnknownContentType(), evt.ContentType)
 	}
 }
 
@@ -537,33 +616,30 @@ func (evt *Event) SetHTTPRequest(httpReq *http.Request) error {
 		HeaderEventType, HeaderAbbrvEventType, HeaderShortEventType,
 	)
 
-	url := *httpReq.URL
+	u := *httpReq.URL
 	if host := httpReq.Header.Get("X-Forwarded-Host"); host != "" {
 		if port := httpReq.Header.Get("X-Forwarded-Port"); port != "" {
-			url.Host = fmt.Sprintf("%s:%s", host, port)
+			u.Host = fmt.Sprintf("%s:%s", host, port)
 		} else {
-			url.Host = host
+			u.Host = host
 		}
 		if scheme := httpReq.Header.Get("X-Forwarded-Proto"); scheme != "" {
-			url.Scheme = scheme
+			u.Scheme = scheme
 		}
 	}
-	if url.Scheme == "" {
-		url.Scheme = "http"
+	if u.Scheme == "" {
+		u.Scheme = "http"
 		if httpReq.TLS != nil {
-			url.Scheme = "https"
+			u.Scheme = "https"
 		}
 	}
-	if url.Host == "" {
-		url.Host = httpReq.Host
+	if u.Host == "" {
+		u.Host = httpReq.Host
 	}
 
-	evt.SetValue(ValKeyURL, url.String())
-	evt.SetValue(ValKeyHost, strings.ToLower(url.Host))
-	evt.SetValue(ValKeyPath, url.Path)
+	evt.SetURL(&u)
 	evt.SetValue(ValKeyMethod, httpReq.Method)
 	evt.SetValueMap(ValKeyHeader, httpReq.Header)
-	evt.SetValueMap(ValKeyQuery, url.Query())
 
 	return nil
 }

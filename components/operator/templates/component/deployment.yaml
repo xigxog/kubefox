@@ -1,6 +1,17 @@
 apiVersion: apps/v1
 kind: Deployment
-{{ include "metadata" . }}
+metadata:
+  name: {{ componentFullName }}
+  namespace: {{ namespace }}
+  labels:
+    {{- include "labels" . | nindent 4 }}
+  annotations:
+    kubefox.xigxog.io/template-data: |
+      {{- . | toJSON | nindent 6 }}
+  {{- with .Owner }}
+  ownerReferences:
+    {{- . | toYaml | nindent 4 }}
+  {{- end }}
 spec:
   selector:
     matchLabels:

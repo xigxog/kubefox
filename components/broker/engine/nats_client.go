@@ -208,14 +208,7 @@ func (c *NATSClient) handleMsg(msg *nats.Msg) {
 		evt.ReduceTTL(md.Timestamp)
 	}
 
-	lEvt := &LiveEvent{
-		Event:      evt,
-		Receiver:   ReceiverNATS,
-		ReceivedAt: time.Now(),
-	}
-	if err := c.brk.RecvEvent(lEvt); err != nil {
-		c.log.WithEvent(evt).Debug(err)
-	}
+	c.brk.RecvEvent(evt, ReceiverNATS)
 }
 
 func (c *NATSClient) IsHealthy(ctx context.Context) bool {

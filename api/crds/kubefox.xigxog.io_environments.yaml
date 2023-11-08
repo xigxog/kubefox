@@ -37,9 +37,23 @@ spec:
               adapters:
                 additionalProperties:
                   properties:
+                    followRedirects:
+                      description: Defaults to never.
+                      enum:
+                      - Never
+                      - Always
+                      - SameHost
+                      type: string
                     headers:
                       type: object
                       x-kubernetes-preserve-unknown-fields: true
+                    insecureSkipVerify:
+                      description: InsecureSkipVerify controls whether a client verifies
+                        the server's certificate chain and host name. If InsecureSkipVerify
+                        is true, any certificate presented by the server and any host
+                        name in that certificate is accepted. In this mode, TLS is
+                        susceptible to machine-in-the-middle attacks.
+                      type: boolean
                     type:
                       enum:
                       - kubefox

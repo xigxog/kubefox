@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/xigxog/kubefox/api/kubernetes/v1alpha1"
+	"github.com/xigxog/kubefox/build"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
@@ -20,6 +21,8 @@ type Data struct {
 	Owner       []*metav1.OwnerReference
 
 	Values map[string]any
+
+	BuildInfo build.BuildInfo
 }
 
 type Instance struct {
@@ -130,6 +133,14 @@ func (d Data) ComponentFullName() string {
 	}
 	name = fmt.Sprintf("%s-%s-%s", name, d.Component.Name, commit)
 	return strings.TrimSuffix(name, "-")
+}
+
+func (d Data) ComponentVaultName() string {
+	if d.App.Name == "" {
+		return fmt.Sprintf("%s-%s", d.PlatformVaultName(), d.Component.Name)
+	} else {
+		return fmt.Sprintf("%s-%s-%s", d.PlatformVaultName(), d.App.Name, d.Component.Name)
+	}
 }
 
 func (d Data) LogLevel() string {

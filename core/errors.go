@@ -2,6 +2,7 @@ package core
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"runtime"
@@ -10,98 +11,160 @@ import (
 	"google.golang.org/grpc/status"
 )
 
+var RecordStackTraces bool
+
+type Code int
+
+const (
+	CodeUnexpected Code = iota
+
+	CodeBrokerMismatch
+	CodeBrokerUnavailable
+	CodeComponentGone
+	CodeComponentInvalid
+	CodeComponentMismatch
+	CodeComponentUnknown
+	CodeInvalid
+	CodeNotFound
+	CodePortUnavailable
+	CodeRequestGone
+	CodeResponseInvalid
+	CodeRouteInvalid
+	CodeRouteNotFound
+	CodeTimeout
+	CodeUnauthorized
+	CodeUnknownContentType
+	CodeUnsupportedAdapter
+)
+
 type Err struct {
 	// Keeps members private but allows for easy JSON marshalling.
-	err
+	err err
 }
 
 type err struct {
 	*Stack `json:"-"`
 
-	GRPCCode codes.Code `json:"grpcCode,omitempty"`
-	HTTPCode int        `json:"httpCode,omitempty"`
+	Code     Code       `json:"code"`
+	GRPCCode codes.Code `json:"grpcCode"`
+	HTTPCode int        `json:"httpCode"`
 	Msg      string     `json:"msg,omitempty"`
-	cause    error
+	Cause    string     `json:"cause,omitempty"`
+
+	cause error
 }
 
-var (
-	ErrBrokerMismatch        = NewErr("broker mismatch", codes.FailedPrecondition, http.StatusBadGateway)
-	ErrBrokerUnavailable     = NewErr("broker unavailable", codes.Unavailable, http.StatusBadGateway)
-	ErrComponentGone         = NewErr("component gone", codes.FailedPrecondition, http.StatusBadGateway)
-	ErrComponentInvalid      = NewErr("component invalid", codes.InvalidArgument, http.StatusBadRequest)
-	ErrComponentMismatch     = NewErr("component mismatch", codes.FailedPrecondition, http.StatusBadGateway)
-	ErrComponentUnauthorized = NewErr("component unauthorized", codes.PermissionDenied, http.StatusForbidden)
-	ErrComponentUnknown      = NewErr("component unknown", codes.Unauthenticated, http.StatusUnauthorized)
-	ErrInvalid               = NewErr("invalid", codes.InvalidArgument, http.StatusBadRequest)
-	ErrNotFound              = NewErr("not found", codes.Unimplemented, http.StatusNotFound)
-	ErrRequestGone           = NewErr("request gone", codes.DeadlineExceeded, http.StatusGatewayTimeout)
-	ErrResponseInvalid       = NewErr("response invalid", codes.FailedPrecondition, http.StatusBadGateway)
-	ErrRouteInvalid          = NewErr("route invalid", codes.InvalidArgument, http.StatusBadRequest)
-	ErrTimeout               = NewErr("time out", codes.DeadlineExceeded, http.StatusGatewayTimeout)
-	ErrPortUnavailable       = NewErr("port unavailable", codes.Unavailable, http.StatusConflict)
-	ErrRouteNotFound         = NewErr("route not found", codes.Unimplemented, http.StatusNotFound)
-	ErrUnexpected            = NewErr("unexpected error", codes.Unknown, http.StatusInternalServerError)
-	ErrUnsupportedAdapter    = NewErr("unsupported adapter", codes.Unimplemented, http.StatusBadRequest)
-	ErrUnknownContentType    = NewErr("unknown content type", codes.InvalidArgument, http.StatusBadRequest)
-)
+func ErrBrokerMismatch(cause ...error) *Err {
+	return NewKubeFoxErr("broker mismatch", CodeBrokerMismatch, codes.FailedPrecondition, http.StatusBadGateway, cause...)
+}
 
-func NewErr(msg string, grpcCode codes.Code, httpCode int) *Err {
+func ErrBrokerUnavailable(cause ...error) *Err {
+	return NewKubeFoxErr("broker unavailable", CodeBrokerUnavailable, codes.Unavailable, http.StatusBadGateway, cause...)
+}
+
+func ErrComponentGone(cause ...error) *Err {
+	return NewKubeFoxErr("component gone", CodeComponentGone, codes.FailedPrecondition, http.StatusBadGateway, cause...)
+}
+
+func ErrComponentInvalid(cause ...error) *Err {
+	return NewKubeFoxErr("component invalid", CodeComponentInvalid, codes.InvalidArgument, http.StatusBadRequest, cause...)
+}
+
+func ErrComponentMismatch(cause ...error) *Err {
+	return NewKubeFoxErr("component mismatch", CodeComponentMismatch, codes.FailedPrecondition, http.StatusBadGateway, cause...)
+}
+
+func ErrComponentUnknown(cause ...error) *Err {
+	return NewKubeFoxErr("component unknown", CodeComponentUnknown, codes.Unauthenticated, http.StatusUnauthorized, cause...)
+}
+
+func ErrInvalid(cause ...error) *Err {
+	return NewKubeFoxErr("invalid", CodeInvalid, codes.InvalidArgument, http.StatusBadRequest, cause...)
+}
+
+func ErrNotFound(cause ...error) *Err {
+	return NewKubeFoxErr("not found", CodeNotFound, codes.Unimplemented, http.StatusNotFound, cause...)
+}
+
+func ErrPortUnavailable(cause ...error) *Err {
+	return NewKubeFoxErr("port unavailable", CodePortUnavailable, codes.Unavailable, http.StatusConflict, cause...)
+}
+
+func ErrRequestGone(cause ...error) *Err {
+	return NewKubeFoxErr("request gone", CodeRequestGone, codes.DeadlineExceeded, http.StatusGatewayTimeout, cause...)
+}
+
+func ErrResponseInvalid(cause ...error) *Err {
+	return NewKubeFoxErr("response invalid", CodeResponseInvalid, codes.FailedPrecondition, http.StatusBadGateway, cause...)
+}
+
+func ErrRouteInvalid(cause ...error) *Err {
+	return NewKubeFoxErr("route invalid", CodeRouteInvalid, codes.InvalidArgument, http.StatusBadRequest, cause...)
+}
+
+func ErrRouteNotFound(cause ...error) *Err {
+	return NewKubeFoxErr("route not found", CodeRouteNotFound, codes.Unimplemented, http.StatusNotFound, cause...)
+}
+
+func ErrTimeout(cause ...error) *Err {
+	return NewKubeFoxErr("time out", CodeTimeout, codes.DeadlineExceeded, http.StatusGatewayTimeout, cause...)
+}
+
+func ErrUnauthorized(cause ...error) *Err {
+	return NewKubeFoxErr("component unauthorized", CodeUnauthorized, codes.PermissionDenied, http.StatusForbidden, cause...)
+}
+
+func ErrUnexpected(cause ...error) *Err {
+	return NewKubeFoxErr("unexpected error", CodeUnexpected, codes.Unknown, http.StatusInternalServerError, cause...)
+}
+
+func ErrUnknownContentType(cause ...error) *Err {
+	return NewKubeFoxErr("unknown content type", CodeUnknownContentType, codes.InvalidArgument, http.StatusBadRequest, cause...)
+}
+
+func ErrUnsupportedAdapter(cause ...error) *Err {
+	return NewKubeFoxErr("unsupported adapter", CodeUnsupportedAdapter, codes.Unimplemented, http.StatusBadRequest, cause...)
+}
+
+func NewKubeFoxErr(msg string, code Code, grpcCode codes.Code, httpCode int, cause ...error) *Err {
+	var c error
+	if len(cause) > 0 {
+		c = cause[0]
+	}
+
+	var s *Stack
+	if RecordStackTraces || code == CodeUnexpected {
+		s = callers()
+	}
+
 	return &Err{err: err{
+		Stack:    s,
 		Msg:      msg,
+		Code:     code,
 		GRPCCode: grpcCode,
 		HTTPCode: httpCode,
+		cause:    c,
 	}}
 }
 
-func (e *Err) GRPCStatus() *status.Status {
-	return status.New(e.err.GRPCCode, e.Msg)
+func (e *Err) Code() Code {
+	return e.err.Code
 }
 
 func (e *Err) GRPCCode() codes.Code {
 	return e.err.GRPCCode
 }
 
+func (e *Err) GRPCStatus() *status.Status {
+	return status.New(e.err.GRPCCode, e.err.Msg)
+}
+
 func (e *Err) HTTPCode() int {
 	return e.err.HTTPCode
 }
 
-// Details creates a copy of err and updates the copy's msg by appending
-// the provided details. A stack trace is then recorded.
-func (e *Err) Details(details string) *Err {
-	copy := *e
-	if details != "" {
-		copy.Msg = fmt.Sprintf("%s: %s", copy.Msg, details)
-	}
-	copy.Stack = callers()
-	return &copy
-}
-
-// Wrap creates a copy of err, sets the copy's cause to the provided error and
-// updates its msg by appending details and the cause msg if they are not empty.
-// A stack trace is then recorded.
-func (e *Err) Wrap(cause error, details string) *Err {
-	copy := *e
-	copy.cause = cause
-	if details != "" {
-		copy.Msg = fmt.Sprintf("%s: %s", copy.Msg, details)
-	}
-	if cause != nil && cause.Error() != "" {
-		copy.Msg = fmt.Sprintf("%s: %s", copy.Msg, cause.Error())
-	}
-	copy.Stack = callers()
-	return &copy
-}
-
-// RecordStack creates a copy of err then records a stack trace and attaches it
-// to the err.
-func (e *Err) RecordStack() *Err {
-	copy := *e
-	copy.Stack = callers()
-	return &copy
-}
-
-func (e *Err) Cause() error {
-	return e.cause
+func (e *Err) Unwrap() error {
+	return e.err.cause
 }
 
 func (e *Err) Error() string {
@@ -109,32 +172,44 @@ func (e *Err) Error() string {
 }
 
 func (e *Err) String() string {
-	return e.Msg
+	if e.err.cause != nil {
+		return e.err.Msg + ": " + e.err.cause.Error()
+	}
+	return e.err.Msg
 }
 
 func (e *Err) Format(s fmt.State, verb rune) {
-	if e.Stack == nil {
+	if e.err.Stack == nil {
 		fmt.Fprint(s, e.String())
 	} else {
-		fmt.Fprintf(s, "%s%+v\n---", e.String(), e.StackTrace())
+		fmt.Fprintf(s, "%s%+v\n---", e.String(), e.err.StackTrace())
 	}
 }
 
 // UnmarshalJSON implements the json.Unmarshaller interface.
 func (e *Err) UnmarshalJSON(value []byte) error {
 	e.err = err{}
-	return json.Unmarshal(value, &e.err)
+	if err := json.Unmarshal(value, &e.err); err != nil {
+		return err
+	}
+	if e.err.Cause != "" {
+		e.err.cause = errors.New(e.err.Cause)
+	}
+	return nil
 }
 
 // MarshalJSON implements the json.Marshaller interface.
-func (err *Err) MarshalJSON() ([]byte, error) {
-	return json.Marshal(err.err)
+func (e *Err) MarshalJSON() ([]byte, error) {
+	if e.err.cause != nil {
+		e.err.Cause = e.err.cause.Error()
+	}
+	return json.Marshal(e.err)
 }
 
 func callers() *Stack {
 	const depth = 32
 	var pcs [depth]uintptr
-	n := runtime.Callers(3, pcs[:])
+	n := runtime.Callers(4, pcs[:])
 	var st Stack = pcs[0:n]
 	return &st
 }

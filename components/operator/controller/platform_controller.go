@@ -132,6 +132,10 @@ func (r *PlatformReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 			Owner: []*metav1.OwnerReference{
 				metav1.NewControllerRef(p, p.GroupVersionKind()),
 			},
+			BuildInfo: build.Info,
+			Values: map[string]any{
+				"vaultURL": r.VaultURL,
+			},
 		},
 	}
 
@@ -139,7 +143,7 @@ func (r *PlatformReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		return ctrl.Result{}, log.ErrorN("problem setting up vault: %w", err)
 	}
 
-	if err := r.ApplyTemplate(ctx, "platform", &td.Data); err != nil {
+	if err := r.ApplyTemplate(ctx, "platform", &td.Data, log); err != nil {
 		return ctrl.Result{}, log.ErrorN("problem setting up platform: %w", err)
 	}
 
@@ -202,6 +206,9 @@ func (r *PlatformReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 			FailureThreshold: 90,
 		}
 	}
+	if err := r.setupVaultComponent(ctx, td, ""); err != nil {
+		return ctrl.Result{}, err
+	}
 	if rdy, err := r.cm.SetupComponent(ctx, td); !rdy || err != nil {
 		return ctrl.Result{}, err
 	}
@@ -210,7 +217,6 @@ func (r *PlatformReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	td.Obj = &appsv1.DaemonSet{}
 	td.Component = templates.Component{
 		Name:          "broker",
-		Commit:        build.Info.BrokerCommit,
 		Image:         BrokerImage,
 		PodSpec:       p.Spec.Broker.PodSpec,
 		ContainerSpec: p.Spec.Broker.ContainerSpec,
@@ -246,6 +252,9 @@ func (r *PlatformReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 			},
 		}
 	}
+	if err := r.setupVaultComponent(ctx, td, ""); err != nil {
+		return ctrl.Result{}, err
+	}
 	if rdy, err := r.cm.SetupComponent(ctx, td); !rdy || err != nil {
 		return ctrl.Result{}, err
 	}
@@ -254,16 +263,14 @@ func (r *PlatformReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	td.Obj = &appsv1.Deployment{}
 	td.Component = templates.Component{
 		Name:          "httpsrv",
-		Commit:        build.Info.HTTPSrvCommit,
 		Image:         HTTPSrvImage,
 		PodSpec:       p.Spec.HTTPSrv.PodSpec,
 		ContainerSpec: p.Spec.HTTPSrv.ContainerSpec,
 	}
-	td.Values = map[string]any{
-		"serviceType": p.Spec.HTTPSrv.Service.Type,
-		"httpPort":    p.Spec.HTTPSrv.Service.Ports.HTTP,
-		"httpsPort":   p.Spec.HTTPSrv.Service.Ports.HTTPS,
-	}
+	td.Values["serviceType"] = p.Spec.HTTPSrv.Service.Type
+	td.Values["httpPort"] = p.Spec.HTTPSrv.Service.Ports.HTTP
+	td.Values["httpsPort"] = p.Spec.HTTPSrv.Service.Ports.HTTPS
+
 	if td.Component.Resources == nil {
 		td.Component.Resources = &v1.ResourceRequirements{
 			Requests: v1.ResourceList{
@@ -294,6 +301,9 @@ func (r *PlatformReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 			},
 		}
 	}
+	if err := r.setupVaultComponent(ctx, td, ""); err != nil {
+		return ctrl.Result{}, err
+	}
 	if rdy, err := r.cm.SetupComponent(ctx, td); !rdy || err != nil {
 		return ctrl.Result{}, err
 	}
@@ -312,14 +322,13 @@ func (r *PlatformReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 // TODO break operations into funcs and move to reusable vault client
 func (r *PlatformReconciler) setupVault(ctx context.Context, td *TemplateData) error {
 	r.mutex.Lock()
-	setup := r.vaultMap[td.Platform.Name]
+	setup := r.vaultMap[td.PlatformFullName()]
 	r.mutex.Unlock()
 	if setup {
-		r.log.Debugf("vault already setup for platform '%s'", td.Platform.Name)
+		r.log.Debugf("vault already setup for platform '%s'", td.PlatformFullName())
 		return nil
 	}
-
-	r.log.Debugf("setting up vault for platform '%s'", td.Platform.Name)
+	r.log.Debugf("setting up vault for platform '%s'", td.PlatformFullName())
 
 	// Ensure there are valid commits for platform components.
 	if !kubefox.RegexpCommit.MatchString(build.Info.BrokerCommit) ||
@@ -373,33 +382,36 @@ func (r *PlatformReconciler) setupVault(ctx context.Context, td *TemplateData) e
 		}
 	}
 
-	r.setupVaultComponent(ctx, "nats", "", "", td, vault)
-	r.setupVaultComponent(ctx, "broker", build.Info.BrokerCommit, "kv-kubefox-reader", td, vault)
-	r.setupVaultComponent(ctx, "httpsrv", build.Info.HTTPSrvCommit, "", td, vault)
-
 	r.mutex.Lock()
-	r.vaultMap[td.Platform.Name] = true
+	r.vaultMap[td.PlatformFullName()] = true
 	r.mutex.Unlock()
-
 	r.log.Debugf("vault successfully setup for platform '%s'", td.Platform.Name)
 
 	return nil
 }
 
-func (r *PlatformReconciler) setupVaultComponent(
-	ctx context.Context,
-	comp, commit, additionalPolicies string,
-	td *TemplateData, vault *vapi.Client) error {
+func (r *PlatformReconciler) setupVaultComponent(ctx context.Context, td *TemplateData, additionalPolicies string) error {
+	r.mutex.Lock()
+	setup := r.vaultMap[td.ComponentFullName()]
+	r.mutex.Unlock()
+	if setup {
+		r.log.Debugf("vault already setup for component '%s'", td.ComponentFullName())
+		return nil
+	}
+	r.log.Debugf("setting up vault for component '%s'", td.ComponentFullName())
 
-	r.log.Debugf("setting up vault for platform '%s' component '%s'", td.Platform.Name, comp)
+	vault, err := r.vaultClient(ctx, r.VaultURL, []byte(td.Instance.RootCA))
+	if err != nil {
+		return err
+	}
 
 	pkiPath := fmt.Sprintf("pki/int/platform/%s", td.PlatformVaultName())
 
-	path := fmt.Sprintf("%s/roles/%s", pkiPath, comp)
-	domain := fmt.Sprintf("%s-%s.%s", td.Platform.Name, comp, td.Platform.Namespace)
-	_, err := vault.Logical().Write(path, map[string]interface{}{
+	path := fmt.Sprintf("%s/roles/%s", pkiPath, td.ComponentVaultName())
+	svcName := fmt.Sprintf("%s.%s", td.ComponentFullName(), td.Platform.Namespace)
+	_, err = vault.Logical().Write(path, map[string]interface{}{
 		"issuer_ref":         "default",
-		"allowed_domains":    domain,
+		"allowed_domains":    fmt.Sprintf("%s,%s.svc", svcName, svcName),
 		"allow_localhost":    true,
 		"allow_bare_domains": true,
 		"max_ttl":            TenYears,
@@ -408,10 +420,9 @@ func (r *PlatformReconciler) setupVaultComponent(
 		return err
 	}
 
-	policy := fmt.Sprintf("%s-%s", td.PlatformVaultName(), comp)
-	err = vault.Sys().PutPolicyWithContext(ctx, policy, `
+	err = vault.Sys().PutPolicyWithContext(ctx, td.ComponentVaultName(), `
 	// issue certs
-	path "`+pkiPath+`/issue/`+comp+`" {
+	path "`+pkiPath+`/issue/`+td.ComponentVaultName()+`" {
 		capabilities = ["create", "update"]
 	}
 		`)
@@ -419,25 +430,26 @@ func (r *PlatformReconciler) setupVaultComponent(
 		return err
 	}
 
-	path = fmt.Sprintf("auth/kubernetes/role/%s-%s", td.PlatformVaultName(), comp)
-	saName := fmt.Sprintf("%s-%s", td.Platform.Name, comp)
-	if commit != "" {
-		saName = fmt.Sprintf("%s-%s", saName, commit[0:7])
-	}
+	path = fmt.Sprintf("auth/kubernetes/role/%s", td.ComponentVaultName())
+	policy := td.ComponentVaultName()
 	if additionalPolicies != "" {
 		policy = fmt.Sprintf("%s,%s", policy, additionalPolicies)
 	}
 
-	r.log.Debugf("writing role; path: %s, sa: %s, policy: %s", path, saName, policy)
-
+	r.log.Debugf("writing role; path: %s, sa: %s, policy: %s", path, td.ComponentFullName(), policy)
 	_, err = vault.Logical().Write(path, map[string]interface{}{
-		"bound_service_account_names":      saName,
+		"bound_service_account_names":      td.ComponentFullName(),
 		"bound_service_account_namespaces": td.Platform.Namespace,
 		"token_policies":                   policy,
 	})
 	if err != nil {
 		return err
 	}
+
+	r.mutex.Lock()
+	r.vaultMap[td.ComponentFullName()] = true
+	r.mutex.Unlock()
+	r.log.Debugf("vault successfully setup for component '%s'", td.ComponentFullName())
 
 	return nil
 }
