@@ -21,14 +21,11 @@ const (
 	CodeBrokerMismatch
 	CodeBrokerUnavailable
 	CodeComponentGone
-	CodeComponentInvalid
 	CodeComponentMismatch
-	CodeComponentUnknown
+	CodeContentTooLarge
 	CodeInvalid
 	CodeNotFound
 	CodePortUnavailable
-	CodeRequestGone
-	CodeResponseInvalid
 	CodeRouteInvalid
 	CodeRouteNotFound
 	CodeTimeout
@@ -66,16 +63,12 @@ func ErrComponentGone(cause ...error) *Err {
 	return NewKubeFoxErr("component gone", CodeComponentGone, codes.FailedPrecondition, http.StatusBadGateway, cause...)
 }
 
-func ErrComponentInvalid(cause ...error) *Err {
-	return NewKubeFoxErr("component invalid", CodeComponentInvalid, codes.InvalidArgument, http.StatusBadRequest, cause...)
-}
-
 func ErrComponentMismatch(cause ...error) *Err {
 	return NewKubeFoxErr("component mismatch", CodeComponentMismatch, codes.FailedPrecondition, http.StatusBadGateway, cause...)
 }
 
-func ErrComponentUnknown(cause ...error) *Err {
-	return NewKubeFoxErr("component unknown", CodeComponentUnknown, codes.Unauthenticated, http.StatusUnauthorized, cause...)
+func ErrContentTooLarge(cause ...error) *Err {
+	return NewKubeFoxErr("content too large", CodeContentTooLarge, codes.ResourceExhausted, http.StatusRequestEntityTooLarge, cause...)
 }
 
 func ErrInvalid(cause ...error) *Err {
@@ -88,14 +81,6 @@ func ErrNotFound(cause ...error) *Err {
 
 func ErrPortUnavailable(cause ...error) *Err {
 	return NewKubeFoxErr("port unavailable", CodePortUnavailable, codes.Unavailable, http.StatusConflict, cause...)
-}
-
-func ErrRequestGone(cause ...error) *Err {
-	return NewKubeFoxErr("request gone", CodeRequestGone, codes.DeadlineExceeded, http.StatusGatewayTimeout, cause...)
-}
-
-func ErrResponseInvalid(cause ...error) *Err {
-	return NewKubeFoxErr("response invalid", CodeResponseInvalid, codes.FailedPrecondition, http.StatusBadGateway, cause...)
 }
 
 func ErrRouteInvalid(cause ...error) *Err {
@@ -137,14 +122,16 @@ func NewKubeFoxErr(msg string, code Code, grpcCode codes.Code, httpCode int, cau
 		s = callers()
 	}
 
-	return &Err{err: err{
-		Stack:    s,
-		Msg:      msg,
-		Code:     code,
-		GRPCCode: grpcCode,
-		HTTPCode: httpCode,
-		cause:    c,
-	}}
+	return &Err{
+		err: err{
+			Stack:    s,
+			Msg:      msg,
+			Code:     code,
+			GRPCCode: grpcCode,
+			HTTPCode: httpCode,
+			cause:    c,
+		},
+	}
 }
 
 func (e *Err) Code() Code {
@@ -165,6 +152,11 @@ func (e *Err) HTTPCode() int {
 
 func (e *Err) Unwrap() error {
 	return e.err.cause
+}
+
+func (e *Err) Is(err error) bool {
+	_, ok := err.(*Err)
+	return ok
 }
 
 func (e *Err) Error() string {

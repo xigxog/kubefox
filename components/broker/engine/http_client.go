@@ -4,10 +4,12 @@ import (
 	"context"
 	"crypto/tls"
 	"crypto/x509"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
 	"os"
+	"strings"
 
 	"github.com/xigxog/kubefox/api/kubernetes/v1alpha1"
 	kubefox "github.com/xigxog/kubefox/core"
@@ -95,12 +97,16 @@ func (c *HTTPClient) SendEvent(req *BrokerEvent) error {
 		cancel()
 		return kubefox.ErrInvalid(err)
 	}
+	if adapterURL, err := url.Parse(adapter.URL.StringVal); err != nil { // success
+		cancel()
+		return kubefox.ErrInvalid(fmt.Errorf("error parsing adapter url: %v", err))
 
-	if adapterURL, err := url.Parse(adapter.URL.StringVal); err == nil { // success
+	} else {
 		adapterURL = adapterURL.JoinPath(httpReq.URL.EscapedPath())
 
-		httpReq.URL.Scheme = adapterURL.Scheme
+		httpReq.Host = adapterURL.Host
 		httpReq.URL.Host = adapterURL.Host
+		httpReq.URL.Scheme = adapterURL.Scheme
 		httpReq.URL.User = adapterURL.User
 		httpReq.URL.Path = adapterURL.Path
 		httpReq.URL.RawPath = adapterURL.RawPath
@@ -115,13 +121,12 @@ func (c *HTTPClient) SendEvent(req *BrokerEvent) error {
 			httpQuery[k] = v
 		}
 		httpReq.URL.RawQuery = httpQuery.Encode()
-
-	} else if adapter.URL.StringVal != "" {
-		cancel()
-		return kubefox.ErrInvalid(fmt.Errorf("error parsing adapter url: %v", err))
 	}
 
 	for k, v := range adapter.Headers {
+		if strings.EqualFold(k, kubefox.HeaderHost) {
+			httpReq.Host = v.StringVal
+		}
 		httpReq.Header.Set(k, v.StringVal)
 	}
 
@@ -139,14 +144,20 @@ func (c *HTTPClient) SendEvent(req *BrokerEvent) error {
 	go func() {
 		defer cancel()
 
-		httpResp, err := c.adapterClient(adapter).Do(httpReq)
-		if err == nil { // success
-			err = resp.SetHTTPResponse(httpResp)
+		var reqErr error
+		if httpResp, err := c.adapterClient(adapter).Do(httpReq); err != nil {
+			reqErr = kubefox.ErrUnexpected(fmt.Errorf("http request failed: %v", err))
+		} else {
+			reqErr = resp.SetHTTPResponse(httpResp)
 		}
-		if err != nil {
-			log.Debug(err)
+		if reqErr != nil {
+			if !errors.Is(reqErr, &kubefox.Err{}) {
+				reqErr = kubefox.ErrUnexpected(reqErr)
+			}
 			resp.Type = string(kubefox.EventTypeError)
-			resp.SetJSON(kubefox.ErrResponseInvalid(err))
+			resp.SetJSON(reqErr)
+
+			log.Debug(err)
 		}
 
 		c.brk.RecvEvent(resp, ReceiverHTTPClient)

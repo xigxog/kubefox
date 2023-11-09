@@ -10,7 +10,6 @@ import (
 
 	"github.com/xigxog/kubefox/api/kubernetes/v1alpha1"
 	"github.com/xigxog/kubefox/components/operator/templates"
-	kubefox "github.com/xigxog/kubefox/core"
 	"github.com/xigxog/kubefox/logkf"
 )
 
@@ -64,7 +63,7 @@ func (c *Client) Merge(ctx context.Context, obj client.Object) error {
 
 func (r *Client) GetPlatform(ctx context.Context, namespace string) (*v1alpha1.Platform, error) {
 	ns := &v1.Namespace{}
-	if err := r.Get(ctx, nn("", namespace), ns); err != nil {
+	if err := r.Get(ctx, NN("", namespace), ns); err != nil {
 		return nil, fmt.Errorf("unable to fetch namespace: %w", err)
 	}
 	if ns.Status.Phase == v1.NamespaceTerminating {
@@ -72,32 +71,23 @@ func (r *Client) GetPlatform(ctx context.Context, namespace string) (*v1alpha1.P
 	}
 
 	p := &v1alpha1.Platform{}
-	pName, found := ns.Labels[kubefox.LabelK8sPlatform]
-	if found {
-		if err := r.Get(ctx, nn(namespace, pName), p); err != nil {
-			return nil, fmt.Errorf("unable to fetch platform: %w", err)
-		}
-	} else {
-		l := &v1alpha1.PlatformList{}
-		if err := r.List(ctx, l, client.InNamespace(namespace)); err != nil {
-			return nil, fmt.Errorf("unable to fetch platform: %w", err)
-		}
-
-		switch c := len(l.Items); c {
-		case 0:
-			return nil, ErrNotFound
-		case 1:
-			p = &l.Items[0]
-		default:
-			return nil, fmt.Errorf("found more than one platform in namespace: found %d, expected 1", c)
-		}
-
+	l := &v1alpha1.PlatformList{}
+	if err := r.List(ctx, l, client.InNamespace(namespace)); err != nil {
+		return nil, fmt.Errorf("unable to fetch platform: %w", err)
+	}
+	switch c := len(l.Items); c {
+	case 0:
+		return nil, ErrNotFound
+	case 1:
+		p = &l.Items[0]
+	default:
+		return nil, ErrTooManyPlatforms
 	}
 
 	return p, nil
 }
 
-func nn(namespace, name string) types.NamespacedName {
+func NN(namespace, name string) types.NamespacedName {
 	return types.NamespacedName{
 		Namespace: namespace,
 		Name:      name,

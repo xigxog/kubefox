@@ -109,9 +109,14 @@ func main() {
 	}
 
 	ctrlClient := &controller.Client{Client: mgr.GetClient()}
+	compMgr := &controller.ComponentManager{
+		Instance: instance,
+		Client:   ctrlClient,
+		Log:      log,
+	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
-	if err := createdCRDs(ctx, ctrlClient); err != nil {
+	if err := applyCRDs(ctx, ctrlClient); err != nil {
 		log.Fatalf("error creating crds: %v", err)
 	}
 	if err := setupWebhook(ctx, ctrlClient); err != nil {
@@ -125,28 +130,38 @@ func main() {
 		Namespace: namespace,
 		VaultURL:  vaultURL,
 		Scheme:    mgr.GetScheme(),
+		CompMgr:   compMgr,
 		LogLevel:  logLevel,
 		LogFormat: logFormat,
 	}).SetupWithManager(mgr); err != nil {
 		log.Fatalf("unable to create platform controller", err)
 	}
+	// Handles both Deployments and Releases.
 	if err = (&controller.DeploymentReconciler{
 		Client:   ctrlClient,
 		Instance: instance,
 		Scheme:   mgr.GetScheme(),
+		CompMgr:  compMgr,
 	}).SetupWithManager(mgr); err != nil {
 		log.Fatalf("unable to create deployment controller", err)
 	}
-	if err = (&controller.ReleaseReconciler{
-		Client:   ctrlClient,
-		Instance: instance,
-		Scheme:   mgr.GetScheme(),
-	}).SetupWithManager(mgr); err != nil {
-		log.Fatalf("unable to create release controller", err)
-	}
 
-	mgr.GetWebhookServer().Register("/v1alpha1-platform", &webhook.Admission{
+	mgr.GetWebhookServer().Register("/v1alpha1-platform/validate", &webhook.Admission{
 		Handler: &controller.PlatformWebhook{
+			Client:   ctrlClient,
+			Decoder:  admission.NewDecoder(scheme),
+			Mutating: false,
+		},
+	})
+	mgr.GetWebhookServer().Register("/v1alpha1-platform/mutate", &webhook.Admission{
+		Handler: &controller.PlatformWebhook{
+			Client:   ctrlClient,
+			Decoder:  admission.NewDecoder(scheme),
+			Mutating: true,
+		},
+	})
+	mgr.GetWebhookServer().Register("/v1alpha1-release/mutate", &webhook.Admission{
+		Handler: &controller.ReleaseWebhook{
 			Client:  ctrlClient,
 			Decoder: admission.NewDecoder(scheme),
 		},
@@ -165,7 +180,7 @@ func main() {
 	}
 }
 
-func createdCRDs(ctx context.Context, c *controller.Client) error {
+func applyCRDs(ctx context.Context, c *controller.Client) error {
 	log := logkf.Global
 
 	created := false
@@ -188,17 +203,22 @@ func createdCRDs(ctx context.Context, c *controller.Client) error {
 			}
 
 			err = c.Create(ctx, crd)
-			if errors.IsAlreadyExists(err) {
-				log.Debugf("crd %s already exists", crd.Name)
-				return nil
-			}
-			if err != nil {
+			switch {
+			case errors.IsAlreadyExists(err):
+				log.Debugf("crd %s already exists, applying", crd.Name)
+				if err = c.Apply(ctx, crd); err != nil {
+					log.Errorf("unable to apply crd %s: %v", path, err)
+				}
+
+			case err != nil:
 				log.Errorf("unable to create crd %s: %v", path, err)
-				return err
+
+			default:
+				log.Debugf("created crd %s", crd.Name)
+				created = true
 			}
-			log.Debugf("created crd %s", crd.Name)
-			created = true
-			return nil
+
+			return err
 		},
 	)
 	if err != nil {

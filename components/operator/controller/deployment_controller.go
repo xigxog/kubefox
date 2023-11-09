@@ -25,20 +25,21 @@ type DeploymentReconciler struct {
 	Instance string
 	Scheme   *runtime.Scheme
 
-	cm  *ComponentManager
-	log *logkf.Logger
+	CompMgr *ComponentManager
+	log     *logkf.Logger
 }
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *DeploymentReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	r.log = logkf.Global.With(logkf.KeyController, "deployment")
-	r.cm = &ComponentManager{
-		Instance: r.Instance,
-		Client:   r.Client,
-		Log:      r.log,
-	}
-	return ctrl.NewControllerManagedBy(mgr).
+	if err := ctrl.NewControllerManagedBy(mgr).
 		For(&v1alpha1.Deployment{}).
+		Complete(r); err != nil {
+		return err
+	}
+
+	return ctrl.NewControllerManagedBy(mgr).
+		For(&v1alpha1.Release{}).
 		Complete(r)
 }
 
@@ -51,7 +52,7 @@ func (r *DeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 	)
 	log.Debugf("reconciling kubefox deployment '%s.%s'", req.Name, req.Namespace)
 
-	if rdy, err := r.cm.ReconcileApps(ctx, req.Namespace); !rdy || err != nil {
+	if rdy, err := r.CompMgr.ReconcileApps(ctx, req.Namespace); !rdy || err != nil {
 		log.Debug("platform not ready, platform controller will reconcile")
 		return ctrl.Result{}, err
 	}

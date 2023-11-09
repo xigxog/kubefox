@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"net/textproto"
 	"net/url"
+	"strconv"
 	"strings"
 	"time"
 
@@ -582,15 +583,12 @@ func (evt *Event) HTTPResponse() *http.Response {
 }
 
 func (evt *Event) SetHTTPRequest(httpReq *http.Request) error {
-	if httpReq.Body != nil {
-		content, err := io.ReadAll(httpReq.Body)
-		if err != nil {
-			return err
-		}
-		evt.Content = content
+	if content, err := ReadBody(httpReq.Body, httpReq.Header); err != nil {
+		return err
 	} else {
-		evt.Content = nil
+		evt.Content = content
 	}
+
 	evt.ContentType = httpReq.Header.Get("Content-Type")
 	evt.Category = Category_REQUEST
 
@@ -645,16 +643,10 @@ func (evt *Event) SetHTTPRequest(httpReq *http.Request) error {
 }
 
 func (evt *Event) SetHTTPResponse(httpResp *http.Response) error {
-	// TODO check size of body, no bigger than max event size
-	if httpResp.Body != nil {
-		defer httpResp.Body.Close()
-		content, err := io.ReadAll(httpResp.Body)
-		if err != nil {
-			return err
-		}
-		evt.Content = content
+	if content, err := ReadBody(httpResp.Body, httpResp.Header); err != nil {
+		return err
 	} else {
-		evt.Content = nil
+		evt.Content = content
 	}
 
 	evt.ContentType = httpResp.Header.Get("Content-Type")
@@ -705,4 +697,23 @@ func DelParamOrHeader(httpReq *http.Request, keys ...string) {
 		httpReq.Header.Del(key)
 	}
 	httpReq.URL.RawQuery = query.Encode()
+}
+
+// ReadBody reads the body of a HTTP request or response, ensuring
+// MaxContentSizeBytes is not exceeded, then closes the reader. If body is 'nil'
+// then 'nil, nil' is returned.
+func ReadBody(body io.ReadCloser, header http.Header) ([]byte, error) {
+	if body != nil {
+		defer body.Close()
+
+		if i, err := strconv.Atoi(header.Get(HeaderContentLength)); err == nil { // success
+			if i > MaxContentSizeBytes {
+				return nil, ErrContentTooLarge()
+			}
+		}
+
+		return io.ReadAll(&LimitedReader{body, MaxContentSizeBytes})
+	}
+
+	return nil, nil
 }

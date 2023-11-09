@@ -1,10 +1,9 @@
-package main
+package server
 
 import (
 	"context"
 	"crypto/tls"
 	"errors"
-	"fmt"
 	"net"
 	"net/http"
 	"strconv"
@@ -19,7 +18,7 @@ const (
 	maxAttempts = 5
 )
 
-type HTTPSrv struct {
+type Server struct {
 	wrapped *http.Server
 
 	brk *grpc.Client
@@ -27,24 +26,24 @@ type HTTPSrv struct {
 	log *logkf.Logger
 }
 
-func NewHTTPSrv() *HTTPSrv {
-	return &HTTPSrv{
+func New() *Server {
+	return &Server{
 		brk: grpc.NewClient(grpc.ClientOpts{
-			Component:     comp,
-			BrokerAddr:    brokerAddr,
-			HealthSrvAddr: healthAddr,
+			Component:     Component,
+			BrokerAddr:    BrokerAddr,
+			HealthSrvAddr: HealthSrvAddr,
 		}),
 
 		log: logkf.Global,
 	}
 }
 
-func (srv *HTTPSrv) Run() error {
-	if httpAddr == "false" && httpsAddr == "false" {
+func (srv *Server) Run() error {
+	if HTTPAddr == "false" && HTTPSAddr == "false" {
 		return nil
 	}
 
-	if healthAddr != "" && healthAddr != "false" {
+	if HealthSrvAddr != "" && HealthSrvAddr != "false" {
 		if err := srv.brk.StartHealthSrv(); err != nil {
 			return err
 		}
@@ -58,9 +57,9 @@ func (srv *HTTPSrv) Run() error {
 	}
 
 	// Start listener outside of goroutine to deal with address and port issues.
-	if httpAddr != "false" {
+	if HTTPAddr != "false" {
 		srv.log.Debug("http server starting")
-		ln, err := net.Listen("tcp", httpAddr)
+		ln, err := net.Listen("tcp", HTTPAddr)
 		if err != nil {
 			return srv.log.ErrorN("%v", err)
 		}
@@ -72,9 +71,9 @@ func (srv *HTTPSrv) Run() error {
 		}()
 		srv.log.Info("http server started")
 	}
-	if httpsAddr != "false" {
+	if HTTPSAddr != "false" {
 		srv.log.Debug("https server starting")
-		ln, err := net.Listen("tcp", httpsAddr)
+		ln, err := net.Listen("tcp", HTTPSAddr)
 		if err != nil {
 			return srv.log.ErrorN("%v", err)
 		}
@@ -87,15 +86,15 @@ func (srv *HTTPSrv) Run() error {
 		srv.log.Info("https server started")
 	}
 
-	go srv.brk.Start(spec, maxAttempts)
+	go srv.brk.Start(Spec, maxAttempts)
 
 	return <-srv.brk.Err()
 }
 
-func (srv *HTTPSrv) Shutdown() {
+func (srv *Server) Shutdown() {
 	srv.log.Info("http server shutting down")
 
-	ctx, cancel := context.WithTimeout(context.Background(), eventTTL)
+	ctx, cancel := context.WithTimeout(context.Background(), EventTTL)
 	defer cancel()
 
 	if srv.wrapped != nil {
@@ -105,18 +104,17 @@ func (srv *HTTPSrv) Shutdown() {
 	}
 }
 
-func (srv *HTTPSrv) ServeHTTP(resWriter http.ResponseWriter, httpReq *http.Request) {
-	ctx, cancel := context.WithTimeoutCause(httpReq.Context(), eventTTL, kubefox.ErrTimeout())
+func (srv *Server) ServeHTTP(resWriter http.ResponseWriter, httpReq *http.Request) {
+	ctx, cancel := context.WithTimeoutCause(httpReq.Context(), EventTTL, kubefox.ErrTimeout())
 	defer cancel()
 
-	resWriter.Header().Set(kubefox.HeaderAdapter, comp.Key())
+	resWriter.Header().Set(kubefox.HeaderAdapter, Component.Key())
 
 	req := kubefox.NewReq(kubefox.EventOpts{
-		Source: comp,
+		Source: Component,
 	})
-	req.SetTTL(eventTTL)
+	req.SetTTL(EventTTL)
 	if err := req.SetHTTPRequest(httpReq); err != nil {
-		err = fmt.Errorf("%v: %w", err, kubefox.ErrInvalid())
 		writeError(resWriter, err, srv.log)
 		return
 	}

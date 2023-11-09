@@ -51,3 +51,11 @@ func TestErrors_JSON(t *testing.T) {
 		t.Fail()
 	}
 }
+
+func TestErrors_Is(t *testing.T) {
+	err := ErrContentTooLarge()
+
+	if !errors.Is(err, &Err{}) {
+		t.Fail()
+	}
+}

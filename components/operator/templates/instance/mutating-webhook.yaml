@@ -1,5 +1,5 @@
 apiVersion: admissionregistration.k8s.io/v1
-kind: ValidatingWebhookConfiguration
+kind: MutatingWebhookConfiguration
 metadata:
   name: {{ name }}-operator
   namespace: {{ namespace }}
@@ -10,7 +10,7 @@ metadata:
     {{- . | toYaml | nindent 4 }}
   {{- end }}
 webhooks:
-  - name: platform-policy.kubefox.xigxog.io
+  - name: platform-mutation.kubefox.xigxog.io
     failurePolicy: Fail
     sideEffects: None
     admissionReviewVersions:
@@ -20,7 +20,7 @@ webhooks:
       service:
         name: {{ name }}-operator
         namespace: {{ namespace }}
-        path: /v1alpha1-platform
+        path: /v1alpha1-platform/mutate
     rules:
       - apiGroups:
           - kubefox.xigxog.io
@@ -31,3 +31,25 @@ webhooks:
           - UPDATE
         resources:
           - platforms
+  
+  - name: release-mutation.kubefox.xigxog.io
+    failurePolicy: Fail
+    sideEffects: None
+    admissionReviewVersions:
+      - v1
+    clientConfig:
+      caBundle: {{ .Values.caBundle }}
+      service:
+        name: {{ name }}-operator
+        namespace: {{ namespace }}
+        path: /v1alpha1-release/mutate
+    rules:
+      - apiGroups:
+          - kubefox.xigxog.io
+        apiVersions:
+          - v1alpha1
+        operations:
+          - CREATE
+          - UPDATE
+        resources:
+          - releases

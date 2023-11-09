@@ -18,6 +18,7 @@ package controller
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 
 	"github.com/xigxog/kubefox/api/kubernetes/v1alpha1"
@@ -30,6 +31,8 @@ import (
 type PlatformWebhook struct {
 	*Client
 	*admission.Decoder
+
+	Mutating bool
 }
 
 func (r *PlatformWebhook) Handle(ctx context.Context, req admission.Request) admission.Response {
@@ -52,23 +55,28 @@ func (r *PlatformWebhook) Handle(ctx context.Context, req admission.Request) adm
 			allowed = true
 		}
 	}
-
 	if !allowed {
-		return admission.Denied("only one 🦊 platform is allowed per namespace")
+		return admission.Denied(
+			fmt.Sprintf(`The Platform "%s" is not allowed: only one Platform is allowed per namespace`, platform.Name))
 	}
 
-	ns := &v1.Namespace{}
-	if err := r.Get(ctx, nn("", req.Namespace), ns); err != nil {
-		return admission.Errored(http.StatusInternalServerError, err)
-	}
+	if !r.Mutating {
+		if !*req.DryRun {
+			ns := &v1.Namespace{}
+			if err := r.Get(ctx, NN("", req.Namespace), ns); err != nil {
+				return admission.Errored(http.StatusInternalServerError, err)
+			}
 
-	ns.Labels[kubefox.LabelK8sPlatform] = platform.Name
-	if err := r.Update(ctx, ns); err != nil {
-		return admission.Errored(http.StatusInternalServerError, err)
+			ns.Labels[kubefox.LabelK8sPlatform] = platform.Name
+			if err := r.Update(ctx, ns); err != nil {
+				return admission.Errored(http.StatusInternalServerError, err)
+			}
+		}
+
+		return admission.Allowed("🦊")
 	}
 
 	// TODO set default resources/probes for platform components
 
 	return admission.Allowed("")
-
 }

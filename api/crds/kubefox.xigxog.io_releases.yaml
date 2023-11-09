@@ -190,6 +190,8 @@ spec:
                     x-kubernetes-preserve-unknown-fields: true
                 required:
                 - name
+                - resourceVersion
+                - uid
                 type: object
             required:
             - deployment

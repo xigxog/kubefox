@@ -41,7 +41,7 @@ func (cm *ComponentManager) SetupComponent(ctx context.Context, td *TemplateData
 
 	log.Debugf("setting up component '%s'", td.ComponentFullName())
 
-	name := nn(td.Namespace(), td.ComponentFullName())
+	name := NN(td.Namespace(), td.ComponentFullName())
 	if err := cm.Client.Get(ctx, name, td.Obj); client.IgnoreNotFound(err) != nil {
 		return false, log.ErrorN("unable to fetch component workload: %w", err)
 	}

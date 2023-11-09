@@ -15,7 +15,8 @@ import (
 )
 
 var (
-	ErrNotFound = fmt.Errorf("not found")
+	ErrNotFound         = fmt.Errorf("not found")
+	ErrTooManyPlatforms = fmt.Errorf("too many platforms")
 )
 
 const (

@@ -39,6 +39,23 @@
         "-log-level=debug",
         "-leader-elect=false"
       ]
+    },
+    {
+      "name": "httpsrv",
+      "type": "go",
+      "request": "launch",
+      "mode": "auto",
+      "program": "components/httpsrv/main.go",
+      "args": [
+        "-name=httpsrv",
+        "-commit=26501c382353f0291990580e68cba61040099b9c",
+        "-http-addr=0.0.0.0:8080",
+        "-https-addr=false",
+        "-broker-addr=127.0.0.1:6060",
+        "-health-addr=false",
+        "-log-format=console",
+        "-log-level=debug"
+      ]
     }
   ]
 }

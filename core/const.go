@@ -7,6 +7,11 @@ import (
 	"github.com/xigxog/kubefox/utils"
 )
 
+const (
+	// Large events reduce performance. Do not exceed 32 MiB.
+	MaxContentSizeBytes = 3145728 // 3 MiB
+)
+
 type EventType string
 
 // Component event types
@@ -83,9 +88,11 @@ const (
 	HeaderAbbrvEnv       = "kf-env"
 	HeaderAbbrvEventType = "kf-type"
 	HeaderAdapter        = "kubefox-adapter"
+	HeaderContentLength  = "Content-Length"
 	HeaderDep            = "kubefox-deployment"
 	HeaderEnv            = "kubefox-environment"
 	HeaderEventType      = "kubefox-type"
+	HeaderHost           = "Host"
 	HeaderShortDep       = "kfd"
 	HeaderShortEnv       = "kfe"
 	HeaderShortEventType = "kft"

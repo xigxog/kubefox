@@ -7,14 +7,21 @@ import (
 	"github.com/xigxog/kubefox/kit"
 )
 
+var (
+	backend kit.Dependency
+)
+
 func main() {
 	k := kit.New()
+
+	backend = k.Component("backend")
 	k.Route("Path(`/{{.Env.subPath}}/hello`)", sayHello)
+
 	k.Start()
 }
 
 func sayHello(k kit.Kontext) error {
-	r, err := k.Component("backend").Send()
+	r, err := k.Req(backend).Send()
 	if err != nil {
 		return err
 	}

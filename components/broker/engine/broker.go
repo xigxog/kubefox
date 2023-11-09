@@ -8,7 +8,6 @@ import (
 	"os/signal"
 	"strings"
 	"sync"
-	"sync/atomic"
 	"syscall"
 	"time"
 
@@ -297,45 +296,30 @@ func (brk *broker) startWorker(id int) {
 	}
 }
 
-var c, jscount, rpccount atomic.Int64
-var ce, me, mc, fs, se time.Duration
-
 func (brk *broker) routeEvent(log *logkf.Logger, evt *BrokerEvent) error {
-	c := c.Add(1)
 	log.WithEvent(evt.Event).Debugf("routing event from receiver '%s'", evt.Receiver)
 
 	ctx, cancel := context.WithTimeout(context.Background(), evt.TTL())
 	defer cancel()
 
-	start := time.Now()
 	if err := brk.checkEvent(evt); err != nil {
 		return err
 	}
-	ce = ce + time.Since(start)
 
-	start = time.Now()
 	if err := brk.matchEvent(ctx, evt); err != nil {
-		me = me + time.Since(start)
-		if c%10000 == 0 {
-			fmt.Printf("me: %s\n\n", time.Duration(int64(me)/c))
-		}
 		return err
 	}
-	me = me + time.Since(start)
 
 	// Set log attributes after matching.
 	log = log.WithEvent(evt.Event)
 	log.Debug("matched event to target")
 
-	start = time.Now()
 	if err := brk.matchComponents(ctx, evt); err != nil {
 		return err
 	}
-	mc = mc + time.Since(start)
 
 	// TODO add policy checks
 
-	start = time.Now()
 	var sub Subscription
 	if evt.TargetAdapter == nil {
 		switch {
@@ -346,26 +330,26 @@ func (brk *broker) routeEvent(log *logkf.Logger, evt *BrokerEvent) error {
 			sub, _ = brk.subMgr.GroupSubscription(evt.Target)
 		}
 	}
-	fs = fs + time.Since(start)
 
 	var sendEvent SendEvent
 	switch {
 	case evt.TargetAdapter != nil:
+		// Target is a local adapter.
 		sendEvent = func(evt *BrokerEvent) error {
 			log.Debug("sending event with http client adapter")
 			return brk.httpClient.SendEvent(evt)
 		}
 
 	case sub != nil:
+		// Found component subscribed via gRPC.
 		sendEvent = func(evt *BrokerEvent) error {
-			rpccount.Add(1)
 			log.Debug("subscription found, sending event with gRPC")
 			return sub.SendEvent(evt)
 		}
 
 	case evt.Receiver != ReceiverNATS && evt.Target.BrokerId != brk.comp.Id:
+		// Component not found locally, send via NATS.
 		sendEvent = func(evt *BrokerEvent) error {
-			jscount.Add(1)
 			log.Debug("subscription not found, sending event with nats")
 			return brk.natsClient.Publish(evt.Target.Subject(), evt.Event)
 		}
@@ -374,22 +358,7 @@ func (brk *broker) routeEvent(log *logkf.Logger, evt *BrokerEvent) error {
 		return kubefox.ErrComponentGone()
 	}
 
-	start = time.Now()
-	err := sendEvent(evt)
-	se = se + time.Since(start)
-
-	if c%10000 == 0 {
-		fmt.Printf("c: %d\njscount: %d\nrpccount: %d\nce: %s\nme: %s\nmc: %s\nfs: %s\nse: %s\nto: %s\n\n",
-			c, jscount.Load(), rpccount.Load(),
-			time.Duration(int64(ce)/c),
-			time.Duration(int64(me)/c),
-			time.Duration(int64(mc)/c),
-			time.Duration(int64(fs)/c),
-			time.Duration(int64(se)/c),
-			time.Duration((int64(ce)+int64(me)+int64(mc)+int64(fs)+int64(se))/c))
-	}
-
-	return err
+	return sendEvent(evt)
 }
 
 func (brk *broker) checkEvent(evt *BrokerEvent) error {

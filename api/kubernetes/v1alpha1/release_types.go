@@ -23,8 +23,8 @@ type ReleaseEnv struct {
 	EnvironmentSpec `json:",inline"`
 
 	Name            string    `json:"name"`
-	UID             types.UID `json:"uid,omitempty"`
-	ResourceVersion string    `json:"resourceVersion,omitempty"`
+	UID             types.UID `json:"uid"`
+	ResourceVersion string    `json:"resourceVersion"`
 }
 
 // ReleaseStatus defines the observed state of Release

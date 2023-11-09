@@ -49,12 +49,12 @@ type PlatformReconciler struct {
 	LogLevel  string
 	LogFormat string
 
-	Scheme *runtime.Scheme
+	Scheme  *runtime.Scheme
+	CompMgr *ComponentManager
 
 	vaultMap map[string]bool
 
 	vClient *vapi.Client
-	cm      *ComponentManager
 	log     *logkf.Logger
 
 	mutex sync.Mutex
@@ -64,11 +64,6 @@ type PlatformReconciler struct {
 func (r *PlatformReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	r.log = logkf.Global.With(logkf.KeyController, "platform")
 	r.vaultMap = make(map[string]bool)
-	r.cm = &ComponentManager{
-		Instance: r.Instance,
-		Client:   r.Client,
-		Log:      r.log,
-	}
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&v1alpha1.Platform{}).
 		Owns(&appsv1.DaemonSet{}).
@@ -87,7 +82,7 @@ func (r *PlatformReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	log.Debug("reconciling platform")
 
 	ns := &v1.Namespace{}
-	if err := r.Get(ctx, nn("", req.Namespace), ns); err != nil {
+	if err := r.Get(ctx, NN("", req.Namespace), ns); err != nil {
 		if apierrors.IsNotFound(err) {
 			log.Debug("namespace is gone")
 			return ctrl.Result{}, nil
@@ -111,7 +106,7 @@ func (r *PlatformReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	}()
 
 	cm := &v1.ConfigMap{}
-	if err := r.Get(ctx, nn(r.Namespace, r.Instance+"-root-ca"), cm); err != nil {
+	if err := r.Get(ctx, NN(r.Namespace, r.Instance+"-root-ca"), cm); err != nil {
 		return ctrl.Result{}, log.ErrorN("unable to fetch root CA configmap: %w", err)
 	}
 	td := &TemplateData{
@@ -134,7 +129,8 @@ func (r *PlatformReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 			},
 			BuildInfo: build.Info,
 			Values: map[string]any{
-				"vaultURL": r.VaultURL,
+				"maxContentSize": kubefox.MaxContentSizeBytes * 2,
+				"vaultURL":       r.VaultURL,
 			},
 		},
 	}
@@ -209,7 +205,7 @@ func (r *PlatformReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	if err := r.setupVaultComponent(ctx, td, ""); err != nil {
 		return ctrl.Result{}, err
 	}
-	if rdy, err := r.cm.SetupComponent(ctx, td); !rdy || err != nil {
+	if rdy, err := r.CompMgr.SetupComponent(ctx, td); !rdy || err != nil {
 		return ctrl.Result{}, err
 	}
 
@@ -255,7 +251,7 @@ func (r *PlatformReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	if err := r.setupVaultComponent(ctx, td, ""); err != nil {
 		return ctrl.Result{}, err
 	}
-	if rdy, err := r.cm.SetupComponent(ctx, td); !rdy || err != nil {
+	if rdy, err := r.CompMgr.SetupComponent(ctx, td); !rdy || err != nil {
 		return ctrl.Result{}, err
 	}
 
@@ -304,15 +300,19 @@ func (r *PlatformReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	if err := r.setupVaultComponent(ctx, td, ""); err != nil {
 		return ctrl.Result{}, err
 	}
-	if rdy, err := r.cm.SetupComponent(ctx, td); !rdy || err != nil {
+	if rdy, err := r.CompMgr.SetupComponent(ctx, td); !rdy || err != nil {
 		return ctrl.Result{}, err
 	}
+	// Clean up template specific values in case 'td' is reused later.
+	delete(td.Values, "serviceType")
+	delete(td.Values, "httpPort")
+	delete(td.Values, "httpsPort")
 
 	// Used by defer func created above.
 	ready = true
 	log.Debug("platform reconciled")
 
-	if rdy, err := r.cm.ReconcileApps(ctx, p.Namespace); !rdy || err != nil {
+	if rdy, err := r.CompMgr.ReconcileApps(ctx, p.Namespace); !rdy || err != nil {
 		return ctrl.Result{}, err
 	}
 

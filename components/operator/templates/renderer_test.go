@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/xigxog/kubefox/api/kubernetes/v1alpha1"
+	kubefox "github.com/xigxog/kubefox/core"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -84,6 +85,9 @@ func TestRenderNATS(t *testing.T) {
 				UID:        "123",
 				Name:       "kubefox-dev",
 			},
+		},
+		Values: map[string]any{
+			"maxContentSize": kubefox.MaxContentSizeBytes,
 		},
 	}
 	if s, err := renderStr("list.tpl", "nats/*", d); err != nil {
