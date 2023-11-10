@@ -5,7 +5,7 @@ import (
 	"io"
 	"net/http"
 
-	common "github.com/xigxog/kubefox/api/kubernetes"
+	"github.com/xigxog/kubefox/api"
 	kubefox "github.com/xigxog/kubefox/core"
 	"github.com/xigxog/kubefox/kit/env"
 	"github.com/xigxog/kubefox/logkf"
@@ -34,9 +34,9 @@ type Kontext interface {
 	kubefox.EventReader
 
 	Env(v EnvVar) string
-	EnvV(v EnvVar) *common.Val
+	EnvV(v EnvVar) *api.Val
 	EnvDef(v EnvVar, def string) string
-	EnvDefV(v EnvVar, def *common.Val) *common.Val
+	EnvDefV(v EnvVar, def *api.Val) *api.Val
 
 	Resp() Resp
 	ForwardResp(resp kubefox.EventReader) Resp
@@ -74,23 +74,23 @@ type Resp interface {
 
 type EnvVar interface {
 	Name() string
-	Type() common.EnvVarType
+	Type() api.EnvVarType
 }
 
 type Dependency interface {
 	Name() string
-	Type() common.ComponentType
-	EventType() kubefox.EventType
+	Type() api.ComponentType
+	EventType() api.EventType
 }
 
 type route struct {
-	common.RouteSpec
+	api.RouteSpec
 
 	handler EventHandler
 }
 
 type dependency struct {
-	typ  common.ComponentType
+	typ  api.ComponentType
 	name string
 }
 
@@ -98,15 +98,15 @@ func (c *dependency) Name() string {
 	return c.name
 }
 
-func (c *dependency) Type() common.ComponentType {
+func (c *dependency) Type() api.ComponentType {
 	return c.typ
 }
 
-func (c *dependency) EventType() kubefox.EventType {
+func (c *dependency) EventType() api.EventType {
 	switch c.typ {
-	case common.ComponentTypeHTTP:
-		return kubefox.EventTypeHTTP
+	case api.ComponentTypeHTTP:
+		return api.EventTypeHTTP
 	default:
-		return kubefox.EventTypeKubeFox
+		return api.EventTypeKubeFox
 	}
 }

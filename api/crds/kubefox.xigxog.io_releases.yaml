@@ -27,10 +27,39 @@ spec:
           details:
             description: ReleaseDetails defines additional details of Release
             properties:
+              appDeployment:
+                description: AppDeploymentDetails defines additional details of AppDeployment
+                properties:
+                  app:
+                    properties:
+                      branch:
+                        type: string
+                      description:
+                        type: string
+                      repoURL:
+                        format: uri
+                        type: string
+                      tag:
+                        type: string
+                      title:
+                        type: string
+                    type: object
+                  components:
+                    additionalProperties:
+                      properties:
+                        description:
+                          type: string
+                        title:
+                          type: string
+                      type: object
+                    type: object
+                type: object
               description:
                 type: string
               title:
                 type: string
+            required:
+            - appDeployment
             type: object
           kind:
             description: 'Kind is a string value representing the REST resource this

@@ -3,7 +3,7 @@ package server
 import (
 	"time"
 
-	common "github.com/xigxog/kubefox/api/kubernetes"
+	"github.com/xigxog/kubefox/api"
 	kubefox "github.com/xigxog/kubefox/core"
 )
 
@@ -15,5 +15,5 @@ var (
 
 var (
 	Component = new(kubefox.Component)
-	Spec      = new(common.ComponentDefinition)
+	Spec      = new(api.ComponentDefinition)
 )

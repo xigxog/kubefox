@@ -9,6 +9,7 @@ one at https://mozilla.org/MPL/2.0/.
 package v1alpha1
 
 import (
+	"github.com/xigxog/kubefox/api"
 	common "github.com/xigxog/kubefox/api/kubernetes"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -68,7 +69,7 @@ type PlatformStatus struct {
 
 // PlatformDetails defines additional details of Platform
 type PlatformDetails struct {
-	common.Details `json:",inline"`
+	api.Details `json:",inline"`
 }
 
 //+kubebuilder:object:root=true

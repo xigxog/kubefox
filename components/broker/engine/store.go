@@ -11,7 +11,7 @@ import (
 	"github.com/Masterminds/sprig"
 	"github.com/nats-io/nats.go"
 	"github.com/nats-io/nats.go/jetstream"
-	common "github.com/xigxog/kubefox/api/kubernetes"
+	"github.com/xigxog/kubefox/api"
 	"github.com/xigxog/kubefox/api/kubernetes/v1alpha1"
 	"github.com/xigxog/kubefox/cache"
 	kubefox "github.com/xigxog/kubefox/core"
@@ -32,7 +32,7 @@ type Store struct {
 	namespace string
 
 	resCache      ctrlcache.Cache
-	compSpecCache cache.Cache[*common.ComponentDefinition]
+	compSpecCache cache.Cache[*api.ComponentDefinition]
 	compSpecKV    jetstream.KeyValue
 
 	depMatchers cache.Cache[*matcher.EventMatcher]
@@ -57,7 +57,7 @@ func NewStore(namespace string) *Store {
 		namespace:     namespace,
 		depMatchers:   cache.New[*matcher.EventMatcher](time.Minute * 15),
 		relMatcher:    new(matcher.EventMatcher),
-		compSpecCache: cache.New[*common.ComponentDefinition](time.Hour * 24),
+		compSpecCache: cache.New[*api.ComponentDefinition](time.Hour * 24),
 		ctx:           ctx,
 		cancel:        cancel,
 		log:           logkf.Global,
@@ -124,7 +124,7 @@ func (str *Store) Close() {
 	str.cancel()
 }
 
-func (str *Store) RegisterComponent(ctx context.Context, comp *kubefox.Component, reg *common.ComponentDefinition) error {
+func (str *Store) RegisterComponent(ctx context.Context, comp *kubefox.Component, reg *api.ComponentDefinition) error {
 	str.log.Debugf("registering component '%s' of type '%s'", comp.GroupKey(), reg.Type)
 	b, err := json.Marshal(reg)
 	if err != nil {
@@ -139,7 +139,7 @@ func (str *Store) RegisterComponent(ctx context.Context, comp *kubefox.Component
 	return nil
 }
 
-func (str *Store) Component(ctx context.Context, comp *kubefox.Component) (*common.ComponentDefinition, error) {
+func (str *Store) Component(ctx context.Context, comp *kubefox.Component) (*api.ComponentDefinition, error) {
 	compSpec, found := str.compSpecCache.Get(comp.GroupKey())
 	if !found {
 		entry, err := str.compSpecKV.Get(ctx, comp.GroupKey())
@@ -149,7 +149,7 @@ func (str *Store) Component(ctx context.Context, comp *kubefox.Component) (*comm
 			return nil, err
 		}
 
-		compSpec = &common.ComponentDefinition{}
+		compSpec = &api.ComponentDefinition{}
 		err = json.Unmarshal(entry.Value(), compSpec)
 		if err != nil {
 			return nil, err
@@ -166,7 +166,7 @@ func (str *Store) IsGenesisAdapter(ctx context.Context, comp *kubefox.Component)
 	if err != nil || r == nil {
 		return false
 	}
-	return r.Type == common.ComponentTypeGenesis
+	return r.Type == api.ComponentTypeGenesis
 }
 
 func (str *Store) AppDeployment(name string) (*v1alpha1.AppDeployment, error) {
@@ -333,7 +333,7 @@ func (str *Store) buildReleaseMatcher(ctx context.Context) (*matcher.EventMatche
 func (str *Store) buildRoutes(
 	ctx context.Context,
 	comps map[string]*v1alpha1.Component,
-	vars map[string]*common.Val,
+	vars map[string]*api.Val,
 	evtCtx *kubefox.EventContext) ([]*kubefox.Route, error) {
 
 	routes := make([]*kubefox.Route, 0)

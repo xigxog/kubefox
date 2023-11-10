@@ -11,7 +11,7 @@ import (
 	"os"
 	"strings"
 
-	common "github.com/xigxog/kubefox/api/kubernetes"
+	"github.com/xigxog/kubefox/api"
 	"github.com/xigxog/kubefox/api/kubernetes/v1alpha1"
 	kubefox "github.com/xigxog/kubefox/core"
 	"github.com/xigxog/kubefox/logkf"
@@ -52,26 +52,26 @@ func NewHTTPClient(brk Broker) *HTTPClient {
 		CheckRedirect: followNever,
 		Transport:     secureTransport,
 	}
-	clients[key(common.FollowRedirectsNever, false)] = &http.Client{
+	clients[key(api.FollowRedirectsNever, false)] = &http.Client{
 		CheckRedirect: followNever,
 		Transport:     secureTransport,
 	}
-	clients[key(common.FollowRedirectsNever, true)] = &http.Client{
+	clients[key(api.FollowRedirectsNever, true)] = &http.Client{
 		CheckRedirect: followNever,
 		Transport:     insecureTransport,
 	}
-	clients[key(common.FollowRedirectsSameHost, false)] = &http.Client{
+	clients[key(api.FollowRedirectsSameHost, false)] = &http.Client{
 		CheckRedirect: followSameHost,
 		Transport:     secureTransport,
 	}
-	clients[key(common.FollowRedirectsSameHost, true)] = &http.Client{
+	clients[key(api.FollowRedirectsSameHost, true)] = &http.Client{
 		CheckRedirect: followSameHost,
 		Transport:     insecureTransport,
 	}
-	clients[key(common.FollowRedirectsAlways, false)] = &http.Client{
+	clients[key(api.FollowRedirectsAlways, false)] = &http.Client{
 		Transport: secureTransport,
 	}
-	clients[key(common.FollowRedirectsAlways, true)] = &http.Client{
+	clients[key(api.FollowRedirectsAlways, true)] = &http.Client{
 		Transport: insecureTransport,
 	}
 
@@ -125,7 +125,7 @@ func (c *HTTPClient) SendEvent(req *BrokerEvent) error {
 	}
 
 	for k, v := range adapter.Headers {
-		if strings.EqualFold(k, kubefox.HeaderHost) {
+		if strings.EqualFold(k, api.HeaderHost) {
 			httpReq.Host = v.StringVal
 		}
 		httpReq.Header.Set(k, v.StringVal)
@@ -155,7 +155,7 @@ func (c *HTTPClient) SendEvent(req *BrokerEvent) error {
 			if !errors.Is(reqErr, &kubefox.Err{}) {
 				reqErr = kubefox.ErrUnexpected(reqErr)
 			}
-			resp.Type = string(kubefox.EventTypeError)
+			resp.Type = string(api.EventTypeError)
 			resp.SetJSON(reqErr)
 
 			log.Debug(err)
@@ -176,9 +176,9 @@ func (c *HTTPClient) adapterClient(a *v1alpha1.Adapter) *http.Client {
 	return client
 }
 
-func key(follow common.FollowRedirects, insecure bool) string {
+func key(follow api.FollowRedirects, insecure bool) string {
 	if follow == "" {
-		follow = common.FollowRedirectsNever
+		follow = api.FollowRedirectsNever
 	}
 	return fmt.Sprintf("%s-%t", follow, insecure)
 }

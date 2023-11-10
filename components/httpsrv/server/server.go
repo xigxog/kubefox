@@ -9,6 +9,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/xigxog/kubefox/api"
 	kubefox "github.com/xigxog/kubefox/core"
 	"github.com/xigxog/kubefox/grpc"
 	"github.com/xigxog/kubefox/logkf"
@@ -78,7 +79,7 @@ func (srv *Server) Run() error {
 			return srv.log.ErrorN("%v", err)
 		}
 		go func() {
-			err := srv.wrapped.ServeTLS(ln, kubefox.PathTLSCert, kubefox.PathTLSKey)
+			err := srv.wrapped.ServeTLS(ln, api.PathTLSCert, api.PathTLSKey)
 			if err != nil && !errors.Is(err, http.ErrServerClosed) {
 				srv.log.Fatal(err)
 			}
@@ -108,7 +109,7 @@ func (srv *Server) ServeHTTP(resWriter http.ResponseWriter, httpReq *http.Reques
 	ctx, cancel := context.WithTimeoutCause(httpReq.Context(), EventTimeout, kubefox.ErrTimeout())
 	defer cancel()
 
-	resWriter.Header().Set(kubefox.HeaderAdapter, Component.Key())
+	resWriter.Header().Set(api.HeaderAdapter, Component.Key())
 
 	req := kubefox.NewReq(kubefox.EventOpts{
 		Source: Component,
@@ -133,7 +134,7 @@ func (srv *Server) ServeHTTP(resWriter http.ResponseWriter, httpReq *http.Reques
 	}
 
 	if resp.TraceId() != "" {
-		resWriter.Header().Set(kubefox.HeaderTraceId, resp.TraceId())
+		resWriter.Header().Set(api.HeaderTraceId, resp.TraceId())
 	}
 
 	httpResp := resp.HTTPResponse()

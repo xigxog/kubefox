@@ -11,6 +11,8 @@ spec:
     metadata:
       labels:
         {{- include "labels" . | nindent 8 }}
+      annotations:
+        {{- include "annotations" . | nindent 8 }}
     spec:
       {{- include "podSpec" . | nindent 6 }}
       hostNetwork: true
@@ -40,16 +42,6 @@ spec:
               valueFrom:
                 fieldRef:
                   fieldPath: status.hostIP
-            - name: GOMEMLIMIT
-              valueFrom:
-                resourceFieldRef:
-                  containerName: {{ .Component.Name }}
-                  resource: requests.memory
-            - name: GOMAXPROCS
-              valueFrom:
-                resourceFieldRef:
-                  containerName: {{ .Component.Name }}
-                  resource: limits.cpu
           envFrom:
             - configMapRef:
                 name: {{ name }}-env

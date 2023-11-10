@@ -10,7 +10,7 @@ import (
 
 	vapi "github.com/hashicorp/vault/api"
 	vauth "github.com/hashicorp/vault/api/auth/kubernetes"
-	kubefox "github.com/xigxog/kubefox/core"
+	"github.com/xigxog/kubefox/api"
 	"github.com/xigxog/kubefox/logkf"
 	"github.com/xigxog/kubefox/utils"
 )
@@ -95,15 +95,15 @@ func generateCerts(log *logkf.Logger) error {
 	cert := fmt.Sprintf("%s\n%s", s.Data["certificate"], s.Data["issuing_ca"])
 	key := fmt.Sprintf("%s", s.Data["private_key"])
 
-	if err := os.WriteFile(kubefox.PathTLSCert, []byte(cert), 0600); err != nil {
+	if err := os.WriteFile(api.PathTLSCert, []byte(cert), 0600); err != nil {
 		return err
 	}
-	log.Infof("wrote tls certificate to %s", kubefox.PathTLSCert)
+	log.Infof("wrote tls certificate to %s", api.PathTLSCert)
 
-	if err := os.WriteFile(kubefox.PathTLSKey, []byte(key), 0600); err != nil {
+	if err := os.WriteFile(api.PathTLSKey, []byte(key), 0600); err != nil {
 		return err
 	}
-	log.Infof("wrote tls private key to %s", kubefox.PathTLSKey)
+	log.Infof("wrote tls private key to %s", api.PathTLSKey)
 
 	return nil
 }
@@ -114,7 +114,7 @@ func vaultClient(ctx context.Context) (*vapi.Client, error) {
 	cfg.MaxRetries = 3
 	cfg.HttpClient.Timeout = time.Second * 15
 	cfg.ConfigureTLS(&vapi.TLSConfig{
-		CACert: kubefox.PathCACert,
+		CACert: api.PathCACert,
 	})
 
 	vault, err := vapi.NewClient(cfg)
@@ -122,7 +122,7 @@ func vaultClient(ctx context.Context) (*vapi.Client, error) {
 		return nil, err
 	}
 
-	b, err := os.ReadFile(kubefox.PathSvcAccToken)
+	b, err := os.ReadFile(api.PathSvcAccToken)
 	if err != nil {
 		return nil, err
 	}

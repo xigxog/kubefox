@@ -12,7 +12,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	common "github.com/xigxog/kubefox/api/kubernetes"
+	"github.com/xigxog/kubefox/api"
 	kubefox "github.com/xigxog/kubefox/core"
 
 	"github.com/xigxog/kubefox/logkf"
@@ -70,7 +70,7 @@ func NewClient(opts ClientOpts) *Client {
 
 // Start connects to the broker and begins sending and receiving messages. It is
 // a blocking call.
-func (c *Client) Start(spec *common.ComponentDefinition, maxAttempts int) {
+func (c *Client) Start(spec *api.ComponentDefinition, maxAttempts int) {
 	var (
 		attempt int
 		err     error
@@ -88,8 +88,8 @@ func (c *Client) Start(spec *common.ComponentDefinition, maxAttempts int) {
 	close(c.errCh)
 }
 
-func (c *Client) run(spec *common.ComponentDefinition, retry int) (int, error) {
-	creds, err := credentials.NewClientTLSFromFile(kubefox.PathCACert, "")
+func (c *Client) run(spec *api.ComponentDefinition, retry int) (int, error) {
+	creds, err := credentials.NewClientTLSFromFile(api.PathCACert, "")
 	if err != nil {
 		return retry + 1, fmt.Errorf("unable to load root CA certificate: %v", err)
 	}
@@ -127,7 +127,7 @@ func (c *Client) run(spec *common.ComponentDefinition, retry int) (int, error) {
 	}
 
 	evt := kubefox.NewReq(kubefox.EventOpts{
-		Type:   kubefox.EventTypeRegister,
+		Type:   api.EventTypeRegister,
 		Source: c.Component,
 	})
 	if err := evt.SetJSON(spec); err != nil {
@@ -290,7 +290,7 @@ func (c *Client) ServeHTTP(resp http.ResponseWriter, req *http.Request) {
 }
 
 func (c *Client) GetRequestMetadata(ctx context.Context, uri ...string) (map[string]string, error) {
-	b, err := os.ReadFile(kubefox.PathSvcAccToken)
+	b, err := os.ReadFile(api.PathSvcAccToken)
 	if err != nil {
 		return nil, err
 	}

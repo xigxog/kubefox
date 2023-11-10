@@ -41,19 +41,6 @@ type ReleaseWebhook struct {
 // - check for required dependencies (comps and adapters)
 
 func (r *ReleaseWebhook) Handle(ctx context.Context, req admission.Request) admission.Response {
-	if _, err := r.Client.GetPlatform(ctx, req.Namespace); err != nil {
-		switch err {
-		case ErrNotFound:
-			return admission.Denied(
-				fmt.Sprintf(`The Release "%s" not allowed: Platform not found in Namespace "%s"`, req.Name, req.Namespace))
-		case ErrTooManyPlatforms:
-			return admission.Denied(
-				fmt.Sprintf(`The Release "%s" not allowed: More than one Platform found in Namespace "%s"`, req.Name, req.Namespace))
-		default:
-			return admission.Errored(http.StatusInternalServerError, err)
-		}
-	}
-
 	rel := &v1alpha1.Release{}
 	if err := r.Decode(req, rel); err != nil {
 		return admission.Errored(http.StatusBadRequest, err)
@@ -116,10 +103,10 @@ func (r *ReleaseWebhook) Handle(ctx context.Context, req admission.Request) admi
 		return admission.Denied(
 			fmt.Sprintf(`The Release "%s" is invalid: spec.version: Value is required`, rel.Name))
 	}
-	// if appDep.Spec.App.Tag != "" && rel.Spec.Version != appDep.Spec.App.Tag {
-	// 	return admission.Denied(
-	// 		fmt.Sprintf(`The Release "%s" is invalid: spec.version: Value does not match AppDeployment tag name`, rel.Name))
-	// }
+	if appDep.Details.App.Tag != "" && rel.Spec.Version != appDep.Details.App.Tag {
+		return admission.Denied(
+			fmt.Sprintf(`The Release "%s" is invalid: spec.version: Value does not match AppDeployment tag name`, rel.Name))
+	}
 
 	rel.Spec.AppDeployment.UID = appDep.UID
 	rel.Spec.AppDeployment.ResourceVersion = appDep.ResourceVersion

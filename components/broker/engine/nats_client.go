@@ -8,10 +8,15 @@ import (
 
 	"github.com/nats-io/nats.go"
 	"github.com/nats-io/nats.go/jetstream"
+	"github.com/xigxog/kubefox/api"
 	"github.com/xigxog/kubefox/components/broker/config"
 	kubefox "github.com/xigxog/kubefox/core"
 	"github.com/xigxog/kubefox/logkf"
 	"google.golang.org/protobuf/proto"
+)
+
+const (
+	CloudEventId = "ce_id"
 )
 
 const (
@@ -63,8 +68,8 @@ func (c *NATSClient) Connect(ctx context.Context) error {
 	c.nc, err = nats.Connect(
 		fmt.Sprintf("nats://%s", config.NATSAddr),
 		nats.Name("broker-"+c.brk.Component().Id),
-		nats.RootCAs(kubefox.PathCACert),
-		nats.ClientCert(kubefox.PathTLSCert, kubefox.PathTLSKey),
+		nats.RootCAs(api.PathCACert),
+		nats.ClientCert(api.PathTLSCert, api.PathTLSKey),
 	)
 	if err != nil {
 		return c.log.ErrorN("connecting to NATS failed: %v", err)
@@ -146,7 +151,7 @@ func (c *NATSClient) Msg(subject string, evt *kubefox.Event) (*nats.Msg, error) 
 
 	h := make(nats.Header)
 	// Note, use of `Nats-Msg-Id` enables de-dupe and increases NATS mem usage.
-	h.Set(kubefox.CloudEventId, evt.Id)
+	h.Set(CloudEventId, evt.Id)
 
 	// Headers create sizeable overhead for storage. Disabling most for now.
 	//
@@ -200,7 +205,7 @@ func (c *NATSClient) handleMsg(msg *nats.Msg) {
 
 	evt := kubefox.NewEvent()
 	if err := proto.Unmarshal(msg.Data, evt); err != nil {
-		evtId := msg.Header.Get(kubefox.CloudEventId)
+		evtId := msg.Header.Get(CloudEventId)
 		c.log.With(logkf.KeyEventId, evtId).Warn("message contains invalid event data: %v", err)
 		return
 	}

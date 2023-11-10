@@ -6,12 +6,9 @@ metadata:
   labels:
     {{- include "labels" . | nindent 4 }}
   annotations:
-  # TODO add checksum to tell if something has changed, do for all workloads
+    {{- include "annotations" . | nindent 4 }}
     kubefox.xigxog.io/template-data: |
       {{- . | toJSON | nindent 6 }}
-  {{- with .Component.Annotations }}
-    {{- . | toYaml | nindent 4 }}
-  {{- end }}
   {{- with .Owner }}
   ownerReferences:
     {{- . | toYaml | nindent 4 }}
@@ -29,6 +26,8 @@ spec:
     metadata:
       labels:
         {{- include "labels" . | nindent 8 }}
+      annotations:
+        {{- include "annotations" . | nindent 8 }}
     spec:
       {{- include "podSpec" . | nindent 6 }}
       containers:

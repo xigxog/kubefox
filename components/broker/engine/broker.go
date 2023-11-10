@@ -13,7 +13,7 @@ import (
 
 	"github.com/go-logr/zapr"
 	"github.com/lestrrat-go/jwx/jwt"
-	common "github.com/xigxog/kubefox/api/kubernetes"
+	"github.com/xigxog/kubefox/api"
 	"github.com/xigxog/kubefox/api/kubernetes/v1alpha1"
 	"github.com/xigxog/kubefox/build"
 	"github.com/xigxog/kubefox/components/broker/config"
@@ -400,7 +400,7 @@ func (brk *broker) checkEvent(evt *BrokerEvent) error {
 
 func (brk *broker) matchEvent(ctx context.Context, evt *BrokerEvent) error {
 	var (
-		envVars map[string]*common.Val
+		envVars map[string]*api.Val
 		matcher *matcher.EventMatcher
 		err     error
 	)
@@ -452,7 +452,7 @@ func (brk *broker) matchEvent(ctx context.Context, evt *BrokerEvent) error {
 		evt.SetContext(route.EventContext)
 
 	case evt.Target != nil && evt.Target.Name != "":
-		routeId = kubefox.DefaultRouteId
+		routeId = api.DefaultRouteId
 
 	default:
 		return kubefox.ErrRouteNotFound()
@@ -507,12 +507,12 @@ func (brk *broker) matchComponents(ctx context.Context, evt *BrokerEvent) error 
 		}
 
 	case depComp == nil && adapter != nil:
-		if adapter.Type != common.ComponentTypeHTTP {
+		if adapter.Type != api.ComponentTypeHTTP {
 			return kubefox.ErrUnsupportedAdapter(fmt.Errorf("adapter type '%s' is not supported", adapter.Type))
 		}
 		evt.TargetAdapter = adapter
 
-	case evt.Target.Commit == "" && evt.RouteId == kubefox.DefaultRouteId:
+	case evt.Target.Commit == "" && evt.RouteId == api.DefaultRouteId:
 		evt.Target.Commit = depComp.Commit
 		reg, err := brk.store.Component(ctx, evt.Target)
 		if err != nil {

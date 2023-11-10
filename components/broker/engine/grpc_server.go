@@ -8,7 +8,7 @@ import (
 	"sync"
 	"time"
 
-	common "github.com/xigxog/kubefox/api/kubernetes"
+	"github.com/xigxog/kubefox/api"
 	"github.com/xigxog/kubefox/components/broker/config"
 	kubefox "github.com/xigxog/kubefox/core"
 	"github.com/xigxog/kubefox/grpc"
@@ -41,7 +41,7 @@ func NewGRPCServer(brk Broker) *GRPCServer {
 func (srv *GRPCServer) Start(ctx context.Context) error {
 	srv.log.Debug("grpc server starting")
 
-	creds, err := credentials.NewServerTLSFromFile(kubefox.PathTLSCert, kubefox.PathTLSKey)
+	creds, err := credentials.NewServerTLSFromFile(api.PathTLSCert, api.PathTLSKey)
 	if err != nil {
 		return kubefox.ErrUnexpected(err)
 	}
@@ -159,11 +159,11 @@ func (srv *GRPCServer) subscribe(stream grpc.Broker_SubscribeServer) (ReplicaSub
 	if err != nil {
 		return nil, kubefox.ErrUnauthorized(err)
 	}
-	if regEvt.EventType() != kubefox.EventTypeRegister {
+	if regEvt.EventType() != api.EventTypeRegister {
 		return nil, kubefox.ErrUnauthorized(fmt.Errorf("expected event of type %s but got %s",
-			kubefox.EventTypeRegister, regEvt.Type))
+			api.EventTypeRegister, regEvt.Type))
 	}
-	compSpec := &common.ComponentDefinition{}
+	compSpec := &api.ComponentDefinition{}
 	if err := regEvt.Bind(compSpec); err != nil {
 		return nil, kubefox.ErrUnauthorized(err)
 	}
@@ -180,7 +180,7 @@ func (srv *GRPCServer) subscribe(stream grpc.Broker_SubscribeServer) (ReplicaSub
 
 	regResp := &BrokerEvent{
 		Event: kubefox.NewResp(kubefox.EventOpts{
-			Type:   kubefox.EventTypeRegister,
+			Type:   api.EventTypeRegister,
 			Parent: regEvt,
 			Source: srv.brk.Component(),
 			Target: regEvt.Source,

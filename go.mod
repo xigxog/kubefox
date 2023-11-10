@@ -11,6 +11,7 @@ require (
 	github.com/hashicorp/vault/api/auth/kubernetes v0.5.0
 	github.com/hasura/go-graphql-client v0.10.0
 	github.com/lestrrat-go/jwx v1.2.26
+	github.com/mitchellh/hashstructure/v2 v2.0.2
 	github.com/nats-io/nats.go v1.31.0
 	github.com/vulcand/predicate v1.2.0
 	go.opentelemetry.io/contrib/instrumentation/host v0.45.0

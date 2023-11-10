@@ -13,7 +13,8 @@ spec:
       labels:
         {{- include "labels" . | nindent 8 }}
       annotations:
-        checksum/config: {{ file "nats/nats.conf" | sha256sum }}
+        kubefox.xigxog.io/config-hash: {{ file "nats/nats.conf" | sha256sum }}
+        {{- include "annotations" . | nindent 8 }}
     spec:
       {{- include "podSpec" . | nindent 6 }}
       shareProcessNamespace: true
@@ -36,16 +37,6 @@ spec:
               valueFrom:
                 fieldRef:
                   fieldPath: status.podIP
-            - name: GOMEMLIMIT
-              valueFrom:
-                resourceFieldRef:
-                  containerName: {{ .Component.Name }}
-                  resource: requests.memory
-            - name: GOMAXPROCS
-              valueFrom:
-                resourceFieldRef:
-                  containerName: {{ .Component.Name }}
-                  resource: limits.cpu
           envFrom:
             - configMapRef:
                 name: {{ name }}-env

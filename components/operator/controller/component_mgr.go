@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strconv"
 
 	"golang.org/x/mod/semver"
 	appsv1 "k8s.io/api/apps/v1"
@@ -12,6 +13,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	"github.com/mitchellh/hashstructure/v2"
+	"github.com/xigxog/kubefox/api"
 	common "github.com/xigxog/kubefox/api/kubernetes"
 	"github.com/xigxog/kubefox/api/kubernetes/v1alpha1"
 	"github.com/xigxog/kubefox/build"
@@ -32,25 +35,18 @@ type ComponentManager struct {
 	Log      *logkf.Logger
 }
 
-func (cm *ComponentManager) SetupComponent(ctx context.Context, td *TemplateData, defs templates.Component) (bool, error) {
+func (cm *ComponentManager) SetupComponent(ctx context.Context, td *TemplateData) (bool, error) {
 	log := cm.Log.With(
 		logkf.KeyInstance, td.Instance.Name,
 		logkf.KeyPlatform, td.Platform.Name,
 		logkf.KeyComponentName, td.ComponentFullName(),
 	)
 
-	if td.Component.Resources == nil {
-		td.Component.Resources = defs.Resources
+	hash, err := hashstructure.Hash(td.Data, hashstructure.FormatV2, nil)
+	if err != nil {
+		return false, err
 	}
-	if td.Component.LivenessProbe == nil {
-		td.Component.LivenessProbe = defs.LivenessProbe
-	}
-	if td.Component.ReadinessProbe == nil {
-		td.Component.ReadinessProbe = defs.ReadinessProbe
-	}
-	if td.Component.StartupProbe == nil {
-		td.Component.StartupProbe = defs.StartupProbe
-	}
+	td.Data.Hash = strconv.Itoa(int(hash))
 
 	log.Debugf("setting up component '%s'", td.ComponentFullName())
 
@@ -59,7 +55,12 @@ func (cm *ComponentManager) SetupComponent(ctx context.Context, td *TemplateData
 		return false, log.ErrorN("unable to fetch component workload: %w", err)
 	}
 
-	ver := td.Obj.GetLabels()[common.LabelK8sRuntimeVersion]
+	curHash := td.Obj.GetAnnotations()[api.AnnotationTemplateDataHash]
+	if curHash != td.Data.Hash {
+		log.Infof("change to template data detected, applying template")
+		return false, cm.Client.ApplyTemplate(ctx, td.Template, &td.Data, log)
+	}
+	ver := td.Obj.GetLabels()[api.LabelK8sRuntimeVersion]
 	if semver.Compare(ver, build.Info.Version) < 0 {
 		log.Infof("version upgrade detected, applying template to upgrade %s->%s", ver, build.Info.Version)
 		return false, cm.Client.ApplyTemplate(ctx, td.Template, &td.Data, log)
@@ -69,6 +70,9 @@ func (cm *ComponentManager) SetupComponent(ctx context.Context, td *TemplateData
 	switch obj := td.Obj.(type) {
 	case *appsv1.StatefulSet:
 		available = obj.Status.AvailableReplicas
+		if obj.Status.CurrentRevision != obj.Status.UpdateRevision {
+			return false, nil // StatefulSet updating
+		}
 
 	case *appsv1.Deployment:
 		available = obj.Status.AvailableReplicas
@@ -125,7 +129,7 @@ func (cm *ComponentManager) ReconcileApps(ctx context.Context, namespace string)
 	compDepList := &appsv1.DeploymentList{}
 	if err := cm.Client.List(ctx, compDepList,
 		client.InNamespace(platform.Namespace),
-		client.HasLabels{common.LabelK8sComponent, common.LabelK8sAppName},
+		client.HasLabels{api.LabelK8sComponent, api.LabelK8sAppName},
 	); err != nil {
 		return false, err
 	}
@@ -171,7 +175,7 @@ func (cm *ComponentManager) ReconcileApps(ctx context.Context, namespace string)
 		if _, found := compMap[d.Name]; !found {
 			log.Debugf("deleting app component '%s'", d.Name)
 
-			tdStr := d.Annotations[common.AnnotationTemplateData]
+			tdStr := d.Annotations[api.AnnotationTemplateData]
 			data := &templates.Data{}
 			if err := json.Unmarshal([]byte(tdStr), data); err != nil {
 				return false, err
@@ -185,7 +189,8 @@ func (cm *ComponentManager) ReconcileApps(ctx context.Context, namespace string)
 	allReady := true
 	compReadyMap := make(map[string]bool, len(compMap))
 	for _, compTD := range compMap {
-		ready, err := cm.SetupComponent(ctx, &compTD, ComponentDefaults)
+		SetDefaults(&compTD.Component.ContainerSpec, &ComponentDefaults)
+		ready, err := cm.SetupComponent(ctx, &compTD)
 		if err != nil {
 			return false, err
 		}
@@ -212,6 +217,38 @@ func (cm *ComponentManager) ReconcileApps(ctx context.Context, namespace string)
 	log.Debugf("apps reconciled")
 
 	return allReady, nil
+}
+
+func (td *TemplateData) ForComponent(template string, obj client.Object, defs *common.ContainerSpec, comp templates.Component) *TemplateData {
+	newTD := &TemplateData{
+		Template: template,
+		Obj:      obj,
+		Data: templates.Data{
+			Instance:  td.Instance,
+			Platform:  td.Platform,
+			Owner:     td.Owner,
+			Logger:    td.Logger,
+			BuildInfo: td.BuildInfo,
+			Component: comp,
+			Values:    make(map[string]any),
+		},
+	}
+
+	// Copy values.
+	for k, v := range td.Values {
+		newTD.Values[k] = v
+	}
+
+	SetDefaults(&newTD.Component.ContainerSpec, defs)
+
+	if cpu := newTD.Component.Resources.Limits.Cpu(); !cpu.IsZero() {
+		newTD.Values["GOMAXPROCS"] = cpu.Value()
+	}
+	if mem := newTD.Component.Resources.Limits.Memory(); !mem.IsZero() {
+		newTD.Values["GOMEMLIMIT"] = int(float64(mem.Value()) * 0.9)
+	}
+
+	return newTD
 }
 
 func CompReadyKey(name, commit string) string {

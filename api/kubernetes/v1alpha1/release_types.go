@@ -9,6 +9,7 @@ one at https://mozilla.org/MPL/2.0/.
 package v1alpha1
 
 import (
+	"github.com/xigxog/kubefox/api"
 	common "github.com/xigxog/kubefox/api/kubernetes"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -41,7 +42,9 @@ type ReleaseStatus struct {
 
 // ReleaseDetails defines additional details of Release
 type ReleaseDetails struct {
-	common.Details `json:",inline"`
+	api.Details `json:",inline"`
+
+	AppDeployment AppDeploymentDetails `json:"appDeployment"`
 }
 
 //+kubebuilder:object:root=true

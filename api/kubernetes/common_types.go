@@ -15,56 +15,6 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 )
 
-type App struct {
-	Name              string `json:"name"`
-	ContainerRegistry string `json:"containerRegistry,omitempty"`
-}
-
-type AppDetails struct {
-	App     `json:",inline"`
-	Details `json:",inline"`
-}
-
-type ComponentDefinition struct {
-	// +kubebuilder:validation:Enum=db;genesis;kubefox;http
-	Type           ComponentType            `json:"type"`
-	Routes         []RouteSpec              `json:"routes,omitempty"`
-	DefaultHandler bool                     `json:"defaultHandler,omitempty"`
-	EnvSchema      map[string]*EnvVarSchema `json:"envSchema,omitempty"`
-	Dependencies   map[string]*Dependency   `json:"dependencies,omitempty"`
-}
-
-type ComponentDetails struct {
-	ComponentDefinition `json:",inline"`
-	Details             `json:",inline"`
-}
-
-type RouteSpec struct {
-	Id       int    `json:"id"`
-	Rule     string `json:"rule"`
-	Priority int    `json:"priority,omitempty"`
-}
-
-type EnvVarSchema struct {
-	// +kubebuilder:validation:Enum=array;boolean;number;string
-	Type     EnvVarType `json:"type"`
-	Required bool       `json:"required"`
-	// Unique indicates that this environment variable must have a unique value
-	// across all environments. If the value is not unique then making a dynamic
-	// request or creating a release that utilizes this variable will fail.
-	Unique bool `json:"unique"`
-}
-
-type Dependency struct {
-	// +kubebuilder:validation:Enum=db;kubefox;http
-	Type ComponentType `json:"type"`
-}
-
-type Details struct {
-	Title       string `json:"title,omitempty"`
-	Description string `json:"description,omitempty"`
-}
-
 type Ref struct {
 	// +kubebuilder:validation:MinLength=1
 	Name            string    `json:"name"`

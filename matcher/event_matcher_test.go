@@ -3,21 +3,21 @@ package matcher
 import (
 	"testing"
 
-	common "github.com/xigxog/kubefox/api/kubernetes"
+	"github.com/xigxog/kubefox/api"
 	kubefox "github.com/xigxog/kubefox/core"
 )
 
 func TestPath(t *testing.T) {
 	p := New()
 
-	v := map[string]*common.Val{
-		"a": common.ValString("127"),
-		"b": common.ValArrayInt([]int{0, 1}),
-		"c": common.ValArrayString([]string{"a", "b"}),
+	v := map[string]*api.Val{
+		"a": api.ValString("127"),
+		"b": api.ValArrayInt([]int{0, 1}),
+		"c": api.ValArrayString([]string{"a", "b"}),
 	}
 
 	r1 := &kubefox.Route{
-		RouteSpec: common.RouteSpec{
+		RouteSpec: api.RouteSpec{
 			Id:   1,
 			Rule: "PathPrefix(`/customize/{{.Env.b}}`)",
 		},
@@ -30,7 +30,7 @@ func TestPath(t *testing.T) {
 	}
 
 	r2 := &kubefox.Route{
-		RouteSpec: common.RouteSpec{
+		RouteSpec: api.RouteSpec{
 			Id:   2,
 			Rule: "Method(`PUT`,`GET`,`POST`) && (Query(`q1`, `{q[1-2]}`) && Header(`header-one`,`{[a-z0-9]+}`)) && Host(`{{.Env.a}}.0.0.{i}`) && Path(`/customize/{{.Env.b}}/{j:[a-z]+}`)",
 		},
@@ -47,7 +47,7 @@ func TestPath(t *testing.T) {
 		t.FailNow()
 	}
 
-	e := evt(kubefox.EventTypeHTTP)
+	e := evt(api.EventTypeHTTP)
 	r, match := p.Match(e)
 
 	if !match {
@@ -62,17 +62,17 @@ func TestPath(t *testing.T) {
 
 }
 
-func evt(evtType kubefox.EventType) *kubefox.Event {
+func evt(evtType api.EventType) *kubefox.Event {
 	evt := kubefox.NewEvent()
 	evt.Type = string(evtType)
-	evt.SetValue(kubefox.ValKeyURL, "http://127.0.0.1/customize/1/a?q1=q1&q2=q2")
-	evt.SetValue(kubefox.ValKeyHost, "127.0.0.1")
-	evt.SetValue(kubefox.ValKeyPath, "/customize/1/a")
-	evt.SetValue(kubefox.ValKeyMethod, "GET")
-	evt.SetValueMap(kubefox.ValKeyHeader, map[string][]string{
+	evt.SetValue(api.ValKeyURL, "http://127.0.0.1/customize/1/a?q1=q1&q2=q2")
+	evt.SetValue(api.ValKeyHost, "127.0.0.1")
+	evt.SetValue(api.ValKeyPath, "/customize/1/a")
+	evt.SetValue(api.ValKeyMethod, "GET")
+	evt.SetValueMap(api.ValKeyHeader, map[string][]string{
 		"Header-One": {"h1"},
 	})
-	evt.SetValueMap(kubefox.ValKeyQuery, map[string][]string{
+	evt.SetValueMap(api.ValKeyQuery, map[string][]string{
 		"q1": {"q1"},
 		"q2": {"q2"},
 	})

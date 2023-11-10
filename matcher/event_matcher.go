@@ -9,6 +9,7 @@ import (
 	"sync"
 
 	"github.com/vulcand/predicate"
+	"github.com/xigxog/kubefox/api"
 	kubefox "github.com/xigxog/kubefox/core"
 )
 
@@ -124,7 +125,7 @@ func (m *EventMatcher) header(key, val string) (kubefox.EventPredicate, error) {
 	}
 
 	return func(e *kubefox.Event) bool {
-		return matchMap(key, val, regex, e.ValueMap(kubefox.ValKeyHeader))
+		return matchMap(key, val, regex, e.ValueMap(api.ValKeyHeader))
 	}, nil
 }
 
@@ -135,13 +136,13 @@ func (m *EventMatcher) host(s string) (kubefox.EventPredicate, error) {
 	}
 
 	return func(e *kubefox.Event) bool {
-		return matchParts(kubefox.ValKeyHost, ".", parts, params, e, false)
+		return matchParts(api.ValKeyHost, ".", parts, params, e, false)
 	}, nil
 }
 
 func (m *EventMatcher) method(s ...string) kubefox.EventPredicate {
 	return func(e *kubefox.Event) bool {
-		m := e.Value(kubefox.ValKeyMethod)
+		m := e.Value(api.ValKeyMethod)
 		for _, v := range s {
 			if strings.EqualFold(m, v) {
 				return true
@@ -158,7 +159,7 @@ func (m *EventMatcher) path(s string) (kubefox.EventPredicate, error) {
 	}
 
 	return func(e *kubefox.Event) bool {
-		return matchParts(kubefox.ValKeyPath, "/", parts, params, e, false)
+		return matchParts(api.ValKeyPath, "/", parts, params, e, false)
 	}, nil
 }
 
@@ -169,7 +170,7 @@ func (m *EventMatcher) pathPrefix(s string) (kubefox.EventPredicate, error) {
 	}
 
 	return func(e *kubefox.Event) bool {
-		return matchParts(kubefox.ValKeyPath, "/", parts, params, e, true)
+		return matchParts(api.ValKeyPath, "/", parts, params, e, true)
 	}, nil
 }
 
@@ -184,7 +185,7 @@ func (m *EventMatcher) query(key, val string) (kubefox.EventPredicate, error) {
 	}
 
 	return func(e *kubefox.Event) bool {
-		return matchMap(key, val, regex, e.ValueMap(kubefox.ValKeyQuery))
+		return matchMap(key, val, regex, e.ValueMap(api.ValKeyQuery))
 	}, nil
 }
 

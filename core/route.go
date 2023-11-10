@@ -5,14 +5,14 @@ import (
 	"strings"
 	"text/template"
 
-	common "github.com/xigxog/kubefox/api/kubernetes"
+	"github.com/xigxog/kubefox/api"
 )
 
 // Takes an Event and returns true or false if rule matches.
 type EventPredicate func(e *Event) bool
 
 type Route struct {
-	common.RouteSpec
+	api.RouteSpec
 
 	ResolvedRule string
 	Predicate    EventPredicate
@@ -32,7 +32,7 @@ var (
 	paramRegexp = regexp.MustCompile(`([^\\])({[^}]+})`)
 )
 
-func (r *Route) Resolve(envVars map[string]*common.Val, funcMap template.FuncMap) error {
+func (r *Route) Resolve(envVars map[string]*api.Val, funcMap template.FuncMap) error {
 	r.ResolvedRule = ""
 	// removes any extra whitespace
 	resolved := strings.Join(strings.Fields(r.Rule), " ")
@@ -40,7 +40,7 @@ func (r *Route) Resolve(envVars map[string]*common.Val, funcMap template.FuncMap
 	env := make(map[string]any, len(envVars))
 	for k, v := range envVars {
 		var a any
-		if v.Type == common.ArrayNumber || v.Type == common.ArrayString {
+		if v.Type == api.ArrayNumber || v.Type == api.ArrayString {
 			// Convert array to regex that matches any of the values.
 			b := strings.Builder{}
 			b.WriteString("{:")

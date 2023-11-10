@@ -24,10 +24,10 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 
+	"github.com/xigxog/kubefox/api"
 	"github.com/xigxog/kubefox/api/kubernetes/v1alpha1"
 	"github.com/xigxog/kubefox/build"
 	"github.com/xigxog/kubefox/components/operator/templates"
-	kubefox "github.com/xigxog/kubefox/core"
 	"github.com/xigxog/kubefox/logkf"
 )
 
@@ -67,6 +67,9 @@ func (r *PlatformReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Owns(&appsv1.DaemonSet{}).
 		Owns(&appsv1.Deployment{}).
 		Owns(&appsv1.StatefulSet{}).
+		Owns(&v1alpha1.AppDeployment{}).
+		Owns(&v1alpha1.ComponentSpec{}).
+		Owns(&v1alpha1.Release{}).
 		Complete(r)
 }
 
@@ -107,7 +110,7 @@ func (r *PlatformReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	if err := r.Get(ctx, NN(r.Namespace, r.Instance+"-root-ca"), cm); err != nil {
 		return ctrl.Result{}, log.ErrorN("unable to fetch root CA configmap: %w", err)
 	}
-	td := &TemplateData{
+	baseTD := &TemplateData{
 		Data: templates.Data{
 			Instance: templates.Instance{
 				Name:           r.Instance,
@@ -125,72 +128,60 @@ func (r *PlatformReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 			BuildInfo: build.Info,
 			Logger:    p.Spec.Logger,
 			Values: map[string]any{
-				"maxContentSize": kubefox.MaxContentSizeBytes * 2,
+				"maxContentSize": api.DefaultMaxEventSizeBytes * 2,
 				"vaultURL":       r.VaultURL,
 			},
 		},
 	}
 
-	if err := r.setupVault(ctx, td); err != nil {
+	if err := r.setupVault(ctx, baseTD); err != nil {
 		return ctrl.Result{}, log.ErrorN("problem setting up vault: %w", err)
 	}
-
-	if err := r.ApplyTemplate(ctx, "platform", &td.Data, log); err != nil {
+	if err := r.ApplyTemplate(ctx, "platform", &baseTD.Data, log); err != nil {
 		return ctrl.Result{}, log.ErrorN("problem setting up platform: %w", err)
 	}
 
-	td.Template = "nats"
-	td.Obj = &appsv1.StatefulSet{}
-	td.Component = templates.Component{
+	td := baseTD.ForComponent("nats", &appsv1.StatefulSet{}, &NATSDefaults, templates.Component{
 		Name:          "nats",
 		Image:         NATSImage,
 		PodSpec:       p.Spec.NATS.PodSpec,
 		ContainerSpec: p.Spec.NATS.ContainerSpec,
-	}
+	})
 	if err := r.setupVaultComponent(ctx, td, ""); err != nil {
 		return ctrl.Result{}, err
 	}
-	if rdy, err := r.CompMgr.SetupComponent(ctx, td, NATSDefaults); !rdy || err != nil {
-		return ctrl.Result{}, err
+	if rdy, err := r.CompMgr.SetupComponent(ctx, td); !rdy || err != nil {
+		return chill(), err
 	}
 
-	td.Template = "broker"
-	td.Obj = &appsv1.DaemonSet{}
-	td.Component = templates.Component{
+	td = baseTD.ForComponent("broker", &appsv1.DaemonSet{}, &BrokerDefaults, templates.Component{
 		Name:          "broker",
 		Image:         BrokerImage,
 		PodSpec:       p.Spec.Broker.PodSpec,
 		ContainerSpec: p.Spec.Broker.ContainerSpec,
-	}
+	})
 	if err := r.setupVaultComponent(ctx, td, ""); err != nil {
 		return ctrl.Result{}, err
 	}
-	if rdy, err := r.CompMgr.SetupComponent(ctx, td, BrokerDefaults); !rdy || err != nil {
-		return ctrl.Result{}, err
+	if rdy, err := r.CompMgr.SetupComponent(ctx, td); !rdy || err != nil {
+		return chill(), err
 	}
 
-	td.Template = "httpsrv"
-	td.Obj = &appsv1.Deployment{}
-	td.Component = templates.Component{
+	td = baseTD.ForComponent("httpsrv", &appsv1.Deployment{}, &HTTPSrvDefaults, templates.Component{
 		Name:          "httpsrv",
 		Image:         HTTPSrvImage,
 		PodSpec:       p.Spec.HTTPSrv.PodSpec,
 		ContainerSpec: p.Spec.HTTPSrv.ContainerSpec,
-	}
+	})
 	td.Values["serviceType"] = p.Spec.HTTPSrv.Service.Type
 	td.Values["httpPort"] = p.Spec.HTTPSrv.Service.Ports.HTTP
 	td.Values["httpsPort"] = p.Spec.HTTPSrv.Service.Ports.HTTPS
-
 	if err := r.setupVaultComponent(ctx, td, ""); err != nil {
 		return ctrl.Result{}, err
 	}
-	if rdy, err := r.CompMgr.SetupComponent(ctx, td, HTTPSrvDefaults); !rdy || err != nil {
-		return ctrl.Result{}, err
+	if rdy, err := r.CompMgr.SetupComponent(ctx, td); !rdy || err != nil {
+		return chill(), err
 	}
-	// Clean up template specific values in case 'td' is reused later.
-	delete(td.Values, "serviceType")
-	delete(td.Values, "httpPort")
-	delete(td.Values, "httpsPort")
 
 	// Used by defer func created above.
 	ready = true
@@ -215,8 +206,8 @@ func (r *PlatformReconciler) setupVault(ctx context.Context, td *TemplateData) e
 	r.log.Debugf("setting up vault for platform '%s'", td.PlatformFullName())
 
 	// Ensure there are valid commits for platform components.
-	if !kubefox.RegexpCommit.MatchString(build.Info.BrokerCommit) ||
-		!kubefox.RegexpCommit.MatchString(build.Info.HTTPSrvCommit) {
+	if !api.RegexpCommit.MatchString(build.Info.BrokerCommit) ||
+		!api.RegexpCommit.MatchString(build.Info.HTTPSrvCommit) {
 		return fmt.Errorf("broker or httpsrv commit from build info is invalid")
 	}
 
@@ -359,7 +350,7 @@ func (r *PlatformReconciler) vaultClient(ctx context.Context, url string, caCert
 		return nil, err
 	}
 
-	b, err := os.ReadFile(kubefox.PathSvcAccToken)
+	b, err := os.ReadFile(api.PathSvcAccToken)
 	if err != nil {
 		return nil, err
 	}
@@ -384,4 +375,10 @@ func (r *PlatformReconciler) vaultClient(ctx context.Context, url string, caCert
 	go watcher.Start()
 
 	return vault, nil
+}
+
+// chill waits a few seconds for things to chillax.
+func chill() ctrl.Result {
+	time.Sleep(time.Second * 3)
+	return ctrl.Result{}
 }

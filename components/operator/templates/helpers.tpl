@@ -7,6 +7,15 @@ kubefox.xigxog.io/runtime-version: {{ .BuildInfo.Version | quote }}
 {{- end }}
 {{- end }}
 
+{{- define "annotations" -}}
+{{- with .Hash }}
+kubefox.xigxog.io/template-data-hash: {{ . | quote }}
+{{- end }}
+{{- with .Component.Annotations }}
+{{ . | toYaml }}
+{{- end }}
+{{- end }}
+
 {{- define "selectors" -}}
 app.kubernetes.io/instance: {{ .Instance.Name | quote }}
 {{- with .Platform.Name }}
@@ -29,10 +38,8 @@ metadata:
   namespace: {{ namespace }}
   labels:
     {{- include "labels" . | nindent 4 }}
-  {{- with .Component.Annotations }}
   annotations:
-    {{- . | toYaml | nindent 4 }}
-  {{- end }}
+    {{- include "annotations" . | nindent 4 }}
   {{- with .Owner }}
   ownerReferences:
     {{- . | toYaml | nindent 4 }}
@@ -98,6 +105,14 @@ kind: ServiceAccount
   valueFrom:
     fieldRef:
       fieldPath: status.podIP
+{{- with .Values.GOMEMLIMIT }}
+- name: GOMEMLIMIT
+  value: {{ . | quote }}
+{{- end }}
+{{- with .Values.GOMAXPROCS }}
+- name: GOMAXPROCS
+  value: {{ . | quote }}
+{{- end }}
 {{- end }}
 
 {{- define "podSpec" -}}

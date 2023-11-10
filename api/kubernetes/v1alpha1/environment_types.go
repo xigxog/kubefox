@@ -9,6 +9,7 @@ one at https://mozilla.org/MPL/2.0/.
 package v1alpha1
 
 import (
+	"github.com/xigxog/kubefox/api"
 	common "github.com/xigxog/kubefox/api/kubernetes"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -24,8 +25,8 @@ type EnvSpec struct {
 	// +kubebuilder:validation:Schemaless
 	// +kubebuilder:validation:Type=object
 	// +kubebuilder:pruning:PreserveUnknownFields
-	Vars     map[string]*common.Val `json:"vars,omitempty"`
-	Adapters map[string]*Adapter    `json:"adapters,omitempty"`
+	Vars     map[string]*api.Val `json:"vars,omitempty"`
+	Adapters map[string]*Adapter `json:"adapters,omitempty"`
 }
 
 type EnvParent struct {
@@ -34,7 +35,7 @@ type EnvParent struct {
 
 type Adapter struct {
 	// +kubebuilder:validation:Enum=db;http
-	Type common.ComponentType `json:"type"`
+	Type api.ComponentType `json:"type"`
 	// +kubebuilder:validation:Schemaless
 	// +kubebuilder:pruning:PreserveUnknownFields
 	URL common.StringOrSecret `json:"url,omitempty"`
@@ -50,7 +51,7 @@ type Adapter struct {
 	InsecureSkipVerify bool `json:"insecureSkipVerify,omitempty"`
 	// Defaults to never.
 	// +kubebuilder:validation:Enum=Never;Always;SameHost
-	FollowRedirects common.FollowRedirects `json:"followRedirects,omitempty"`
+	FollowRedirects api.FollowRedirects `json:"followRedirects,omitempty"`
 }
 
 // EnvironmentStatus defines the observed state of Environment
@@ -66,10 +67,10 @@ type EnvSpecStatus struct {
 
 // EnvironmentDetails defines additional details of Environment
 type EnvironmentDetails struct {
-	common.Details `json:",inline"`
+	api.Details `json:",inline"`
 
-	Vars     map[string]common.Details `json:"vars,omitempty"`
-	Adapters map[string]common.Details `json:"adapters,omitempty"`
+	Vars     map[string]api.Details `json:"vars,omitempty"`
+	Adapters map[string]api.Details `json:"adapters,omitempty"`
 }
 
 //+kubebuilder:object:root=true

@@ -1,17 +1,15 @@
 package env
 
-import (
-	common "github.com/xigxog/kubefox/api/kubernetes"
-)
+import "github.com/xigxog/kubefox/api"
 
-type VarOption func(*common.EnvVarSchema)
+type VarOption func(*api.EnvVarSchema)
 
 type Var struct {
 	name string
-	typ  common.EnvVarType
+	typ  api.EnvVarType
 }
 
-func NewVar(name string, typ common.EnvVarType) *Var {
+func NewVar(name string, typ api.EnvVarType) *Var {
 	return &Var{name: name, typ: typ}
 }
 
@@ -19,42 +17,42 @@ func (v *Var) Name() string {
 	return v.name
 }
 
-func (v *Var) Type() common.EnvVarType {
+func (v *Var) Type() api.EnvVarType {
 	return v.typ
 }
 
 func Array() VarOption {
-	return func(evs *common.EnvVarSchema) {
-		evs.Type = common.EnvVarTypeArray
+	return func(evs *api.EnvVarSchema) {
+		evs.Type = api.EnvVarTypeArray
 	}
 }
 
 func Bool() VarOption {
-	return func(evs *common.EnvVarSchema) {
-		evs.Type = common.EnvVarTypeBoolean
+	return func(evs *api.EnvVarSchema) {
+		evs.Type = api.EnvVarTypeBoolean
 	}
 }
 
 func Number() VarOption {
-	return func(evs *common.EnvVarSchema) {
-		evs.Type = common.EnvVarTypeNumber
+	return func(evs *api.EnvVarSchema) {
+		evs.Type = api.EnvVarTypeNumber
 	}
 }
 
 func String() VarOption {
-	return func(evs *common.EnvVarSchema) {
-		evs.Type = common.EnvVarTypeString
+	return func(evs *api.EnvVarSchema) {
+		evs.Type = api.EnvVarTypeString
 	}
 }
 
 func Required() VarOption {
-	return func(evs *common.EnvVarSchema) {
+	return func(evs *api.EnvVarSchema) {
 		evs.Required = true
 	}
 }
 
 func Unique() VarOption {
-	return func(evs *common.EnvVarSchema) {
+	return func(evs *api.EnvVarSchema) {
 		evs.Unique = true
 	}
 }

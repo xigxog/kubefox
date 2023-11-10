@@ -18,10 +18,11 @@ package controller
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/http"
 
-	common "github.com/xigxog/kubefox/api/kubernetes"
+	"github.com/xigxog/kubefox/api"
 	"github.com/xigxog/kubefox/api/kubernetes/v1alpha1"
 	v1 "k8s.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -57,7 +58,8 @@ func (r *PlatformWebhook) Handle(ctx context.Context, req admission.Request) adm
 	}
 	if !allowed {
 		return admission.Denied(
-			fmt.Sprintf(`The Platform "%s" is not allowed: only one Platform is allowed per namespace`, platform.Name))
+			fmt.Sprintf(`The Platform "%s" is not allowed: More than one Platform found in Namespace "%s"`,
+				platform.Name, platform.Namespace))
 	}
 
 	if !r.Mutating {
@@ -67,7 +69,7 @@ func (r *PlatformWebhook) Handle(ctx context.Context, req admission.Request) adm
 				return admission.Errored(http.StatusInternalServerError, err)
 			}
 
-			ns.Labels[common.LabelK8sPlatform] = platform.Name
+			ns.Labels[api.LabelK8sPlatform] = platform.Name
 			if err := r.Update(ctx, ns); err != nil {
 				return admission.Errored(http.StatusInternalServerError, err)
 			}
@@ -76,7 +78,39 @@ func (r *PlatformWebhook) Handle(ctx context.Context, req admission.Request) adm
 		return admission.Allowed("🦊")
 	}
 
-	// TODO set default resources/probes for platform components
+	// Setup defaults.
+	s := &platform.Spec
+	if s.Logger.Format == "" {
+		s.Logger.Format = api.DefaultLogFormat
+	}
+	if s.Logger.Level == "" {
+		s.Logger.Level = api.DefaultLogLevel
+	}
+	if s.Events.TimeoutSeconds == 0 {
+		s.Events.TimeoutSeconds = api.DefaultTimeoutSeconds
+	}
+	if s.Events.MaxSize.IsZero() {
+		s.Events.MaxSize.Set(api.DefaultMaxEventSizeBytes)
+	}
+	svc := &s.HTTPSrv.Service
+	if svc.Type == "" {
+		svc.Type = "ClusterIP"
+	}
+	if svc.Ports.HTTP == 0 {
+		svc.Ports.HTTP = 80
+	}
+	if svc.Ports.HTTPS == 0 {
+		svc.Ports.HTTPS = 443
+	}
 
-	return admission.Allowed("")
+	SetDefaults(&s.NATS.ContainerSpec, &NATSDefaults)
+	SetDefaults(&s.Broker.ContainerSpec, &BrokerDefaults)
+	SetDefaults(&s.HTTPSrv.ContainerSpec, &HTTPSrvDefaults)
+
+	current, err := json.Marshal(platform)
+	if err != nil {
+		return admission.Errored(http.StatusInternalServerError, err)
+	}
+
+	return admission.PatchResponseFromRaw(req.Object.Raw, current)
 }

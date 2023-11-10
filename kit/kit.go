@@ -10,7 +10,7 @@ import (
 	"sync"
 	"time"
 
-	common "github.com/xigxog/kubefox/api/kubernetes"
+	"github.com/xigxog/kubefox/api"
 	"github.com/xigxog/kubefox/build"
 	kubefox "github.com/xigxog/kubefox/core"
 	"github.com/xigxog/kubefox/grpc"
@@ -24,7 +24,7 @@ const (
 )
 
 type kit struct {
-	spec *common.ComponentDetails
+	spec *api.ComponentDetails
 
 	routes     []*route
 	defHandler EventHandler
@@ -40,12 +40,12 @@ type kit struct {
 func New() Kit {
 	svc := &kit{
 		routes: make([]*route, 0),
-		spec: &common.ComponentDetails{
-			ComponentDefinition: common.ComponentDefinition{
-				Type:         common.ComponentTypeKubeFox,
-				Routes:       make([]common.RouteSpec, 0),
-				EnvSchema:    make(map[string]*common.EnvVarSchema),
-				Dependencies: make(map[string]*common.Dependency),
+		spec: &api.ComponentDetails{
+			ComponentDefinition: api.ComponentDefinition{
+				Type:         api.ComponentTypeKubeFox,
+				Routes:       make([]api.RouteSpec, 0),
+				EnvSchema:    make(map[string]*api.EnvVarSchema),
+				Dependencies: make(map[string]*api.Dependency),
 			},
 		},
 	}
@@ -128,7 +128,7 @@ func (svc *kit) Description(description string) {
 
 func (svc *kit) Route(rule string, handler EventHandler) {
 	r := &route{
-		RouteSpec: common.RouteSpec{
+		RouteSpec: api.RouteSpec{
 			Id:   len(svc.routes),
 			Rule: rule,
 		},
@@ -148,12 +148,12 @@ func (svc *kit) EnvVar(name string, opts ...env.VarOption) EnvVar {
 		svc.log.Fatal("environment variable name is required")
 	}
 
-	schema := &common.EnvVarSchema{}
+	schema := &api.EnvVarSchema{}
 	for _, o := range opts {
 		o(schema)
 	}
 	if schema.Type == "" {
-		schema.Type = common.EnvVarTypeString
+		schema.Type = api.EnvVarTypeString
 	}
 	svc.spec.EnvSchema[name] = schema
 
@@ -161,19 +161,19 @@ func (svc *kit) EnvVar(name string, opts ...env.VarOption) EnvVar {
 }
 
 func (svc *kit) Component(name string) Dependency {
-	return svc.dependency(name, common.ComponentTypeKubeFox)
+	return svc.dependency(name, api.ComponentTypeKubeFox)
 }
 
 func (svc *kit) HTTPAdapter(name string) Dependency {
-	return svc.dependency(name, common.ComponentTypeHTTP)
+	return svc.dependency(name, api.ComponentTypeHTTP)
 }
 
-func (svc *kit) dependency(name string, typ common.ComponentType) Dependency {
+func (svc *kit) dependency(name string, typ api.ComponentType) Dependency {
 	c := &dependency{
 		typ:  typ,
 		name: name,
 	}
-	svc.spec.Dependencies[name] = &common.Dependency{Type: typ}
+	svc.spec.Dependencies[name] = &api.Dependency{Type: typ}
 
 	return c
 }
@@ -244,7 +244,7 @@ func (svc *kit) recvReq(req *grpc.ComponentEvent) {
 
 	var err error
 	switch {
-	case req.RouteId == kubefox.DefaultRouteId:
+	case req.RouteId == api.DefaultRouteId:
 		if svc.defHandler == nil {
 			err = kubefox.ErrNotFound(fmt.Errorf("default handler not found"))
 		} else {

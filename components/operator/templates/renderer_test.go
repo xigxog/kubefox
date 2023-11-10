@@ -3,8 +3,8 @@ package templates
 import (
 	"testing"
 
+	"github.com/xigxog/kubefox/api"
 	common "github.com/xigxog/kubefox/api/kubernetes"
-	kubefox "github.com/xigxog/kubefox/core"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -39,6 +39,7 @@ func TestRenderPlatform(t *testing.T) {
 
 func TestRenderNATS(t *testing.T) {
 	d := &Data{
+		Hash: "123",
 		Instance: Instance{
 			Name:      "kubefox",
 			Namespace: "kubefox-system",
@@ -86,8 +87,11 @@ func TestRenderNATS(t *testing.T) {
 				Name:       "kubefox-dev",
 			},
 		},
+		Logger: common.LoggerSpec{
+			Level: "debug",
+		},
 		Values: map[string]any{
-			"maxContentSize": kubefox.MaxContentSizeBytes,
+			"maxContentSize": api.DefaultMaxEventSizeBytes,
 		},
 	}
 	if s, err := renderStr("list.tpl", "nats/*", d); err != nil {

@@ -15,32 +15,32 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	common "github.com/xigxog/kubefox/api/kubernetes"
+	"github.com/xigxog/kubefox/api"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/structpb"
 )
 
 type EventReader interface {
-	EventType() EventType
+	EventType() api.EventType
 
 	Param(key string) string
-	ParamV(key string) *common.Val
+	ParamV(key string) *api.Val
 	ParamDef(key string, def string) string
 
 	URL() (*url.URL, error)
 
 	Query(key string) string
-	QueryV(key string) *common.Val
+	QueryV(key string) *api.Val
 	QueryDef(key string, def string) string
 	QueryAll(key string) []string
 
 	Header(key string) string
-	HeaderV(key string) *common.Val
+	HeaderV(key string) *api.Val
 	HeaderDef(key string, def string) string
 	HeaderAll(key string) []string
 
 	Status() int
-	StatusV() *common.Val
+	StatusV() *api.Val
 
 	Bind(v any) error
 	Str() string
@@ -51,26 +51,26 @@ type EventWriter interface {
 	EventReader
 
 	SetParam(key, value string) EventWriter
-	SetParamV(key string, value *common.Val) EventWriter
+	SetParamV(key string, value *api.Val) EventWriter
 
 	SetURL(u *url.URL) EventWriter
 	TrimPathPrefix(prefix string) EventWriter
 
 	SetQuery(key, value string) EventWriter
-	SetQueryV(key string, value *common.Val) EventWriter
+	SetQueryV(key string, value *api.Val) EventWriter
 	DelQuery(key string) EventWriter
 
 	SetHeader(key, value string) EventWriter
-	SetHeaderV(key string, value *common.Val) EventWriter
+	SetHeaderV(key string, value *api.Val) EventWriter
 	AddHeader(key, value string) EventWriter
 	DelHeader(key string) EventWriter
 
 	SetStatus(code int) EventWriter
-	SetStatusV(val *common.Val) EventWriter
+	SetStatusV(val *api.Val) EventWriter
 }
 
 type EventOpts struct {
-	Type   EventType
+	Type   api.EventType
 	Parent *Event
 	Source *Component
 	Target *Component
@@ -89,7 +89,7 @@ func NewMsg(opts EventOpts) *Event {
 }
 
 func NewErr(err error, opts EventOpts) *Event {
-	opts.Type = EventTypeError
+	opts.Type = api.EventTypeError
 
 	evt := NewEvent()
 	kfErr := &Err{}
@@ -140,7 +140,7 @@ func applyOpts(evt *Event, cat Category, opts EventOpts) *Event {
 	evt.Category = cat
 	evt.Source = opts.Source
 	evt.Target = opts.Target
-	if opts.Type != "" && opts.Type != EventTypeUnknown {
+	if opts.Type != "" && opts.Type != api.EventTypeUnknown {
 		evt.Type = string(opts.Type)
 	}
 
@@ -157,7 +157,7 @@ func (evt *Event) SetParent(parent *Event) {
 	evt.SetTraceId(parent.TraceId())
 	evt.SetSpanId(parent.SpanId())
 	evt.SetTraceFlags(parent.TraceFlags())
-	if evt.Type == "" || evt.Type == string(EventTypeUnknown) {
+	if evt.Type == "" || evt.Type == string(api.EventTypeUnknown) {
 		evt.Type = parent.Type
 	}
 }
@@ -171,12 +171,12 @@ func (evt *Event) SetContext(evtCtx *EventContext) {
 	evt.Context.Release = evtCtx.Release
 }
 
-func (evt *Event) EventType() EventType {
-	return EventType(evt.Type)
+func (evt *Event) EventType() api.EventType {
+	return api.EventType(evt.Type)
 }
 
 func (evt *Event) Err() error {
-	if evt.EventType() != EventTypeError {
+	if evt.EventType() != api.EventTypeError {
 		return nil
 	}
 
@@ -192,16 +192,16 @@ func (evt *Event) Param(key string) string {
 	return evt.ParamV(key).String()
 }
 
-func (evt *Event) ParamV(key string) *common.Val {
-	v, _ := common.ValProto(evt.ParamProto(key))
+func (evt *Event) ParamV(key string) *api.Val {
+	v, _ := api.ValProto(evt.ParamProto(key))
 	if !v.IsNil() {
 		return v
 	}
 	if s := evt.Query(key); s != "" {
-		return common.ValString(s)
+		return api.ValString(s)
 	}
 	if s := evt.Header(key); s != "" {
-		return common.ValString(s)
+		return api.ValString(s)
 	}
 
 	return v
@@ -224,7 +224,7 @@ func (evt *Event) SetParam(key string, val string) EventWriter {
 	return evt
 }
 
-func (evt *Event) SetParamV(key string, val *common.Val) EventWriter {
+func (evt *Event) SetParamV(key string, val *api.Val) EventWriter {
 	evt.SetParamProto(key, val.Proto())
 	return evt
 }
@@ -242,8 +242,8 @@ func (evt *Event) Value(key string) string {
 	return evt.ValueV(key).String()
 }
 
-func (evt *Event) ValueV(key string) *common.Val {
-	v, _ := common.ValProto(evt.ValueProto(key))
+func (evt *Event) ValueV(key string) *api.Val {
+	v, _ := api.ValProto(evt.ValueProto(key))
 	return v
 }
 
@@ -298,7 +298,7 @@ func (evt *Event) SetValue(key string, val string) {
 	evt.SetValueProto(key, structpb.NewStringValue(val))
 }
 
-func (evt *Event) SetValueV(key string, val *common.Val) {
+func (evt *Event) SetValueV(key string, val *api.Val) {
 	evt.SetValueProto(key, val.Proto())
 }
 
@@ -367,49 +367,49 @@ func (evt *Event) ReduceTTL(start time.Time) time.Duration {
 }
 
 func (evt *Event) Status() int {
-	return evt.ValueV(ValKeyStatusCode).Int()
+	return evt.ValueV(api.ValKeyStatusCode).Int()
 }
 
-func (evt *Event) StatusV() *common.Val {
-	return evt.ValueV(ValKeyStatusCode)
+func (evt *Event) StatusV() *api.Val {
+	return evt.ValueV(api.ValKeyStatusCode)
 }
 
 func (evt *Event) SetStatus(code int) EventWriter {
-	evt.SetValueV(ValKeyStatusCode, common.ValInt(code))
+	evt.SetValueV(api.ValKeyStatusCode, api.ValInt(code))
 	return evt
 }
 
-func (evt *Event) SetStatusV(val *common.Val) EventWriter {
-	evt.SetValueV(ValKeyStatusCode, val)
+func (evt *Event) SetStatusV(val *api.Val) EventWriter {
+	evt.SetValueV(api.ValKeyStatusCode, val)
 	return evt
 }
 
 func (evt *Event) TraceId() string {
-	return evt.Value(ValKeyTraceId)
+	return evt.Value(api.ValKeyTraceId)
 }
 
 func (evt *Event) SetTraceId(val string) {
-	evt.SetValue(ValKeyTraceId, val)
+	evt.SetValue(api.ValKeyTraceId, val)
 }
 
 func (evt *Event) SpanId() string {
-	return evt.Value(ValKeySpanId)
+	return evt.Value(api.ValKeySpanId)
 }
 
 func (evt *Event) SetSpanId(val string) {
-	evt.SetValue(ValKeySpanId, val)
+	evt.SetValue(api.ValKeySpanId, val)
 }
 
 func (evt *Event) TraceFlags() byte {
-	return byte(evt.ValueV(ValKeyTraceFlags).Float())
+	return byte(evt.ValueV(api.ValKeyTraceFlags).Float())
 }
 
 func (evt *Event) SetTraceFlags(val byte) {
-	evt.SetValueV(ValKeyTraceFlags, common.ValInt(int(val)))
+	evt.SetValueV(api.ValKeyTraceFlags, api.ValInt(int(val)))
 }
 
 func (evt *Event) URL() (*url.URL, error) {
-	return url.Parse(evt.Value(ValKeyURL))
+	return url.Parse(evt.Value(api.ValKeyURL))
 }
 
 func (evt *Event) SetURL(u *url.URL) EventWriter {
@@ -417,10 +417,10 @@ func (evt *Event) SetURL(u *url.URL) EventWriter {
 		u = &url.URL{}
 	}
 
-	evt.SetValue(ValKeyURL, u.String())
-	evt.SetValue(ValKeyHost, strings.ToLower(u.Host))
-	evt.SetValue(ValKeyPath, u.Path)
-	evt.SetValueMap(ValKeyQuery, u.Query())
+	evt.SetValue(api.ValKeyURL, u.String())
+	evt.SetValue(api.ValKeyHost, strings.ToLower(u.Host))
+	evt.SetValue(api.ValKeyPath, u.Path)
+	evt.SetValueMap(api.ValKeyQuery, u.Query())
 
 	return evt
 }
@@ -435,11 +435,11 @@ func (evt *Event) TrimPathPrefix(prefix string) EventWriter {
 }
 
 func (evt *Event) Query(key string) string {
-	return evt.ValueMapKey(ValKeyQuery, key)
+	return evt.ValueMapKey(api.ValKeyQuery, key)
 }
 
-func (evt *Event) QueryV(key string) *common.Val {
-	return common.ValString(evt.Query(key))
+func (evt *Event) QueryV(key string) *api.Val {
+	return api.ValString(evt.Query(key))
 }
 
 func (evt *Event) QueryDef(key string, def string) string {
@@ -451,30 +451,30 @@ func (evt *Event) QueryDef(key string, def string) string {
 }
 
 func (evt *Event) QueryAll(key string) []string {
-	return evt.ValueMapKeyAll(ValKeyQuery, key)
+	return evt.ValueMapKeyAll(api.ValKeyQuery, key)
 }
 
 func (evt *Event) SetQuery(key, value string) EventWriter {
-	evt.SetValueMapKey(ValKeyQuery, key, value, true)
+	evt.SetValueMapKey(api.ValKeyQuery, key, value, true)
 	return evt
 }
 
-func (evt *Event) SetQueryV(key string, value *common.Val) EventWriter {
+func (evt *Event) SetQueryV(key string, value *api.Val) EventWriter {
 	return evt.SetQuery(key, value.String())
 }
 
 func (evt *Event) DelQuery(key string) EventWriter {
-	evt.DelValueMapKey(ValKeyQuery, key)
+	evt.DelValueMapKey(api.ValKeyQuery, key)
 	return evt
 }
 
 func (evt *Event) Header(key string) string {
 	key = textproto.CanonicalMIMEHeaderKey(key)
-	return evt.ValueMapKey(ValKeyHeader, key)
+	return evt.ValueMapKey(api.ValKeyHeader, key)
 }
 
-func (evt *Event) HeaderV(key string) *common.Val {
-	return common.ValString(evt.Header(key))
+func (evt *Event) HeaderV(key string) *api.Val {
+	return api.ValString(evt.Header(key))
 }
 
 func (evt *Event) HeaderDef(key string, def string) string {
@@ -487,28 +487,28 @@ func (evt *Event) HeaderDef(key string, def string) string {
 
 func (evt *Event) HeaderAll(key string) []string {
 	key = textproto.CanonicalMIMEHeaderKey(key)
-	return evt.ValueMapKeyAll(ValKeyHeader, key)
+	return evt.ValueMapKeyAll(api.ValKeyHeader, key)
 }
 
 func (evt *Event) SetHeader(key, value string) EventWriter {
 	key = textproto.CanonicalMIMEHeaderKey(key)
-	evt.SetValueMapKey(ValKeyHeader, key, value, true)
+	evt.SetValueMapKey(api.ValKeyHeader, key, value, true)
 	return evt
 }
 
 func (evt *Event) AddHeader(key, value string) EventWriter {
 	key = textproto.CanonicalMIMEHeaderKey(key)
-	evt.SetValueMapKey(ValKeyHeader, key, value, false)
+	evt.SetValueMapKey(api.ValKeyHeader, key, value, false)
 	return evt
 }
 
-func (evt *Event) SetHeaderV(key string, value *common.Val) EventWriter {
+func (evt *Event) SetHeaderV(key string, value *api.Val) EventWriter {
 	return evt.SetHeader(key, value.String())
 }
 
 func (evt *Event) DelHeader(key string) EventWriter {
 	key = textproto.CanonicalMIMEHeaderKey(key)
-	evt.DelValueMapKey(ValKeyHeader, key)
+	evt.DelValueMapKey(api.ValKeyHeader, key)
 	return evt
 }
 
@@ -523,7 +523,7 @@ func (evt *Event) SetJSON(v any) error {
 		return err
 	}
 
-	evt.ContentType = fmt.Sprintf("%s; %s", ContentTypeJSON, CharSetUTF8)
+	evt.ContentType = fmt.Sprintf("%s; %s", api.ContentTypeJSON, api.CharSetUTF8)
 	evt.Content = b
 
 	return nil
@@ -548,7 +548,7 @@ func (evt *Event) BindStrict(v any) error {
 func (evt *Event) bind(v any, strict bool) error {
 	contType := strings.ToLower(evt.ContentType)
 	switch {
-	case strings.Contains(contType, ContentTypeJSON):
+	case strings.Contains(contType, api.ContentTypeJSON):
 		dec := json.NewDecoder(bytes.NewReader(evt.Content))
 		if strict {
 			dec.DisallowUnknownFields()
@@ -561,24 +561,24 @@ func (evt *Event) bind(v any, strict bool) error {
 
 func (evt *Event) HTTPRequest(ctx context.Context) (*http.Request, error) {
 	body := bytes.NewReader(evt.Content)
-	req, err := http.NewRequestWithContext(ctx, evt.Value(ValKeyMethod), evt.Value(ValKeyURL), body)
+	req, err := http.NewRequestWithContext(ctx, evt.Value(api.ValKeyMethod), evt.Value(api.ValKeyURL), body)
 	if err != nil {
 		return nil, err
 	}
-	req.Header = evt.ValueMap(ValKeyHeader)
+	req.Header = evt.ValueMap(api.ValKeyHeader)
 
 	return req, nil
 }
 
 func (evt *Event) HTTPResponse() *http.Response {
-	code := evt.ValueV(ValKeyStatusCode).Int()
+	code := evt.ValueV(api.ValKeyStatusCode).Int()
 	if code == 0 {
 		code = http.StatusOK
 	}
 	return &http.Response{
 		Status:     evt.Value("status"),
 		StatusCode: code,
-		Header:     evt.ValueMap(ValKeyHeader),
+		Header:     evt.ValueMap(api.ValKeyHeader),
 		Body:       io.NopCloser(bytes.NewReader(evt.Content)),
 	}
 }
@@ -594,25 +594,25 @@ func (evt *Event) SetHTTPRequest(httpReq *http.Request) error {
 	evt.Category = Category_REQUEST
 
 	if evt.Context.Environment == "" {
-		evt.Context.Environment = GetParamOrHeader(httpReq, HeaderEnv, HeaderAbbrvEnv, HeaderShortEnv)
+		evt.Context.Environment = GetParamOrHeader(httpReq, api.HeaderEnv, api.HeaderAbbrvEnv, api.HeaderShortEnv)
 	}
 	if evt.Context.Deployment == "" {
-		evt.Context.Deployment = GetParamOrHeader(httpReq, HeaderDep, HeaderAbbrvDep, HeaderShortDep)
+		evt.Context.Deployment = GetParamOrHeader(httpReq, api.HeaderDep, api.HeaderAbbrvDep, api.HeaderShortDep)
 	}
 
-	if evt.Type == "" || evt.Type == string(EventTypeUnknown) {
-		evtType := GetParamOrHeader(httpReq, HeaderEventType, HeaderAbbrvEventType, HeaderShortEventType)
+	if evt.Type == "" || evt.Type == string(api.EventTypeUnknown) {
+		evtType := GetParamOrHeader(httpReq, api.HeaderEventType, api.HeaderAbbrvEventType, api.HeaderShortEventType)
 		if evtType != "" {
 			evt.Type = evtType
 		} else {
-			evt.Type = string(EventTypeHTTP)
+			evt.Type = string(api.EventTypeHTTP)
 		}
 	}
 
 	DelParamOrHeader(httpReq,
-		HeaderEnv, HeaderAbbrvEnv, HeaderShortEnv,
-		HeaderDep, HeaderAbbrvDep, HeaderShortDep,
-		HeaderEventType, HeaderAbbrvEventType, HeaderShortEventType,
+		api.HeaderEnv, api.HeaderAbbrvEnv, api.HeaderShortEnv,
+		api.HeaderDep, api.HeaderAbbrvDep, api.HeaderShortDep,
+		api.HeaderEventType, api.HeaderAbbrvEventType, api.HeaderShortEventType,
 	)
 
 	u := *httpReq.URL
@@ -637,8 +637,8 @@ func (evt *Event) SetHTTPRequest(httpReq *http.Request) error {
 	}
 
 	evt.SetURL(&u)
-	evt.SetValue(ValKeyMethod, httpReq.Method)
-	evt.SetValueMap(ValKeyHeader, httpReq.Header)
+	evt.SetValue(api.ValKeyMethod, httpReq.Method)
+	evt.SetValueMap(api.ValKeyHeader, httpReq.Header)
 
 	return nil
 }
@@ -653,13 +653,13 @@ func (evt *Event) SetHTTPResponse(httpResp *http.Response) error {
 	evt.ContentType = httpResp.Header.Get("Content-Type")
 	evt.Category = Category_RESPONSE
 
-	if evt.Type == "" || evt.Type == string(EventTypeUnknown) {
-		evt.Type = string(EventTypeHTTP)
+	if evt.Type == "" || evt.Type == string(api.EventTypeUnknown) {
+		evt.Type = string(api.EventTypeHTTP)
 	}
 
-	evt.SetValue(ValKeyStatus, httpResp.Status)
-	evt.SetValueV(ValKeyStatusCode, common.ValInt(httpResp.StatusCode))
-	evt.SetValueMap(ValKeyHeader, httpResp.Header)
+	evt.SetValue(api.ValKeyStatus, httpResp.Status)
+	evt.SetValueV(api.ValKeyStatusCode, api.ValInt(httpResp.StatusCode))
+	evt.SetValueMap(api.ValKeyHeader, httpResp.Header)
 
 	return nil
 }
@@ -707,13 +707,13 @@ func ReadBody(body io.ReadCloser, header http.Header) ([]byte, error) {
 	if body != nil {
 		defer body.Close()
 
-		if i, err := strconv.Atoi(header.Get(HeaderContentLength)); err == nil { // success
-			if i > MaxContentSizeBytes {
+		if i, err := strconv.Atoi(header.Get(api.HeaderContentLength)); err == nil { // success
+			if i > api.DefaultMaxEventSizeBytes {
 				return nil, ErrContentTooLarge()
 			}
 		}
 
-		return io.ReadAll(&LimitedReader{body, MaxContentSizeBytes})
+		return io.ReadAll(&LimitedReader{body, api.DefaultMaxEventSizeBytes})
 	}
 
 	return nil, nil

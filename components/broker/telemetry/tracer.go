@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/xigxog/kubefox/api"
 	kubefox "github.com/xigxog/kubefox/core"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
@@ -28,9 +29,9 @@ type span struct {
 func NewSpan(ctx context.Context, timeout time.Duration, req *kubefox.Event) (context.Context, Span) {
 	ctx, cancel := context.WithTimeout(ctx, timeout)
 
-	typ := kubefox.EventTypeUnknown
+	typ := api.EventTypeUnknown
 	if req.Type != "" {
-		typ = kubefox.EventType(req.Type)
+		typ = api.EventType(req.Type)
 	}
 
 	trcId, _ := trace.TraceIDFromHex(req.TraceId())

@@ -9,7 +9,7 @@ one at https://mozilla.org/MPL/2.0/.
 package v1alpha1
 
 import (
-	common "github.com/xigxog/kubefox/api/kubernetes"
+	"github.com/xigxog/kubefox/api"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -21,7 +21,7 @@ type AppDeploymentSpec struct {
 }
 
 type App struct {
-	common.App `json:",inline"`
+	api.App `json:",inline"`
 
 	// +kubebuilder:validation:Pattern="^[a-z0-9]{40}$"
 	Commit              string `json:"commit"`
@@ -29,7 +29,7 @@ type App struct {
 }
 
 type Component struct {
-	common.ComponentDefinition `json:",inline"`
+	api.ComponentDefinition `json:",inline"`
 
 	// +kubebuilder:validation:Pattern="^[a-z0-9]{40}$"
 	Commit string `json:"commit"`
@@ -44,12 +44,12 @@ type AppDeploymentStatus struct {
 
 // AppDeploymentDetails defines additional details of AppDeployment
 type AppDeploymentDetails struct {
-	App        AppDetails                `json:"app,omitempty"`
-	Components map[string]common.Details `json:"components,omitempty"`
+	App        AppDetails             `json:"app,omitempty"`
+	Components map[string]api.Details `json:"components,omitempty"`
 }
 
 type AppDetails struct {
-	common.Details `json:",inline"`
+	api.Details `json:",inline"`
 
 	Branch string `json:"branch,omitempty"`
 	Tag    string `json:"tag,omitempty"`

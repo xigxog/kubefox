@@ -21,7 +21,9 @@ type Data struct {
 	Values map[string]any
 
 	Logger    common.LoggerSpec
-	BuildInfo build.BuildInfo
+	BuildInfo build.BuildInfo `hash:"ignore"`
+
+	Hash string `hash:"ignore"`
 }
 
 type Instance struct {

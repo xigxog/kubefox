@@ -6,7 +6,7 @@ import (
 	"strings"
 
 	"github.com/google/uuid"
-	common "github.com/xigxog/kubefox/api/kubernetes"
+	"github.com/xigxog/kubefox/api"
 	"github.com/xigxog/kubefox/utils"
 )
 
@@ -18,7 +18,7 @@ func GenerateId() string {
 func GenerateNameAndId() (string, string) {
 	id := uuid.NewString()
 	name := id
-	if p, _ := os.LookupEnv(common.EnvPodName); p != "" {
+	if p, _ := os.LookupEnv(api.EnvPodName); p != "" {
 		name = p
 		s := strings.Split(p, "-")
 		if len(s) > 1 {

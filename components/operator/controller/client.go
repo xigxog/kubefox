@@ -3,10 +3,12 @@ package controller
 import (
 	"context"
 	"fmt"
+	"net/http"
 
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
 	"github.com/xigxog/kubefox/api/kubernetes/v1alpha1"
 	"github.com/xigxog/kubefox/components/operator/templates"
@@ -85,6 +87,25 @@ func (r *Client) GetPlatform(ctx context.Context, namespace string) (*v1alpha1.P
 	}
 
 	return p, nil
+}
+
+func (r *Client) GetWebhookPlatform(ctx context.Context, obj client.Object) (*v1alpha1.Platform, admission.Response, error) {
+	platform, err := r.GetPlatform(ctx, obj.GetNamespace())
+	var resp admission.Response
+	switch {
+	case err == ErrNotFound:
+		resp = admission.Denied(
+			fmt.Sprintf(`The %s "%s" not allowed: Platform not found in Namespace "%s"`,
+				obj.GetObjectKind(), obj.GetName(), obj.GetNamespace()))
+	case err == ErrTooManyPlatforms:
+		resp = admission.Denied(
+			fmt.Sprintf(`The %s "%s" not allowed: More than one Platform found in Namespace "%s"`,
+				obj.GetObjectKind(), obj.GetName(), obj.GetNamespace()))
+	case err != nil:
+		resp = admission.Errored(http.StatusInternalServerError, err)
+	}
+
+	return platform, resp, err
 }
 
 func NN(namespace, name string) types.NamespacedName {

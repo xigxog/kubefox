@@ -6,7 +6,7 @@ import (
 	"sync"
 	"sync/atomic"
 
-	common "github.com/xigxog/kubefox/api/kubernetes"
+	"github.com/xigxog/kubefox/api"
 	kubefox "github.com/xigxog/kubefox/core"
 	"github.com/xigxog/kubefox/logkf"
 )
@@ -32,7 +32,7 @@ type GroupSubscription interface {
 
 type SubscriptionConf struct {
 	Component     *kubefox.Component
-	ComponentSpec *common.ComponentDefinition
+	ComponentSpec *api.ComponentDefinition
 	SendFunc      SendEvent
 	EnableGroup   bool
 }
@@ -40,7 +40,7 @@ type SubscriptionConf struct {
 type ReplicaSubscription interface {
 	Subscription
 	Component() *kubefox.Component
-	ComponentSpec() *common.ComponentDefinition
+	ComponentSpec() *api.ComponentDefinition
 	IsGroupEnabled() bool
 	Cancel(err error)
 	Err() error
@@ -65,7 +65,7 @@ type subscriptionGroup struct {
 
 type subscription struct {
 	comp     *kubefox.Component
-	compSpec *common.ComponentDefinition
+	compSpec *api.ComponentDefinition
 	mgr      *subscriptionMgr
 
 	sendFunc   SendEvent
@@ -251,7 +251,7 @@ func (sub *subscription) Component() *kubefox.Component {
 	return sub.comp
 }
 
-func (sub *subscription) ComponentSpec() *common.ComponentDefinition {
+func (sub *subscription) ComponentSpec() *api.ComponentDefinition {
 	return sub.compSpec
 }
 

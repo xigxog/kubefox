@@ -7,7 +7,7 @@ import (
 	"net/http"
 	"time"
 
-	common "github.com/xigxog/kubefox/api/kubernetes"
+	"github.com/xigxog/kubefox/api"
 	kubefox "github.com/xigxog/kubefox/core"
 	"github.com/xigxog/kubefox/grpc"
 	"github.com/xigxog/kubefox/logkf"
@@ -53,8 +53,8 @@ func (k *kontext) Env(v EnvVar) string {
 	return k.EnvV(v).String()
 }
 
-func (k *kontext) EnvV(v EnvVar) *common.Val {
-	val, _ := common.ValProto(k.env[v.Name()])
+func (k *kontext) EnvV(v EnvVar) *api.Val {
+	val, _ := api.ValProto(k.env[v.Name()])
 	return val
 }
 
@@ -66,7 +66,7 @@ func (k *kontext) EnvDef(v EnvVar, def string) string {
 	}
 }
 
-func (k *kontext) EnvDefV(v EnvVar, def *common.Val) *common.Val {
+func (k *kontext) EnvDefV(v EnvVar, def *api.Val) *api.Val {
 	if val := k.EnvV(v); val == nil {
 		return def
 	} else {
@@ -149,12 +149,12 @@ func (k *kontext) Transport(c Dependency) http.RoundTripper {
 }
 
 func (resp *respKontext) SendStr(val string) error {
-	c := fmt.Sprintf("%s; %s", kubefox.ContentTypePlain, kubefox.CharSetUTF8)
+	c := fmt.Sprintf("%s; %s", api.ContentTypePlain, api.CharSetUTF8)
 	return resp.SendBytes(c, []byte(val))
 }
 
 func (resp *respKontext) SendHTML(val string) error {
-	c := fmt.Sprintf("%s; %s", kubefox.ContentTypeHTML, kubefox.CharSetUTF8)
+	c := fmt.Sprintf("%s; %s", api.ContentTypeHTML, api.CharSetUTF8)
 	return resp.SendBytes(c, []byte(val))
 }
 
@@ -187,12 +187,12 @@ func (resp *respKontext) Send() error {
 }
 
 func (req *reqKontext) SendStr(val string) (kubefox.EventReader, error) {
-	c := fmt.Sprintf("%s; %s", kubefox.ContentTypePlain, kubefox.CharSetUTF8)
+	c := fmt.Sprintf("%s; %s", api.ContentTypePlain, api.CharSetUTF8)
 	return req.SendBytes(c, []byte(val))
 }
 
 func (req *reqKontext) SendHTML(val string) (kubefox.EventReader, error) {
-	c := fmt.Sprintf("%s; %s", kubefox.ContentTypeHTML, kubefox.CharSetUTF8)
+	c := fmt.Sprintf("%s; %s", api.ContentTypeHTML, api.CharSetUTF8)
 	return req.SendBytes(c, []byte(val))
 }
 

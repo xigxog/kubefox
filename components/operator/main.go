@@ -40,7 +40,6 @@ import (
 	"github.com/xigxog/kubefox/build"
 	"github.com/xigxog/kubefox/components/operator/controller"
 	"github.com/xigxog/kubefox/components/operator/templates"
-	"github.com/xigxog/kubefox/core"
 
 	"github.com/xigxog/kubefox/logkf"
 	"github.com/xigxog/kubefox/utils"
@@ -93,7 +92,7 @@ func main() {
 		},
 		HealthProbeBindAddress: healthAddr,
 		WebhookServer: webhook.NewServer(webhook.Options{
-			CertDir: core.KubeFoxHome,
+			CertDir: api.KubeFoxHome,
 		}),
 		LeaderElection:          leaderElection,
 		LeaderElectionID:        "a2e4163f.kubefox.xigxog.io",
@@ -136,32 +135,29 @@ func main() {
 	}).SetupWithManager(mgr); err != nil {
 		log.Fatalf("unable to create platform controller", err)
 	}
-	// Handles both Deployments and Releases.
-	if err = (&controller.DeploymentReconciler{
-		Client:   ctrlClient,
-		Instance: instance,
-		Scheme:   mgr.GetScheme(),
-		CompMgr:  compMgr,
-	}).SetupWithManager(mgr); err != nil {
-		log.Fatalf("unable to create deployment controller", err)
-	}
 
-	mgr.GetWebhookServer().Register("/v1alpha1-platform/validate", &webhook.Admission{
+	mgr.GetWebhookServer().Register("/v1alpha1/platform/validate", &webhook.Admission{
 		Handler: &controller.PlatformWebhook{
 			Client:   ctrlClient,
 			Decoder:  admission.NewDecoder(scheme),
 			Mutating: false,
 		},
 	})
-	mgr.GetWebhookServer().Register("/v1alpha1-platform/mutate", &webhook.Admission{
+	mgr.GetWebhookServer().Register("/v1alpha1/platform/mutate", &webhook.Admission{
 		Handler: &controller.PlatformWebhook{
 			Client:   ctrlClient,
 			Decoder:  admission.NewDecoder(scheme),
 			Mutating: true,
 		},
 	})
-	mgr.GetWebhookServer().Register("/v1alpha1-release/mutate", &webhook.Admission{
+	mgr.GetWebhookServer().Register("/v1alpha1/release/mutate", &webhook.Admission{
 		Handler: &controller.ReleaseWebhook{
+			Client:  ctrlClient,
+			Decoder: admission.NewDecoder(scheme),
+		},
+	})
+	mgr.GetWebhookServer().Register("/mutate/owner", &webhook.Admission{
+		Handler: &controller.OwnerWebhook{
 			Client:  ctrlClient,
 			Decoder: admission.NewDecoder(scheme),
 		},
@@ -240,10 +236,10 @@ func setupWebhook(ctx context.Context, c *controller.Client) error {
 	if err != nil {
 		return err
 	}
-	if err := os.WriteFile(core.PathTLSCert, []byte(pkg.Cert), 0600); err != nil {
+	if err := os.WriteFile(api.PathTLSCert, []byte(pkg.Cert), 0600); err != nil {
 		return err
 	}
-	if err := os.WriteFile(core.PathTLSKey, []byte(pkg.CertPrivKey), 0600); err != nil {
+	if err := os.WriteFile(api.PathTLSKey, []byte(pkg.CertPrivKey), 0600); err != nil {
 		return err
 	}
 

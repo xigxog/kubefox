@@ -6,7 +6,7 @@ import (
 	"os"
 	"time"
 
-	common "github.com/xigxog/kubefox/api/kubernetes"
+	"github.com/xigxog/kubefox/api"
 	"github.com/xigxog/kubefox/build"
 	"github.com/xigxog/kubefox/components/httpsrv/server"
 	kubefox "github.com/xigxog/kubefox/core"
@@ -37,8 +37,8 @@ func main() {
 
 	server.Component.Id = kubefox.GenerateId()
 
-	server.Spec = &common.ComponentDefinition{
-		Type: common.ComponentTypeGenesis,
+	server.Spec = &api.ComponentDefinition{
+		Type: api.ComponentTypeGenesis,
 	}
 
 	logkf.Global = logkf.

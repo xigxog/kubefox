@@ -5,10 +5,8 @@ metadata:
   namespace: {{ namespace }}
   labels:
     {{- include "labels" . | nindent 4 }}
-  {{- with .Component.Annotations }}
   annotations:
-    {{- . | toYaml | nindent 4 }}
-  {{- end }}
+    {{- include "annotations" . | nindent 4 }}
   {{- with .Owner }}
   ownerReferences:
     {{- . | toYaml | nindent 4 }}
@@ -24,7 +22,7 @@ webhooks:
       service:
         name: {{ name }}-operator
         namespace: {{ namespace }}
-        path: /v1alpha1-platform/mutate
+        path: /v1alpha1/platform/mutate
     rules:
       - apiGroups:
           - kubefox.xigxog.io
@@ -46,7 +44,7 @@ webhooks:
       service:
         name: {{ name }}-operator
         namespace: {{ namespace }}
-        path: /v1alpha1-release/mutate
+        path: /v1alpha1/release/mutate
     rules:
       - apiGroups:
           - kubefox.xigxog.io
@@ -56,4 +54,28 @@ webhooks:
           - CREATE
           - UPDATE
         resources:
+          - releases
+
+  - name: owner-mutation.kubefox.xigxog.io
+    failurePolicy: Fail
+    sideEffects: None
+    admissionReviewVersions:
+      - v1
+    clientConfig:
+      caBundle: {{ .Values.caBundle }}
+      service:
+        name: {{ name }}-operator
+        namespace: {{ namespace }}
+        path: /mutate/owner
+    rules:
+      - apiGroups:
+          - kubefox.xigxog.io
+        apiVersions:
+          - v1alpha1
+        operations:
+          - CREATE
+          - UPDATE
+        resources:
+          - appdeployments
+          - componentspecs
           - releases
