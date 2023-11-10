@@ -5,7 +5,7 @@ rules:
   - apiGroups:
       - kubefox.xigxog.io
     resources:
-      - deployments
+      - appdeployments
       - releases
     verbs:
       - list

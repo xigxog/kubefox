@@ -1,4 +1,3 @@
-// +kubebuilder:object:generate=false
 package core
 
 import (
@@ -7,44 +6,9 @@ import (
 	"strings"
 
 	"github.com/google/uuid"
+	common "github.com/xigxog/kubefox/api/kubernetes"
 	"github.com/xigxog/kubefox/utils"
 )
-
-// +kubebuilder:object:generate=true
-type App struct {
-	Name              string `json:"name"`
-	ContainerRegistry string `json:"containerRegistry,omitempty"`
-	Title             string `json:"title,omitempty"`
-	Description       string `json:"description,omitempty"`
-}
-
-// +kubebuilder:object:generate=true
-type ComponentSpec struct {
-	ComponentTypeVar `json:",inline"`
-
-	Title          string                       `json:"title,omitempty"`
-	Description    string                       `json:"description,omitempty"`
-	Routes         []RouteSpec                  `json:"routes,omitempty"`
-	DefaultHandler bool                         `json:"defaultHandler,omitempty"`
-	EnvSchema      map[string]*EnvVarSchema     `json:"envSchema,omitempty"`
-	Dependencies   map[string]*ComponentTypeVar `json:"dependencies,omitempty"`
-}
-
-// +kubebuilder:object:generate=true
-type EnvVarSchema struct {
-	// +kubebuilder:validation:Enum=array;boolean;number;string
-	Type        EnvVarType `json:"type"`
-	Required    bool       `json:"required"`
-	Unique      bool       `json:"unique"`
-	Title       string     `json:"title,omitempty"`
-	Description string     `json:"description,omitempty"`
-}
-
-// +kubebuilder:object:generate=true
-type ComponentTypeVar struct {
-	// +kubebuilder:validation:Enum=kubefox;http
-	Type ComponentType `json:"type"`
-}
 
 func GenerateId() string {
 	_, id := GenerateNameAndId()
@@ -54,7 +18,7 @@ func GenerateId() string {
 func GenerateNameAndId() (string, string) {
 	id := uuid.NewString()
 	name := id
-	if p, _ := os.LookupEnv(EnvPodName); p != "" {
+	if p, _ := os.LookupEnv(common.EnvPodName); p != "" {
 		name = p
 		s := strings.Split(p, "-")
 		if len(s) > 1 {

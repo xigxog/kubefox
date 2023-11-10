@@ -94,7 +94,7 @@ func (srv *Server) Run() error {
 func (srv *Server) Shutdown() {
 	srv.log.Info("http server shutting down")
 
-	ctx, cancel := context.WithTimeout(context.Background(), EventTTL)
+	ctx, cancel := context.WithTimeout(context.Background(), EventTimeout)
 	defer cancel()
 
 	if srv.wrapped != nil {
@@ -105,7 +105,7 @@ func (srv *Server) Shutdown() {
 }
 
 func (srv *Server) ServeHTTP(resWriter http.ResponseWriter, httpReq *http.Request) {
-	ctx, cancel := context.WithTimeoutCause(httpReq.Context(), EventTTL, kubefox.ErrTimeout())
+	ctx, cancel := context.WithTimeoutCause(httpReq.Context(), EventTimeout, kubefox.ErrTimeout())
 	defer cancel()
 
 	resWriter.Header().Set(kubefox.HeaderAdapter, Component.Key())
@@ -113,7 +113,7 @@ func (srv *Server) ServeHTTP(resWriter http.ResponseWriter, httpReq *http.Reques
 	req := kubefox.NewReq(kubefox.EventOpts{
 		Source: Component,
 	})
-	req.SetTTL(EventTTL)
+	req.SetTTL(EventTimeout)
 	if err := req.SetHTTPRequest(httpReq); err != nil {
 		writeError(resWriter, err, srv.log)
 		return

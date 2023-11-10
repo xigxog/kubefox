@@ -1,24 +1,18 @@
-// +kubebuilder:object:generate=false
 package core
 
 import (
 	"regexp"
 	"strings"
 	"text/template"
+
+	common "github.com/xigxog/kubefox/api/kubernetes"
 )
 
 // Takes an Event and returns true or false if rule matches.
 type EventPredicate func(e *Event) bool
 
-// +kubebuilder:object:generate=true
-type RouteSpec struct {
-	Id       int    `json:"id"`
-	Rule     string `json:"rule"`
-	Priority int    `json:"priority,omitempty"`
-}
-
 type Route struct {
-	RouteSpec
+	common.RouteSpec
 
 	ResolvedRule string
 	Predicate    EventPredicate
@@ -38,7 +32,7 @@ var (
 	paramRegexp = regexp.MustCompile(`([^\\])({[^}]+})`)
 )
 
-func (r *Route) Resolve(envVars map[string]*Val, funcMap template.FuncMap) error {
+func (r *Route) Resolve(envVars map[string]*common.Val, funcMap template.FuncMap) error {
 	r.ResolvedRule = ""
 	// removes any extra whitespace
 	resolved := strings.Join(strings.Fields(r.Rule), " ")
@@ -46,7 +40,7 @@ func (r *Route) Resolve(envVars map[string]*Val, funcMap template.FuncMap) error
 	env := make(map[string]any, len(envVars))
 	for k, v := range envVars {
 		var a any
-		if v.Type == ArrayNumber || v.Type == ArrayString {
+		if v.Type == common.ArrayNumber || v.Type == common.ArrayString {
 			// Convert array to regex that matches any of the values.
 			b := strings.Builder{}
 			b.WriteString("{:")

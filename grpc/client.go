@@ -12,6 +12,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	common "github.com/xigxog/kubefox/api/kubernetes"
 	kubefox "github.com/xigxog/kubefox/core"
 
 	"github.com/xigxog/kubefox/logkf"
@@ -29,7 +30,7 @@ type Client struct {
 	ClientOpts
 
 	brk    Broker_SubscribeClient
-	reqMap map[string]*reqChan
+	reqMap map[string]*ActiveReq
 
 	recvCh chan *ComponentEvent
 	errCh  chan error
@@ -49,15 +50,15 @@ type ComponentEvent struct {
 	ReceivedAt time.Time
 }
 
-type reqChan struct {
-	ch      chan *kubefox.Event
-	expires time.Time
+type ActiveReq struct {
+	respCh     chan *kubefox.Event
+	expiration time.Time
 }
 
 func NewClient(opts ClientOpts) *Client {
 	c := &Client{
 		ClientOpts: opts,
-		reqMap:     make(map[string]*reqChan),
+		reqMap:     make(map[string]*ActiveReq),
 		recvCh:     make(chan *ComponentEvent),
 		errCh:      make(chan error),
 		log:        logkf.Global,
@@ -69,7 +70,7 @@ func NewClient(opts ClientOpts) *Client {
 
 // Start connects to the broker and begins sending and receiving messages. It is
 // a blocking call.
-func (c *Client) Start(spec *kubefox.ComponentSpec, maxAttempts int) {
+func (c *Client) Start(spec *common.ComponentSpec, maxAttempts int) {
 	var (
 		attempt int
 		err     error
@@ -87,7 +88,7 @@ func (c *Client) Start(spec *kubefox.ComponentSpec, maxAttempts int) {
 	close(c.errCh)
 }
 
-func (c *Client) run(spec *kubefox.ComponentSpec, retry int) (int, error) {
+func (c *Client) run(spec *common.ComponentSpec, retry int) (int, error) {
 	creds, err := credentials.NewClientTLSFromFile(kubefox.PathCACert, "")
 	if err != nil {
 		return retry + 1, fmt.Errorf("unable to load root CA certificate: %v", err)
@@ -199,9 +200,9 @@ func (c *Client) SendReqChan(req *kubefox.Event, start time.Time) (chan *kubefox
 
 	respCh := make(chan *kubefox.Event)
 	c.reqMapMutex.Lock()
-	c.reqMap[req.Id] = &reqChan{
-		ch:      respCh,
-		expires: time.Now().Add(req.TTL()),
+	c.reqMap[req.Id] = &ActiveReq{
+		respCh:     respCh,
+		expiration: time.Now().Add(req.TTL()),
 	}
 	c.reqMapMutex.Unlock()
 
@@ -236,7 +237,7 @@ func (c *Client) recvResp(resp *kubefox.Event) {
 		return
 	}
 
-	respCh.ch <- resp
+	respCh.respCh <- resp
 }
 
 func (c *Client) send(evt *kubefox.Event, start time.Time) error {
@@ -321,7 +322,7 @@ func (c *Client) startReqMapReaper() {
 		now := time.Now().Add(time.Second * -30)
 		for k, v := range c.reqMap {
 			// If request has expired delete it.
-			if now.After(v.expires) {
+			if now.After(v.expiration) {
 				c.reqMapMutex.RUnlock()
 				c.reqMapMutex.Lock()
 				log.Debugf("request '%s' expired, deleting", k)

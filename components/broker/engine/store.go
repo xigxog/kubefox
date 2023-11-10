@@ -11,6 +11,7 @@ import (
 	"github.com/Masterminds/sprig"
 	"github.com/nats-io/nats.go"
 	"github.com/nats-io/nats.go/jetstream"
+	common "github.com/xigxog/kubefox/api/kubernetes"
 	"github.com/xigxog/kubefox/api/kubernetes/v1alpha1"
 	"github.com/xigxog/kubefox/cache"
 	kubefox "github.com/xigxog/kubefox/core"
@@ -31,7 +32,7 @@ type Store struct {
 	namespace string
 
 	resCache      ctrlcache.Cache
-	compSpecCache cache.Cache[*kubefox.ComponentSpec]
+	compSpecCache cache.Cache[*common.ComponentSpec]
 	compSpecKV    jetstream.KeyValue
 
 	depMatchers cache.Cache[*matcher.EventMatcher]
@@ -56,7 +57,7 @@ func NewStore(namespace string) *Store {
 		namespace:     namespace,
 		depMatchers:   cache.New[*matcher.EventMatcher](time.Minute * 15),
 		relMatcher:    new(matcher.EventMatcher),
-		compSpecCache: cache.New[*kubefox.ComponentSpec](time.Hour * 24),
+		compSpecCache: cache.New[*common.ComponentSpec](time.Hour * 24),
 		ctx:           ctx,
 		cancel:        cancel,
 		log:           logkf.Global,
@@ -93,7 +94,7 @@ func (str *Store) Open(compSpecKV jetstream.KeyValue) error {
 
 	// Getting the informer starts the sync process for the resource kind.
 
-	if str.depInf, err = str.startInformer(ctx, &v1alpha1.Deployment{}); err != nil {
+	if str.depInf, err = str.startInformer(ctx, &v1alpha1.AppDeployment{}); err != nil {
 		return err
 	}
 	if str.envInf, err = str.startInformer(ctx, &v1alpha1.Environment{}); err != nil {
@@ -123,7 +124,7 @@ func (str *Store) Close() {
 	str.cancel()
 }
 
-func (str *Store) RegisterComponent(ctx context.Context, comp *kubefox.Component, reg *kubefox.ComponentSpec) error {
+func (str *Store) RegisterComponent(ctx context.Context, comp *kubefox.Component, reg *common.ComponentSpec) error {
 	str.log.Debugf("registering component '%s' of type '%s'", comp.GroupKey(), reg.Type)
 	b, err := json.Marshal(reg)
 	if err != nil {
@@ -138,7 +139,7 @@ func (str *Store) RegisterComponent(ctx context.Context, comp *kubefox.Component
 	return nil
 }
 
-func (str *Store) Component(ctx context.Context, comp *kubefox.Component) (*kubefox.ComponentSpec, error) {
+func (str *Store) Component(ctx context.Context, comp *kubefox.Component) (*common.ComponentSpec, error) {
 	compSpec, found := str.compSpecCache.Get(comp.GroupKey())
 	if !found {
 		entry, err := str.compSpecKV.Get(ctx, comp.GroupKey())
@@ -148,7 +149,7 @@ func (str *Store) Component(ctx context.Context, comp *kubefox.Component) (*kube
 			return nil, err
 		}
 
-		compSpec = &kubefox.ComponentSpec{}
+		compSpec = &common.ComponentSpec{}
 		err = json.Unmarshal(entry.Value(), compSpec)
 		if err != nil {
 			return nil, err
@@ -165,11 +166,11 @@ func (str *Store) IsGenesisAdapter(ctx context.Context, comp *kubefox.Component)
 	if err != nil || r == nil {
 		return false
 	}
-	return r.Type == kubefox.ComponentTypeGenesis
+	return r.Type == common.ComponentTypeGenesis
 }
 
-func (str *Store) Deployment(name string) (*v1alpha1.Deployment, error) {
-	obj := new(v1alpha1.Deployment)
+func (str *Store) AppDeployment(name string) (*v1alpha1.AppDeployment, error) {
+	obj := new(v1alpha1.AppDeployment)
 	return obj, str.get(name, obj, true)
 }
 
@@ -218,7 +219,7 @@ func (str *Store) ReleaseMatcher(ctx context.Context) (*matcher.EventMatcher, er
 }
 
 func (str *Store) DeploymentMatcher(ctx context.Context, evtCtx *kubefox.EventContext) (*matcher.EventMatcher, error) {
-	dep, err := str.Deployment(evtCtx.Deployment)
+	dep, err := str.AppDeployment(evtCtx.Deployment)
 	if err != nil {
 		return nil, err
 	}
@@ -249,7 +250,7 @@ func (str *Store) DeploymentMatcher(ctx context.Context, evtCtx *kubefox.EventCo
 
 func (str *Store) OnAdd(obj interface{}, isInInitialList bool) {
 	switch obj.(type) {
-	case *v1alpha1.Deployment:
+	case *v1alpha1.AppDeployment:
 		str.log.Debug("deployment added")
 
 	case *v1alpha1.Environment:
@@ -266,7 +267,7 @@ func (str *Store) OnAdd(obj interface{}, isInInitialList bool) {
 
 func (str *Store) OnUpdate(oldObj, obj interface{}) {
 	switch obj.(type) {
-	case *v1alpha1.Deployment:
+	case *v1alpha1.AppDeployment:
 		str.log.Debug("deployment updated")
 
 	case *v1alpha1.Environment:
@@ -283,7 +284,7 @@ func (str *Store) OnUpdate(oldObj, obj interface{}) {
 
 func (str *Store) OnDelete(obj interface{}) {
 	switch obj.(type) {
-	case *v1alpha1.Deployment:
+	case *v1alpha1.AppDeployment:
 		str.log.Debug("deployment deleted")
 
 	case *v1alpha1.Environment:
@@ -309,7 +310,7 @@ func (str *Store) buildReleaseMatcher(ctx context.Context) (*matcher.EventMatche
 
 	relM := matcher.New()
 	for _, rel := range relList.Items {
-		comps := rel.Spec.Deployment.Components
+		comps := rel.Spec.AppDeployment.Components
 		vars := rel.Spec.Environment.Vars
 		evtCtx := &kubefox.EventContext{Release: rel.Name}
 
@@ -332,7 +333,7 @@ func (str *Store) buildReleaseMatcher(ctx context.Context) (*matcher.EventMatche
 func (str *Store) buildRoutes(
 	ctx context.Context,
 	comps map[string]*v1alpha1.Component,
-	vars map[string]*kubefox.Val,
+	vars map[string]*common.Val,
 	evtCtx *kubefox.EventContext) ([]*kubefox.Route, error) {
 
 	routes := make([]*kubefox.Route, 0)

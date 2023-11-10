@@ -3,7 +3,7 @@ package templates
 import (
 	"testing"
 
-	"github.com/xigxog/kubefox/api/kubernetes/v1alpha1"
+	common "github.com/xigxog/kubefox/api/kubernetes"
 	kubefox "github.com/xigxog/kubefox/core"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -50,7 +50,7 @@ func TestRenderNATS(t *testing.T) {
 		Component: Component{
 			Name:  "nats",
 			Image: "nats:2.9.21-alpine",
-			PodSpec: v1alpha1.PodSpec{
+			PodSpec: common.PodSpec{
 				Tolerations: []v1.Toleration{
 					{
 						Key: "asdf",
@@ -66,7 +66,7 @@ func TestRenderNATS(t *testing.T) {
 					},
 				},
 			},
-			ContainerSpec: v1alpha1.ContainerSpec{
+			ContainerSpec: common.ContainerSpec{
 				Resources: &v1.ResourceRequirements{
 					Limits: v1.ResourceList{
 						"memory": resource.MustParse("128Mi"),
@@ -145,7 +145,7 @@ func TestRenderHTTPSrv(t *testing.T) {
 		Component: Component{
 			Name:  "httpsrv",
 			Image: "ghcr.io/xigxog/kubefox/httpsrv:v0.0.1",
-			ContainerSpec: v1alpha1.ContainerSpec{
+			ContainerSpec: common.ContainerSpec{
 				Resources: &v1.ResourceRequirements{
 					Requests: v1.ResourceList{
 						"memory": resource.MustParse("144Mi"), // 90% of limit, used to set GOMEMLIMIT

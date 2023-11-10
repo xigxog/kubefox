@@ -9,28 +9,39 @@ one at https://mozilla.org/MPL/2.0/.
 package v1alpha1
 
 import (
-	kubefox "github.com/xigxog/kubefox/core"
+	common "github.com/xigxog/kubefox/api/kubernetes"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // EnvironmentSpec defines the desired state of Environment
 type EnvironmentSpec struct {
+	EnvSpec `json:",inline"`
+
+	Parent EnvParent `json:"parent,omitempty"`
+}
+
+type EnvSpec struct {
 	// +kubebuilder:validation:Schemaless
 	// +kubebuilder:validation:Type=object
 	// +kubebuilder:pruning:PreserveUnknownFields
-	Vars     map[string]*kubefox.Val `json:"vars,omitempty"`
-	Adapters map[string]*Adapter     `json:"adapters,omitempty"`
+	Vars     map[string]*common.Val `json:"vars,omitempty"`
+	Adapters map[string]*Adapter    `json:"adapters,omitempty"`
+}
+
+type EnvParent struct {
+	Name string `json:"name"`
 }
 
 type Adapter struct {
-	kubefox.ComponentTypeVar `json:",inline"`
+	// +kubebuilder:validation:Enum=db;http
+	Type common.ComponentType `json:"type"`
 	// +kubebuilder:validation:Schemaless
 	// +kubebuilder:pruning:PreserveUnknownFields
-	URL kubefox.StringOrSecret `json:"url,omitempty"`
+	URL common.StringOrSecret `json:"url,omitempty"`
 	// +kubebuilder:validation:Schemaless
 	// +kubebuilder:validation:Type=object
 	// +kubebuilder:pruning:PreserveUnknownFields
-	Headers map[string]*kubefox.StringOrSecret `json:"headers,omitempty"`
+	Headers map[string]*common.StringOrSecret `json:"headers,omitempty"`
 	// InsecureSkipVerify controls whether a client verifies the server's
 	// certificate chain and host name. If InsecureSkipVerify is true, any
 	// certificate presented by the server and any host name in that certificate
@@ -39,15 +50,31 @@ type Adapter struct {
 	InsecureSkipVerify bool `json:"insecureSkipVerify,omitempty"`
 	// Defaults to never.
 	// +kubebuilder:validation:Enum=Never;Always;SameHost
-	FollowRedirects kubefox.FollowRedirects `json:"followRedirects,omitempty"`
+	FollowRedirects common.FollowRedirects `json:"followRedirects,omitempty"`
 }
 
 // EnvironmentStatus defines the observed state of Environment
 type EnvironmentStatus struct {
+	Parent   common.RefTimestamped   `json:"parent,omitempty"`
+	Children []common.RefTimestamped `json:"children,omitempty"`
+	Spec     EnvSpecStatus           `json:"spec,omitempty"`
+}
+
+type EnvSpecStatus struct {
+	Resolved EnvSpec `json:"resolved,omitempty"`
+}
+
+// EnvironmentDetails defines additional details of Environment
+type EnvironmentDetails struct {
+	common.Details `json:",inline"`
+
+	Vars     map[string]common.Details `json:"vars,omitempty"`
+	Adapters map[string]common.Details `json:"adapters,omitempty"`
 }
 
 //+kubebuilder:object:root=true
 //+kubebuilder:subresource:status
+//+kubebuilder:subresource:details
 //+kubebuilder:resource:path=environments,scope=Cluster
 
 // Environment is the Schema for the Environments API
@@ -55,8 +82,9 @@ type Environment struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec   EnvironmentSpec   `json:"spec,omitempty"`
-	Status EnvironmentStatus `json:"status,omitempty"`
+	Spec    EnvironmentSpec    `json:"spec,omitempty"`
+	Status  EnvironmentStatus  `json:"status,omitempty"`
+	Details EnvironmentDetails `json:"details,omitempty"`
 }
 
 //+kubebuilder:object:root=true

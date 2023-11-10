@@ -8,6 +8,7 @@ import (
 	"sync"
 	"time"
 
+	common "github.com/xigxog/kubefox/api/kubernetes"
 	"github.com/xigxog/kubefox/components/broker/config"
 	kubefox "github.com/xigxog/kubefox/core"
 	"github.com/xigxog/kubefox/grpc"
@@ -162,7 +163,7 @@ func (srv *GRPCServer) subscribe(stream grpc.Broker_SubscribeServer) (ReplicaSub
 		return nil, kubefox.ErrUnauthorized(fmt.Errorf("expected event of type %s but got %s",
 			kubefox.EventTypeRegister, regEvt.Type))
 	}
-	compSpec := &kubefox.ComponentSpec{}
+	compSpec := &common.ComponentSpec{}
 	if err := regEvt.Bind(compSpec); err != nil {
 		return nil, kubefox.ErrUnauthorized(err)
 	}

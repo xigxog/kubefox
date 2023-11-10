@@ -10,6 +10,7 @@ import (
 	"sync"
 	"time"
 
+	common "github.com/xigxog/kubefox/api/kubernetes"
 	"github.com/xigxog/kubefox/build"
 	kubefox "github.com/xigxog/kubefox/core"
 	"github.com/xigxog/kubefox/grpc"
@@ -23,7 +24,7 @@ const (
 )
 
 type kit struct {
-	spec *kubefox.ComponentSpec
+	spec *common.ComponentSpecDetails
 
 	routes     []*route
 	defHandler EventHandler
@@ -39,13 +40,13 @@ type kit struct {
 func New() Kit {
 	svc := &kit{
 		routes: make([]*route, 0),
-		spec: &kubefox.ComponentSpec{
-			ComponentTypeVar: kubefox.ComponentTypeVar{
-				Type: kubefox.ComponentTypeKubeFox,
+		spec: &common.ComponentSpecDetails{
+			ComponentSpec: common.ComponentSpec{
+				Type:         common.ComponentTypeKubeFox,
+				Routes:       make([]common.RouteSpec, 0),
+				EnvSchema:    make(map[string]*common.EnvVarSchema),
+				Dependencies: make(map[string]*common.Dependency),
 			},
-			Routes:       make([]kubefox.RouteSpec, 0),
-			EnvSchema:    make(map[string]*kubefox.EnvVarSchema),
-			Dependencies: make(map[string]*kubefox.ComponentTypeVar),
 		},
 	}
 
@@ -82,15 +83,15 @@ Flags:
 	logFormat = utils.ResolveFlag(logFormat, "KUBEFOX_LOG_FORMAT", "console")
 	logLevel = utils.ResolveFlag(logLevel, "KUBEFOX_LOG_LEVEL", "debug")
 
-	utils.CheckRequiredFlag("name", comp.Name)
-	utils.CheckRequiredFlag("commit", comp.Commit)
+	if !svc.export {
+		utils.CheckRequiredFlag("name", comp.Name)
+		utils.CheckRequiredFlag("commit", comp.Commit)
 
-	if comp.Commit != build.Info.Commit {
-		fmt.Fprintf(os.Stderr, "commit '%s' does not match build info commit '%s'", comp.Commit, build.Info.Commit)
-		os.Exit(1)
-	}
-
-	if svc.export {
+		if comp.Commit != build.Info.Commit {
+			fmt.Fprintf(os.Stderr, "commit '%s' does not match build info commit '%s'", comp.Commit, build.Info.Commit)
+			os.Exit(1)
+		}
+	} else {
 		logLevel = "error"
 	}
 
@@ -127,7 +128,7 @@ func (svc *kit) Description(description string) {
 
 func (svc *kit) Route(rule string, handler EventHandler) {
 	r := &route{
-		RouteSpec: kubefox.RouteSpec{
+		RouteSpec: common.RouteSpec{
 			Id:   len(svc.routes),
 			Rule: rule,
 		},
@@ -147,12 +148,12 @@ func (svc *kit) EnvVar(name string, opts ...env.VarOption) EnvVar {
 		svc.log.Fatal("environment variable name is required")
 	}
 
-	schema := &kubefox.EnvVarSchema{}
+	schema := &common.EnvVarSchema{}
 	for _, o := range opts {
 		o(schema)
 	}
 	if schema.Type == "" {
-		schema.Type = kubefox.EnvVarTypeString
+		schema.Type = common.EnvVarTypeString
 	}
 	svc.spec.EnvSchema[name] = schema
 
@@ -160,19 +161,19 @@ func (svc *kit) EnvVar(name string, opts ...env.VarOption) EnvVar {
 }
 
 func (svc *kit) Component(name string) Dependency {
-	return svc.dependency(name, kubefox.ComponentTypeKubeFox)
+	return svc.dependency(name, common.ComponentTypeKubeFox)
 }
 
 func (svc *kit) HTTPAdapter(name string) Dependency {
-	return svc.dependency(name, kubefox.ComponentTypeHTTP)
+	return svc.dependency(name, common.ComponentTypeHTTP)
 }
 
-func (svc *kit) dependency(name string, typ kubefox.ComponentType) Dependency {
+func (svc *kit) dependency(name string, typ common.ComponentType) Dependency {
 	c := &dependency{
 		typ:  typ,
 		name: name,
 	}
-	svc.spec.Dependencies[name] = &kubefox.ComponentTypeVar{Type: typ}
+	svc.spec.Dependencies[name] = &common.Dependency{Type: typ}
 
 	return c
 }
@@ -199,7 +200,7 @@ func (svc *kit) Start() {
 		return
 	}
 
-	go svc.brk.Start(svc.spec, maxAttempts)
+	go svc.brk.Start(&svc.spec.ComponentSpec, maxAttempts)
 
 	var wg sync.WaitGroup
 	wg.Add(svc.numWorkers)

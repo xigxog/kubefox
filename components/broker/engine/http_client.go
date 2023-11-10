@@ -11,6 +11,7 @@ import (
 	"os"
 	"strings"
 
+	common "github.com/xigxog/kubefox/api/kubernetes"
 	"github.com/xigxog/kubefox/api/kubernetes/v1alpha1"
 	kubefox "github.com/xigxog/kubefox/core"
 	"github.com/xigxog/kubefox/logkf"
@@ -51,26 +52,26 @@ func NewHTTPClient(brk Broker) *HTTPClient {
 		CheckRedirect: followNever,
 		Transport:     secureTransport,
 	}
-	clients[key(kubefox.FollowRedirectsNever, false)] = &http.Client{
+	clients[key(common.FollowRedirectsNever, false)] = &http.Client{
 		CheckRedirect: followNever,
 		Transport:     secureTransport,
 	}
-	clients[key(kubefox.FollowRedirectsNever, true)] = &http.Client{
+	clients[key(common.FollowRedirectsNever, true)] = &http.Client{
 		CheckRedirect: followNever,
 		Transport:     insecureTransport,
 	}
-	clients[key(kubefox.FollowRedirectsSameHost, false)] = &http.Client{
+	clients[key(common.FollowRedirectsSameHost, false)] = &http.Client{
 		CheckRedirect: followSameHost,
 		Transport:     secureTransport,
 	}
-	clients[key(kubefox.FollowRedirectsSameHost, true)] = &http.Client{
+	clients[key(common.FollowRedirectsSameHost, true)] = &http.Client{
 		CheckRedirect: followSameHost,
 		Transport:     insecureTransport,
 	}
-	clients[key(kubefox.FollowRedirectsAlways, false)] = &http.Client{
+	clients[key(common.FollowRedirectsAlways, false)] = &http.Client{
 		Transport: secureTransport,
 	}
-	clients[key(kubefox.FollowRedirectsAlways, true)] = &http.Client{
+	clients[key(common.FollowRedirectsAlways, true)] = &http.Client{
 		Transport: insecureTransport,
 	}
 
@@ -175,9 +176,9 @@ func (c *HTTPClient) adapterClient(a *v1alpha1.Adapter) *http.Client {
 	return client
 }
 
-func key(follow kubefox.FollowRedirects, insecure bool) string {
+func key(follow common.FollowRedirects, insecure bool) string {
 	if follow == "" {
-		follow = kubefox.FollowRedirectsNever
+		follow = common.FollowRedirectsNever
 	}
 	return fmt.Sprintf("%s-%t", follow, insecure)
 }

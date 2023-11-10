@@ -3,16 +3,17 @@ package server
 import (
 	"time"
 
+	common "github.com/xigxog/kubefox/api/kubernetes"
 	kubefox "github.com/xigxog/kubefox/core"
 )
 
 var (
 	HTTPAddr, HTTPSAddr       string
 	BrokerAddr, HealthSrvAddr string
-	EventTTL                  time.Duration
+	EventTimeout              time.Duration
 )
 
 var (
 	Component = new(kubefox.Component)
-	Spec      = new(kubefox.ComponentSpec)
+	Spec      = new(common.ComponentSpec)
 )

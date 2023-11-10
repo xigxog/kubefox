@@ -9,37 +9,40 @@ one at https://mozilla.org/MPL/2.0/.
 package v1alpha1
 
 import (
+	common "github.com/xigxog/kubefox/api/kubernetes"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // PlatformSpec defines the desired state of Platform
 type PlatformSpec struct {
-	LogConfig `json:",inline"`
+	Broker  BrokerSpec        `json:"broker,omitempty"`
+	HTTPSrv HTTPSrvSpec       `json:"httpsrv,omitempty"`
+	NATS    NATSSpec          `json:"nats,omitempty"`
+	Events  EventsSpec        `json:"events,omitempty"`
+	Logger  common.LoggerSpec `json:"logger,omitempty"`
+}
 
-	Broker  Broker  `json:"broker,omitempty"`
-	HTTPSrv HTTPSrv `json:"httpsrv,omitempty"`
-	NATS    NATS    `json:"nats,omitempty"`
+type EventsSpec struct {
 	// +kubebuilder:validation:Minimum=3
-	EventTTLSeconds uint              `json:"defaultEventTTLSeconds,omitempty"`
-	EventMaxSize    resource.Quantity `json:"eventMaxSize,omitempty"`
+	TimeoutSeconds uint              `json:"timeoutSeconds,omitempty"`
+	MaxSize        resource.Quantity `json:"maxSize,omitempty"`
 }
 
-type NATS struct {
-	PodSpec       `json:",inline"`
-	ContainerSpec `json:",inline"`
+type NATSSpec struct {
+	PodSpec       common.PodSpec       `json:"podSpec,omitempty"`
+	ContainerSpec common.ContainerSpec `json:"containerSpec,omitempty"`
 }
 
-type HTTPSrv struct {
-	PodSpec       `json:",inline"`
-	ContainerSpec `json:",inline"`
-
-	Service HTTPSrvService `json:"service,omitempty"`
+type HTTPSrvSpec struct {
+	PodSpec       common.PodSpec       `json:"podSpec,omitempty"`
+	ContainerSpec common.ContainerSpec `json:"containerSpec,omitempty"`
+	Service       HTTPSrvService       `json:"service,omitempty"`
 }
 
-type Broker struct {
-	PodSpec       `json:",inline"`
-	ContainerSpec `json:",inline"`
+type BrokerSpec struct {
+	PodSpec       common.PodSpec       `json:"podSpec,omitempty"`
+	ContainerSpec common.ContainerSpec `json:"containerSpec,omitempty"`
 }
 
 type HTTPSrvService struct {
@@ -63,16 +66,23 @@ type PlatformStatus struct {
 	Ready bool `json:"ready"`
 }
 
+// PlatformDetails defines additional details of Platform
+type PlatformDetails struct {
+	common.Details `json:",inline"`
+}
+
 //+kubebuilder:object:root=true
 //+kubebuilder:subresource:status
+//+kubebuilder:subresource:details
 
 // Platform is the Schema for the Platforms API
 type Platform struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec   PlatformSpec   `json:"spec,omitempty"`
-	Status PlatformStatus `json:"status,omitempty"`
+	Spec    PlatformSpec    `json:"spec,omitempty"`
+	Status  PlatformStatus  `json:"status,omitempty"`
+	Details PlatformDetails `json:"details,omitempty"`
 }
 
 //+kubebuilder:object:root=true

@@ -33,7 +33,7 @@ type DeploymentReconciler struct {
 func (r *DeploymentReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	r.log = logkf.Global.With(logkf.KeyController, "deployment")
 	if err := ctrl.NewControllerManagedBy(mgr).
-		For(&v1alpha1.Deployment{}).
+		For(&v1alpha1.AppDeployment{}).
 		Complete(r); err != nil {
 		return err
 	}
@@ -50,13 +50,13 @@ func (r *DeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 		"namespace", req.Namespace,
 		"name", req.Name,
 	)
-	log.Debugf("reconciling kubefox deployment '%s.%s'", req.Name, req.Namespace)
+	log.Debugf("reconciling app deployment '%s.%s'", req.Name, req.Namespace)
 
 	if rdy, err := r.CompMgr.ReconcileApps(ctx, req.Namespace); !rdy || err != nil {
 		log.Debug("platform not ready, platform controller will reconcile")
 		return ctrl.Result{}, err
 	}
 
-	log.Debugf("kubefox deployment reconciled '%s.%s'", req.Name, req.Namespace)
+	log.Debugf("app deployment reconciled '%s.%s'", req.Name, req.Namespace)
 	return ctrl.Result{}, nil
 }

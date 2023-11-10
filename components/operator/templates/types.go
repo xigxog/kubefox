@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/xigxog/kubefox/api/kubernetes/v1alpha1"
+	common "github.com/xigxog/kubefox/api/kubernetes"
 	"github.com/xigxog/kubefox/build"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -43,12 +43,10 @@ type Platform struct {
 }
 
 type App struct {
-	v1alpha1.PodSpec
+	common.PodSpec
 
 	Name            string
 	Commit          string
-	Branch          string
-	Tag             string
 	Registry        string
 	ImagePullSecret string
 	LogLevel        string
@@ -56,8 +54,8 @@ type App struct {
 }
 
 type Component struct {
-	v1alpha1.PodSpec
-	v1alpha1.ContainerSpec
+	common.PodSpec
+	common.ContainerSpec
 
 	Name            string
 	Commit          string
@@ -101,17 +99,6 @@ func (d Data) PlatformVaultName() string {
 		name = "kubefox-" + name
 	}
 	return name
-}
-
-func (d Data) AppVersion() string {
-	if p := strings.Split(d.App.Tag, "/"); d.App.Tag != "" {
-		return p[len(p)-1]
-	}
-	if p := strings.Split(d.App.Branch, "/"); d.App.Branch != "" {
-		return p[len(p)-1]
-	}
-
-	return d.App.Commit
 }
 
 func (d Data) ComponentFullName() string {

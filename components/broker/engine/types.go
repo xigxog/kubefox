@@ -4,6 +4,7 @@ import (
 	"sync"
 	"time"
 
+	common "github.com/xigxog/kubefox/api/kubernetes"
 	"github.com/xigxog/kubefox/api/kubernetes/v1alpha1"
 	kubefox "github.com/xigxog/kubefox/core"
 	"google.golang.org/protobuf/types/known/structpb"
@@ -23,7 +24,7 @@ type SendEvent func(*BrokerEvent) error
 type BrokerEvent struct {
 	*kubefox.Event
 
-	EnvVars map[string]*kubefox.Val
+	EnvVars map[string]*common.Val
 	RouteId int64
 
 	TargetAdapter *v1alpha1.Adapter

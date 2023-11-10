@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"time"
 
+	common "github.com/xigxog/kubefox/api/kubernetes"
 	kubefox "github.com/xigxog/kubefox/core"
 	"github.com/xigxog/kubefox/grpc"
 	"github.com/xigxog/kubefox/logkf"
@@ -52,8 +53,8 @@ func (k *kontext) Env(v EnvVar) string {
 	return k.EnvV(v).String()
 }
 
-func (k *kontext) EnvV(v EnvVar) *kubefox.Val {
-	val, _ := kubefox.ValProto(k.env[v.Name()])
+func (k *kontext) EnvV(v EnvVar) *common.Val {
+	val, _ := common.ValProto(k.env[v.Name()])
 	return val
 }
 
@@ -65,7 +66,7 @@ func (k *kontext) EnvDef(v EnvVar, def string) string {
 	}
 }
 
-func (k *kontext) EnvDefV(v EnvVar, def *kubefox.Val) *kubefox.Val {
+func (k *kontext) EnvDefV(v EnvVar, def *common.Val) *common.Val {
 	if val := k.EnvV(v); val == nil {
 		return def
 	} else {

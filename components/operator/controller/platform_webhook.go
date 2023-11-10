@@ -21,8 +21,8 @@ import (
 	"fmt"
 	"net/http"
 
+	common "github.com/xigxog/kubefox/api/kubernetes"
 	"github.com/xigxog/kubefox/api/kubernetes/v1alpha1"
-	kubefox "github.com/xigxog/kubefox/core"
 	v1 "k8s.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
@@ -67,7 +67,7 @@ func (r *PlatformWebhook) Handle(ctx context.Context, req admission.Request) adm
 				return admission.Errored(http.StatusInternalServerError, err)
 			}
 
-			ns.Labels[kubefox.LabelK8sPlatform] = platform.Name
+			ns.Labels[common.LabelK8sPlatform] = platform.Name
 			if err := r.Update(ctx, ns); err != nil {
 				return admission.Errored(http.StatusInternalServerError, err)
 			}

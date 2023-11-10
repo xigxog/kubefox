@@ -13,6 +13,7 @@ import (
 
 	"github.com/go-logr/zapr"
 	"github.com/lestrrat-go/jwx/jwt"
+	common "github.com/xigxog/kubefox/api/kubernetes"
 	"github.com/xigxog/kubefox/api/kubernetes/v1alpha1"
 	"github.com/xigxog/kubefox/build"
 	"github.com/xigxog/kubefox/components/broker/config"
@@ -399,14 +400,14 @@ func (brk *broker) checkEvent(evt *BrokerEvent) error {
 
 func (brk *broker) matchEvent(ctx context.Context, evt *BrokerEvent) error {
 	var (
-		envVars map[string]*kubefox.Val
+		envVars map[string]*common.Val
 		matcher *matcher.EventMatcher
 		err     error
 	)
 	switch {
 	case evt.Context.IsRelease():
 		if rel, err := brk.store.Release(evt.Context.Release); err != nil {
-			return kubefox.ErrUnexpected(err)
+			return kubefox.ErrNotFound(err)
 		} else {
 			envVars = rel.Spec.Environment.Vars
 			evt.Adapters = rel.Spec.Environment.Adapters
@@ -416,7 +417,7 @@ func (brk *broker) matchEvent(ctx context.Context, evt *BrokerEvent) error {
 
 	case evt.Context.IsDeployment():
 		if env, err := brk.store.Environment(evt.Context.Environment); err != nil {
-			return kubefox.ErrUnexpected(err)
+			return kubefox.ErrNotFound(err)
 		} else {
 			envVars = env.Spec.Vars
 			evt.Adapters = env.Spec.Adapters
@@ -473,18 +474,18 @@ func (brk *broker) matchComponents(ctx context.Context, evt *BrokerEvent) error 
 		return kubefox.ErrComponentMismatch()
 	}
 
-	var depSpec v1alpha1.DeploymentSpec
+	var depSpec v1alpha1.AppDeploymentSpec
 	switch {
 	case evt.Context.IsRelease():
 		if rel, err := brk.store.Release(evt.Context.Release); err != nil {
-			return kubefox.ErrUnexpected(err)
+			return kubefox.ErrNotFound(err)
 		} else {
-			depSpec = rel.Spec.Deployment
+			depSpec = *rel.AppDeploymentSpec()
 		}
 
 	case evt.Context.IsDeployment():
-		if dep, err := brk.store.Deployment(evt.Context.Deployment); err != nil {
-			return kubefox.ErrUnexpected(err)
+		if dep, err := brk.store.AppDeployment(evt.Context.Deployment); err != nil {
+			return kubefox.ErrNotFound(err)
 		} else {
 			depSpec = dep.Spec
 		}
@@ -506,7 +507,7 @@ func (brk *broker) matchComponents(ctx context.Context, evt *BrokerEvent) error 
 		}
 
 	case depComp == nil && adapter != nil:
-		if adapter.Type != kubefox.ComponentTypeHTTP {
+		if adapter.Type != common.ComponentTypeHTTP {
 			return kubefox.ErrUnsupportedAdapter(fmt.Errorf("adapter type '%s' is not supported", adapter.Type))
 		}
 		evt.TargetAdapter = adapter

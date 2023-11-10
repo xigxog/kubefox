@@ -3,20 +3,21 @@ package matcher
 import (
 	"testing"
 
+	common "github.com/xigxog/kubefox/api/kubernetes"
 	kubefox "github.com/xigxog/kubefox/core"
 )
 
 func TestPath(t *testing.T) {
 	p := New()
 
-	v := map[string]*kubefox.Val{
-		"a": kubefox.ValString("127"),
-		"b": kubefox.ValArrayInt([]int{0, 1}),
-		"c": kubefox.ValArrayString([]string{"a", "b"}),
+	v := map[string]*common.Val{
+		"a": common.ValString("127"),
+		"b": common.ValArrayInt([]int{0, 1}),
+		"c": common.ValArrayString([]string{"a", "b"}),
 	}
 
 	r1 := &kubefox.Route{
-		RouteSpec: kubefox.RouteSpec{
+		RouteSpec: common.RouteSpec{
 			Id:   1,
 			Rule: "PathPrefix(`/customize/{{.Env.b}}`)",
 		},
@@ -29,7 +30,7 @@ func TestPath(t *testing.T) {
 	}
 
 	r2 := &kubefox.Route{
-		RouteSpec: kubefox.RouteSpec{
+		RouteSpec: common.RouteSpec{
 			Id:   2,
 			Rule: "Method(`PUT`,`GET`,`POST`) && (Query(`q1`, `{q[1-2]}`) && Header(`header-one`,`{[a-z0-9]+}`)) && Host(`{{.Env.a}}.0.0.{i}`) && Path(`/customize/{{.Env.b}}/{j:[a-z]+}`)",
 		},

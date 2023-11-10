@@ -24,6 +24,14 @@ spec:
               of an object. Servers should convert recognized schemas to the latest
               internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
             type: string
+          details:
+            description: ReleaseDetails defines additional details of Release
+            properties:
+              description:
+                type: string
+              title:
+                type: string
+            type: object
           kind:
             description: 'Kind is a string value representing the REST resource this
               object represents. Servers may infer this from the endpoint the client
@@ -34,30 +42,18 @@ spec:
           spec:
             description: ReleaseSpec defines the desired state of Release
             properties:
-              deployment:
-                description: DeploymentSpec defines the desired state of Deployment
+              appDeployment:
                 properties:
                   app:
                     properties:
-                      branch:
-                        type: string
                       commit:
                         pattern: ^[a-z0-9]{40}$
                         type: string
                       containerRegistry:
                         type: string
-                      description:
-                        type: string
                       imagePullSecretName:
                         type: string
                       name:
-                        type: string
-                      repoURL:
-                        format: uri
-                        type: string
-                      tag:
-                        type: string
-                      title:
                         type: string
                     required:
                     - commit
@@ -76,6 +72,7 @@ spec:
                             properties:
                               type:
                                 enum:
+                                - db
                                 - kubefox
                                 - http
                                 type: string
@@ -83,17 +80,11 @@ spec:
                             - type
                             type: object
                           type: object
-                        description:
-                          type: string
                         envSchema:
                           additionalProperties:
                             properties:
-                              description:
-                                type: string
                               required:
                                 type: boolean
-                              title:
-                                type: string
                               type:
                                 enum:
                                 - array
@@ -102,6 +93,11 @@ spec:
                                 - string
                                 type: string
                               unique:
+                                description: Unique indicates that this environment
+                                  variable must have a unique value across all environments.
+                                  If the value is not unique then making a dynamic
+                                  request or creating a release that utilizes this
+                                  variable will fail.
                                 type: boolean
                             required:
                             - required
@@ -125,10 +121,10 @@ spec:
                             - rule
                             type: object
                           type: array
-                        title:
-                          type: string
                         type:
                           enum:
+                          - db
+                          - genesis
                           - kubefox
                           - http
                           type: string
@@ -136,10 +132,21 @@ spec:
                       - commit
                       - type
                       type: object
+                    minProperties: 1
                     type: object
+                  name:
+                    minLength: 1
+                    type: string
+                  resourceVersion:
+                    type: string
+                  uid:
+                    description: UID is a type that holds unique ID values, including
+                      UUIDs.  Because we don't ONLY use UUIDs, this is an alias to
+                      string.  Being a type captures intent and helps make sure that
+                      UIDs and names do not get conflated.
+                    type: string
                 required:
-                - app
-                - components
+                - name
                 type: object
               environment:
                 properties:
@@ -166,7 +173,7 @@ spec:
                           type: boolean
                         type:
                           enum:
-                          - kubefox
+                          - db
                           - http
                           type: string
                         url:
@@ -176,6 +183,7 @@ spec:
                       type: object
                     type: object
                   name:
+                    minLength: 1
                     type: string
                   resourceVersion:
                     type: string
@@ -190,11 +198,12 @@ spec:
                     x-kubernetes-preserve-unknown-fields: true
                 required:
                 - name
-                - resourceVersion
-                - uid
                 type: object
+              version:
+                minLength: 1
+                type: string
             required:
-            - deployment
+            - appDeployment
             - environment
             type: object
           status:

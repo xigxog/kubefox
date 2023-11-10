@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	common "github.com/xigxog/kubefox/api/kubernetes"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/structpb"
 )
@@ -23,23 +24,23 @@ type EventReader interface {
 	EventType() EventType
 
 	Param(key string) string
-	ParamV(key string) *Val
+	ParamV(key string) *common.Val
 	ParamDef(key string, def string) string
 
 	URL() (*url.URL, error)
 
 	Query(key string) string
-	QueryV(key string) *Val
+	QueryV(key string) *common.Val
 	QueryDef(key string, def string) string
 	QueryAll(key string) []string
 
 	Header(key string) string
-	HeaderV(key string) *Val
+	HeaderV(key string) *common.Val
 	HeaderDef(key string, def string) string
 	HeaderAll(key string) []string
 
 	Status() int
-	StatusV() *Val
+	StatusV() *common.Val
 
 	Bind(v any) error
 	Str() string
@@ -50,22 +51,22 @@ type EventWriter interface {
 	EventReader
 
 	SetParam(key, value string) EventWriter
-	SetParamV(key string, value *Val) EventWriter
+	SetParamV(key string, value *common.Val) EventWriter
 
 	SetURL(u *url.URL) EventWriter
 	TrimPathPrefix(prefix string) EventWriter
 
 	SetQuery(key, value string) EventWriter
-	SetQueryV(key string, value *Val) EventWriter
+	SetQueryV(key string, value *common.Val) EventWriter
 	DelQuery(key string) EventWriter
 
 	SetHeader(key, value string) EventWriter
-	SetHeaderV(key string, value *Val) EventWriter
+	SetHeaderV(key string, value *common.Val) EventWriter
 	AddHeader(key, value string) EventWriter
 	DelHeader(key string) EventWriter
 
 	SetStatus(code int) EventWriter
-	SetStatusV(val *Val) EventWriter
+	SetStatusV(val *common.Val) EventWriter
 }
 
 type EventOpts struct {
@@ -191,16 +192,16 @@ func (evt *Event) Param(key string) string {
 	return evt.ParamV(key).String()
 }
 
-func (evt *Event) ParamV(key string) *Val {
-	v, _ := ValProto(evt.ParamProto(key))
+func (evt *Event) ParamV(key string) *common.Val {
+	v, _ := common.ValProto(evt.ParamProto(key))
 	if !v.IsNil() {
 		return v
 	}
 	if s := evt.Query(key); s != "" {
-		return ValString(s)
+		return common.ValString(s)
 	}
 	if s := evt.Header(key); s != "" {
-		return ValString(s)
+		return common.ValString(s)
 	}
 
 	return v
@@ -223,7 +224,7 @@ func (evt *Event) SetParam(key string, val string) EventWriter {
 	return evt
 }
 
-func (evt *Event) SetParamV(key string, val *Val) EventWriter {
+func (evt *Event) SetParamV(key string, val *common.Val) EventWriter {
 	evt.SetParamProto(key, val.Proto())
 	return evt
 }
@@ -241,8 +242,8 @@ func (evt *Event) Value(key string) string {
 	return evt.ValueV(key).String()
 }
 
-func (evt *Event) ValueV(key string) *Val {
-	v, _ := ValProto(evt.ValueProto(key))
+func (evt *Event) ValueV(key string) *common.Val {
+	v, _ := common.ValProto(evt.ValueProto(key))
 	return v
 }
 
@@ -297,7 +298,7 @@ func (evt *Event) SetValue(key string, val string) {
 	evt.SetValueProto(key, structpb.NewStringValue(val))
 }
 
-func (evt *Event) SetValueV(key string, val *Val) {
+func (evt *Event) SetValueV(key string, val *common.Val) {
 	evt.SetValueProto(key, val.Proto())
 }
 
@@ -369,16 +370,16 @@ func (evt *Event) Status() int {
 	return evt.ValueV(ValKeyStatusCode).Int()
 }
 
-func (evt *Event) StatusV() *Val {
+func (evt *Event) StatusV() *common.Val {
 	return evt.ValueV(ValKeyStatusCode)
 }
 
 func (evt *Event) SetStatus(code int) EventWriter {
-	evt.SetValueV(ValKeyStatusCode, ValInt(code))
+	evt.SetValueV(ValKeyStatusCode, common.ValInt(code))
 	return evt
 }
 
-func (evt *Event) SetStatusV(val *Val) EventWriter {
+func (evt *Event) SetStatusV(val *common.Val) EventWriter {
 	evt.SetValueV(ValKeyStatusCode, val)
 	return evt
 }
@@ -404,7 +405,7 @@ func (evt *Event) TraceFlags() byte {
 }
 
 func (evt *Event) SetTraceFlags(val byte) {
-	evt.SetValueV(ValKeyTraceFlags, ValInt(int(val)))
+	evt.SetValueV(ValKeyTraceFlags, common.ValInt(int(val)))
 }
 
 func (evt *Event) URL() (*url.URL, error) {
@@ -437,8 +438,8 @@ func (evt *Event) Query(key string) string {
 	return evt.ValueMapKey(ValKeyQuery, key)
 }
 
-func (evt *Event) QueryV(key string) *Val {
-	return ValString(evt.Query(key))
+func (evt *Event) QueryV(key string) *common.Val {
+	return common.ValString(evt.Query(key))
 }
 
 func (evt *Event) QueryDef(key string, def string) string {
@@ -458,7 +459,7 @@ func (evt *Event) SetQuery(key, value string) EventWriter {
 	return evt
 }
 
-func (evt *Event) SetQueryV(key string, value *Val) EventWriter {
+func (evt *Event) SetQueryV(key string, value *common.Val) EventWriter {
 	return evt.SetQuery(key, value.String())
 }
 
@@ -472,8 +473,8 @@ func (evt *Event) Header(key string) string {
 	return evt.ValueMapKey(ValKeyHeader, key)
 }
 
-func (evt *Event) HeaderV(key string) *Val {
-	return ValString(evt.Header(key))
+func (evt *Event) HeaderV(key string) *common.Val {
+	return common.ValString(evt.Header(key))
 }
 
 func (evt *Event) HeaderDef(key string, def string) string {
@@ -501,7 +502,7 @@ func (evt *Event) AddHeader(key, value string) EventWriter {
 	return evt
 }
 
-func (evt *Event) SetHeaderV(key string, value *Val) EventWriter {
+func (evt *Event) SetHeaderV(key string, value *common.Val) EventWriter {
 	return evt.SetHeader(key, value.String())
 }
 
@@ -657,7 +658,7 @@ func (evt *Event) SetHTTPResponse(httpResp *http.Response) error {
 	}
 
 	evt.SetValue(ValKeyStatus, httpResp.Status)
-	evt.SetValueV(ValKeyStatusCode, ValInt(httpResp.StatusCode))
+	evt.SetValueV(ValKeyStatusCode, common.ValInt(httpResp.StatusCode))
 	evt.SetValueMap(ValKeyHeader, httpResp.Header)
 
 	return nil

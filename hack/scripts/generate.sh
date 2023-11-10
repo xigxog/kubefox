@@ -21,7 +21,7 @@ ${TOOLS_DIR}/protoc-gen-go-grpc --version | grep -q ${PROTOC_GEN_GO_GRPC_VERSION
 ###
 
 # Generate code containing DeepCopy, DeepCopyInto, DeepCopyObject and CRDs.
-${TOOLS_DIR}/controller-gen paths="{./${CORE_DIR}/..., ./${API_DIR}/kubernetes/...}" \
+${TOOLS_DIR}/controller-gen paths="{./${API_DIR}/kubernetes/...}" \
     object crd output:crd:artifacts:config=./${CRDS_OUT}/
 
 # Generate code from proto files.

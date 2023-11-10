@@ -12,10 +12,10 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	common "github.com/xigxog/kubefox/api/kubernetes"
 	"github.com/xigxog/kubefox/api/kubernetes/v1alpha1"
 	"github.com/xigxog/kubefox/build"
 	"github.com/xigxog/kubefox/components/operator/templates"
-	kubefox "github.com/xigxog/kubefox/core"
 	"github.com/xigxog/kubefox/logkf"
 )
 
@@ -46,7 +46,7 @@ func (cm *ComponentManager) SetupComponent(ctx context.Context, td *TemplateData
 		return false, log.ErrorN("unable to fetch component workload: %w", err)
 	}
 
-	ver := td.Obj.GetLabels()[kubefox.LabelK8sRuntimeVersion]
+	ver := td.Obj.GetLabels()[common.LabelK8sRuntimeVersion]
 
 	if semver.Compare(ver, build.Info.Version) < 0 {
 		log.Infof("version upgrade detected, applying template to upgrade %s->%s", ver, build.Info.Version)
@@ -96,24 +96,24 @@ func (cm *ComponentManager) ReconcileApps(ctx context.Context, namespace string)
 	if err := cm.Client.List(ctx, relList, client.InNamespace(platform.Namespace)); err != nil {
 		return false, err
 	}
-	depList := &v1alpha1.DeploymentList{}
+	depList := &v1alpha1.AppDeploymentList{}
 	if err := cm.Client.List(ctx, depList, client.InNamespace(platform.Namespace)); err != nil {
 		return false, err
 	}
 
-	specs := make([]v1alpha1.DeploymentSpec, 0, len(relList.Items)+len(depList.Items))
+	specs := make([]v1alpha1.AppDeploymentSpec, 0, len(relList.Items)+len(depList.Items))
 	for _, r := range relList.Items {
-		specs = append(specs, r.Spec.Deployment)
+		specs = append(specs, *r.AppDeploymentSpec())
 	}
 	for _, d := range depList.Items {
 		specs = append(specs, d.Spec)
 	}
-	log.Debugf("found %d kubefox releases and %d kubefox deployments", len(relList.Items), len(depList.Items))
+	log.Debugf("found %d releases and %d app deployments", len(relList.Items), len(depList.Items))
 
 	compDepList := &appsv1.DeploymentList{}
 	if err := cm.Client.List(ctx, compDepList,
 		client.InNamespace(platform.Namespace),
-		client.HasLabels{kubefox.LabelK8sComponent, kubefox.LabelK8sAppName},
+		client.HasLabels{common.LabelK8sComponent, common.LabelK8sAppName},
 	); err != nil {
 		return false, err
 	}
@@ -135,8 +135,6 @@ func (cm *ComponentManager) ReconcileApps(ctx context.Context, namespace string)
 					App: templates.App{
 						Name:            d.App.Name,
 						Commit:          d.App.Commit,
-						Branch:          d.App.Branch,
-						Tag:             d.App.Tag,
 						Registry:        d.App.ContainerRegistry,
 						ImagePullSecret: d.App.ImagePullSecretName,
 					},
@@ -161,7 +159,7 @@ func (cm *ComponentManager) ReconcileApps(ctx context.Context, namespace string)
 		if _, found := compMap[d.Name]; !found {
 			log.Debugf("deleting app component '%s'", d.Name)
 
-			tdStr := d.Annotations[kubefox.AnnotationTemplateData]
+			tdStr := d.Annotations[common.AnnotationTemplateData]
 			data := &templates.Data{}
 			if err := json.Unmarshal([]byte(tdStr), data); err != nil {
 				return false, err
@@ -185,18 +183,18 @@ func (cm *ComponentManager) ReconcileApps(ctx context.Context, namespace string)
 	}
 
 	for _, r := range relList.Items {
-		r.Status.Ready = IsDeploymentReady(&r.Spec.Deployment, compReadyMap)
+		r.Status.Ready = IsAppDeploymentReady(r.AppDeploymentSpec(), compReadyMap)
 		if err := cm.Client.Status().Update(ctx, &r); err != nil {
 			return false, err
 		}
-		log.Debugf("kubefox release '%s.%s' ready: %t", r.Name, r.Namespace, r.Status.Ready)
+		log.Debugf("release '%s.%s' ready: %t", r.Name, r.Namespace, r.Status.Ready)
 	}
 	for _, d := range depList.Items {
-		d.Status.Ready = IsDeploymentReady(&d.Spec, compReadyMap)
+		d.Status.Ready = IsAppDeploymentReady(&d.Spec, compReadyMap)
 		if err := cm.Client.Status().Update(ctx, &d); err != nil {
 			return false, err
 		}
-		log.Debugf("kubefox deployment '%s.%s' ready: %t", d.Name, d.Namespace, d.Status.Ready)
+		log.Debugf("app deployment '%s.%s' ready: %t", d.Name, d.Namespace, d.Status.Ready)
 	}
 
 	log.Debugf("apps reconciled")
@@ -208,7 +206,7 @@ func CompReadyKey(name, commit string) string {
 	return fmt.Sprintf("%s-%s", name, commit)
 }
 
-func IsDeploymentReady(spec *v1alpha1.DeploymentSpec, compReadyMap map[string]bool) bool {
+func IsAppDeploymentReady(spec *v1alpha1.AppDeploymentSpec, compReadyMap map[string]bool) bool {
 	for name, c := range spec.Components {
 		key := CompReadyKey(name, c.Commit)
 		if found, ready := compReadyMap[key]; !found || !ready {

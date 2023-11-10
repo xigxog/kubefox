@@ -1,5 +1,4 @@
-// +kubebuilder:object:generate=false
-package core
+package kubernetes
 
 import (
 	"encoding/json"
@@ -23,7 +22,6 @@ const (
 	ArrayString                // holds an array of strings
 )
 
-// +kubebuilder:object:generate=true
 type Val struct {
 	booVal      bool      `json:"-"`
 	numVal      float64   `json:"-"`

@@ -92,7 +92,6 @@ func initFuncs(tpl *template.Template, data *Data) {
 	funcMap["platformVaultName"] = data.PlatformVaultName
 	funcMap["componentFullName"] = data.ComponentFullName
 	funcMap["componentVaultName"] = data.ComponentVaultName
-	funcMap["appVersion"] = data.AppVersion
 	funcMap["homePath"] = data.HomePath
 	funcMap["logLevel"] = data.LogLevel
 	funcMap["logFormat"] = data.LogFormat
