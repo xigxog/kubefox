@@ -15,5 +15,5 @@ var (
 
 var (
 	Component = new(kubefox.Component)
-	Spec      = new(common.ComponentSpec)
+	Spec      = new(common.ComponentDefinition)
 )

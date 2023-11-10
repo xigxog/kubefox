@@ -29,7 +29,7 @@ type App struct {
 }
 
 type Component struct {
-	common.ComponentSpec `json:",inline"`
+	common.ComponentDefinition `json:",inline"`
 
 	// +kubebuilder:validation:Pattern="^[a-z0-9]{40}$"
 	Commit string `json:"commit"`

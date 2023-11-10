@@ -5,6 +5,10 @@ metadata:
   namespace: {{ namespace }}
   labels:
     {{- include "labels" . | nindent 4 }}
+  {{- with .Component.Annotations }}
+  annotations:
+    {{- . | toYaml | nindent 4 }}
+  {{- end }}
   {{- with .Owner }}
   ownerReferences:
     {{- . | toYaml | nindent 4 }}

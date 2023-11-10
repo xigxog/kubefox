@@ -21,7 +21,7 @@ spec:
         - {{- include "bootstrap" . | nindent 10 }}
       containers:
         - name: {{ .Component.Name }}
-          image: {{ .Component.Image | default (printf "%s/%s:%s" .App.Registry .Component.Name .Component.Commit) | quote }}
+          image: {{ .Component.Image | quote }}
           imagePullPolicy: {{ .Component.ImagePullPolicy | default "IfNotPresent" }}
           {{- include "securityContext" . | nindent 10 }}
           {{- include "resources" . | nindent 10 }}

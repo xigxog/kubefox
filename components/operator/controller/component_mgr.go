@@ -32,12 +32,25 @@ type ComponentManager struct {
 	Log      *logkf.Logger
 }
 
-func (cm *ComponentManager) SetupComponent(ctx context.Context, td *TemplateData) (bool, error) {
+func (cm *ComponentManager) SetupComponent(ctx context.Context, td *TemplateData, defs templates.Component) (bool, error) {
 	log := cm.Log.With(
 		logkf.KeyInstance, td.Instance.Name,
 		logkf.KeyPlatform, td.Platform.Name,
 		logkf.KeyComponentName, td.ComponentFullName(),
 	)
+
+	if td.Component.Resources == nil {
+		td.Component.Resources = defs.Resources
+	}
+	if td.Component.LivenessProbe == nil {
+		td.Component.LivenessProbe = defs.LivenessProbe
+	}
+	if td.Component.ReadinessProbe == nil {
+		td.Component.ReadinessProbe = defs.ReadinessProbe
+	}
+	if td.Component.StartupProbe == nil {
+		td.Component.StartupProbe = defs.StartupProbe
+	}
 
 	log.Debugf("setting up component '%s'", td.ComponentFullName())
 
@@ -47,7 +60,6 @@ func (cm *ComponentManager) SetupComponent(ctx context.Context, td *TemplateData
 	}
 
 	ver := td.Obj.GetLabels()[common.LabelK8sRuntimeVersion]
-
 	if semver.Compare(ver, build.Info.Version) < 0 {
 		log.Infof("version upgrade detected, applying template to upgrade %s->%s", ver, build.Info.Version)
 		return false, cm.Client.ApplyTemplate(ctx, td.Template, &td.Data, log)
@@ -121,31 +133,31 @@ func (cm *ComponentManager) ReconcileApps(ctx context.Context, namespace string)
 	compMap := make(map[string]TemplateData)
 	for _, d := range specs {
 		for n, c := range d.Components {
+			image := c.Image
+			if image == "" {
+				image = fmt.Sprintf("%s/%s:%s", d.App.ContainerRegistry, n, c.Commit)
+			}
 			td := TemplateData{
 				Data: templates.Data{
 					Instance: templates.Instance{
 						Name:           cm.Instance,
 						BootstrapImage: BootstrapImage,
-						Version:        build.Info.Version,
 					},
 					Platform: templates.Platform{
 						Name:      platform.Name,
 						Namespace: platform.Namespace,
 					},
-					App: templates.App{
-						Name:            d.App.Name,
-						Commit:          d.App.Commit,
-						Registry:        d.App.ContainerRegistry,
-						ImagePullSecret: d.App.ImagePullSecretName,
-					},
 					Component: templates.Component{
-						Name:   n,
-						Commit: c.Commit,
-						Image:  c.Image,
+						Name:            n,
+						App:             d.App.Name,
+						Commit:          c.Commit,
+						Image:           image,
+						ImagePullPolicy: d.App.ImagePullSecretName,
 					},
 					Owner: []*metav1.OwnerReference{
 						metav1.NewControllerRef(platform, platform.GroupVersionKind()),
 					},
+					BuildInfo: build.Info,
 				},
 				Template: "component",
 				Obj:      &appsv1.Deployment{},
@@ -173,7 +185,7 @@ func (cm *ComponentManager) ReconcileApps(ctx context.Context, namespace string)
 	allReady := true
 	compReadyMap := make(map[string]bool, len(compMap))
 	for _, compTD := range compMap {
-		ready, err := cm.SetupComponent(ctx, &compTD)
+		ready, err := cm.SetupComponent(ctx, &compTD, ComponentDefaults)
 		if err != nil {
 			return false, err
 		}

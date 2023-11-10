@@ -25,7 +25,7 @@ type AppDetails struct {
 	Details `json:",inline"`
 }
 
-type ComponentSpec struct {
+type ComponentDefinition struct {
 	// +kubebuilder:validation:Enum=db;genesis;kubefox;http
 	Type           ComponentType            `json:"type"`
 	Routes         []RouteSpec              `json:"routes,omitempty"`
@@ -34,9 +34,9 @@ type ComponentSpec struct {
 	Dependencies   map[string]*Dependency   `json:"dependencies,omitempty"`
 }
 
-type ComponentSpecDetails struct {
-	ComponentSpec `json:",inline"`
-	Details       `json:",inline"`
+type ComponentDetails struct {
+	ComponentDefinition `json:",inline"`
+	Details             `json:",inline"`
 }
 
 type RouteSpec struct {

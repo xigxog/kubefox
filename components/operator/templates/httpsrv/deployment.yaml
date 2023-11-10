@@ -20,7 +20,7 @@ spec:
         - {{- include "bootstrap" . | nindent 10 }}
       containers:
         - name: {{ .Component.Name }}
-          image: {{ .Component.Image | default (printf "%s/%s:%s" .App.Registry .Component.Name .Component.Commit) | quote }}
+          image: {{ .Component.Image | quote }}
           imagePullPolicy: {{ .Component.ImagePullPolicy | default "IfNotPresent" }}
           {{- include "securityContext" . | nindent 10 }}
           {{- include "resources" . | nindent 10 }}
@@ -32,8 +32,8 @@ spec:
             - -https-addr=0.0.0.0:8443
             - -broker-addr=$(KUBEFOX_HOST_IP):6060
             - -health-addr=0.0.0.0:1111
-            - -log-format={{ logFormat }}
-            - -log-level={{ logLevel }}
+            - -log-format={{ .Logger.Format | default "json" }}
+            - -log-level={{ .Logger.Level | default "info" }}
           env:
           {{- include "env" . | nindent 12 }}
             - name: KUBEFOX_COMPONENT_IP

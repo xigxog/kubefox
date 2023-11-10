@@ -14,14 +14,13 @@ import (
 type Data struct {
 	Instance  Instance
 	Platform  Platform
-	App       App
 	Component Component
 
-	ExtraLabels map[string]string
-	Owner       []*metav1.OwnerReference
+	Owner []*metav1.OwnerReference
 
 	Values map[string]any
 
+	Logger    common.LoggerSpec
 	BuildInfo build.BuildInfo
 }
 
@@ -29,28 +28,12 @@ type Instance struct {
 	Name           string
 	Namespace      string
 	RootCA         string
-	LogLevel       string
-	LogFormat      string
 	BootstrapImage string
-	Version        string
 }
 
 type Platform struct {
 	Name      string
 	Namespace string
-	LogLevel  string
-	LogFormat string
-}
-
-type App struct {
-	common.PodSpec
-
-	Name            string
-	Commit          string
-	Registry        string
-	ImagePullSecret string
-	LogLevel        string
-	LogFormat       string
 }
 
 type Component struct {
@@ -58,11 +41,11 @@ type Component struct {
 	common.ContainerSpec
 
 	Name            string
+	App             string
 	Commit          string
 	Image           string
 	ImagePullPolicy string
-	LogLevel        string
-	LogFormat       string
+	ImagePullSecret string
 }
 
 type ResourceList struct {
@@ -111,7 +94,7 @@ func (d Data) ComponentFullName() string {
 		commit = commit[0:7]
 	}
 
-	name := d.App.Name
+	name := d.Component.App
 	if name == "" {
 		name = d.Platform.Name
 	}
@@ -123,43 +106,11 @@ func (d Data) ComponentFullName() string {
 }
 
 func (d Data) ComponentVaultName() string {
-	if d.App.Name == "" {
+	if d.Component.App == "" {
 		return fmt.Sprintf("%s-%s", d.PlatformVaultName(), d.Component.Name)
 	} else {
-		return fmt.Sprintf("%s-%s-%s", d.PlatformVaultName(), d.App.Name, d.Component.Name)
+		return fmt.Sprintf("%s-%s-%s", d.PlatformVaultName(), d.Component.App, d.Component.Name)
 	}
-}
-
-func (d Data) LogLevel() string {
-	if d.Component.LogLevel != "" {
-		return d.Component.LogLevel
-	}
-	if d.App.LogLevel != "" {
-		return d.App.LogLevel
-	}
-	if d.Platform.LogLevel != "" {
-		return d.Platform.LogLevel
-	}
-	if d.Instance.LogLevel != "" {
-		return d.Instance.LogLevel
-	}
-	return "info"
-}
-
-func (d Data) LogFormat() string {
-	if d.Component.LogFormat != "" {
-		return d.Component.LogFormat
-	}
-	if d.App.LogFormat != "" {
-		return d.App.LogFormat
-	}
-	if d.Platform.LogFormat != "" {
-		return d.Platform.LogFormat
-	}
-	if d.Instance.LogFormat != "" {
-		return d.Instance.LogFormat
-	}
-	return "json"
 }
 
 func (d Data) HomePath() string {

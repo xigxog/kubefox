@@ -1,9 +1,10 @@
 {{- define "labels" -}}
 {{ include "selectors" . }}
-app.kubernetes.io/version: {{ appVersion | quote }}
 app.kubernetes.io/managed-by: {{ printf "%s-operator" .Instance.Name | quote }}
-kubefox.xigxog.io/runtime-version: {{ .Instance.Version | quote }}
-{{ .ExtraLabels | toYaml }}
+kubefox.xigxog.io/runtime-version: {{ .BuildInfo.Version | quote }}
+{{- with .Component.Labels }}
+{{ . | toYaml }}
+{{- end }}
 {{- end }}
 
 {{- define "selectors" -}}
@@ -11,7 +12,7 @@ app.kubernetes.io/instance: {{ .Instance.Name | quote }}
 {{- with .Platform.Name }}
 kubefox.xigxog.io/platform: {{ . | quote }}
 {{- end }}
-{{- with .App.Name }}
+{{- with .Component.App }}
 app.kubernetes.io/name: {{ . | quote }} 
 {{- end }}
 {{- with .Component.Name }}
@@ -28,6 +29,10 @@ metadata:
   namespace: {{ namespace }}
   labels:
     {{- include "labels" . | nindent 4 }}
+  {{- with .Component.Annotations }}
+  annotations:
+    {{- . | toYaml | nindent 4 }}
+  {{- end }}
   {{- with .Owner }}
   ownerReferences:
     {{- . | toYaml | nindent 4 }}
@@ -104,39 +109,28 @@ securityContext:
   fsGroup: 1000
   fsGroupChangePolicy: OnRootMismatch
 
-{{- with .App.ImagePullSecret }}
+{{- with .Component.ImagePullSecret }}
 imagePullSecrets:
   - name: {{ . }}
 {{- end }}
 
-{{- if .Component.NodeSelector }}
+{{- with .Component.NodeSelector }}
 nodeSelector:
-  {{- .Component.NodeSelector | toYaml | nindent 2 }}
-{{- else if .App.NodeSelector }}
-nodeSelector:
-  {{- .App.NodeSelector | toYaml | nindent 2 }}
+  {{- . | toYaml | nindent 2 }}
 {{- end }}
 
-{{- if .Component.NodeName }}
-nodeName: {{ .Component.NodeName | quote }}
-{{- else if .App.NodeName }}
-nodeName: {{ .App.NodeName | quote  }}
+{{- with .Component.NodeName }}
+nodeName: {{ . | quote  }}
 {{- end }}
 
-{{- if .Component.Affinity }}
+{{- with .Component.Affinity }}
 affinity:
-  {{- .Component.Affinity | toYaml | nindent 2 }}
-{{- else if .App.Affinity }}
-affinity:
-  {{- .App.Affinity | toYaml | nindent 2 }}
+  {{- . | toYaml | nindent 2 }}
 {{- end }}
 
-{{- if .Component.Tolerations }}
+{{- with .Component.Tolerations }}
 tolerations:
-  {{- .Component.Tolerations | toYaml | nindent 2 }}
-{{- else if .App.Tolerations }}
-tolerations:
-  {{- .App.Tolerations | toYaml | nindent 2 }}
+  {{- . | toYaml | nindent 2 }}
 {{- end }}
 {{- end }}
 
@@ -181,8 +175,8 @@ args:
   - -component-service-name={{ printf "%s.%s" componentFullName namespace }}
   - -component-ip=$(KUBEFOX_COMPONENT_IP)
   - -vault-url={{ .Values.vaultURL }}
-  - -log-format={{ logFormat }}
-  - -log-level={{ logLevel }}
+  - -log-format={{ .Logger.Format | default "json" }}
+  - -log-level={{ .Logger.Level | default "info" }}
 env:
 {{- include "env" . | nindent 2 }}
   - name: KUBEFOX_COMPONENT_IP

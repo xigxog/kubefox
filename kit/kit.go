@@ -24,7 +24,7 @@ const (
 )
 
 type kit struct {
-	spec *common.ComponentSpecDetails
+	spec *common.ComponentDetails
 
 	routes     []*route
 	defHandler EventHandler
@@ -40,8 +40,8 @@ type kit struct {
 func New() Kit {
 	svc := &kit{
 		routes: make([]*route, 0),
-		spec: &common.ComponentSpecDetails{
-			ComponentSpec: common.ComponentSpec{
+		spec: &common.ComponentDetails{
+			ComponentDefinition: common.ComponentDefinition{
 				Type:         common.ComponentTypeKubeFox,
 				Routes:       make([]common.RouteSpec, 0),
 				EnvSchema:    make(map[string]*common.EnvVarSchema),
@@ -200,7 +200,7 @@ func (svc *kit) Start() {
 		return
 	}
 
-	go svc.brk.Start(&svc.spec.ComponentSpec, maxAttempts)
+	go svc.brk.Start(&svc.spec.ComponentDefinition, maxAttempts)
 
 	var wg sync.WaitGroup
 	wg.Add(svc.numWorkers)

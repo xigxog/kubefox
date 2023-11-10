@@ -251,11 +251,11 @@ func setupWebhook(ctx context.Context, c *controller.Client) error {
 		Instance: templates.Instance{
 			Name:      instance,
 			Namespace: namespace,
-			Version:   build.Info.Version,
 		},
 		Values: map[string]any{
 			"caBundle": base64.StdEncoding.EncodeToString([]byte(pkg.CA)),
 		},
+		BuildInfo: build.Info,
 	}
 	if err := c.ApplyTemplate(ctx, "instance", data, logkf.Global); err != nil {
 		return err

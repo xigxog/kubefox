@@ -70,7 +70,7 @@ func NewClient(opts ClientOpts) *Client {
 
 // Start connects to the broker and begins sending and receiving messages. It is
 // a blocking call.
-func (c *Client) Start(spec *common.ComponentSpec, maxAttempts int) {
+func (c *Client) Start(spec *common.ComponentDefinition, maxAttempts int) {
 	var (
 		attempt int
 		err     error
@@ -88,7 +88,7 @@ func (c *Client) Start(spec *common.ComponentSpec, maxAttempts int) {
 	close(c.errCh)
 }
 
-func (c *Client) run(spec *common.ComponentSpec, retry int) (int, error) {
+func (c *Client) run(spec *common.ComponentDefinition, retry int) (int, error) {
 	creds, err := credentials.NewClientTLSFromFile(kubefox.PathCACert, "")
 	if err != nil {
 		return retry + 1, fmt.Errorf("unable to load root CA certificate: %v", err)

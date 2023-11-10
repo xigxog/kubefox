@@ -6,7 +6,7 @@
 <a name="kubefoxprotov1component"></a>
 
 ### Component
-
+TODO add app?
 
 
 | Field | Type | Label | Description |
@@ -14,6 +14,7 @@
 | name | [string](#string) |  |  |
 | commit | [string](#string) |  |  |
 | id | [string](#string) |  |  |
+| broker_id | [string](#string) |  |  |
 
 
 
@@ -105,8 +106,8 @@
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
 | event | [Event](#kubefoxprotov1event) |  |  |
-| env | [MatchedEvent.EnvEntry](#kubefoxprotov1matchedeventenventry) | repeated |  |
 | route_id | [int64](#int64) |  |  |
+| env | [MatchedEvent.EnvEntry](#kubefoxprotov1matchedeventenventry) | repeated |  |
 
 
 

@@ -20,10 +20,8 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/util/intstr"
 	ctrl "sigs.k8s.io/controller-runtime"
 
 	"github.com/xigxog/kubefox/api/kubernetes/v1alpha1"
@@ -116,18 +114,16 @@ func (r *PlatformReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 				Namespace:      r.Namespace,
 				RootCA:         cm.Data["ca.crt"],
 				BootstrapImage: BootstrapImage,
-				Version:        build.Info.Version,
 			},
 			Platform: templates.Platform{
 				Name:      p.Name,
 				Namespace: p.Namespace,
-				LogFormat: r.LogFormat,
-				LogLevel:  r.LogLevel,
 			},
 			Owner: []*metav1.OwnerReference{
 				metav1.NewControllerRef(p, p.GroupVersionKind()),
 			},
 			BuildInfo: build.Info,
+			Logger:    p.Spec.Logger,
 			Values: map[string]any{
 				"maxContentSize": kubefox.MaxContentSizeBytes * 2,
 				"vaultURL":       r.VaultURL,
@@ -151,61 +147,10 @@ func (r *PlatformReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		PodSpec:       p.Spec.NATS.PodSpec,
 		ContainerSpec: p.Spec.NATS.ContainerSpec,
 	}
-	if td.Component.Resources == nil {
-		td.Component.Resources = &v1.ResourceRequirements{
-			// TODO calc and set correct values and use those in headers
-			Requests: v1.ResourceList{
-				"memory": resource.MustParse("115Mi"), // 90% of limit, used to set GOMEMLIMIT
-				"cpu":    resource.MustParse("250m"),
-			},
-			Limits: v1.ResourceList{
-				"memory": resource.MustParse("128Mi"),
-				"cpu":    resource.MustParse("2"),
-			},
-		}
-	}
-	if td.Component.LivenessProbe == nil {
-		td.Component.LivenessProbe = &v1.Probe{
-			ProbeHandler: v1.ProbeHandler{
-				HTTPGet: &v1.HTTPGetAction{
-					Path: "/healthz?js-enabled-only=true",
-					Port: intstr.FromString("monitor"),
-				},
-			},
-			TimeoutSeconds:   3,
-			PeriodSeconds:    30,
-			FailureThreshold: 3,
-		}
-	}
-	if td.Component.ReadinessProbe == nil {
-		td.Component.ReadinessProbe = &v1.Probe{
-			ProbeHandler: v1.ProbeHandler{
-				HTTPGet: &v1.HTTPGetAction{
-					Path: "/healthz?js-enabled-only=true",
-					Port: intstr.FromString("monitor"),
-				},
-			},
-			TimeoutSeconds:   3,
-			PeriodSeconds:    10,
-			FailureThreshold: 3,
-		}
-	}
-	if td.Component.StartupProbe == nil {
-		td.Component.StartupProbe = &v1.Probe{
-			ProbeHandler: v1.ProbeHandler{
-				HTTPGet: &v1.HTTPGetAction{
-					Path: "/healthz",
-					Port: intstr.FromString("monitor"),
-				},
-			},
-			PeriodSeconds:    5,
-			FailureThreshold: 90,
-		}
-	}
 	if err := r.setupVaultComponent(ctx, td, ""); err != nil {
 		return ctrl.Result{}, err
 	}
-	if rdy, err := r.CompMgr.SetupComponent(ctx, td); !rdy || err != nil {
+	if rdy, err := r.CompMgr.SetupComponent(ctx, td, NATSDefaults); !rdy || err != nil {
 		return ctrl.Result{}, err
 	}
 
@@ -217,41 +162,10 @@ func (r *PlatformReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		PodSpec:       p.Spec.Broker.PodSpec,
 		ContainerSpec: p.Spec.Broker.ContainerSpec,
 	}
-	if td.Component.Resources == nil {
-		td.Component.Resources = &v1.ResourceRequirements{
-			// TODO calc and set correct values and use those in headers
-			Requests: v1.ResourceList{
-				"memory": resource.MustParse("144Mi"), // 90% of limit, used to set GOMEMLIMIT
-				"cpu":    resource.MustParse("250m"),
-			},
-			Limits: v1.ResourceList{
-				"memory": resource.MustParse("160Mi"),
-				"cpu":    resource.MustParse("2"),
-			},
-		}
-	}
-	if td.Component.LivenessProbe == nil {
-		td.Component.LivenessProbe = &v1.Probe{
-			ProbeHandler: v1.ProbeHandler{
-				HTTPGet: &v1.HTTPGetAction{
-					Port: intstr.FromString("health"),
-				},
-			},
-		}
-	}
-	if td.Component.ReadinessProbe == nil {
-		td.Component.ReadinessProbe = &v1.Probe{
-			ProbeHandler: v1.ProbeHandler{
-				HTTPGet: &v1.HTTPGetAction{
-					Port: intstr.FromString("health"),
-				},
-			},
-		}
-	}
 	if err := r.setupVaultComponent(ctx, td, ""); err != nil {
 		return ctrl.Result{}, err
 	}
-	if rdy, err := r.CompMgr.SetupComponent(ctx, td); !rdy || err != nil {
+	if rdy, err := r.CompMgr.SetupComponent(ctx, td, BrokerDefaults); !rdy || err != nil {
 		return ctrl.Result{}, err
 	}
 
@@ -267,40 +181,10 @@ func (r *PlatformReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	td.Values["httpPort"] = p.Spec.HTTPSrv.Service.Ports.HTTP
 	td.Values["httpsPort"] = p.Spec.HTTPSrv.Service.Ports.HTTPS
 
-	if td.Component.Resources == nil {
-		td.Component.Resources = &v1.ResourceRequirements{
-			Requests: v1.ResourceList{
-				"memory": resource.MustParse("144Mi"), // 90% of limit, used to set GOMEMLIMIT
-				"cpu":    resource.MustParse("250m"),
-			},
-			Limits: v1.ResourceList{
-				"memory": resource.MustParse("160Mi"),
-				"cpu":    resource.MustParse("2"),
-			},
-		}
-	}
-	if td.Component.LivenessProbe == nil {
-		td.Component.LivenessProbe = &v1.Probe{
-			ProbeHandler: v1.ProbeHandler{
-				HTTPGet: &v1.HTTPGetAction{
-					Port: intstr.FromString("health"),
-				},
-			},
-		}
-	}
-	if td.Component.ReadinessProbe == nil {
-		td.Component.ReadinessProbe = &v1.Probe{
-			ProbeHandler: v1.ProbeHandler{
-				HTTPGet: &v1.HTTPGetAction{
-					Port: intstr.FromString("health"),
-				},
-			},
-		}
-	}
 	if err := r.setupVaultComponent(ctx, td, ""); err != nil {
 		return ctrl.Result{}, err
 	}
-	if rdy, err := r.CompMgr.SetupComponent(ctx, td); !rdy || err != nil {
+	if rdy, err := r.CompMgr.SetupComponent(ctx, td, HTTPSrvDefaults); !rdy || err != nil {
 		return ctrl.Result{}, err
 	}
 	// Clean up template specific values in case 'td' is reused later.

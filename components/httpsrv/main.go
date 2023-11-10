@@ -37,7 +37,7 @@ func main() {
 
 	server.Component.Id = kubefox.GenerateId()
 
-	server.Spec = &common.ComponentSpec{
+	server.Spec = &common.ComponentDefinition{
 		Type: common.ComponentTypeGenesis,
 	}
 

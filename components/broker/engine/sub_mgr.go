@@ -32,7 +32,7 @@ type GroupSubscription interface {
 
 type SubscriptionConf struct {
 	Component     *kubefox.Component
-	ComponentSpec *common.ComponentSpec
+	ComponentSpec *common.ComponentDefinition
 	SendFunc      SendEvent
 	EnableGroup   bool
 }
@@ -40,7 +40,7 @@ type SubscriptionConf struct {
 type ReplicaSubscription interface {
 	Subscription
 	Component() *kubefox.Component
-	ComponentSpec() *common.ComponentSpec
+	ComponentSpec() *common.ComponentDefinition
 	IsGroupEnabled() bool
 	Cancel(err error)
 	Err() error
@@ -65,7 +65,7 @@ type subscriptionGroup struct {
 
 type subscription struct {
 	comp     *kubefox.Component
-	compSpec *common.ComponentSpec
+	compSpec *common.ComponentDefinition
 	mgr      *subscriptionMgr
 
 	sendFunc   SendEvent
@@ -251,7 +251,7 @@ func (sub *subscription) Component() *kubefox.Component {
 	return sub.comp
 }
 
-func (sub *subscription) ComponentSpec() *common.ComponentSpec {
+func (sub *subscription) ComponentSpec() *common.ComponentDefinition {
 	return sub.compSpec
 }
 

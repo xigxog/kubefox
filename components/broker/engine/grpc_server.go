@@ -163,7 +163,7 @@ func (srv *GRPCServer) subscribe(stream grpc.Broker_SubscribeServer) (ReplicaSub
 		return nil, kubefox.ErrUnauthorized(fmt.Errorf("expected event of type %s but got %s",
 			kubefox.EventTypeRegister, regEvt.Type))
 	}
-	compSpec := &common.ComponentSpec{}
+	compSpec := &common.ComponentDefinition{}
 	if err := regEvt.Bind(compSpec); err != nil {
 		return nil, kubefox.ErrUnauthorized(err)
 	}
