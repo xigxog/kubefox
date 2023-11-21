@@ -13,6 +13,7 @@ import (
 
 	"github.com/xigxog/kubefox/api"
 	"github.com/xigxog/kubefox/api/kubernetes/v1alpha1"
+	"github.com/xigxog/kubefox/components/broker/config"
 	kubefox "github.com/xigxog/kubefox/core"
 	"github.com/xigxog/kubefox/logkf"
 )
@@ -38,7 +39,7 @@ func NewHTTPClient(brk Broker) *HTTPClient {
 	// - update secureTransport.TLSClientConfig.Config.RootCAs
 	secureTransport := http.DefaultTransport.(*http.Transport).Clone()
 	if certs, err := os.ReadFile("/etc/ssl/certs/mozilla.crt"); err != nil {
-		logkf.Global.Errorf("error reading Mozilla root CAs from file: %v", err)
+		logkf.Global.Warnf("error reading Mozilla root CAs from file: %v", err)
 	} else {
 		certPool := x509.NewCertPool()
 		certPool.AppendCertsFromPEM(certs)
@@ -149,7 +150,7 @@ func (c *HTTPClient) SendEvent(req *BrokerEvent) error {
 		if httpResp, err := c.adapterClient(adapter).Do(httpReq); err != nil {
 			reqErr = kubefox.ErrUnexpected(fmt.Errorf("http request failed: %v", err))
 		} else {
-			reqErr = resp.SetHTTPResponse(httpResp)
+			reqErr = resp.SetHTTPResponse(httpResp, config.MaxEventSize)
 		}
 		if reqErr != nil {
 			if !errors.Is(reqErr, &kubefox.Err{}) {
@@ -167,7 +168,7 @@ func (c *HTTPClient) SendEvent(req *BrokerEvent) error {
 	return nil
 }
 
-func (c *HTTPClient) adapterClient(a *v1alpha1.Adapter) *http.Client {
+func (c *HTTPClient) adapterClient(a *v1alpha1.EnvAdapter) *http.Client {
 	key := key(a.FollowRedirects, a.InsecureSkipVerify)
 	client := c.clients[key]
 	if client == nil {

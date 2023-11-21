@@ -14,26 +14,15 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// EnvironmentSpec defines the desired state of Environment
-type EnvironmentSpec struct {
-	EnvSpec `json:",inline"`
-
-	Parent EnvParent `json:"parent,omitempty"`
-}
-
-type EnvSpec struct {
+type EnvData struct {
 	// +kubebuilder:validation:Schemaless
 	// +kubebuilder:validation:Type=object
 	// +kubebuilder:pruning:PreserveUnknownFields
-	Vars     map[string]*api.Val `json:"vars,omitempty"`
-	Adapters map[string]*Adapter `json:"adapters,omitempty"`
+	Vars     map[string]*api.Val    `json:"vars,omitempty"`
+	Adapters map[string]*EnvAdapter `json:"adapters,omitempty"`
 }
 
-type EnvParent struct {
-	Name string `json:"name"`
-}
-
-type Adapter struct {
+type EnvAdapter struct {
 	// +kubebuilder:validation:Enum=db;http
 	Type api.ComponentType `json:"type"`
 	// +kubebuilder:validation:Schemaless
@@ -54,19 +43,8 @@ type Adapter struct {
 	FollowRedirects api.FollowRedirects `json:"followRedirects,omitempty"`
 }
 
-// EnvironmentStatus defines the observed state of Environment
-type EnvironmentStatus struct {
-	Parent   common.RefTimestamped   `json:"parent,omitempty"`
-	Children []common.RefTimestamped `json:"children,omitempty"`
-	Spec     EnvSpecStatus           `json:"spec,omitempty"`
-}
-
-type EnvSpecStatus struct {
-	Resolved EnvSpec `json:"resolved,omitempty"`
-}
-
-// EnvironmentDetails defines additional details of Environment
-type EnvironmentDetails struct {
+// EnvDetails defines additional details of VirtualEnv
+type EnvDetails struct {
 	api.Details `json:",inline"`
 
 	Vars     map[string]api.Details `json:"vars,omitempty"`
@@ -74,30 +52,49 @@ type EnvironmentDetails struct {
 }
 
 //+kubebuilder:object:root=true
-//+kubebuilder:subresource:status
+//+kubebuilder:subresource:data
 //+kubebuilder:subresource:details
-//+kubebuilder:resource:path=environments,scope=Cluster
 
-// Environment is the Schema for the Environments API
-type Environment struct {
+// VirtualEnv is the Schema for the VirtualEnv API
+type VirtualEnv struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec    EnvironmentSpec    `json:"spec,omitempty"`
-	Status  EnvironmentStatus  `json:"status,omitempty"`
-	Details EnvironmentDetails `json:"details,omitempty"`
+	Data    EnvData    `json:"data,omitempty"`
+	Details EnvDetails `json:"details,omitempty"`
 }
 
 //+kubebuilder:object:root=true
 
-// EnvironmentList contains a list of Environments
-type EnvironmentList struct {
+// VirtualEnvList contains a list of Environments
+type VirtualEnvList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
 
-	Items []Environment `json:"items"`
+	Items []VirtualEnv `json:"items"`
+}
+
+// +kubebuilder:object:root=true
+// +kubebuilder:subresource:data
+// +kubebuilder:subresource:details
+// +kubebuilder:resource:path=environments,scope=Cluster
+type ClusterVirtualEnv struct {
+	metav1.TypeMeta   `json:",inline"`
+	metav1.ObjectMeta `json:"metadata,omitempty"`
+
+	Data    EnvData    `json:"data,omitempty"`
+	Details EnvDetails `json:"details,omitempty"`
+}
+
+// +kubebuilder:object:root=true
+type ClusterVirtualEnvList struct {
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata,omitempty"`
+
+	Items []VirtualEnv `json:"items"`
 }
 
 func init() {
-	SchemeBuilder.Register(&Environment{}, &EnvironmentList{})
+	SchemeBuilder.Register(&VirtualEnv{}, &VirtualEnvList{})
+	SchemeBuilder.Register(&ClusterVirtualEnv{}, &ClusterVirtualEnvList{})
 }

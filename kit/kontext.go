@@ -36,9 +36,10 @@ type respKontext struct {
 type reqKontext struct {
 	*kubefox.Event
 
-	brk   *grpc.Client
-	start time.Time
-	ctx   context.Context
+	brk          *grpc.Client
+	start        time.Time
+	maxEventSize int64
+	ctx          context.Context
 }
 
 func (k *kontext) Context() context.Context {
@@ -141,9 +142,10 @@ func (k *kontext) Transport(c Dependency) http.RoundTripper {
 				Source: k.kit.brk.Component,
 				Target: &kubefox.Component{Name: c.Name()},
 			}),
-			brk:   k.kit.brk,
-			start: k.start,
-			ctx:   k.ctx,
+			brk:          k.kit.brk,
+			start:        k.start,
+			maxEventSize: k.kit.maxEventSize,
+			ctx:          k.ctx,
 		},
 	}
 }

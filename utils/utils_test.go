@@ -24,3 +24,38 @@ func TestByteArrayToUInt(t *testing.T) {
 		t.Fail()
 	}
 }
+
+func TestCleanLabel(t *testing.T) {
+	if c := CleanLabel("aaa"); c != "aaa" {
+		t.Logf("got '%s', expected '%s'", c, "aaa")
+		t.Fail()
+	}
+	if c := CleanLabel("AABBCC"); c != "AABBCC" {
+		t.Logf("got '%s', expected '%s'", c, "AABBCC")
+		t.Fail()
+	}
+	if c := CleanLabel("-aaa"); c != "aaa" {
+		t.Logf("got '%s', expected '%s'", c, "aaa")
+		t.Fail()
+	}
+	if c := CleanLabel("aaa-"); c != "aaa" {
+		t.Logf("got '%s', expected '%s'", c, "aaa")
+		t.Fail()
+	}
+	if c := CleanLabel("a&a%a"); c != "a-a-a" {
+		t.Logf("got '%s', expected '%s'", c, "a-a-a")
+		t.Fail()
+	}
+	if c := CleanLabel("#$aa$a"); c != "aa-a" {
+		t.Logf("got '%s', expected '%s'", c, "aa-a")
+		t.Fail()
+	}
+	if c := CleanLabel("blah/#$aa$a"); c != "aa-a" {
+		t.Logf("got '%s', expected '%s'", c, "aa-a")
+		t.Fail()
+	}
+	if c := CleanLabel("//asd//asd/#$aa$a()"); c != "aa-a" {
+		t.Logf("got '%s', expected '%s'", c, "aa-a")
+		t.Fail()
+	}
+}

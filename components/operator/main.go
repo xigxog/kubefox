@@ -29,6 +29,7 @@ import (
 	kutil "k8s.io/apimachinery/pkg/util/runtime"
 	kscheme "k8s.io/client-go/kubernetes/scheme"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/metrics/server"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
@@ -40,7 +41,7 @@ import (
 	"github.com/xigxog/kubefox/build"
 	"github.com/xigxog/kubefox/components/operator/controller"
 	"github.com/xigxog/kubefox/components/operator/templates"
-
+	"github.com/xigxog/kubefox/k8s"
 	"github.com/xigxog/kubefox/logkf"
 	"github.com/xigxog/kubefox/utils"
 )
@@ -107,12 +108,13 @@ func main() {
 		log.Fatal("unable to start manager", err)
 	}
 
-	ctrlClient := &controller.Client{Client: mgr.GetClient()}
-	compMgr := &controller.ComponentManager{
-		Instance: instance,
-		Client:   ctrlClient,
-		Log:      log,
+	ctrlClient := &controller.Client{
+		Client: k8s.Client{
+			Client:     mgr.GetClient(),
+			FieldOwner: client.FieldOwner(fmt.Sprintf("%s-operator", instance)),
+		},
 	}
+	compMgr := controller.NewComponentManager(instance, ctrlClient)
 
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
 	if err := applyCRDs(ctx, ctrlClient); err != nil {
@@ -128,51 +130,49 @@ func main() {
 		Instance:  instance,
 		Namespace: namespace,
 		VaultURL:  vaultURL,
-		Scheme:    mgr.GetScheme(),
 		CompMgr:   compMgr,
 		LogLevel:  logLevel,
 		LogFormat: logFormat,
 	}).SetupWithManager(mgr); err != nil {
-		log.Fatalf("unable to create platform controller", err)
+		log.Fatalf("unable to create Platform controller: %v", err)
 	}
+	if err = (&controller.AppDeploymentReconciler{
+		Client:  ctrlClient,
+		CompMgr: compMgr,
+	}).SetupWithManager(mgr); err != nil {
+		log.Fatalf("unable to create AppDeployment controller: %v", err)
+	}
+	if err = (&controller.ReleaseReconciler{
+		Client:  ctrlClient,
+		CompMgr: compMgr,
+	}).SetupWithManager(mgr); err != nil {
+		log.Fatalf("unable to create Release controller: %v", err)
+	}
+	// TODO  ComponentSpec controller
 
 	mgr.GetWebhookServer().Register("/v1alpha1/platform/validate", &webhook.Admission{
 		Handler: &controller.PlatformWebhook{
-			Client:   ctrlClient,
-			Decoder:  admission.NewDecoder(scheme),
-			Mutating: false,
-		},
-	})
-	mgr.GetWebhookServer().Register("/v1alpha1/platform/mutate", &webhook.Admission{
-		Handler: &controller.PlatformWebhook{
-			Client:   ctrlClient,
-			Decoder:  admission.NewDecoder(scheme),
-			Mutating: true,
-		},
-	})
-	mgr.GetWebhookServer().Register("/v1alpha1/release/mutate", &webhook.Admission{
-		Handler: &controller.ReleaseWebhook{
 			Client:  ctrlClient,
 			Decoder: admission.NewDecoder(scheme),
 		},
 	})
-	mgr.GetWebhookServer().Register("/mutate/owner", &webhook.Admission{
-		Handler: &controller.OwnerWebhook{
+	mgr.GetWebhookServer().Register("/immutable/validate", &webhook.Admission{
+		Handler: &controller.ImmutableWebhook{
 			Client:  ctrlClient,
 			Decoder: admission.NewDecoder(scheme),
 		},
 	})
 
 	if err := mgr.AddHealthzCheck("healthz", healthz.Ping); err != nil {
-		log.Fatal("unable to set up health check", err)
+		log.Fatalf("unable to set up health check: %v", err)
 	}
 	if err := mgr.AddReadyzCheck("readyz", healthz.Ping); err != nil {
-		log.Fatal("unable to set up ready check", err)
+		log.Fatalf("unable to set up ready check: %v", err)
 	}
 
 	log.Info("starting manager")
 	if err := mgr.Start(ctrl.SetupSignalHandler()); err != nil {
-		log.Fatal("problem running manager", err)
+		log.Fatalf("problem running manager: %v", err)
 	}
 }
 

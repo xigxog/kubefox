@@ -17,17 +17,56 @@ import (
 
 // PlatformSpec defines the desired state of Platform
 type PlatformSpec struct {
-	Broker  BrokerSpec        `json:"broker,omitempty"`
-	HTTPSrv HTTPSrvSpec       `json:"httpsrv,omitempty"`
-	NATS    NATSSpec          `json:"nats,omitempty"`
-	Events  EventsSpec        `json:"events,omitempty"`
-	Logger  common.LoggerSpec `json:"logger,omitempty"`
+	Environments map[string]*PlatformEnv `json:"environments,omitempty"`
+	Config       PlatformConfig          `json:"config,omitempty"`
+}
+
+type PlatformEnv struct {
+	Release            *PlatformEnvRelease            `json:"release,omitempty"`
+	SupersededReleases map[string]*PlatformEnvRelease `json:"supersededReleases,omitempty"`
+}
+
+type PlatformEnvRelease struct {
+	ReleaseSpec   `json:",inline"`
+	ReleaseStatus `json:",inline"`
+
+	Name                   string `json:"name"`
+	AppDeploymentAvailable bool   `json:"appDeploymentAvailable,omitempty"`
+}
+
+type PlatformConfig struct {
+	Events   EventsSpec        `json:"events,omitempty"`
+	Releases ReleasesSpec      `json:"releases,omitempty"`
+	Broker   BrokerSpec        `json:"broker,omitempty"`
+	HTTPSrv  HTTPSrvSpec       `json:"httpsrv,omitempty"`
+	NATS     NATSSpec          `json:"nats,omitempty"`
+	Logger   common.LoggerSpec `json:"logger,omitempty"`
 }
 
 type EventsSpec struct {
 	// +kubebuilder:validation:Minimum=3
-	TimeoutSeconds uint              `json:"timeoutSeconds,omitempty"`
-	MaxSize        resource.Quantity `json:"maxSize,omitempty"`
+	TimeoutSeconds uint `json:"timeoutSeconds,omitempty"`
+	// Large events reduce performance and increase memory usage. Default 5MiB.
+	// Maximum 16 MiB.
+	MaxSize resource.Quantity `json:"maxSize,omitempty"`
+}
+
+type ReleasesSpec struct {
+	// Number of seconds after which a newly created Release is marked as failed
+	// if it has not become available. Defaults to 300 seconds (5 minutes).
+	// +kubebuilder:validation:Minimum=3
+	TimeoutSeconds uint `json:"timeoutSeconds,omitempty"`
+	// Limits on superseded Requests.
+	Limits ReleaseLimits `json:"limits,omitempty"`
+}
+
+type ReleaseLimits struct {
+	// Total number of superseded Requests to keep. Once the limit is reach the
+	// oldest unused Request will be removed. Default 100.
+	Count uint `json:"count,omitempty"`
+	// Age of the oldest superseded Request to keep. Age is based on when the
+	// Release was superseded.
+	AgeDays uint `json:"ageDays,omitempty"`
 }
 
 type NATSSpec struct {
@@ -98,4 +137,38 @@ type PlatformList struct {
 
 func init() {
 	SchemeBuilder.Register(&Platform{}, &PlatformList{})
+}
+
+// Environment returns the named PlatformEnv creating it if needed.
+func (p *Platform) Environment(name string) *PlatformEnv {
+	if p.Spec.Environments == nil {
+		p.Spec.Environments = make(map[string]*PlatformEnv)
+	}
+	env := p.Spec.Environments[name]
+	if env == nil {
+		env = &PlatformEnv{}
+		p.Spec.Environments[name] = env
+	}
+	if env.SupersededReleases == nil {
+		env.SupersededReleases = map[string]*PlatformEnvRelease{}
+	}
+
+	return env
+}
+
+// FindRelease looks for the named release in all Environments checking active,
+// pending, and superseded.
+func (p *Platform) FindRelease(name string) *PlatformEnvRelease {
+	for _, env := range p.Spec.Environments {
+		if env.Release != nil && env.Release.Name == name {
+			return env.Release
+		}
+		for _, r := range env.SupersededReleases {
+			if r != nil && r.Name == name {
+				return r
+			}
+		}
+	}
+
+	return nil
 }

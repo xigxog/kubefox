@@ -34,6 +34,7 @@ spec:
             - -nats-addr={{ .Platform.Name }}-nats.{{ .Platform.Namespace }}
             - -telemetry-addr=false
             - -health-addr=0.0.0.0:1111
+            - -max-event-size={{ .Values.maxEventSize }}
             - -log-format={{ .Logger.Format | default "json" }}
             - -log-level={{ .Logger.Level | default "info" }}
           env:

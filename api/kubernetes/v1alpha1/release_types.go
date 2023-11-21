@@ -16,35 +16,37 @@ import (
 
 // ReleaseSpec defines the desired state of Release
 type ReleaseSpec struct {
+	// Version of the App being release. Use of semantic versioning is
+	// recommended. If set the value is compared to the AppDeployment, if they
+	// conflict the release will fail.
+	Version string `json:"version,omitempty"`
+	// +kubebuilder:validation:Enum=Promotion;Release;Rollback
+	Type          api.ReleaseType      `json:"type"`
+	Environment   common.Ref           `json:"environment"`
+	AppDeployment ReleaseAppDeployment `json:"appDeployment"`
+}
+
+type ReleaseAppDeployment struct {
 	// +kubebuilder:validation:MinLength=1
-	Version       string            `json:"version,omitempty"`
-	Environment   ReleaseEnv        `json:"environment"`
-	AppDeployment ReleaseDeployment `json:"appDeployment"`
-}
-
-type ReleaseEnv struct {
-	common.Ref `json:",inline"`
-	EnvSpec    `json:",inline"`
-}
-
-type ReleaseDeployment struct {
-	common.Ref `json:",inline"`
-	App        *App `json:"app,omitempty"`
-	// +kubebuilder:validation:MinProperties=1
-	Components map[string]*Component `json:"components,omitempty"`
+	Name string `json:"name"`
 }
 
 // ReleaseStatus defines the observed state of Release
 type ReleaseStatus struct {
-	// +kubebuilder:validation:Optional
-	Ready bool `json:"ready"`
+	CreationTime       metav1.Time  `json:"creationTime,omitempty"`
+	PendingTime        *metav1.Time `json:"pendingTime,omitempty"`
+	ReleaseTime        *metav1.Time `json:"releaseTime,omitempty"`
+	SupersededTime     *metav1.Time `json:"supersededTime,omitempty"`
+	LastTransitionTime metav1.Time  `json:"lastTransitionTime,omitempty"`
+	FailureTime        *metav1.Time `json:"failureTime,omitempty"`
+	FailureMessage     string       `json:"failureMessage,omitempty"`
 }
 
 // ReleaseDetails defines additional details of Release
 type ReleaseDetails struct {
 	api.Details `json:",inline"`
 
-	AppDeployment AppDeploymentDetails `json:"appDeployment"`
+	AppDeployment AppDeploymentDetails `json:"appDeployment,omitempty"`
 }
 
 //+kubebuilder:object:root=true
@@ -73,16 +75,4 @@ type ReleaseList struct {
 
 func init() {
 	SchemeBuilder.Register(&Release{}, &ReleaseList{})
-}
-
-func (r *Release) AppDeploymentSpec() *AppDeploymentSpec {
-	return &AppDeploymentSpec{
-		App:        *r.Spec.AppDeployment.App,
-		Components: r.Spec.AppDeployment.Components,
-	}
-}
-
-func (r *Release) SetAppDeploymentSpec(spec *AppDeploymentSpec) {
-	r.Spec.AppDeployment.App = &spec.App
-	r.Spec.AppDeployment.Components = spec.Components
 }

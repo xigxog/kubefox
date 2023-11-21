@@ -3,15 +3,9 @@ package controller
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"strconv"
-
-	"golang.org/x/mod/semver"
-	appsv1 "k8s.io/api/apps/v1"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sync"
 
 	"github.com/mitchellh/hashstructure/v2"
 	"github.com/xigxog/kubefox/api"
@@ -20,7 +14,21 @@ import (
 	"github.com/xigxog/kubefox/build"
 	"github.com/xigxog/kubefox/components/operator/templates"
 	"github.com/xigxog/kubefox/logkf"
+	"github.com/xigxog/kubefox/utils"
+	"golang.org/x/mod/semver"
+	appsv1 "k8s.io/api/apps/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
+
+type ComponentManager struct {
+	*Client
+
+	mutex sync.Mutex
+
+	instance string
+	log      *logkf.Logger
+}
 
 type TemplateData struct {
 	templates.Data
@@ -29,14 +37,24 @@ type TemplateData struct {
 	Obj      client.Object
 }
 
-type ComponentManager struct {
-	Instance string
-	Client   *Client
-	Log      *logkf.Logger
+type EnvRelPackage struct {
+	PlatformEnv      *v1alpha1.PlatformEnv
+	Active           *v1alpha1.PlatformEnvRelease
+	Latest           *v1alpha1.PlatformEnvRelease
+	AppDepSpecActive *v1alpha1.AppDeploymentSpec
+	AppDepSpecLatest *v1alpha1.AppDeploymentSpec
+}
+
+func NewComponentManager(instance string, cli *Client) *ComponentManager {
+	return &ComponentManager{
+		Client:   cli,
+		instance: instance,
+		log:      logkf.Global,
+	}
 }
 
 func (cm *ComponentManager) SetupComponent(ctx context.Context, td *TemplateData) (bool, error) {
-	log := cm.Log.With(
+	log := cm.log.With(
 		logkf.KeyInstance, td.Instance.Name,
 		logkf.KeyPlatform, td.Platform.Name,
 		logkf.KeyComponentName, td.ComponentFullName(),
@@ -50,20 +68,20 @@ func (cm *ComponentManager) SetupComponent(ctx context.Context, td *TemplateData
 
 	log.Debugf("setting up component '%s'", td.ComponentFullName())
 
-	name := NN(td.Namespace(), td.ComponentFullName())
-	if err := cm.Client.Get(ctx, name, td.Obj); client.IgnoreNotFound(err) != nil {
+	name := Key(td.Namespace(), td.ComponentFullName())
+	if err := cm.Get(ctx, name, td.Obj); client.IgnoreNotFound(err) != nil {
 		return false, log.ErrorN("unable to fetch component workload: %w", err)
 	}
 
 	curHash := td.Obj.GetAnnotations()[api.AnnotationTemplateDataHash]
 	if curHash != td.Data.Hash {
 		log.Infof("change to template data detected, applying template")
-		return false, cm.Client.ApplyTemplate(ctx, td.Template, &td.Data, log)
+		return false, cm.ApplyTemplate(ctx, td.Template, &td.Data, log)
 	}
 	ver := td.Obj.GetLabels()[api.LabelK8sRuntimeVersion]
 	if semver.Compare(ver, build.Info.Version) < 0 {
 		log.Infof("version upgrade detected, applying template to upgrade %s->%s", ver, build.Info.Version)
-		return false, cm.Client.ApplyTemplate(ctx, td.Template, &td.Data, log)
+		return false, cm.ApplyTemplate(ctx, td.Template, &td.Data, log)
 	}
 
 	var available int32
@@ -81,16 +99,19 @@ func (cm *ComponentManager) SetupComponent(ctx context.Context, td *TemplateData
 		available = obj.Status.NumberAvailable
 	}
 	if available <= 0 {
-		log.Debug("component is not ready, applying template to ensure correct state")
-		return false, cm.Client.ApplyTemplate(ctx, td.Template, &td.Data, log)
+		log.Debug("component is not available, applying template to ensure correct state")
+		return false, cm.ApplyTemplate(ctx, td.Template, &td.Data, log)
 	}
 
-	log.Debugf("component '%s' ready", td.ComponentFullName())
+	log.Debugf("component '%s' available", td.ComponentFullName())
 	return true, nil
 }
 
 func (cm *ComponentManager) ReconcileApps(ctx context.Context, namespace string) (bool, error) {
-	platform, err := cm.Client.GetPlatform(ctx, namespace)
+	cm.mutex.Lock()
+	defer cm.mutex.Unlock()
+
+	platform, err := cm.GetPlatform(ctx, namespace)
 	if err != nil {
 		return false, IgnoreNotFound(err)
 	}
@@ -98,38 +119,101 @@ func (cm *ComponentManager) ReconcileApps(ctx context.Context, namespace string)
 		return false, nil
 	}
 
-	log := cm.Log.With(
-		logkf.KeyInstance, cm.Instance,
+	log := cm.log.With(
+		logkf.KeyInstance, cm.instance,
 		logkf.KeyPlatform, platform.Name,
 	)
 
 	if !platform.Status.Ready {
-		log.Debug("platform not ready")
+		log.Debug("platform not available")
 		return false, nil
 	}
 
 	relList := &v1alpha1.ReleaseList{}
-	if err := cm.Client.List(ctx, relList, client.InNamespace(platform.Namespace)); err != nil {
-		return false, err
-	}
-	depList := &v1alpha1.AppDeploymentList{}
-	if err := cm.Client.List(ctx, depList, client.InNamespace(platform.Namespace)); err != nil {
+	if err := cm.List(ctx, relList,
+		client.InNamespace(namespace),
+		client.MatchingLabels{api.LabelK8sReleaseStatus: string(api.ReleaseStatusPending)},
+	); err != nil {
 		return false, err
 	}
 
-	specs := make([]v1alpha1.AppDeploymentSpec, 0, len(relList.Items)+len(depList.Items))
-	for _, r := range relList.Items {
-		specs = append(specs, *r.AppDeploymentSpec())
+	pendingRelMap := map[string][]*v1alpha1.PlatformEnvRelease{}
+	for _, rel := range relList.Items {
+		l := pendingRelMap[rel.Spec.Environment.Name]
+		pendingRelMap[rel.Spec.Environment.Name] = append(l, &v1alpha1.PlatformEnvRelease{
+			ReleaseSpec:   rel.Spec,
+			ReleaseStatus: rel.Status,
+			Name:          rel.Name,
+		})
+	}
+
+	relCount := 0
+	envRelMap := map[string]*EnvRelPackage{}
+	for envName, env := range platform.Spec.Environments {
+		// Find latest pending release.
+		latest := &v1alpha1.PlatformEnvRelease{}
+		for _, rel := range pendingRelMap[envName] {
+			if rel.CreationTime.After(latest.CreationTime.Time) {
+				latest = rel
+			}
+		}
+		if env.Release != nil && env.Release.Name != "" {
+			// There is an active release, keep it incase latest isn't available.
+			holder := &EnvRelPackage{
+				PlatformEnv: env,
+				Active:      env.Release,
+			}
+			relCount++
+			if latest.CreationTime.After(env.Release.CreationTime.Time) {
+				holder.Latest = latest
+				relCount++
+			}
+			envRelMap[envName] = holder
+
+		} else if !latest.CreationTime.IsZero() {
+			envRelMap[envName] = &EnvRelPackage{
+				PlatformEnv: env,
+				Latest:      latest,
+			}
+			relCount++
+		}
+	}
+
+	specs := map[string]*v1alpha1.AppDeploymentSpec{}
+
+	depList := &v1alpha1.AppDeploymentList{}
+	if err := cm.List(ctx, depList, client.InNamespace(platform.Namespace)); err != nil {
+		return false, err
 	}
 	for _, d := range depList.Items {
-		specs = append(specs, d.Spec)
+		specs[d.Name] = &d.Spec
 	}
-	log.Debugf("found %d releases and %d app deployments", len(relList.Items), len(depList.Items))
+
+	for _, rel := range envRelMap {
+		if rel.Active != nil {
+			appDep := &v1alpha1.AppDeployment{}
+			if err = cm.Get(ctx, Key(namespace, rel.Active.AppDeployment.Name), appDep); err != nil {
+				return false, err
+			}
+			rel.AppDepSpecActive = &appDep.Spec
+			specs[appDep.Name] = &appDep.Spec
+		}
+		if rel.Latest != nil {
+			appDep := &v1alpha1.AppDeployment{}
+			if err = cm.Get(ctx, Key(namespace, rel.Latest.AppDeployment.Name), appDep); err != nil {
+				return false, err
+			}
+			rel.AppDepSpecLatest = &appDep.Spec
+			specs[appDep.Name] = &appDep.Spec
+		}
+	}
+
+	log.Debugf("found %d releases and %d app deployments", relCount, len(depList.Items))
 
 	compDepList := &appsv1.DeploymentList{}
-	if err := cm.Client.List(ctx, compDepList,
+	if err := cm.List(ctx, compDepList,
 		client.InNamespace(platform.Namespace),
-		client.HasLabels{api.LabelK8sComponent, api.LabelK8sAppName},
+		client.HasLabels{api.LabelK8sComponent, utils.CleanLabel(api.LabelK8sAppName)}, // don't want Platform stuff
 	); err != nil {
 		return false, err
 	}
@@ -144,7 +228,7 @@ func (cm *ComponentManager) ReconcileApps(ctx context.Context, namespace string)
 			td := TemplateData{
 				Data: templates.Data{
 					Instance: templates.Instance{
-						Name:           cm.Instance,
+						Name:           cm.instance,
 						BootstrapImage: BootstrapImage,
 					},
 					Platform: templates.Platform{
@@ -180,43 +264,97 @@ func (cm *ComponentManager) ReconcileApps(ctx context.Context, namespace string)
 			if err := json.Unmarshal([]byte(tdStr), data); err != nil {
 				return false, err
 			}
-			if err := cm.Client.DeleteTemplate(ctx, "component", data, log); err != nil {
+			if err := cm.DeleteTemplate(ctx, "component", data, log); err != nil {
 				return false, err
 			}
 		}
 	}
 
-	allReady := true
+	allAvailable := true
 	compReadyMap := make(map[string]bool, len(compMap))
 	for _, compTD := range compMap {
 		SetDefaults(&compTD.Component.ContainerSpec, &ComponentDefaults)
-		ready, err := cm.SetupComponent(ctx, &compTD)
+		available, err := cm.SetupComponent(ctx, &compTD)
 		if err != nil {
 			return false, err
 		}
 
-		allReady = allReady && ready
-		compReadyMap[CompReadyKey(compTD.Component.Name, compTD.Component.Commit)] = ready
+		allAvailable = allAvailable && available
+		compReadyMap[CompReadyKey(compTD.Component.Name, compTD.Component.Commit)] = available
 	}
 
-	for _, r := range relList.Items {
-		r.Status.Ready = IsAppDeploymentReady(r.AppDeploymentSpec(), compReadyMap)
-		if err := cm.Client.Status().Update(ctx, &r); err != nil {
-			return false, err
-		}
-		log.Debugf("release '%s.%s' ready: %t", r.Name, r.Namespace, r.Status.Ready)
-	}
 	for _, d := range depList.Items {
-		d.Status.Ready = IsAppDeploymentReady(&d.Spec, compReadyMap)
-		if err := cm.Client.Status().Update(ctx, &d); err != nil {
+		available := IsAppDeploymentAvailable(&d.Spec, compReadyMap)
+		if d.Status.Ready != available {
+			d.Status.Ready = available
+			if err := cm.ApplyStatus(ctx, &d); err != nil {
+				log.Error(err)
+			}
+		}
+
+		log.Debugf("app deployment '%s.%s' available: %t", d.Name, d.Namespace, available)
+	}
+
+	// TODO clean up releases
+	//  [ ] Look for deleted releases
+	//  [ ] Look for releases in platform that don't exists and vice versa
+	platformUpdate := false
+	for envName, envRel := range envRelMap {
+		if envRel.Active != nil {
+			available := IsAppDeploymentAvailable(envRel.AppDepSpecActive, compReadyMap)
+			if envRel.Active.AppDeploymentAvailable != available {
+				platformUpdate = true
+				envRel.Active.AppDeploymentAvailable = available
+			}
+			log.Debugf("active release '%s.%s' available: %t", envRel.Active.Name, namespace, available)
+		}
+
+		if envRel.Latest != nil {
+			envRel.Latest.AppDeploymentAvailable = IsAppDeploymentAvailable(envRel.AppDepSpecLatest, compReadyMap)
+			log.Debugf("latest release '%s.%s' available: %t", envRel.Latest.Name, namespace, envRel.Latest.AppDeploymentAvailable)
+		}
+
+		if envRel.Latest != nil && envRel.Latest.AppDeploymentAvailable {
+			platformUpdate = true
+			if envRel.PlatformEnv.SupersededReleases == nil {
+				envRel.PlatformEnv.SupersededReleases = map[string]*v1alpha1.PlatformEnvRelease{}
+			}
+
+			now := metav1.Now()
+			// Move all pending Releases to superseded.
+			for _, r := range pendingRelMap[envName] {
+				if r == envRel.Latest {
+					continue
+				}
+				r.SupersededTime = &now
+				r.AppDeploymentAvailable = false
+				r.LastTransitionTime = now
+				envRel.PlatformEnv.SupersededReleases[r.Name] = r
+			}
+
+			// Move active Releases to superseded.
+			if envRel.Active != nil {
+				envRel.Active.SupersededTime = &now
+				envRel.Active.AppDeploymentAvailable = false
+				envRel.Active.LastTransitionTime = now
+				envRel.PlatformEnv.SupersededReleases[envRel.Active.Name] = envRel.Active
+			}
+
+			envRel.Latest.ReleaseTime = &now
+			envRel.Latest.SupersededTime = nil
+			envRel.Latest.LastTransitionTime = now
+			envRel.PlatformEnv.Release = envRel.Latest
+		}
+	}
+	if platformUpdate {
+		if err := cm.Update(ctx, platform); err != nil {
 			return false, err
 		}
-		log.Debugf("app deployment '%s.%s' ready: %t", d.Name, d.Namespace, d.Status.Ready)
 	}
 
 	log.Debugf("apps reconciled")
 
-	return allReady, nil
+	return allAvailable, nil
 }
 
 func (td *TemplateData) ForComponent(template string, obj client.Object, defs *common.ContainerSpec, comp templates.Component) *TemplateData {
@@ -255,19 +393,12 @@ func CompReadyKey(name, commit string) string {
 	return fmt.Sprintf("%s-%s", name, commit)
 }
 
-func IsAppDeploymentReady(spec *v1alpha1.AppDeploymentSpec, compReadyMap map[string]bool) bool {
+func IsAppDeploymentAvailable(spec *v1alpha1.AppDeploymentSpec, compReadyMap map[string]bool) bool {
 	for name, c := range spec.Components {
 		key := CompReadyKey(name, c.Commit)
-		if found, ready := compReadyMap[key]; !found || !ready {
+		if found, available := compReadyMap[key]; !found || !available {
 			return false
 		}
 	}
 	return true
-}
-
-func IgnoreNotFound(err error) error {
-	if apierrors.IsNotFound(err) || errors.Is(err, ErrNotFound) {
-		return nil
-	}
-	return err
 }

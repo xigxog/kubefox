@@ -10,7 +10,6 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
-// TODO replace with types from API
 type Data struct {
 	Instance  Instance
 	Platform  Platform

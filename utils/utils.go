@@ -11,7 +11,12 @@ import (
 	"unsafe"
 )
 
-var RegexpSpecialChar = regexp.MustCompile(`[^a-z0-9]`)
+var (
+	RegexpNameSpecialChar  = regexp.MustCompile(`[^a-z0-9]`)
+	RegexpLabelSpecialChar = regexp.MustCompile(`[^a-z0-9A-Z-_\.]`)
+	RegexpLabelPrefix      = regexp.MustCompile(`^[^a-z0-9A-Z]*`)
+	RegexpLabelSuffix      = regexp.MustCompile(`[^a-z0-9A-Z-_\.]*[^a-z0-9A-Z]*$`)
+)
 
 func ResolveFlag(curr, envVar, def string) string {
 	if curr != "" {
@@ -73,10 +78,27 @@ func ByteArrayToUInt(b []byte) uint64 {
 
 // CleanName returns name with all special characters replaced with dashes and
 // set to lowercase. If name is a path only the basename is used.
+//
+// https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#dns-subdomain-names
 func CleanName(name string) string {
 	cleaned := filepath.Base(name)
 	cleaned = strings.ToLower(cleaned)
-	cleaned = RegexpSpecialChar.ReplaceAllLiteralString(cleaned, "-")
+	cleaned = RegexpNameSpecialChar.ReplaceAllLiteralString(cleaned, "-")
 	cleaned = strings.TrimPrefix(strings.TrimSuffix(cleaned, "-"), "-")
+	return cleaned
+}
+
+// CleanLabel returns the label value with all special characters replaced with
+// dashes and any character that is not [a-z0-9A-Z] trimmed from start and end.
+// If name is a path only the basename is used.
+//
+// https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/#syntax-and-character-set
+func CleanLabel(value string) string {
+	cleaned := filepath.Base(value)
+	// Remove special chars.
+	cleaned = RegexpLabelSpecialChar.ReplaceAllLiteralString(cleaned, "-")
+	// Ensure value begins and ends with [a-z0-9A-Z].
+	cleaned = RegexpLabelPrefix.ReplaceAllLiteralString(cleaned, "")
+	cleaned = RegexpLabelSuffix.ReplaceAllLiteralString(cleaned, "")
 	return cleaned
 }

@@ -12,21 +12,20 @@ package kubernetes
 import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
 )
 
 type Ref struct {
 	// +kubebuilder:validation:MinLength=1
-	Name            string    `json:"name"`
-	UID             types.UID `json:"uid,omitempty"`
-	ResourceVersion string    `json:"resourceVersion,omitempty"`
+	Name string `json:"name"`
+	// +kubebuilder:validation:MinLength=1
+	ResourceVersion string `json:"resourceVersion"`
 }
 
 type RefTimestamped struct {
 	Ref `json:",inline"`
 
-	CreationTimestamp     metav1.Time `json:"creationTimestamp,omitempty"`
-	ModificationTimestamp metav1.Time `json:"modificationTimestamp,omitempty"`
+	CreateTime metav1.Time `json:"createTime,omitempty"`
+	UpdateTime metav1.Time `json:"updateTime,omitempty"`
 }
 
 type PodSpec struct {

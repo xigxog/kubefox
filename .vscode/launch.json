@@ -16,8 +16,6 @@
         "-namespace=kubefox-dev",
         "-grpc-addr=127.0.0.1:6060",
         "-nats-addr=127.0.0.1",
-        "-http-addr=false",
-        "-https-addr=false",
         "-telemetry-addr=false",
         "-health-addr=false",
         "-log-format=console",

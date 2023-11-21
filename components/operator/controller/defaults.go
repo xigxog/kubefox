@@ -10,10 +10,8 @@ import (
 var (
 	NATSDefaults = common.ContainerSpec{
 		Resources: &v1.ResourceRequirements{
-			// TODO calc and set correct values and use those in headers
 			Requests: v1.ResourceList{
-				"memory": resource.MustParse("115Mi"), // 90% of limit, used to set GOMEMLIMIT
-				"cpu":    resource.MustParse("250m"),
+				"memory": resource.MustParse("64Mi"),
 			},
 			Limits: v1.ResourceList{
 				"memory": resource.MustParse("128Mi"),
@@ -56,10 +54,8 @@ var (
 
 	BrokerDefaults = common.ContainerSpec{
 		Resources: &v1.ResourceRequirements{
-			// TODO calc and set correct values and use those in headers
 			Requests: v1.ResourceList{
-				"memory": resource.MustParse("144Mi"), // 90% of limit, used to set GOMEMLIMIT
-				"cpu":    resource.MustParse("250m"),
+				"memory": resource.MustParse("64Mi"), // 90% of limit, used to set GOMEMLIMIT
 			},
 			Limits: v1.ResourceList{
 				"memory": resource.MustParse("160Mi"),
@@ -84,10 +80,8 @@ var (
 
 	HTTPSrvDefaults = common.ContainerSpec{
 		Resources: &v1.ResourceRequirements{
-			// TODO calc and set correct values and use those in headers
 			Requests: v1.ResourceList{
-				"memory": resource.MustParse("144Mi"), // 90% of limit, used to set GOMEMLIMIT
-				"cpu":    resource.MustParse("250m"),
+				"memory": resource.MustParse("64Mi"),
 			},
 			Limits: v1.ResourceList{
 				"memory": resource.MustParse("160Mi"),
@@ -112,9 +106,8 @@ var (
 
 	ComponentDefaults = common.ContainerSpec{
 		// Resources: &v1.ResourceRequirements{
-		// 	// TODO calc and set correct values and use those in headers
 		// 	Requests: v1.ResourceList{
-		// 		"memory": resource.MustParse("144Mi"), // 90% of limit, used to set GOMEMLIMIT
+		// 		"memory": resource.MustParse("144Mi"),
 		// 		"cpu":    resource.MustParse("250m"),
 		// 	},
 		// 	Limits: v1.ResourceList{

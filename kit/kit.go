@@ -29,8 +29,9 @@ type kit struct {
 	routes     []*route
 	defHandler EventHandler
 
-	brk        *grpc.Client
-	numWorkers int
+	brk          *grpc.Client
+	numWorkers   int
+	maxEventSize int64
 
 	export bool
 
@@ -55,13 +56,14 @@ func New() Kit {
 	var help bool
 	var brokerAddr, healthAddr, logFormat, logLevel string
 	//-tls-skip-verify
-	flag.StringVar(&comp.Name, "name", "", "Component name; environment variable 'KUBEFOX_COMPONENT'. (required)")
-	flag.StringVar(&comp.Commit, "commit", "", "Commit the Component was built from; environment variable 'KUBEFOX_COMPONENT_COMMIT'. (required)")
-	flag.StringVar(&brokerAddr, "broker-addr", "127.0.0.1:6060", "Address of the Broker gRPC server; environment variable 'KUBEFOX_BROKER_ADDR'.")
-	flag.StringVar(&healthAddr, "health-addr", "127.0.0.1:1111", `Address and port the HTTP health server should bind to, set to "false" to disable; environment variable 'KUBEFOX_HEALTH_ADDR'.`)
+	flag.StringVar(&comp.Name, "name", "", "Component name. (required)")
+	flag.StringVar(&comp.Commit, "commit", "", "Commit the Component was built from. (required)")
+	flag.StringVar(&brokerAddr, "broker-addr", "127.0.0.1:6060", "Address of the Broker gRPC server.")
+	flag.StringVar(&healthAddr, "health-addr", "127.0.0.1:1111", `Address and port the HTTP health server should bind to, set to "false" to disable.`)
+	flag.Int64Var(&svc.maxEventSize, "max-event-size", api.DefaultMaxEventSizeBytes, "Maximum size of event in bytes.")
 	flag.IntVar(&svc.numWorkers, "num-workers", runtime.NumCPU(), "Number of worker threads to start, default is number of logical CPUs.")
-	flag.StringVar(&logFormat, "log-format", "console", "Log format; environment variable 'KUBEFOX_LOG_FORMAT'. [options 'json', 'console']")
-	flag.StringVar(&logLevel, "log-level", "debug", "Log level; environment variable 'KUBEFOX_LOG_LEVEL'. [options 'debug', 'info', 'warn', 'error']")
+	flag.StringVar(&logFormat, "log-format", "console", "Log format. [options 'json', 'console']")
+	flag.StringVar(&logLevel, "log-level", "debug", "Log level. [options 'debug', 'info', 'warn', 'error']")
 	flag.BoolVar(&svc.export, "export", false, "Exports component configuration in JSON and exits.")
 	flag.BoolVar(&help, "help", false, "Show usage for component.")
 	flag.Parse()
@@ -75,13 +77,6 @@ Flags:
 		flag.PrintDefaults()
 		os.Exit(0)
 	}
-
-	comp.Name = utils.ResolveFlag(comp.Name, "KUBEFOX_COMPONENT", "")
-	comp.Commit = utils.ResolveFlag(comp.Commit, "KUBEFOX_COMPONENT_COMMIT", "")
-	brokerAddr = utils.ResolveFlag(brokerAddr, "KUBEFOX_BROKER_ADDR", "127.0.0.1:6060")
-	healthAddr = utils.ResolveFlag(healthAddr, "KUBEFOX_HEALTH_ADDR", "127.0.0.1:1111")
-	logFormat = utils.ResolveFlag(logFormat, "KUBEFOX_LOG_FORMAT", "console")
-	logLevel = utils.ResolveFlag(logLevel, "KUBEFOX_LOG_LEVEL", "debug")
 
 	if !svc.export {
 		utils.CheckRequiredFlag("name", comp.Name)

@@ -9,7 +9,7 @@ type EventRoundTripper struct {
 }
 
 func (rt *EventRoundTripper) RoundTrip(httpReq *http.Request) (*http.Response, error) {
-	if err := rt.req.SetHTTPRequest(httpReq); err != nil {
+	if err := rt.req.SetHTTPRequest(httpReq, rt.req.maxEventSize); err != nil {
 		return nil, err
 	}
 

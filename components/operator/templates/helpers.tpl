@@ -1,9 +1,9 @@
 {{- define "labels" -}}
 {{ include "selectors" . }}
-app.kubernetes.io/managed-by: {{ printf "%s-operator" .Instance.Name | quote }}
-kubefox.xigxog.io/runtime-version: {{ .BuildInfo.Version | quote }}
-{{- with .Component.Labels }}
-{{ . | toYaml }}
+app.kubernetes.io/managed-by: {{ printf "%s-operator" .Instance.Name | cleanLabel | quote }}
+kubefox.xigxog.io/runtime-version: {{ .BuildInfo.Version | cleanLabel | quote }}
+{{- range $k, $v := .Component.Labels }}
+{{ $k }}: {{ $v | cleanLabel | quote }}
 {{- end }}
 {{- end }}
 
@@ -17,18 +17,18 @@ kubefox.xigxog.io/template-data-hash: {{ . | quote }}
 {{- end }}
 
 {{- define "selectors" -}}
-app.kubernetes.io/instance: {{ .Instance.Name | quote }}
+app.kubernetes.io/instance: {{ .Instance.Name | cleanLabel | quote }}
 {{- with .Platform.Name }}
-kubefox.xigxog.io/platform: {{ . | quote }}
+kubefox.xigxog.io/platform: {{ . | cleanLabel | quote }}
 {{- end }}
 {{- with .Component.App }}
-app.kubernetes.io/name: {{ . | quote }} 
+app.kubernetes.io/name: {{ . | cleanLabel | quote }} 
 {{- end }}
 {{- with .Component.Name }}
-app.kubernetes.io/component: {{ . | quote }}
+app.kubernetes.io/component: {{ . | cleanLabel | quote }}
 {{- end }}
 {{- with .Component.Commit }}
-kubefox.xigxog.io/component-commit: {{ . | quote }}
+kubefox.xigxog.io/component-commit: {{ . | cleanLabel | quote }}
 {{- end }}
 {{- end }}
 

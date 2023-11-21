@@ -8,6 +8,7 @@ import (
 	"text/template"
 
 	"github.com/Masterminds/sprig/v3"
+	"github.com/xigxog/kubefox/utils"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"sigs.k8s.io/yaml"
 )
@@ -86,6 +87,7 @@ func initFuncs(tpl *template.Template, data *Data) {
 		}
 	}
 
+	funcMap["cleanLabel"] = utils.CleanLabel
 	funcMap["name"] = data.Name
 	funcMap["namespace"] = data.Namespace
 	funcMap["platformFullName"] = data.PlatformFullName

@@ -8,27 +8,39 @@ import (
 )
 
 const (
-	DefaultLogFormat = "json"
-	DefaultLogLevel  = "info"
-	// Large events reduce performance. Do not exceed 32 MiB.
-	DefaultMaxEventSizeBytes = 5242880 // 5 MiB
-	DefaultTimeoutSeconds    = 30
+	DefaultLogFormat             = "json"
+	DefaultLogLevel              = "info"
+	DefaultMaxEventSizeBytes     = 5242880 // 5 MiB
+	DefaultReleaseLimitCount     = 100
+	DefaultReleaseTimeoutSeconds = 300 // 5 mins
+	DefaultTimeoutSeconds        = 30
+
+	MaximumMaxEventSizeBytes = 16777216 // 16 MiB
 )
 
 // Kubernetes Labels
 const (
-	LabelK8sAppName         string = "app.kubernetes.io/name"
-	LabelK8sComponent       string = "app.kubernetes.io/component"
-	LabelK8sComponentCommit string = "kubefox.xigxog.io/component-commit"
-	LabelK8sInstance        string = "app.kubernetes.io/instance"
-	LabelK8sPlatform        string = "kubefox.xigxog.io/platform"
-	LabelK8sRuntimeVersion  string = "app.kubernetes.io/runtime-version"
+	LabelK8sAppBranch           string = "kubefox.xigxog.io/app-branch"
+	LabelK8sAppCommit           string = "kubefox.xigxog.io/app-commit"
+	LabelK8sAppDeployment       string = "kubefox.xigxog.io/app-deployment"
+	LabelK8sAppName             string = "app.kubernetes.io/name"
+	LabelK8sAppTag              string = "kubefox.xigxog.io/app-tag"
+	LabelK8sAppVersion          string = "kubefox.xigxog.io/app-version"
+	LabelK8sComponent           string = "app.kubernetes.io/component"
+	LabelK8sComponentCommit     string = "kubefox.xigxog.io/component-commit"
+	LabelK8sEnvironment         string = "kubefox.xigxog.io/environment"
+	LabelK8sInstance            string = "app.kubernetes.io/instance"
+	LabelK8sPlatform            string = "kubefox.xigxog.io/platform"
+	LabelK8sReleaseStatus       string = "kubefox.xigxog.io/release-status"
+	LabelK8sResolvedEnvironment string = "kubefox.xigxog.io/resolved-environment"
+	LabelK8sRuntimeVersion      string = "app.kubernetes.io/runtime-version"
 )
 
 // Kubernetes Annotations
 const (
 	AnnotationTemplateData     string = "kubefox.xigxog.io/template-data"
 	AnnotationTemplateDataHash string = "kubefox.xigxog.io/template-data-hash"
+	AnnotationUpdateTime       string = "kubefox.xigxog.io/update-time"
 )
 
 // Container Labels
@@ -38,6 +50,10 @@ const (
 	LabelOCICreated   string = "org.opencontainers.image.created"
 	LabelOCIRevision  string = "org.opencontainers.image.revision"
 	LabelOCISource    string = "org.opencontainers.image.source"
+)
+
+const (
+	FinalizerReleaseProtection string = "kubefox.xigxog.io/release-protection"
 )
 
 const (
@@ -97,6 +113,24 @@ const (
 	EventTypeUnknown   EventType = "io.kubefox.unknown"
 )
 
+type ReleaseType string
+
+const (
+	ReleaseTypePromotion ReleaseType = "Promotion"
+	ReleaseTypeRelease   ReleaseType = "Release"
+	ReleaseTypeRollback  ReleaseType = "Rollback"
+)
+
+type ReleaseStatus string
+
+const (
+	ReleaseStatusFailed     ReleaseStatus = "Failed"
+	ReleaseStatusPending    ReleaseStatus = "Pending"
+	ReleaseStatusReleased   ReleaseStatus = "Released"
+	ReleaseStatusRolledBack ReleaseStatus = "RolledBack"
+	ReleaseStatusSuperseded ReleaseStatus = "Superseded"
+)
+
 // Keys for well known values.
 const (
 	ValKeyHeader     = "header"
@@ -104,12 +138,12 @@ const (
 	ValKeyMethod     = "method"
 	ValKeyPath       = "path"
 	ValKeyQuery      = "queryParam"
-	ValKeyStatusCode = "statusCode"
-	ValKeyStatus     = "status"
-	ValKeyURL        = "url"
-	ValKeyTraceId    = "traceId"
 	ValKeySpanId     = "spanId"
+	ValKeyStatus     = "status"
+	ValKeyStatusCode = "statusCode"
 	ValKeyTraceFlags = "traceFlags"
+	ValKeyTraceId    = "traceId"
+	ValKeyURL        = "url"
 )
 
 // Headers and query params.

@@ -115,7 +115,7 @@ func (srv *Server) ServeHTTP(resWriter http.ResponseWriter, httpReq *http.Reques
 		Source: Component,
 	})
 	req.SetTTL(EventTimeout)
-	if err := req.SetHTTPRequest(httpReq); err != nil {
+	if err := req.SetHTTPRequest(httpReq, MaxEventSize); err != nil {
 		writeError(resWriter, err, srv.log)
 		return
 	}

@@ -11,6 +11,7 @@ var (
 	HTTPAddr, HTTPSAddr       string
 	BrokerAddr, HealthSrvAddr string
 	EventTimeout              time.Duration
+	MaxEventSize              int64
 )
 
 var (

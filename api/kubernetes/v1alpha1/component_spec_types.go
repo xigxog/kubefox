@@ -31,6 +31,8 @@ type ComponentSpecSelector struct {
 type ComponentSpecStatus struct {
 	// +kubebuilder:validation:Optional
 	Deployments []common.Ref `json:"components"`
+	// // +kubebuilder:validation:Optional
+	// UpdateTime metav1.Time `json:"updateTime"`
 }
 
 //+kubebuilder:object:root=true

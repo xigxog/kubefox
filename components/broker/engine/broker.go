@@ -22,6 +22,7 @@ import (
 	"github.com/xigxog/kubefox/logkf"
 	"github.com/xigxog/kubefox/matcher"
 	authv1 "k8s.io/api/authentication/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -399,51 +400,36 @@ func (brk *broker) checkEvent(evt *BrokerEvent) error {
 }
 
 func (brk *broker) matchEvent(ctx context.Context, evt *BrokerEvent) error {
+	if evt.Category == kubefox.Category_RESPONSE {
+		return nil
+	}
+
 	var (
-		envVars map[string]*api.Val
 		matcher *matcher.EventMatcher
 		err     error
 	)
 	switch {
 	case evt.Context.IsRelease():
-		if rel, err := brk.store.Release(evt.Context.Release); err != nil {
-			return kubefox.ErrNotFound(err)
-		} else {
-			envVars = rel.Spec.Environment.Vars
-			evt.Adapters = rel.Spec.Environment.Adapters
-		}
-
 		matcher, err = brk.store.ReleaseMatcher(ctx)
 
 	case evt.Context.IsDeployment():
-		if env, err := brk.store.Environment(evt.Context.Environment); err != nil {
-			return kubefox.ErrNotFound(err)
-		} else {
-			envVars = env.Spec.Vars
-			evt.Adapters = env.Spec.Adapters
-		}
-
 		matcher, err = brk.store.DeploymentMatcher(ctx, evt.Context)
 
 	default:
 		return kubefox.ErrInvalid(fmt.Errorf("event missing deployment or environment context"))
 	}
 	if err != nil {
+		if apierrors.IsNotFound(err) {
+			return kubefox.ErrNotFound(err)
+		}
 		return kubefox.ErrUnexpected(err)
-	}
-
-	if evt.Category == kubefox.Category_RESPONSE {
-		return nil
 	}
 
 	route, matched := matcher.Match(evt.Event)
 
-	var (
-		routeId int
-	)
 	switch {
 	case matched:
-		routeId = route.Id
+		evt.RouteId = int64(route.Id)
 		if evt.Target == nil {
 			evt.Target = &kubefox.Component{}
 		}
@@ -452,7 +438,7 @@ func (brk *broker) matchEvent(ctx context.Context, evt *BrokerEvent) error {
 		evt.SetContext(route.EventContext)
 
 	case evt.Target != nil && evt.Target.Name != "":
-		routeId = api.DefaultRouteId
+		evt.RouteId = api.DefaultRouteId
 
 	default:
 		return kubefox.ErrRouteNotFound()
@@ -463,8 +449,24 @@ func (brk *broker) matchEvent(ctx context.Context, evt *BrokerEvent) error {
 	// - check for required vars
 	// - check for unique vars; expensive, don't do for releases, cache
 	// - check for var type
-	evt.RouteId = int64(routeId)
-	evt.EnvVars = envVars
+
+	switch {
+	case evt.Context.IsRelease():
+		if env, err := brk.store.ReleaseEnv(evt.Context.Release); err != nil {
+			return kubefox.ErrNotFound(err)
+		} else {
+			evt.EnvVars = env.Data.Vars
+			evt.Adapters = env.Data.Adapters
+		}
+
+	case evt.Context.IsDeployment():
+		if env, err := brk.store.Environment(evt.Context.Environment); err != nil {
+			return kubefox.ErrNotFound(err)
+		} else {
+			evt.EnvVars = env.Data.Vars
+			evt.Adapters = env.Data.Adapters
+		}
+	}
 
 	return nil
 }
@@ -474,32 +476,31 @@ func (brk *broker) matchComponents(ctx context.Context, evt *BrokerEvent) error 
 		return kubefox.ErrComponentMismatch()
 	}
 
-	var depSpec v1alpha1.AppDeploymentSpec
+	var (
+		appDep *v1alpha1.AppDeployment
+		err    error
+	)
 	switch {
 	case evt.Context.IsRelease():
-		if rel, err := brk.store.Release(evt.Context.Release); err != nil {
-			return kubefox.ErrNotFound(err)
-		} else {
-			depSpec = *rel.AppDeploymentSpec()
-		}
-
+		appDep, err = brk.store.ReleaseAppDeployment(evt.Context.Release)
 	case evt.Context.IsDeployment():
-		if dep, err := brk.store.AppDeployment(evt.Context.Deployment); err != nil {
-			return kubefox.ErrNotFound(err)
-		} else {
-			depSpec = dep.Spec
-		}
-
+		appDep, err = brk.store.AppDeployment(evt.Context.Deployment)
 	default:
+		if apierrors.IsNotFound(err) {
+			return kubefox.ErrNotFound(err)
+		}
 		return kubefox.ErrUnexpected()
+	}
+	if err != nil {
+		return kubefox.ErrNotFound(err)
 	}
 
 	// Check if target is part of deployment spec.
-	var adapter *v1alpha1.Adapter
+	var adapter *v1alpha1.EnvAdapter
 	if evt.Adapters != nil {
 		adapter = evt.Adapters[evt.Target.Name]
 	}
-	depComp := depSpec.Components[evt.Target.Name]
+	depComp := appDep.Spec.Components[evt.Target.Name]
 	switch {
 	case depComp == nil && adapter == nil:
 		if !brk.store.IsGenesisAdapter(ctx, evt.Target) {
@@ -530,7 +531,7 @@ func (brk *broker) matchComponents(ctx context.Context, evt *BrokerEvent) error 
 	if evt.Adapters != nil {
 		adapter = evt.Adapters[evt.Source.Name]
 	}
-	depComp = depSpec.Components[evt.Source.Name]
+	depComp = appDep.Spec.Components[evt.Source.Name]
 	switch {
 	case depComp == nil && adapter == nil:
 		if !brk.store.IsGenesisAdapter(ctx, evt.Source) {

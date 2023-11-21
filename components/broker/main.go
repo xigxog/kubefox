@@ -9,6 +9,7 @@ import (
 	// to ensure that exec-entrypoint and run can make use of them.
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 
+	"github.com/xigxog/kubefox/api"
 	"github.com/xigxog/kubefox/components/broker/config"
 	"github.com/xigxog/kubefox/components/broker/engine"
 	"github.com/xigxog/kubefox/logkf"
@@ -24,6 +25,7 @@ func main() {
 	flag.StringVar(&config.NATSAddr, "nats-addr", "127.0.0.1:4222", "Address and port of NATS server.")
 	flag.StringVar(&config.TelemetryAddr, "telemetry-addr", "127.0.0.1:4318", `Address and port of telemetry collector, set to "false" to disable.`)
 	flag.DurationVar(&config.TelemetryInterval, "telemetry-interval", time.Minute, "Interval at which to report telemetry.")
+	flag.Int64Var(&config.MaxEventSize, "max-event-size", api.DefaultMaxEventSizeBytes, "Maximum size of event in bytes.")
 	flag.IntVar(&config.NumWorkers, "num-workers", runtime.NumCPU(), "Number of worker threads to start, default is number of logical CPUs.")
 	flag.StringVar(&config.LogFormat, "log-format", "console", `Log format; one of ["json", "console"].`)
 	flag.StringVar(&config.LogLevel, "log-level", "debug", `Log level; one of ["debug", "info", "warn", "error"].`)

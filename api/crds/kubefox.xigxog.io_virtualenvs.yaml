@@ -4,19 +4,20 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.13.0
-  name: environments.kubefox.xigxog.io
+  name: virtualenvs.kubefox.xigxog.io
 spec:
   group: kubefox.xigxog.io
   names:
-    kind: ClusterVirtualEnv
-    listKind: ClusterVirtualEnvList
-    plural: environments
-    singular: clustervirtualenv
-  scope: Cluster
+    kind: VirtualEnv
+    listKind: VirtualEnvList
+    plural: virtualenvs
+    singular: virtualenv
+  scope: Namespaced
   versions:
   - name: v1alpha1
     schema:
       openAPIV3Schema:
+        description: VirtualEnv is the Schema for the VirtualEnv API
         properties:
           apiVersion:
             description: 'APIVersion defines the versioned schema of this representation

@@ -7,6 +7,7 @@ var (
 	Platform  string
 	Namespace string
 
+	MaxEventSize      int64
 	NumWorkers        int
 	TelemetryInterval time.Duration
 

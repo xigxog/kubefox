@@ -29,14 +29,7 @@ spec:
             properties:
               app:
                 properties:
-                  branch:
-                    type: string
                   description:
-                    type: string
-                  repoURL:
-                    format: uri
-                    type: string
-                  tag:
                     type: string
                   title:
                     type: string
@@ -63,8 +56,13 @@ spec:
             properties:
               app:
                 properties:
+                  branch:
+                    type: string
                   commit:
                     pattern: ^[a-z0-9]{40}$
+                    type: string
+                  commitTime:
+                    format: date-time
                     type: string
                   containerRegistry:
                     type: string
@@ -72,8 +70,14 @@ spec:
                     type: string
                   name:
                     type: string
+                  repoURL:
+                    format: uri
+                    type: string
+                  tag:
+                    type: string
                 required:
                 - commit
+                - commitTime
                 - name
                 type: object
               components:
@@ -151,6 +155,10 @@ spec:
                   type: object
                 minProperties: 1
                 type: object
+              version:
+                description: Version of the App. Use of semantic versioning is recommended.
+                  Once set the AppDeployment spec becomes immutable.
+                type: string
             required:
             - app
             - components

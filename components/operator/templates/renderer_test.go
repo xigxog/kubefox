@@ -52,6 +52,12 @@ func TestRenderNATS(t *testing.T) {
 			Name:  "nats",
 			Image: "nats:2.9.21-alpine",
 			PodSpec: common.PodSpec{
+				Labels: map[string]string{
+					"test":    "test",
+					"badval1": "-aaaa",
+					"badval2": "a&&aaa%a%a%-",
+					"badval3": "Aaaa-",
+				},
 				Tolerations: []v1.Toleration{
 					{
 						Key: "asdf",
@@ -91,7 +97,7 @@ func TestRenderNATS(t *testing.T) {
 			Level: "debug",
 		},
 		Values: map[string]any{
-			"maxContentSize": api.DefaultMaxEventSizeBytes,
+			"maxEventSize": api.DefaultMaxEventSizeBytes,
 		},
 	}
 	if s, err := renderStr("list.tpl", "nats/*", d); err != nil {

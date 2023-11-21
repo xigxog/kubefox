@@ -583,8 +583,8 @@ func (evt *Event) HTTPResponse() *http.Response {
 	}
 }
 
-func (evt *Event) SetHTTPRequest(httpReq *http.Request) error {
-	if content, err := ReadBody(httpReq.Body, httpReq.Header); err != nil {
+func (evt *Event) SetHTTPRequest(httpReq *http.Request, maxEventSize int64) error {
+	if content, err := ReadBody(httpReq.Body, httpReq.Header, maxEventSize); err != nil {
 		return err
 	} else {
 		evt.Content = content
@@ -643,8 +643,8 @@ func (evt *Event) SetHTTPRequest(httpReq *http.Request) error {
 	return nil
 }
 
-func (evt *Event) SetHTTPResponse(httpResp *http.Response) error {
-	if content, err := ReadBody(httpResp.Body, httpResp.Header); err != nil {
+func (evt *Event) SetHTTPResponse(httpResp *http.Response, maxEventSize int64) error {
+	if content, err := ReadBody(httpResp.Body, httpResp.Header, maxEventSize); err != nil {
 		return err
 	} else {
 		evt.Content = content
@@ -700,20 +700,20 @@ func DelParamOrHeader(httpReq *http.Request, keys ...string) {
 	httpReq.URL.RawQuery = query.Encode()
 }
 
-// ReadBody reads the body of a HTTP request or response, ensuring
-// MaxContentSizeBytes is not exceeded, then closes the reader. If body is 'nil'
-// then 'nil, nil' is returned.
-func ReadBody(body io.ReadCloser, header http.Header) ([]byte, error) {
+// ReadBody reads the body of a HTTP request or response, ensuring maxEventSize
+// is not exceeded, then closes the reader. If body is 'nil' then 'nil' is
+// returned.
+func ReadBody(body io.ReadCloser, header http.Header, maxEventSize int64) ([]byte, error) {
 	if body != nil {
 		defer body.Close()
 
 		if i, err := strconv.Atoi(header.Get(api.HeaderContentLength)); err == nil { // success
-			if i > api.DefaultMaxEventSizeBytes {
+			if i > int(maxEventSize) {
 				return nil, ErrContentTooLarge()
 			}
 		}
 
-		return io.ReadAll(&LimitedReader{body, api.DefaultMaxEventSizeBytes})
+		return io.ReadAll(&LimitedReader{body, maxEventSize})
 	}
 
 	return nil, nil

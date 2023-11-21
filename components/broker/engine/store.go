@@ -17,12 +17,11 @@ import (
 	kubefox "github.com/xigxog/kubefox/core"
 	"github.com/xigxog/kubefox/logkf"
 	"github.com/xigxog/kubefox/matcher"
-
 	appsv1 "k8s.io/api/apps/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes/scheme"
-	k8scache "k8s.io/client-go/tools/cache"
 	ctrl "sigs.k8s.io/controller-runtime"
 	ctrlcache "sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -37,11 +36,6 @@ type Store struct {
 
 	depMatchers cache.Cache[*matcher.EventMatcher]
 	relMatcher  *matcher.EventMatcher
-
-	envInf ctrlcache.Informer
-	depInf ctrlcache.Informer
-	relInf ctrlcache.Informer
-	dsInf  ctrlcache.Informer
 
 	ctx    context.Context
 	cancel context.CancelFunc
@@ -74,50 +68,51 @@ func (str *Store) Open(compSpecKV jetstream.KeyValue) error {
 	if err != nil {
 		return str.log.ErrorN("loading K8s config failed: %v", err)
 	}
-	c, err := ctrlcache.New(cfg, ctrlcache.Options{
-		Scheme:            scheme.Scheme,
-		DefaultNamespaces: map[string]ctrlcache.Config{str.namespace: {}},
+
+	str.resCache, err = ctrlcache.New(cfg, ctrlcache.Options{
+		Scheme:                      scheme.Scheme,
+		DefaultNamespaces:           map[string]ctrlcache.Config{str.namespace: {}},
+		ReaderFailOnMissingInformer: true,
 	})
 	if err != nil {
 		return str.log.ErrorN("creating resource cache failed: %v", err)
 	}
-	str.resCache = c
-
-	go func() {
-		if err := c.Start(str.ctx); err != nil {
-			str.log.Error(err)
-		}
-	}()
 
 	ctx, cancel := context.WithTimeout(str.ctx, time.Minute)
 	defer cancel()
 
-	// Getting the informer starts the sync process for the resource kind.
-
-	if str.depInf, err = str.startInformer(ctx, &v1alpha1.AppDeployment{}); err != nil {
+	err = str.initInformers(ctx,
+		&v1alpha1.VirtualEnv{},
+		&v1alpha1.ResolvedEnvironment{},
+		&v1alpha1.AppDeployment{},
+		&v1alpha1.Release{},
+		&v1alpha1.Platform{},
+		&appsv1.DaemonSet{},
+	)
+	if err != nil {
 		return err
 	}
-	if str.envInf, err = str.startInformer(ctx, &v1alpha1.Environment{}); err != nil {
-		return nil
-	}
-	if str.relInf, err = str.startInformer(ctx, &v1alpha1.Release{}); err != nil {
-		return nil
-	}
-	if str.dsInf, err = str.startInformer(ctx, &appsv1.DaemonSet{}); err != nil {
-		return nil
-	}
+
+	go func() {
+		if err := str.resCache.Start(str.ctx); err != nil {
+			str.log.Error(err)
+		}
+	}()
+	str.resCache.WaitForCacheSync(ctx)
 
 	return nil
 }
 
-func (str *Store) startInformer(ctx context.Context, obj client.Object) (ctrlcache.Informer, error) {
-	if inf, err := str.resCache.GetInformer(str.ctx, obj); err != nil {
-		return nil, err
-	} else {
-		k8scache.WaitForCacheSync(str.ctx.Done(), inf.HasSynced)
-		inf.AddEventHandler(str)
-		return inf, nil
+func (str *Store) initInformers(ctx context.Context, objs ...client.Object) error {
+	for _, obj := range objs {
+		// Getting the informer adds it to the cache.
+		if inf, err := str.resCache.GetInformer(str.ctx, obj); err != nil {
+			return err
+		} else {
+			inf.AddEventHandler(str)
+		}
 	}
+	return nil
 }
 
 func (str *Store) Close() {
@@ -174,8 +169,8 @@ func (str *Store) AppDeployment(name string) (*v1alpha1.AppDeployment, error) {
 	return obj, str.get(name, obj, true)
 }
 
-func (str *Store) Environment(name string) (*v1alpha1.Environment, error) {
-	obj := new(v1alpha1.Environment)
+func (str *Store) Environment(name string) (*v1alpha1.VirtualEnv, error) {
+	obj := new(v1alpha1.VirtualEnv)
 	return obj, str.get(name, obj, false)
 }
 
@@ -184,9 +179,29 @@ func (str *Store) Release(name string) (*v1alpha1.Release, error) {
 	return obj, str.get(name, obj, true)
 }
 
+func (str *Store) ReleaseAppDeployment(name string) (*v1alpha1.AppDeployment, error) {
+	rel := new(v1alpha1.Release)
+	if err := str.get(name, rel, true); err != nil {
+		return nil, err
+	}
+	return str.AppDeployment(rel.Spec.AppDeployment.Name)
+}
+
+func (str *Store) ReleaseEnv(name string) (*v1alpha1.ResolvedEnvironment, error) {
+	rel := new(v1alpha1.Release)
+	if err := str.get(name, rel, true); err != nil {
+		return nil, err
+	}
+
+	envName := fmt.Sprintf("%s-%s", rel.Spec.Environment.Name, rel.Spec.Environment.ResourceVersion)
+	env := new(v1alpha1.ResolvedEnvironment)
+
+	return env, str.get(envName, env, true)
+}
+
 // TODO return a map of node names to broker pod id. This will allow running
 // broker without host network. Broker just sends back correct ip during
-// subscribe.
+// subscribe.... is this really needed? use headless service!
 func (str *Store) BrokerMap() (map[string]string, error) {
 	ctx, cancel := context.WithTimeout(str.ctx, time.Minute)
 	defer cancel()
@@ -212,10 +227,10 @@ func (str *Store) ReleaseMatcher(ctx context.Context) (*matcher.EventMatcher, er
 		str.mutex.RUnlock()
 		return str.relMatcher, nil
 	}
+	str.mutex.RUnlock()
 
 	// There are no matchers in cache, perform full reload.
-	str.mutex.RUnlock()
-	return str.buildReleaseMatcher(ctx)
+	return str.updateReleaseMatcher(ctx)
 }
 
 func (str *Store) DeploymentMatcher(ctx context.Context, evtCtx *kubefox.EventContext) (*matcher.EventMatcher, error) {
@@ -233,7 +248,7 @@ func (str *Store) DeploymentMatcher(ctx context.Context, evtCtx *kubefox.EventCo
 		return depM, nil
 	}
 
-	routes, err := str.buildRoutes(ctx, dep.Spec.Components, env.Spec.Vars, evtCtx)
+	routes, err := str.buildRoutes(ctx, dep.Spec.Components, env.Data.Vars, evtCtx)
 	if err != nil {
 		return nil, err
 	}
@@ -250,15 +265,9 @@ func (str *Store) DeploymentMatcher(ctx context.Context, evtCtx *kubefox.EventCo
 
 func (str *Store) OnAdd(obj interface{}, isInInitialList bool) {
 	switch obj.(type) {
-	case *v1alpha1.AppDeployment:
-		str.log.Debug("deployment added")
-
-	case *v1alpha1.Environment:
-		str.log.Debug("environment added")
-
-	case *v1alpha1.Release:
-		str.log.Debug("release added")
-		str.buildReleaseMatcher(context.Background())
+	case *v1alpha1.Platform:
+		str.log.Debug("platform added")
+		str.updateReleaseMatcher(context.Background())
 
 	default:
 		return
@@ -267,15 +276,9 @@ func (str *Store) OnAdd(obj interface{}, isInInitialList bool) {
 
 func (str *Store) OnUpdate(oldObj, obj interface{}) {
 	switch obj.(type) {
-	case *v1alpha1.AppDeployment:
-		str.log.Debug("deployment updated")
-
-	case *v1alpha1.Environment:
-		str.log.Debug("environment updated")
-
-	case *v1alpha1.Release:
-		str.log.Debug("release updated")
-		str.buildReleaseMatcher(context.Background())
+	case *v1alpha1.Platform:
+		str.log.Debug("platform updated")
+		str.updateReleaseMatcher(context.Background())
 
 	default:
 		return
@@ -284,34 +287,75 @@ func (str *Store) OnUpdate(oldObj, obj interface{}) {
 
 func (str *Store) OnDelete(obj interface{}) {
 	switch obj.(type) {
-	case *v1alpha1.AppDeployment:
-		str.log.Debug("deployment deleted")
-
-	case *v1alpha1.Environment:
-		str.log.Debug("environment deleted")
-
-	case *v1alpha1.Release:
-		str.log.Debug("release deleted")
-		str.buildReleaseMatcher(context.Background())
+	case *v1alpha1.Platform:
+		str.log.Debug("platform deleted")
+		str.updateReleaseMatcher(context.Background())
 
 	default:
 		return
 	}
 }
 
+func (str *Store) updateReleaseMatcher(ctx context.Context) (*matcher.EventMatcher, error) {
+	relM, err := str.buildReleaseMatcher(ctx)
+	if err != nil {
+		// Clear releaseMatcher so it is updated again on next access.
+		relM = matcher.New()
+		str.log.Error(err)
+	}
+
+	str.mutex.Lock()
+	str.relMatcher = relM
+	str.mutex.Unlock()
+
+	return relM, err
+}
+
 func (str *Store) buildReleaseMatcher(ctx context.Context) (*matcher.EventMatcher, error) {
 	ctx, cancel := context.WithTimeout(ctx, time.Minute)
 	defer cancel()
 
-	relList := new(v1alpha1.ReleaseList)
-	if err := str.resCache.List(ctx, relList, &client.ListOptions{Namespace: str.namespace}); err != nil {
+	platList := &v1alpha1.PlatformList{}
+	if err := str.resCache.List(ctx, platList); err != nil {
 		return nil, err
 	}
 
+	relList := []v1alpha1.Release{}
+	for _, p := range platList.Items {
+		for _, env := range p.Spec.Environments {
+			if env.Release == nil || env.Release.Name == "" {
+				continue
+			}
+			rel := v1alpha1.Release{}
+			if err := str.get(env.Release.Name, &rel, true); client.IgnoreNotFound(err) != nil {
+				return nil, err
+			} else if apierrors.IsNotFound(err) {
+				str.log.Warnf("active release '%s' not found", env.Release.Name)
+				continue
+			}
+			relList = append(relList, rel)
+		}
+	}
+
 	relM := matcher.New()
-	for _, rel := range relList.Items {
-		comps := rel.Spec.AppDeployment.Components
-		vars := rel.Spec.Environment.Vars
+	for _, rel := range relList {
+		var (
+			comps map[string]*v1alpha1.Component
+			vars  map[string]*api.Val
+		)
+
+		if appDep, err := str.AppDeployment(rel.Spec.AppDeployment.Name); err != nil {
+			return nil, err
+		} else {
+			comps = appDep.Spec.Components
+		}
+
+		if env, err := str.ReleaseEnv(rel.Name); err != nil {
+			return nil, err
+		} else {
+			vars = env.Data.Vars
+		}
+
 		evtCtx := &kubefox.EventContext{Release: rel.Name}
 
 		routes, err := str.buildRoutes(ctx, comps, vars, evtCtx)
@@ -322,10 +366,6 @@ func (str *Store) buildReleaseMatcher(ctx context.Context) (*matcher.EventMatche
 			return nil, err
 		}
 	}
-
-	str.mutex.Lock()
-	defer str.mutex.Unlock()
-	str.relMatcher = relM
 
 	return relM, nil
 }
