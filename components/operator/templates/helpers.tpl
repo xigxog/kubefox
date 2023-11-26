@@ -9,6 +9,11 @@ kubefox.xigxog.io/platform-component: {{ . | cleanLabel | quote }}
 kubefox.xigxog.io/app-component: {{ . | cleanLabel | quote }}
 {{- end }}
 {{- end }}
+{{- if .Component.IsPlatformComponent }}
+{{- with .Component.Commit }}
+kubefox.xigxog.io/component-commit: {{ . | cleanLabel | quote }}
+{{- end }}
+{{- end }}
 {{- range $k, $v := .Component.Labels }}
 {{ $k }}: {{ $v | cleanLabel | quote }}
 {{- end }}
@@ -34,8 +39,10 @@ app.kubernetes.io/name: {{ . | cleanLabel | quote }}
 {{- with .Component.Name }}
 app.kubernetes.io/component: {{ . | cleanLabel | quote }}
 {{- end }}
+{{- if not .Component.IsPlatformComponent }}
 {{- with .Component.Commit }}
 kubefox.xigxog.io/component-commit: {{ . | cleanLabel | quote }}
+{{- end }}
 {{- end }}
 {{- end }}
 

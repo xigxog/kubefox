@@ -119,8 +119,10 @@ func TestRenderBroker(t *testing.T) {
 			Namespace: "kubefox-platform",
 		},
 		Component: Component{
-			Name:  "broker",
-			Image: "ghcr.io/xigxog/kubefox/broker:v0.0.1",
+			// IsPlatformComponent: true,
+			Name:   "broker",
+			Image:  "ghcr.io/xigxog/kubefox/broker:v0.0.1",
+			Commit: "aaaaaaa",
 		},
 		Owner: []*metav1.OwnerReference{
 			{

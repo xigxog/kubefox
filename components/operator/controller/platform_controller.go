@@ -85,6 +85,10 @@ func (r *PlatformReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		if err := r.updateStatus(ctx, p); err != nil {
 			r.log.Error(err)
 		}
+
+		if err == nil {
+			_, err = r.CompMgr.ReconcileApps(ctx, req.Namespace)
+		}
 	}
 
 	log.Debugf("reconciling Platform '%s.%s' done", req.Name, req.Namespace)
@@ -170,7 +174,7 @@ func (r *PlatformReconciler) reconcile(ctx context.Context, req ctrl.Request, lo
 
 	if r.setDefaults(p) {
 		log.Debug("Platform defaults set, persisting")
-		return p, r.Update(ctx, p)
+		return nil, r.Update(ctx, p)
 	}
 
 	td := baseTD.ForComponent(api.PlatformComponentNATS, &appsv1.StatefulSet{}, &NATSDefaults, templates.Component{
@@ -220,10 +224,6 @@ func (r *PlatformReconciler) reconcile(ctx context.Context, req ctrl.Request, lo
 	}
 	if rdy, err := r.CompMgr.SetupComponent(ctx, td); !rdy || err != nil {
 		chill()
-		return p, err
-	}
-
-	if rdy, err := r.CompMgr.ReconcileApps(ctx, p.Namespace); !rdy || err != nil {
 		return p, err
 	}
 
