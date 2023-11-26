@@ -14,11 +14,6 @@ import (
 	"github.com/xigxog/kubefox/build"
 )
 
-var (
-	ErrNotFound         = fmt.Errorf("not found")
-	ErrTooManyPlatforms = fmt.Errorf("too many platforms")
-)
-
 const (
 	NATSImage  = "ghcr.io/xigxog/nats:2.9.23"
 	VaultImage = "ghcr.io/xigxog/vault:1.14.4-v0.2.1-alpha"

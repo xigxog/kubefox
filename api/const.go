@@ -20,27 +20,28 @@ const (
 
 // Kubernetes Labels
 const (
-	LabelK8sAppBranch           string = "kubefox.xigxog.io/app-branch"
-	LabelK8sAppCommit           string = "kubefox.xigxog.io/app-commit"
-	LabelK8sAppDeployment       string = "kubefox.xigxog.io/app-deployment"
-	LabelK8sAppName             string = "app.kubernetes.io/name"
-	LabelK8sAppTag              string = "kubefox.xigxog.io/app-tag"
-	LabelK8sAppVersion          string = "kubefox.xigxog.io/app-version"
-	LabelK8sComponent           string = "app.kubernetes.io/component"
-	LabelK8sComponentCommit     string = "kubefox.xigxog.io/component-commit"
-	LabelK8sEnvironment         string = "kubefox.xigxog.io/environment"
-	LabelK8sInstance            string = "app.kubernetes.io/instance"
-	LabelK8sPlatform            string = "kubefox.xigxog.io/platform"
-	LabelK8sReleaseStatus       string = "kubefox.xigxog.io/release-status"
-	LabelK8sResolvedEnvironment string = "kubefox.xigxog.io/resolved-environment"
-	LabelK8sRuntimeVersion      string = "app.kubernetes.io/runtime-version"
+	LabelK8sAppBranch          string = "kubefox.xigxog.io/app-branch"
+	LabelK8sAppCommit          string = "kubefox.xigxog.io/app-commit"
+	LabelK8sAppComponent       string = "kubefox.xigxog.io/app-component"
+	LabelK8sAppDeployment      string = "kubefox.xigxog.io/app-deployment"
+	LabelK8sAppName            string = "app.kubernetes.io/name"
+	LabelK8sAppTag             string = "kubefox.xigxog.io/app-tag"
+	LabelK8sAppVersion         string = "kubefox.xigxog.io/app-version"
+	LabelK8sComponent          string = "app.kubernetes.io/component"
+	LabelK8sComponentCommit    string = "kubefox.xigxog.io/component-commit"
+	LabelK8sInstance           string = "app.kubernetes.io/instance"
+	LabelK8sPlatform           string = "kubefox.xigxog.io/platform"
+	LabelK8sPlatformComponent  string = "kubefox.xigxog.io/platform-component"
+	LabelK8sReleaseStatus      string = "kubefox.xigxog.io/release-status"
+	LabelK8sRuntimeVersion     string = "app.kubernetes.io/runtime-version"
+	LabelK8sVirtualEnv         string = "kubefox.xigxog.io/virtual-env"
+	LabelK8sVirtualEnvSnapshot string = "kubefox.xigxog.io/virtual-env-snapshot"
 )
 
 // Kubernetes Annotations
 const (
 	AnnotationTemplateData     string = "kubefox.xigxog.io/template-data"
 	AnnotationTemplateDataHash string = "kubefox.xigxog.io/template-data-hash"
-	AnnotationUpdateTime       string = "kubefox.xigxog.io/update-time"
 )
 
 // Container Labels
@@ -60,6 +61,14 @@ const (
 	EnvNodeName = "KUBEFOX_NODE"
 	EnvPodIP    = "KUBEFOX_POD_IP"
 	EnvPodName  = "KUBEFOX_POD"
+)
+
+const (
+	PlatformComponentBootstrap string = "bootstrap"
+	PlatformComponentBroker    string = "broker"
+	PlatformComponentHTTPSrv   string = "httpsrv"
+	PlatformComponentNATS      string = "nats"
+	PlatformComponentOperator  string = "operator"
 )
 
 type EnvVarType string
@@ -113,22 +122,18 @@ const (
 	EventTypeUnknown   EventType = "io.kubefox.unknown"
 )
 
-type ReleaseType string
+type AppDeploymentPolicy string
 
 const (
-	ReleaseTypePromotion ReleaseType = "Promotion"
-	ReleaseTypeRelease   ReleaseType = "Release"
-	ReleaseTypeRollback  ReleaseType = "Rollback"
+	AppDeploymentPolicyVersionOptional AppDeploymentPolicy = "VersionOptional"
+	AppDeploymentPolicyVersionRequired AppDeploymentPolicy = "VersionRequired"
 )
 
-type ReleaseStatus string
+type VirtualEnvPolicy string
 
 const (
-	ReleaseStatusFailed     ReleaseStatus = "Failed"
-	ReleaseStatusPending    ReleaseStatus = "Pending"
-	ReleaseStatusReleased   ReleaseStatus = "Released"
-	ReleaseStatusRolledBack ReleaseStatus = "RolledBack"
-	ReleaseStatusSuperseded ReleaseStatus = "Superseded"
+	VirtualEnvPolicySnapshotOptional VirtualEnvPolicy = "SnapshotOptional"
+	VirtualEnvPolicySnapshotRequired VirtualEnvPolicy = "SnapshotRequired"
 )
 
 // Keys for well known values.

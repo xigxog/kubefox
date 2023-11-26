@@ -50,8 +50,6 @@ spec:
               mountPath: /etc/nats
             - name: pid
               mountPath: /var/run/nats
-            - name: nats
-              mountPath: /data
             - name: root-ca
               mountPath: {{ homePath }}/ca.crt
               subPath: ca.crt
@@ -77,12 +75,3 @@ spec:
             name: {{ .Instance.Name }}-root-ca
         - name: kubefox
           emptyDir: {}
-  volumeClaimTemplates:
-    - metadata:
-        name: nats
-      spec:
-        accessModes:
-          - ReadWriteOnce
-        resources:
-          requests:
-            storage: {{ .Values.volumeSize | default "8Gi" }}

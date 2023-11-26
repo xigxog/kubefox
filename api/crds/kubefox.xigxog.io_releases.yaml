@@ -17,41 +17,12 @@ spec:
   - name: v1alpha1
     schema:
       openAPIV3Schema:
-        description: Release is the Schema for the Releases API
         properties:
           apiVersion:
             description: 'APIVersion defines the versioned schema of this representation
               of an object. Servers should convert recognized schemas to the latest
               internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
             type: string
-          details:
-            description: ReleaseDetails defines additional details of Release
-            properties:
-              appDeployment:
-                description: AppDeploymentDetails defines additional details of AppDeployment
-                properties:
-                  app:
-                    properties:
-                      description:
-                        type: string
-                      title:
-                        type: string
-                    type: object
-                  components:
-                    additionalProperties:
-                      properties:
-                        description:
-                          type: string
-                        title:
-                          type: string
-                      type: object
-                    type: object
-                type: object
-              description:
-                type: string
-              title:
-                type: string
-            type: object
           kind:
             description: 'Kind is a string value representing the REST resource this
               object represents. Servers may infer this from the endpoint the client
@@ -60,68 +31,129 @@ spec:
           metadata:
             type: object
           spec:
-            description: ReleaseSpec defines the desired state of Release
             properties:
               appDeployment:
                 properties:
                   name:
                     minLength: 1
                     type: string
+                  version:
+                    description: Version of the App being released. Use of semantic
+                      versioning is recommended. If set the value is compared to the
+                      AppDeployment version. If the two versions do not match the
+                      release will fail.
+                    type: string
                 required:
                 - name
                 type: object
-              environment:
+              historyLimit:
                 properties:
-                  name:
-                    minLength: 1
-                    type: string
-                  resourceVersion:
-                    minLength: 1
-                    type: string
-                required:
-                - name
-                - resourceVersion
+                  ageDays:
+                    description: Age of the oldest archived Release to keep. Age is
+                      based on archiveTime.
+                    type: integer
+                  count:
+                    description: Total number of archived Releases to keep. Once the
+                      limit is reach the oldest Release will be removed from history.
+                      Default 100.
+                    type: integer
                 type: object
-              type:
-                enum:
-                - Promotion
-                - Release
-                - Rollback
-                type: string
-              version:
-                description: Version of the App being release. Use of semantic versioning
-                  is recommended. If set the value is compared to the AppDeployment,
-                  if they conflict the release will fail.
+              virtualEnvSnapshot:
                 type: string
             required:
             - appDeployment
-            - environment
-            - type
             type: object
           status:
-            description: ReleaseStatus defines the observed state of Release
             properties:
-              creationTime:
-                format: date-time
-                type: string
-              failureMessage:
-                type: string
-              failureTime:
-                format: date-time
-                type: string
-              lastTransitionTime:
-                format: date-time
-                type: string
-              pendingTime:
-                format: date-time
-                type: string
-              releaseTime:
-                format: date-time
-                type: string
-              supersededTime:
-                format: date-time
-                type: string
+              current:
+                properties:
+                  appDeployment:
+                    properties:
+                      name:
+                        minLength: 1
+                        type: string
+                      version:
+                        description: Version of the App being released. Use of semantic
+                          versioning is recommended. If set the value is compared
+                          to the AppDeployment version. If the two versions do not
+                          match the release will fail.
+                        type: string
+                    required:
+                    - name
+                    type: object
+                  archiveTime:
+                    format: date-time
+                    type: string
+                  availableTime:
+                    format: date-time
+                    type: string
+                  requestTime:
+                    format: date-time
+                    type: string
+                required:
+                - appDeployment
+                type: object
+              history:
+                items:
+                  properties:
+                    appDeployment:
+                      properties:
+                        name:
+                          minLength: 1
+                          type: string
+                        version:
+                          description: Version of the App being released. Use of semantic
+                            versioning is recommended. If set the value is compared
+                            to the AppDeployment version. If the two versions do not
+                            match the release will fail.
+                          type: string
+                      required:
+                      - name
+                      type: object
+                    archiveTime:
+                      format: date-time
+                      type: string
+                    availableTime:
+                      format: date-time
+                      type: string
+                    requestTime:
+                      format: date-time
+                      type: string
+                  required:
+                  - appDeployment
+                  type: object
+                type: array
+              requested:
+                properties:
+                  appDeployment:
+                    properties:
+                      name:
+                        minLength: 1
+                        type: string
+                      version:
+                        description: Version of the App being released. Use of semantic
+                          versioning is recommended. If set the value is compared
+                          to the AppDeployment version. If the two versions do not
+                          match the release will fail.
+                        type: string
+                    required:
+                    - name
+                    type: object
+                  archiveTime:
+                    format: date-time
+                    type: string
+                  availableTime:
+                    format: date-time
+                    type: string
+                  requestTime:
+                    format: date-time
+                    type: string
+                required:
+                - appDeployment
+                type: object
             type: object
+        required:
+        - spec
         type: object
     served: true
     storage: true

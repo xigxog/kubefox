@@ -16,6 +16,7 @@ import (
 
 	"github.com/xigxog/kubefox/api"
 	"github.com/xigxog/kubefox/api/kubernetes/v1alpha1"
+	"github.com/xigxog/kubefox/k8s"
 	"github.com/xigxog/kubefox/logkf"
 )
 
@@ -41,40 +42,44 @@ func (r *AppDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 		"namespace", req.Namespace,
 		"name", req.Name,
 	)
-	log.Debugf("reconciling AppDeployment '%s.'%s'", req.Name, req.Namespace)
+	log.Debugf("reconciling AppDeployment '%s.%s'", req.Name, req.Namespace)
 
-	result, err := r.reconcile(ctx, req, log)
-	if IsFailedWebhookErr(err) {
-		log.Debug("reconcile failed because of webhook, retryin in 15 seconds")
-		return ctrl.Result{RequeueAfter: time.Second * 15}, nil
+	if err := r.reconcile(ctx, req, log); err != nil {
+		if IsFailedWebhookErr(err) {
+			log.Debug("reconcile failed because of webhook, retrying in 15 seconds")
+			return ctrl.Result{RequeueAfter: time.Second * 15}, nil
+		}
+		return ctrl.Result{}, err
 	}
 
-	log.Debugf("reconciling AppDeployment '%s.'%s' done", req.Name, req.Namespace)
+	log.Debugf("reconciling AppDeployment '%s.%s' done", req.Name, req.Namespace)
 	if _, err := r.CompMgr.ReconcileApps(ctx, req.Namespace); err != nil {
-		log.Error(err)
+		return ctrl.Result{}, err
 	}
 
-	return result, err
+	return ctrl.Result{}, nil
 }
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
-func (r *AppDeploymentReconciler) reconcile(ctx context.Context, req ctrl.Request, log *logkf.Logger) (ctrl.Result, error) {
+func (r *AppDeploymentReconciler) reconcile(ctx context.Context, req ctrl.Request, log *logkf.Logger) error {
 	appDep := &v1alpha1.AppDeployment{}
-	err := r.Get(ctx, req.NamespacedName, appDep)
-	if IgnoreNotFound(err) != nil {
-		return ctrl.Result{}, err
+	if err := r.Get(ctx, req.NamespacedName, appDep); err != nil {
+		return k8s.IgnoreNotFound(err)
 	}
+	curAppDep := appDep.DeepCopy()
 
-	updated := UpdateLabel(appDep, api.LabelK8sAppVersion, appDep.Spec.Version)
-	updated = updated || UpdateLabel(appDep, api.LabelK8sAppCommit, appDep.Spec.App.Commit)
-	updated = updated || UpdateLabel(appDep, api.LabelK8sAppTag, appDep.Spec.App.Tag)
-	updated = updated || UpdateLabel(appDep, api.LabelK8sAppBranch, appDep.Spec.App.Branch)
-	if updated {
-		return ctrl.Result{Requeue: true}, r.Update(ctx, appDep)
+	k8s.UpdateLabel(appDep, api.LabelK8sAppVersion, appDep.Spec.Version)
+	k8s.UpdateLabel(appDep, api.LabelK8sAppCommit, appDep.Spec.App.Commit)
+	k8s.UpdateLabel(appDep, api.LabelK8sAppTag, appDep.Spec.App.Tag)
+	k8s.UpdateLabel(appDep, api.LabelK8sAppBranch, appDep.Spec.App.Branch)
+
+	if !k8s.DeepEqual(curAppDep.ObjectMeta, appDep.ObjectMeta) {
+		log.Debug("AppDeployment updated, persisting")
+		return r.Update(ctx, appDep)
 	}
 
 	// TODO update conditions
 
-	return ctrl.Result{}, nil
+	return nil
 }

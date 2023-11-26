@@ -166,7 +166,7 @@ spec:
           status:
             description: AppDeploymentStatus defines the observed state of AppDeployment
             properties:
-              ready:
+              available:
                 type: boolean
             type: object
         type: object

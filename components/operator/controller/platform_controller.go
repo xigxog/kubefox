@@ -19,14 +19,15 @@ import (
 	vauth "github.com/hashicorp/vault/api/auth/kubernetes"
 	appsv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/xigxog/kubefox/api"
 	"github.com/xigxog/kubefox/api/kubernetes/v1alpha1"
 	"github.com/xigxog/kubefox/build"
 	"github.com/xigxog/kubefox/components/operator/templates"
+	"github.com/xigxog/kubefox/k8s"
 	"github.com/xigxog/kubefox/logkf"
 )
 
@@ -70,46 +71,53 @@ func (r *PlatformReconciler) SetupWithManager(mgr ctrl.Manager) error {
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
+
 func (r *PlatformReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	log := r.log.With(
 		"namespace", req.Namespace,
 		"name", req.Name,
 	)
-	log.Debug("reconciling Platform")
+	log.Debugf("reconciling Platform '%s.%s'", req.Name, req.Namespace)
 
-	ns := &v1.Namespace{}
-	if err := r.Get(ctx, Key("", req.Namespace), ns); err != nil {
-		if apierrors.IsNotFound(err) {
-			log.Debug("Namespace is gone")
-			return ctrl.Result{}, nil
+	p, err := r.reconcile(ctx, req, log)
+	if p != nil {
+		p.Status.Available = (err == nil)
+		if err := r.updateStatus(ctx, p); err != nil {
+			r.log.Error(err)
 		}
-		return ctrl.Result{}, log.ErrorN("unable to fetch Namespace: %w", err)
+	}
+
+	log.Debugf("reconciling Platform '%s.%s' done", req.Name, req.Namespace)
+
+	return ctrl.Result{}, err
+}
+
+func (r *PlatformReconciler) reconcile(ctx context.Context, req ctrl.Request, log *logkf.Logger) (*v1alpha1.Platform, error) {
+	ns := &v1.Namespace{}
+	if err := r.Get(ctx, k8s.Key("", req.Namespace), ns); err != nil {
+		if k8s.IsNotFound(err) {
+			log.Debug("Namespace is gone")
+			return nil, nil
+		}
+		return nil, log.ErrorN("unable to fetch Namespace: %w", err)
 	}
 	if ns.Status.Phase == v1.NamespaceTerminating {
 		log.Debug("Namespace is terminating")
-		return ctrl.Result{}, nil
+		return nil, nil
 	}
 
 	p := &v1alpha1.Platform{}
 	if err := r.Get(ctx, req.NamespacedName, p); err != nil {
-		return ctrl.Result{}, err
+		return nil, err
 	}
-
-	ready := false
-	defer func() {
-		p.Status.Ready = ready
-		if err := r.ApplyStatus(ctx, p); err != nil {
-			log.Error(err)
-		}
-	}()
 
 	cm := &v1.ConfigMap{}
-	if err := r.Get(ctx, Key(r.Namespace, r.Instance+"-root-ca"), cm); err != nil {
-		return ctrl.Result{}, log.ErrorN("unable to fetch root CA configmap: %w", err)
+	if err := r.Get(ctx, k8s.Key(r.Namespace, r.Instance+"-root-ca"), cm); err != nil {
+		return p, log.ErrorN("unable to fetch root CA configmap: %w", err)
 	}
 
-	maxEventSize := p.Spec.Config.Events.MaxSize.Value()
-	if p.Spec.Config.Events.MaxSize.IsZero() {
+	maxEventSize := p.Spec.Events.MaxSize.Value()
+	if p.Spec.Events.MaxSize.IsZero() {
 		maxEventSize = api.DefaultMaxEventSizeBytes
 	}
 	baseTD := &TemplateData{
@@ -128,7 +136,7 @@ func (r *PlatformReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 				metav1.NewControllerRef(p, p.GroupVersionKind()),
 			},
 			BuildInfo: build.Info,
-			Logger:    p.Spec.Config.Logger,
+			Logger:    p.Spec.Logger,
 			Values: map[string]any{
 				"maxEventSize": maxEventSize,
 				"vaultURL":     r.VaultURL,
@@ -146,13 +154,13 @@ func (r *PlatformReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		// Ensure there are valid commits for Platform components.
 		if !api.RegexpCommit.MatchString(build.Info.BrokerCommit) ||
 			!api.RegexpCommit.MatchString(build.Info.HTTPSrvCommit) {
-			return ctrl.Result{}, log.ErrorN("broker or httpsrv commit from build info is invalid")
+			return p, log.ErrorN("broker or httpsrv commit from build info is invalid")
 		}
 		if err := r.setupVault(ctx, baseTD); err != nil {
-			return ctrl.Result{}, log.ErrorN("problem setting up vault: %w", err)
+			return p, log.ErrorN("problem setting up vault: %w", err)
 		}
 		if err := r.ApplyTemplate(ctx, "platform", &baseTD.Data, log); err != nil {
-			return ctrl.Result{}, log.ErrorN("problem setting up Platform: %w", err)
+			return p, log.ErrorN("problem setting up Platform: %w", err)
 		}
 
 		r.mutex.Lock()
@@ -160,57 +168,93 @@ func (r *PlatformReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		r.mutex.Unlock()
 	}
 
-	td := baseTD.ForComponent("nats", &appsv1.StatefulSet{}, &NATSDefaults, templates.Component{
-		Name:          "nats",
-		Image:         NATSImage,
-		PodSpec:       p.Spec.Config.NATS.PodSpec,
-		ContainerSpec: p.Spec.Config.NATS.ContainerSpec,
-	})
-	if err := r.setupVaultComponent(ctx, td, ""); err != nil {
-		return ctrl.Result{}, err
-	}
-	if rdy, err := r.CompMgr.SetupComponent(ctx, td); !rdy || err != nil {
-		return chill(), err
+	if r.setDefaults(p) {
+		log.Debug("Platform defaults set, persisting")
+		return p, r.Update(ctx, p)
 	}
 
-	td = baseTD.ForComponent("broker", &appsv1.DaemonSet{}, &BrokerDefaults, templates.Component{
-		Name:          "broker",
-		Image:         BrokerImage,
-		PodSpec:       p.Spec.Config.Broker.PodSpec,
-		ContainerSpec: p.Spec.Config.Broker.ContainerSpec,
+	td := baseTD.ForComponent(api.PlatformComponentNATS, &appsv1.StatefulSet{}, &NATSDefaults, templates.Component{
+		Name:                api.PlatformComponentNATS,
+		Image:               NATSImage,
+		PodSpec:             p.Spec.NATS.PodSpec,
+		ContainerSpec:       p.Spec.NATS.ContainerSpec,
+		IsPlatformComponent: true,
 	})
 	if err := r.setupVaultComponent(ctx, td, ""); err != nil {
-		return ctrl.Result{}, err
+		return p, err
 	}
 	if rdy, err := r.CompMgr.SetupComponent(ctx, td); !rdy || err != nil {
-		return chill(), err
+		chill()
+		return p, err
 	}
 
-	td = baseTD.ForComponent("httpsrv", &appsv1.Deployment{}, &HTTPSrvDefaults, templates.Component{
-		Name:          "httpsrv",
-		Image:         HTTPSrvImage,
-		PodSpec:       p.Spec.Config.HTTPSrv.PodSpec,
-		ContainerSpec: p.Spec.Config.HTTPSrv.ContainerSpec,
+	td = baseTD.ForComponent(api.PlatformComponentBroker, &appsv1.DaemonSet{}, &BrokerDefaults, templates.Component{
+		Name:                api.PlatformComponentBroker,
+		Commit:              build.Info.BrokerCommit,
+		Image:               BrokerImage,
+		PodSpec:             p.Spec.Broker.PodSpec,
+		ContainerSpec:       p.Spec.Broker.ContainerSpec,
+		IsPlatformComponent: true,
 	})
-	td.Values["serviceType"] = p.Spec.Config.HTTPSrv.Service.Type
-	td.Values["httpPort"] = p.Spec.Config.HTTPSrv.Service.Ports.HTTP
-	td.Values["httpsPort"] = p.Spec.Config.HTTPSrv.Service.Ports.HTTPS
 	if err := r.setupVaultComponent(ctx, td, ""); err != nil {
-		return ctrl.Result{}, err
+		return p, err
 	}
 	if rdy, err := r.CompMgr.SetupComponent(ctx, td); !rdy || err != nil {
-		return chill(), err
+		chill()
+		return p, err
 	}
 
-	// Used by defer func created above.
-	ready = true
-	log.Debug("Platform reconciled")
+	td = baseTD.ForComponent(api.PlatformComponentHTTPSrv, &appsv1.Deployment{}, &HTTPSrvDefaults, templates.Component{
+		Name:                api.PlatformComponentHTTPSrv,
+		Commit:              build.Info.HTTPSrvCommit,
+		Image:               HTTPSrvImage,
+		PodSpec:             p.Spec.HTTPSrv.PodSpec,
+		ContainerSpec:       p.Spec.HTTPSrv.ContainerSpec,
+		IsPlatformComponent: true,
+	})
+	td.Values["serviceType"] = p.Spec.HTTPSrv.Service.Type
+	td.Values["httpPort"] = p.Spec.HTTPSrv.Service.Ports.HTTP
+	td.Values["httpsPort"] = p.Spec.HTTPSrv.Service.Ports.HTTPS
+	if err := r.setupVaultComponent(ctx, td, ""); err != nil {
+		return p, err
+	}
+	if rdy, err := r.CompMgr.SetupComponent(ctx, td); !rdy || err != nil {
+		chill()
+		return p, err
+	}
 
 	if rdy, err := r.CompMgr.ReconcileApps(ctx, p.Namespace); !rdy || err != nil {
-		return ctrl.Result{}, err
+		return p, err
 	}
 
-	return ctrl.Result{}, nil
+	return p, nil
+}
+
+func (r *PlatformReconciler) updateStatus(ctx context.Context, p *v1alpha1.Platform) error {
+	p.Status.Components = nil
+
+	podList := &v1.PodList{}
+	if err := r.List(ctx, podList,
+		client.InNamespace(p.Namespace),
+		client.HasLabels{api.LabelK8sPlatformComponent},
+	); err != nil {
+		return err
+	}
+
+	for _, pod := range podList.Items {
+		cond := k8s.PodCondition(&pod, v1.PodReady)
+		p.Status.Components = append(p.Status.Components, v1alpha1.ComponentStatus{
+			Ready:    cond.Status == v1.ConditionTrue,
+			Name:     pod.Labels[api.LabelK8sPlatformComponent],
+			Commit:   pod.Labels[api.LabelK8sComponentCommit],
+			PodName:  pod.Name,
+			PodIP:    pod.Status.PodIP,
+			NodeName: pod.Spec.NodeName,
+			NodeIP:   pod.Status.HostIP,
+		})
+	}
+
+	return r.Status().Update(ctx, p)
 }
 
 // TODO break operations into funcs and move to reusable vault client
@@ -380,8 +424,42 @@ func (r *PlatformReconciler) vaultClient(ctx context.Context, url string, caCert
 	return vault, nil
 }
 
+func (r *PlatformReconciler) setDefaults(platform *v1alpha1.Platform) bool {
+	s := &platform.Spec
+	cur := s.DeepCopy()
+
+	if s.Logger.Format == "" {
+		s.Logger.Format = api.DefaultLogFormat
+	}
+	if s.Logger.Level == "" {
+		s.Logger.Level = api.DefaultLogLevel
+	}
+	if s.Events.TimeoutSeconds == 0 {
+		s.Events.TimeoutSeconds = api.DefaultTimeoutSeconds
+	}
+	if s.Events.MaxSize.IsZero() {
+		s.Events.MaxSize.Set(api.DefaultMaxEventSizeBytes)
+	}
+
+	svc := &s.HTTPSrv.Service
+	if svc.Type == "" {
+		svc.Type = "ClusterIP"
+	}
+	if svc.Ports.HTTP == 0 {
+		svc.Ports.HTTP = 80
+	}
+	if svc.Ports.HTTPS == 0 {
+		svc.Ports.HTTPS = 443
+	}
+
+	SetDefaults(&s.NATS.ContainerSpec, &NATSDefaults)
+	SetDefaults(&s.Broker.ContainerSpec, &BrokerDefaults)
+	SetDefaults(&s.HTTPSrv.ContainerSpec, &HTTPSrvDefaults)
+
+	return !k8s.DeepEqual(cur, s)
+}
+
 // chill waits a few seconds for things to chillax.
-func chill() ctrl.Result {
+func chill() {
 	time.Sleep(time.Second * 3)
-	return ctrl.Result{}
 }

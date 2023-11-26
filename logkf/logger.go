@@ -12,32 +12,32 @@ import (
 )
 
 const (
-	KeyBrokerId        = "brokerId"
-	KeyBrokerName      = "brokerName"
-	KeyComponentCommit = "componentCommit"
-	KeyComponentId     = "componentId"
-	KeyComponentName   = "componentName"
-	KeyController      = "controller"
-	KeyDeployment      = "deployment"
-	KeyEnvironment     = "environment"
-	KeyEventCategory   = "eventCategory"
-	KeyEventId         = "eventId"
-	KeyEventType       = "eventType"
-	KeyInstance        = "instance"
-	KeyPlatform        = "platform"
-	KeyRelease         = "release"
-	KeyService         = "service"
-	KeySourceBrokerId  = "sourceBrokerId"
-	KeySourceCommit    = "sourceCommit"
-	KeySourceId        = "sourceId"
-	KeySourceName      = "sourceName"
-	KeySpanId          = "spanId"
-	KeyTargetBrokerId  = "targetBrokerId"
-	KeyTargetCommit    = "targetCommit"
-	KeyTargetId        = "targetId"
-	KeyTargetName      = "targetName"
-	KeyTraceId         = "traceId"
-	KeyWorker          = "worker"
+	KeyBrokerId          = "brokerId"
+	KeyBrokerName        = "brokerName"
+	KeyComponentCommit   = "componentCommit"
+	KeyComponentId       = "componentId"
+	KeyComponentName     = "componentName"
+	KeyController        = "controller"
+	KeyDeployment        = "deployment"
+	KeyEnvironment       = "environment"
+	KeyEventCategory     = "eventCategory"
+	KeyEventId           = "eventId"
+	KeyEventType         = "eventType"
+	KeyInstance          = "instance"
+	KeyPlatform          = "platform"
+	KeyPlatformComponent = "platformComponent"
+	KeyRelease           = "release"
+	KeySourceBrokerId    = "sourceBrokerId"
+	KeySourceCommit      = "sourceCommit"
+	KeySourceId          = "sourceId"
+	KeySourceName        = "sourceName"
+	KeySpanId            = "spanId"
+	KeyTargetBrokerId    = "targetBrokerId"
+	KeyTargetCommit      = "targetCommit"
+	KeyTargetId          = "targetId"
+	KeyTargetName        = "targetName"
+	KeyTraceId           = "traceId"
+	KeyWorker            = "worker"
 )
 
 var (
@@ -160,8 +160,8 @@ func (log *Logger) WithPlatform(val string) *Logger {
 	return log.With(KeyPlatform, val)
 }
 
-func (log *Logger) WithService(val string) *Logger {
-	return log.With(KeyService, val)
+func (log *Logger) WithPlatformComponent(val string) *Logger {
+	return log.With(KeyPlatformComponent, val)
 }
 
 func (log *Logger) WithComponent(comp *kubefox.Component) *Logger {

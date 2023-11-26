@@ -4,7 +4,7 @@ import (
 	"context"
 
 	"github.com/xigxog/kubefox/api/kubernetes/v1alpha1"
-	"k8s.io/apimachinery/pkg/api/errors"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 	cmd "k8s.io/client-go/tools/clientcmd"
@@ -56,7 +56,7 @@ func (c *Client) Upsert(ctx context.Context, obj client.Object, dryRun bool) err
 		opts = append(opts, client.DryRunAll)
 	}
 	err := c.Create(ctx, obj, opts...)
-	if errors.IsAlreadyExists(err) {
+	if apierrors.IsAlreadyExists(err) {
 		copy := obj.DeepCopyObject().(client.Object)
 		if err := c.Get(ctx, client.ObjectKey{Namespace: obj.GetNamespace(), Name: obj.GetName()}, copy); err != nil {
 			return err
@@ -98,4 +98,25 @@ func (c *Client) ApplyStatus(ctx context.Context, obj client.Object, opts ...cli
 	obj.SetResourceVersion("")
 	opts = append(opts, c.FieldOwner, client.ForceOwnership)
 	return c.Status().Patch(ctx, obj, client.Apply, opts...)
+}
+
+func (r *Client) GetVirtualEnvObj(ctx context.Context, namespace, envName, snapshotName string) (v1alpha1.VirtualEnvObject, error) {
+	if snapshotName != "" {
+		env := &v1alpha1.VirtualEnvSnapshot{}
+		return env, r.Get(ctx, Key(namespace, envName), env)
+	}
+
+	env := &v1alpha1.VirtualEnv{}
+	err := r.Get(ctx, Key(namespace, envName), env)
+	switch {
+	case err == nil:
+		return env, nil
+
+	case apierrors.IsNotFound(err):
+		env := &v1alpha1.ClusterVirtualEnv{}
+		return env, r.Get(ctx, Key("", envName), env)
+
+	default:
+		return nil, err
+	}
 }

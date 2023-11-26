@@ -49,8 +49,9 @@ func TestRenderNATS(t *testing.T) {
 			Namespace: "kubefox-platform",
 		},
 		Component: Component{
-			Name:  "nats",
-			Image: "nats:2.9.21-alpine",
+			IsPlatformComponent: true,
+			Name:                "nats",
+			Image:               "nats:2.9.21-alpine",
 			PodSpec: common.PodSpec{
 				Labels: map[string]string{
 					"test":    "test",

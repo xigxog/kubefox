@@ -51,7 +51,7 @@ func main() {
 
 	logkf.Global = logkf.
 		BuildLoggerOrDie(f.logFormat, f.logLevel).
-		WithService("bootstrap")
+		WithPlatformComponent(api.PlatformComponentBootstrap)
 	defer logkf.Global.Sync()
 	log := logkf.Global
 

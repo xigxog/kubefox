@@ -2,6 +2,13 @@
 {{ include "selectors" . }}
 app.kubernetes.io/managed-by: {{ printf "%s-operator" .Instance.Name | cleanLabel | quote }}
 kubefox.xigxog.io/runtime-version: {{ .BuildInfo.Version | cleanLabel | quote }}
+{{- with .Component.Name }}
+{{- if $.Component.IsPlatformComponent }}
+kubefox.xigxog.io/platform-component: {{ . | cleanLabel | quote }}
+{{- else }}
+kubefox.xigxog.io/app-component: {{ . | cleanLabel | quote }}
+{{- end }}
+{{- end }}
 {{- range $k, $v := .Component.Labels }}
 {{ $k }}: {{ $v | cleanLabel | quote }}
 {{- end }}

@@ -30,9 +30,15 @@ type ComponentSpecSelector struct {
 // ComponentSpecStatus defines the observed state of ComponentSpec
 type ComponentSpecStatus struct {
 	// +kubebuilder:validation:Optional
-	Deployments []common.Ref `json:"components"`
-	// // +kubebuilder:validation:Optional
-	// UpdateTime metav1.Time `json:"updateTime"`
+	Matched []ComponentRef `json:"matched"`
+}
+
+type ComponentRef struct {
+	App                string `json:"app,omitempty"`
+	Name               string `json:"name,omitempty"`
+	Commit             string `json:"commit,omitempty"`
+	PodName            string `json:"podName,omitempty"`
+	PodResourceVersion string `json:"podResourceVersion,omitempty"`
 }
 
 //+kubebuilder:object:root=true

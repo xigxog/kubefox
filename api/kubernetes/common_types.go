@@ -11,22 +11,7 @@ package kubernetes
 
 import (
 	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
-
-type Ref struct {
-	// +kubebuilder:validation:MinLength=1
-	Name string `json:"name"`
-	// +kubebuilder:validation:MinLength=1
-	ResourceVersion string `json:"resourceVersion"`
-}
-
-type RefTimestamped struct {
-	Ref `json:",inline"`
-
-	CreateTime metav1.Time `json:"createTime,omitempty"`
-	UpdateTime metav1.Time `json:"updateTime,omitempty"`
-}
 
 type PodSpec struct {
 	// Map of string keys and values that can be used to organize and categorize

@@ -22,6 +22,7 @@ import (
 	"net/http"
 
 	"github.com/xigxog/kubefox/api/kubernetes/v1alpha1"
+	"github.com/xigxog/kubefox/k8s"
 	v1 "k8s.io/api/admission/v1"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 )
@@ -49,33 +50,18 @@ func (r *ImmutableWebhook) Handle(ctx context.Context, req admission.Request) ad
 		if err := r.DecodeRaw(req.OldObject, oldObj); err != nil {
 			return admission.Errored(http.StatusBadRequest, err)
 		}
-		if obj.Spec.Version != "" {
+		if oldObj.Spec.Version != "" {
 			lhs = &obj.Spec
 			rhs = &oldObj.Spec
 
 		}
 
-	case "kubefox.xigxog.io/v1alpha1, Kind=Release":
-		obj := &v1alpha1.Release{}
+	case "kubefox.xigxog.io/v1alpha1, Kind=VirtualEnvSnapshot":
+		obj := &v1alpha1.VirtualEnvSnapshot{}
 		if err := r.DecodeRaw(req.Object, obj); err != nil {
 			return admission.Errored(http.StatusBadRequest, err)
 		}
-		oldObj := &v1alpha1.Release{}
-		if err := r.DecodeRaw(req.OldObject, oldObj); err != nil {
-			return admission.Errored(http.StatusBadRequest, err)
-		}
-		if obj.Spec.Version != "" {
-			lhs = &obj.Spec
-			rhs = &oldObj.Spec
-
-		}
-
-	case "kubefox.xigxog.io/v1alpha1, Kind=ResolvedEnvironment":
-		obj := &v1alpha1.ResolvedEnvironment{}
-		if err := r.DecodeRaw(req.Object, obj); err != nil {
-			return admission.Errored(http.StatusBadRequest, err)
-		}
-		oldObj := &v1alpha1.ResolvedEnvironment{}
+		oldObj := &v1alpha1.VirtualEnvSnapshot{}
 		if err := r.DecodeRaw(req.OldObject, oldObj); err != nil {
 			return admission.Errored(http.StatusBadRequest, err)
 		}
@@ -84,7 +70,7 @@ func (r *ImmutableWebhook) Handle(ctx context.Context, req admission.Request) ad
 
 	}
 
-	if !HashesEqual(lhs, rhs) {
+	if !k8s.DeepEqual(lhs, rhs) {
 		return admission.Denied(fmt.Sprintf(
 			"update operation not allowed: %s spec is immutable", req.Kind.Kind))
 	}

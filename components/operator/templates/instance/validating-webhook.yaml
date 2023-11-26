@@ -53,5 +53,4 @@ webhooks:
           - UPDATE
         resources:
           - appdeployments
-          - releases
-          - resolvedenvironments
+          - virtualenvsnapshots

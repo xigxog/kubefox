@@ -1513,18 +1513,19 @@ spec:
           status:
             description: ComponentSpecStatus defines the observed state of ComponentSpec
             properties:
-              components:
+              matched:
                 items:
                   properties:
+                    app:
+                      type: string
+                    commit:
+                      type: string
                     name:
-                      minLength: 1
                       type: string
-                    resourceVersion:
-                      minLength: 1
+                    podName:
                       type: string
-                  required:
-                  - name
-                  - resourceVersion
+                    podResourceVersion:
+                      type: string
                   type: object
                 type: array
             type: object

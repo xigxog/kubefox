@@ -82,6 +82,7 @@ Flags:
 		utils.CheckRequiredFlag("name", comp.Name)
 		utils.CheckRequiredFlag("commit", comp.Commit)
 
+		// TODO also check app (root) hash
 		if comp.Commit != build.Info.Commit {
 			fmt.Fprintf(os.Stderr, "commit '%s' does not match build info commit '%s'", comp.Commit, build.Info.Commit)
 			os.Exit(1)

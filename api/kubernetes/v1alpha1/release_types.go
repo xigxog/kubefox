@@ -9,58 +9,55 @@ one at https://mozilla.org/MPL/2.0/.
 package v1alpha1
 
 import (
-	"github.com/xigxog/kubefox/api"
-	common "github.com/xigxog/kubefox/api/kubernetes"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// ReleaseSpec defines the desired state of Release
 type ReleaseSpec struct {
-	// Version of the App being release. Use of semantic versioning is
-	// recommended. If set the value is compared to the AppDeployment, if they
-	// conflict the release will fail.
-	Version string `json:"version,omitempty"`
-	// +kubebuilder:validation:Enum=Promotion;Release;Rollback
-	Type          api.ReleaseType      `json:"type"`
-	Environment   common.Ref           `json:"environment"`
-	AppDeployment ReleaseAppDeployment `json:"appDeployment"`
+	AppDeployment      ReleaseAppDeployment `json:"appDeployment"`
+	VirtualEnvSnapshot string               `json:"virtualEnvSnapshot,omitempty"`
+	HistoryLimit       *ReleaseHistoryLimit `json:"historyLimit,omitempty"`
 }
 
 type ReleaseAppDeployment struct {
 	// +kubebuilder:validation:MinLength=1
 	Name string `json:"name"`
+	// Version of the App being released. Use of semantic versioning is
+	// recommended. If set the value is compared to the AppDeployment version.
+	// If the two versions do not match the release will fail.
+	Version string `json:"version,omitempty"`
 }
 
-// ReleaseStatus defines the observed state of Release
+type ReleaseHistoryLimit struct {
+	// Total number of archived Releases to keep. Once the limit is reach the
+	// oldest Release will be removed from history. Default 100.
+	Count uint `json:"count,omitempty"`
+	// Age of the oldest archived Release to keep. Age is based on archiveTime.
+	AgeDays uint `json:"ageDays,omitempty"`
+}
+
+type ReleaseStatusEntry struct {
+	AppDeployment ReleaseAppDeployment `json:"appDeployment"`
+	RequestTime   metav1.Time          `json:"requestTime,omitempty"`
+	AvailableTime *metav1.Time         `json:"availableTime,omitempty"`
+	ArchiveTime   *metav1.Time         `json:"archiveTime,omitempty"`
+}
+
 type ReleaseStatus struct {
-	CreationTime       metav1.Time  `json:"creationTime,omitempty"`
-	PendingTime        *metav1.Time `json:"pendingTime,omitempty"`
-	ReleaseTime        *metav1.Time `json:"releaseTime,omitempty"`
-	SupersededTime     *metav1.Time `json:"supersededTime,omitempty"`
-	LastTransitionTime metav1.Time  `json:"lastTransitionTime,omitempty"`
-	FailureTime        *metav1.Time `json:"failureTime,omitempty"`
-	FailureMessage     string       `json:"failureMessage,omitempty"`
+	Current   *ReleaseStatusEntry `json:"current,omitempty"`
+	Requested *ReleaseStatusEntry `json:"requested,omitempty"`
+
+	History []ReleaseStatusEntry `json:"history,omitempty"`
+	// TODO conditions
 }
 
-// ReleaseDetails defines additional details of Release
-type ReleaseDetails struct {
-	api.Details `json:",inline"`
-
-	AppDeployment AppDeploymentDetails `json:"appDeployment,omitempty"`
-}
-
-//+kubebuilder:object:root=true
-//+kubebuilder:subresource:status
-//+kubebuilder:subresource:details
-
-// Release is the Schema for the Releases API
+// +kubebuilder:object:root=true
+// +kubebuilder:subresource:status
 type Release struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec    ReleaseSpec    `json:"spec,omitempty"`
-	Status  ReleaseStatus  `json:"status,omitempty"`
-	Details ReleaseDetails `json:"details,omitempty"`
+	Spec   ReleaseSpec   `json:"spec"`
+	Status ReleaseStatus `json:"status,omitempty"`
 }
 
 //+kubebuilder:object:root=true

@@ -17,7 +17,6 @@ spec:
   - name: v1alpha1
     schema:
       openAPIV3Schema:
-        description: VirtualEnv is the Schema for the VirtualEnv API
         properties:
           apiVersion:
             description: 'APIVersion defines the versioned schema of this representation
@@ -62,7 +61,6 @@ spec:
                 x-kubernetes-preserve-unknown-fields: true
             type: object
           details:
-            description: EnvDetails defines additional details of VirtualEnv
             properties:
               adapters:
                 additionalProperties:
@@ -94,6 +92,27 @@ spec:
             type: string
           metadata:
             type: object
+          spec:
+            properties:
+              parent:
+                description: Parent ClusterVirtualEnv.
+                type: string
+              releasePolicy:
+                properties:
+                  appDeploymentPolicy:
+                    enum:
+                    - VersionOptional
+                    - VersionRequired
+                    type: string
+                  virtualEnvPolicy:
+                    enum:
+                    - SnapshotOptional
+                    - SnapshotRequired
+                    type: string
+                type: object
+            type: object
+        required:
+        - spec
         type: object
     served: true
     storage: true

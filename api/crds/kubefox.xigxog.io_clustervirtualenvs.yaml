@@ -4,21 +4,19 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.13.0
-  name: resolvedenvironments.kubefox.xigxog.io
+  name: clustervirtualenvs.kubefox.xigxog.io
 spec:
   group: kubefox.xigxog.io
   names:
-    kind: ResolvedEnvironment
-    listKind: ResolvedEnvironmentList
-    plural: resolvedenvironments
-    singular: resolvedenvironment
-  scope: Namespaced
+    kind: ClusterVirtualEnv
+    listKind: ClusterVirtualEnvList
+    plural: clustervirtualenvs
+    singular: clustervirtualenv
+  scope: Cluster
   versions:
   - name: v1alpha1
     schema:
       openAPIV3Schema:
-        description: ResolvedEnvironment is the Schema for the ResolvedEnvironments
-          API
         properties:
           apiVersion:
             description: 'APIVersion defines the versioned schema of this representation
@@ -63,7 +61,6 @@ spec:
                 x-kubernetes-preserve-unknown-fields: true
             type: object
           details:
-            description: EnvDetails defines additional details of VirtualEnv
             properties:
               adapters:
                 additionalProperties:
@@ -95,6 +92,24 @@ spec:
             type: string
           metadata:
             type: object
+          spec:
+            properties:
+              releasePolicy:
+                properties:
+                  appDeploymentPolicy:
+                    enum:
+                    - VersionOptional
+                    - VersionRequired
+                    type: string
+                  virtualEnvPolicy:
+                    enum:
+                    - SnapshotOptional
+                    - SnapshotRequired
+                    type: string
+                type: object
+            type: object
+        required:
+        - spec
         type: object
     served: true
     storage: true

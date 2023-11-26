@@ -4,6 +4,7 @@ import (
 	"context"
 	"time"
 
+	"github.com/xigxog/kubefox/api"
 	"github.com/xigxog/kubefox/components/broker/config"
 	"github.com/xigxog/kubefox/logkf"
 
@@ -56,7 +57,7 @@ func (c *Client) Start(ctx context.Context) error {
 		semconv.SchemaURL,
 		attribute.String("kubefox."+logkf.KeyInstance, config.Instance),
 		attribute.String("kubefox."+logkf.KeyPlatform, config.Platform),
-		attribute.String("kubefox."+logkf.KeyService, "broker"),
+		attribute.String("kubefox."+logkf.KeyPlatformComponent, api.PlatformComponentBroker),
 	)
 
 	metricExp, err := otlpmetrichttp.New(ctx,

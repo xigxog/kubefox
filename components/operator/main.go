@@ -79,7 +79,7 @@ func main() {
 
 	logkf.Global = logkf.
 		BuildLoggerOrDie(logFormat, logLevel).
-		WithService("operator")
+		WithPlatformComponent(api.PlatformComponentOperator)
 	defer logkf.Global.Sync()
 	ctrl.SetLogger(zapr.NewLogger(logkf.Global.Unwrap().Desugar()))
 	klog.SetLogger(zapr.NewLogger(logkf.Global.Unwrap().Desugar()))
@@ -143,8 +143,7 @@ func main() {
 		log.Fatalf("unable to create AppDeployment controller: %v", err)
 	}
 	if err = (&controller.ReleaseReconciler{
-		Client:  ctrlClient,
-		CompMgr: compMgr,
+		Client: ctrlClient,
 	}).SetupWithManager(mgr); err != nil {
 		log.Fatalf("unable to create Release controller: %v", err)
 	}
@@ -204,17 +203,19 @@ func applyCRDs(ctx context.Context, c *controller.Client) error {
 				log.Debugf("crd %s already exists, applying", crd.Name)
 				if err = c.Apply(ctx, crd); err != nil {
 					log.Errorf("unable to apply crd %s: %v", path, err)
+					return err
 				}
+				return nil
 
 			case err != nil:
 				log.Errorf("unable to create crd %s: %v", path, err)
+				return err
 
 			default:
 				log.Debugf("created crd %s", crd.Name)
 				created = true
+				return nil
 			}
-
-			return err
 		},
 	)
 	if err != nil {

@@ -13,8 +13,8 @@ import (
 	"github.com/xigxog/kubefox/api/kubernetes/v1alpha1"
 	"github.com/xigxog/kubefox/build"
 	"github.com/xigxog/kubefox/components/operator/templates"
+	"github.com/xigxog/kubefox/k8s"
 	"github.com/xigxog/kubefox/logkf"
-	"github.com/xigxog/kubefox/utils"
 	"golang.org/x/mod/semver"
 	appsv1 "k8s.io/api/apps/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -35,14 +35,6 @@ type TemplateData struct {
 
 	Template string
 	Obj      client.Object
-}
-
-type EnvRelPackage struct {
-	PlatformEnv      *v1alpha1.PlatformEnv
-	Active           *v1alpha1.PlatformEnvRelease
-	Latest           *v1alpha1.PlatformEnvRelease
-	AppDepSpecActive *v1alpha1.AppDeploymentSpec
-	AppDepSpecLatest *v1alpha1.AppDeploymentSpec
 }
 
 func NewComponentManager(instance string, cli *Client) *ComponentManager {
@@ -68,7 +60,7 @@ func (cm *ComponentManager) SetupComponent(ctx context.Context, td *TemplateData
 
 	log.Debugf("setting up component '%s'", td.ComponentFullName())
 
-	name := Key(td.Namespace(), td.ComponentFullName())
+	name := k8s.Key(td.Namespace(), td.ComponentFullName())
 	if err := cm.Get(ctx, name, td.Obj); client.IgnoreNotFound(err) != nil {
 		return false, log.ErrorN("unable to fetch component workload: %w", err)
 	}
@@ -113,9 +105,9 @@ func (cm *ComponentManager) ReconcileApps(ctx context.Context, namespace string)
 
 	platform, err := cm.GetPlatform(ctx, namespace)
 	if err != nil {
-		return false, IgnoreNotFound(err)
+		return false, k8s.IgnoreNotFound(err)
 	}
-	if !platform.Status.Ready {
+	if !platform.Status.Available {
 		return false, nil
 	}
 
@@ -124,100 +116,34 @@ func (cm *ComponentManager) ReconcileApps(ctx context.Context, namespace string)
 		logkf.KeyPlatform, platform.Name,
 	)
 
-	if !platform.Status.Ready {
-		log.Debug("platform not available")
+	if !platform.Status.Available {
+		log.Debug("Platform not available")
 		return false, nil
 	}
-
-	relList := &v1alpha1.ReleaseList{}
-	if err := cm.List(ctx, relList,
-		client.InNamespace(namespace),
-		client.MatchingLabels{api.LabelK8sReleaseStatus: string(api.ReleaseStatusPending)},
-	); err != nil {
-		return false, err
-	}
-
-	pendingRelMap := map[string][]*v1alpha1.PlatformEnvRelease{}
-	for _, rel := range relList.Items {
-		l := pendingRelMap[rel.Spec.Environment.Name]
-		pendingRelMap[rel.Spec.Environment.Name] = append(l, &v1alpha1.PlatformEnvRelease{
-			ReleaseSpec:   rel.Spec,
-			ReleaseStatus: rel.Status,
-			Name:          rel.Name,
-		})
-	}
-
-	relCount := 0
-	envRelMap := map[string]*EnvRelPackage{}
-	for envName, env := range platform.Spec.Environments {
-		// Find latest pending release.
-		latest := &v1alpha1.PlatformEnvRelease{}
-		for _, rel := range pendingRelMap[envName] {
-			if rel.CreationTime.After(latest.CreationTime.Time) {
-				latest = rel
-			}
-		}
-		if env.Release != nil && env.Release.Name != "" {
-			// There is an active release, keep it incase latest isn't available.
-			holder := &EnvRelPackage{
-				PlatformEnv: env,
-				Active:      env.Release,
-			}
-			relCount++
-			if latest.CreationTime.After(env.Release.CreationTime.Time) {
-				holder.Latest = latest
-				relCount++
-			}
-			envRelMap[envName] = holder
-
-		} else if !latest.CreationTime.IsZero() {
-			envRelMap[envName] = &EnvRelPackage{
-				PlatformEnv: env,
-				Latest:      latest,
-			}
-			relCount++
-		}
-	}
-
-	specs := map[string]*v1alpha1.AppDeploymentSpec{}
 
 	depList := &v1alpha1.AppDeploymentList{}
 	if err := cm.List(ctx, depList, client.InNamespace(platform.Namespace)); err != nil {
 		return false, err
 	}
+	log.Debugf("found %d AppDeployments", len(depList.Items))
+
+	specs := map[string]*v1alpha1.AppDeploymentSpec{}
 	for _, d := range depList.Items {
 		specs[d.Name] = &d.Spec
 	}
 
-	for _, rel := range envRelMap {
-		if rel.Active != nil {
-			appDep := &v1alpha1.AppDeployment{}
-			if err = cm.Get(ctx, Key(namespace, rel.Active.AppDeployment.Name), appDep); err != nil {
-				return false, err
-			}
-			rel.AppDepSpecActive = &appDep.Spec
-			specs[appDep.Name] = &appDep.Spec
-		}
-		if rel.Latest != nil {
-			appDep := &v1alpha1.AppDeployment{}
-			if err = cm.Get(ctx, Key(namespace, rel.Latest.AppDeployment.Name), appDep); err != nil {
-				return false, err
-			}
-			rel.AppDepSpecLatest = &appDep.Spec
-			specs[appDep.Name] = &appDep.Spec
-		}
-	}
-
-	log.Debugf("found %d releases and %d app deployments", relCount, len(depList.Items))
-
 	compDepList := &appsv1.DeploymentList{}
 	if err := cm.List(ctx, compDepList,
 		client.InNamespace(platform.Namespace),
-		client.HasLabels{api.LabelK8sComponent, utils.CleanLabel(api.LabelK8sAppName)}, // don't want Platform stuff
+		client.HasLabels{api.LabelK8sAppComponent, api.LabelK8sAppName}, // don't want Platform stuff
 	); err != nil {
 		return false, err
 	}
 
+	maxEventSize := platform.Spec.Events.MaxSize.Value()
+	if platform.Spec.Events.MaxSize.IsZero() {
+		maxEventSize = api.DefaultMaxEventSizeBytes
+	}
 	compMap := make(map[string]TemplateData)
 	for _, d := range specs {
 		for n, c := range d.Components {
@@ -245,6 +171,9 @@ func (cm *ComponentManager) ReconcileApps(ctx context.Context, namespace string)
 					Owner: []*metav1.OwnerReference{
 						metav1.NewControllerRef(platform, platform.GroupVersionKind()),
 					},
+					Values: map[string]any{
+						"maxEventSize": maxEventSize,
+					},
 					BuildInfo: build.Info,
 				},
 				Template: "component",
@@ -253,22 +182,7 @@ func (cm *ComponentManager) ReconcileApps(ctx context.Context, namespace string)
 			compMap[td.ComponentFullName()] = td
 		}
 	}
-	log.Debugf("found %d unique app components", len(compMap))
-
-	for _, d := range compDepList.Items {
-		if _, found := compMap[d.Name]; !found {
-			log.Debugf("deleting app component '%s'", d.Name)
-
-			tdStr := d.Annotations[api.AnnotationTemplateData]
-			data := &templates.Data{}
-			if err := json.Unmarshal([]byte(tdStr), data); err != nil {
-				return false, err
-			}
-			if err := cm.DeleteTemplate(ctx, "component", data, log); err != nil {
-				return false, err
-			}
-		}
-	}
+	log.Debugf("found %d unique Components", len(compMap))
 
 	allAvailable := true
 	compReadyMap := make(map[string]bool, len(compMap))
@@ -285,70 +199,28 @@ func (cm *ComponentManager) ReconcileApps(ctx context.Context, namespace string)
 
 	for _, d := range depList.Items {
 		available := IsAppDeploymentAvailable(&d.Spec, compReadyMap)
-		if d.Status.Ready != available {
-			d.Status.Ready = available
+		if d.Status.Available != available {
+			d.Status.Available = available
 			if err := cm.ApplyStatus(ctx, &d); err != nil {
 				log.Error(err)
 			}
 		}
 
-		log.Debugf("app deployment '%s.%s' available: %t", d.Name, d.Namespace, available)
+		log.Debugf("AppDeployment '%s.%s'; available: %t", d.Name, d.Namespace, available)
 	}
 
-	// TODO clean up releases
-	//  [ ] Look for deleted releases
-	//  [ ] Look for releases in platform that don't exists and vice versa
-	platformUpdate := false
-	for envName, envRel := range envRelMap {
-		if envRel.Active != nil {
-			available := IsAppDeploymentAvailable(envRel.AppDepSpecActive, compReadyMap)
-			if envRel.Active.AppDeploymentAvailable != available {
-				platformUpdate = true
-				envRel.Active.AppDeploymentAvailable = available
+	for _, d := range compDepList.Items {
+		if _, found := compMap[d.Name]; !found {
+			log.Debugf("deleting Component '%s'", d.Name)
+
+			tdStr := d.Annotations[api.AnnotationTemplateData]
+			data := &templates.Data{}
+			if err := json.Unmarshal([]byte(tdStr), data); err != nil {
+				return false, err
 			}
-			log.Debugf("active release '%s.%s' available: %t", envRel.Active.Name, namespace, available)
-		}
-
-		if envRel.Latest != nil {
-			envRel.Latest.AppDeploymentAvailable = IsAppDeploymentAvailable(envRel.AppDepSpecLatest, compReadyMap)
-			log.Debugf("latest release '%s.%s' available: %t", envRel.Latest.Name, namespace, envRel.Latest.AppDeploymentAvailable)
-		}
-
-		if envRel.Latest != nil && envRel.Latest.AppDeploymentAvailable {
-			platformUpdate = true
-			if envRel.PlatformEnv.SupersededReleases == nil {
-				envRel.PlatformEnv.SupersededReleases = map[string]*v1alpha1.PlatformEnvRelease{}
+			if err := cm.DeleteTemplate(ctx, "component", data, log); err != nil {
+				return false, err
 			}
-
-			now := metav1.Now()
-			// Move all pending Releases to superseded.
-			for _, r := range pendingRelMap[envName] {
-				if r == envRel.Latest {
-					continue
-				}
-				r.SupersededTime = &now
-				r.AppDeploymentAvailable = false
-				r.LastTransitionTime = now
-				envRel.PlatformEnv.SupersededReleases[r.Name] = r
-			}
-
-			// Move active Releases to superseded.
-			if envRel.Active != nil {
-				envRel.Active.SupersededTime = &now
-				envRel.Active.AppDeploymentAvailable = false
-				envRel.Active.LastTransitionTime = now
-				envRel.PlatformEnv.SupersededReleases[envRel.Active.Name] = envRel.Active
-			}
-
-			envRel.Latest.ReleaseTime = &now
-			envRel.Latest.SupersededTime = nil
-			envRel.Latest.LastTransitionTime = now
-			envRel.PlatformEnv.Release = envRel.Latest
-		}
-	}
-	if platformUpdate {
-		if err := cm.Update(ctx, platform); err != nil {
-			return false, err
 		}
 	}
 

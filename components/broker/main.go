@@ -40,7 +40,7 @@ func main() {
 		BuildLoggerOrDie(config.LogFormat, config.LogLevel).
 		WithInstance(config.Instance).
 		WithPlatform(config.Platform).
-		WithService("broker")
+		WithPlatformComponent(api.PlatformComponentBroker)
 
 	engine.New().Start()
 }

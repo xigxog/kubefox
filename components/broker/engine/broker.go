@@ -19,10 +19,10 @@ import (
 	"github.com/xigxog/kubefox/components/broker/config"
 	"github.com/xigxog/kubefox/components/broker/telemetry"
 	kubefox "github.com/xigxog/kubefox/core"
+	"github.com/xigxog/kubefox/k8s"
 	"github.com/xigxog/kubefox/logkf"
 	"github.com/xigxog/kubefox/matcher"
 	authv1 "k8s.io/api/authentication/v1"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -149,7 +149,7 @@ func (brk *broker) Start() {
 	}
 	brk.healthSrv.Register(brk.natsClient)
 
-	if err := brk.store.Open(brk.natsClient.ComponentsKV()); err != nil {
+	if err := brk.store.Open(); err != nil {
 		brk.shutdown(ExitCodeResourceStore, err)
 	}
 
@@ -164,8 +164,7 @@ func (brk *broker) Start() {
 	}
 
 	brk.log.Infof("starting %d workers", config.NumWorkers)
-	brk.wg.Add(config.NumWorkers + 1) // +1 for reg updater
-	go brk.startRegUpdater()
+	brk.wg.Add(config.NumWorkers)
 	for i := 0; i < config.NumWorkers; i++ {
 		go brk.startWorker(i)
 	}
@@ -186,10 +185,6 @@ func (brk *broker) Subscribe(ctx context.Context, conf *SubscriptionConf) (Repli
 	}
 
 	if sub.IsGroupEnabled() {
-		if err := brk.store.RegisterComponent(ctx, conf.Component, conf.ComponentSpec); err != nil {
-			return nil, err
-		}
-
 		comp := sub.Component()
 		consumer := comp.GroupKey()
 		subj := comp.GroupSubject()
@@ -217,6 +212,7 @@ func (brk *broker) AuthorizeComponent(ctx context.Context, comp *kubefox.Compone
 		}
 	}
 
+	// TODO is this safe?
 	platformCompName := fmt.Sprintf("%s-%s", config.Platform, comp.Name)
 	if !strings.HasSuffix(svcAccName, comp.GroupKey()) && svcAccName != platformCompName {
 		return fmt.Errorf("service account name does not match component")
@@ -307,16 +303,20 @@ func (brk *broker) routeEvent(log *logkf.Logger, evt *BrokerEvent) error {
 	if err := brk.checkEvent(evt); err != nil {
 		return err
 	}
-
-	if err := brk.matchEvent(ctx, evt); err != nil {
+	if err := brk.findTarget(ctx, evt); err != nil {
 		return err
 	}
 
 	// Set log attributes after matching.
 	log = log.WithEvent(evt.Event)
-	log.Debug("matched event to target")
+	if evt.Target != nil {
+		log.Debugf("matched event to target '%s'", evt.Target)
+	}
 
-	if err := brk.matchComponents(ctx, evt); err != nil {
+	if err := brk.attachEnv(ctx, evt); err != nil {
+		return err
+	}
+	if err := brk.checkComponents(ctx, evt); err != nil {
 		return err
 	}
 
@@ -333,34 +333,25 @@ func (brk *broker) routeEvent(log *logkf.Logger, evt *BrokerEvent) error {
 		}
 	}
 
-	var sendEvent SendEvent
 	switch {
 	case evt.TargetAdapter != nil:
 		// Target is a local adapter.
-		sendEvent = func(evt *BrokerEvent) error {
-			log.Debug("sending event with http client adapter")
-			return brk.httpClient.SendEvent(evt)
-		}
+		log.Debugf("sending event with adapter of type '%s'", evt.TargetAdapter.Type)
+		return brk.httpClient.SendEvent(evt)
 
 	case sub != nil:
 		// Found component subscribed via gRPC.
-		sendEvent = func(evt *BrokerEvent) error {
-			log.Debug("subscription found, sending event with gRPC")
-			return sub.SendEvent(evt)
-		}
+		log.Debug("subscription found, sending event with gRPC")
+		return sub.SendEvent(evt)
 
 	case evt.Receiver != ReceiverNATS && evt.Target.BrokerId != brk.comp.Id:
 		// Component not found locally, send via NATS.
-		sendEvent = func(evt *BrokerEvent) error {
-			log.Debug("subscription not found, sending event with nats")
-			return brk.natsClient.Publish(evt.Target.Subject(), evt.Event)
-		}
+		log.Debug("subscription not found, sending event with nats")
+		return brk.natsClient.Publish(evt.Target.Subject(), evt.Event)
 
 	default:
 		return kubefox.ErrComponentGone()
 	}
-
-	return sendEvent(evt)
 }
 
 func (brk *broker) checkEvent(evt *BrokerEvent) error {
@@ -391,7 +382,7 @@ func (brk *broker) checkEvent(evt *BrokerEvent) error {
 		}
 
 		// If a valid context is not present reject.
-		if evt.Context == nil || !evt.Context.IsDeployment() && !evt.Context.IsRelease() {
+		if evt.Context == nil || (!evt.Context.IsDeployment() && !evt.Context.IsRelease()) {
 			return kubefox.ErrInvalid(fmt.Errorf("event context is invalid"))
 		}
 	}
@@ -399,8 +390,8 @@ func (brk *broker) checkEvent(evt *BrokerEvent) error {
 	return nil
 }
 
-func (brk *broker) matchEvent(ctx context.Context, evt *BrokerEvent) error {
-	if evt.Category == kubefox.Category_RESPONSE {
+func (brk *broker) findTarget(ctx context.Context, evt *BrokerEvent) error {
+	if evt.Target != nil && evt.Target.IsFull() {
 		return nil
 	}
 
@@ -419,14 +410,13 @@ func (brk *broker) matchEvent(ctx context.Context, evt *BrokerEvent) error {
 		return kubefox.ErrInvalid(fmt.Errorf("event missing deployment or environment context"))
 	}
 	if err != nil {
-		if apierrors.IsNotFound(err) {
+		if k8s.IsNotFound(err) {
 			return kubefox.ErrNotFound(err)
 		}
 		return kubefox.ErrUnexpected(err)
 	}
 
 	route, matched := matcher.Match(evt.Event)
-
 	switch {
 	case matched:
 		evt.RouteId = int64(route.Id)
@@ -444,6 +434,10 @@ func (brk *broker) matchEvent(ctx context.Context, evt *BrokerEvent) error {
 		return kubefox.ErrRouteNotFound()
 	}
 
+	return nil
+}
+
+func (brk *broker) attachEnv(ctx context.Context, evt *BrokerEvent) error {
 	// TODO environment checks
 	// - only copy env vars required by component in spec
 	// - check for required vars
@@ -455,23 +449,23 @@ func (brk *broker) matchEvent(ctx context.Context, evt *BrokerEvent) error {
 		if env, err := brk.store.ReleaseEnv(evt.Context.Release); err != nil {
 			return kubefox.ErrNotFound(err)
 		} else {
-			evt.EnvVars = env.Data.Vars
-			evt.Adapters = env.Data.Adapters
+			evt.EnvVars = env.GetData().Vars
+			evt.Adapters = env.GetData().Adapters
 		}
 
 	case evt.Context.IsDeployment():
 		if env, err := brk.store.Environment(evt.Context.Environment); err != nil {
 			return kubefox.ErrNotFound(err)
 		} else {
-			evt.EnvVars = env.Data.Vars
-			evt.Adapters = env.Data.Adapters
+			evt.EnvVars = env.GetData().Vars
+			evt.Adapters = env.GetData().Adapters
 		}
 	}
 
 	return nil
 }
 
-func (brk *broker) matchComponents(ctx context.Context, evt *BrokerEvent) error {
+func (brk *broker) checkComponents(ctx context.Context, evt *BrokerEvent) error {
 	if evt.Target == nil || evt.Target.Name == "" || evt.Context == nil {
 		return kubefox.ErrComponentMismatch()
 	}
@@ -486,7 +480,7 @@ func (brk *broker) matchComponents(ctx context.Context, evt *BrokerEvent) error 
 	case evt.Context.IsDeployment():
 		appDep, err = brk.store.AppDeployment(evt.Context.Deployment)
 	default:
-		if apierrors.IsNotFound(err) {
+		if k8s.IsNotFound(err) {
 			return kubefox.ErrNotFound(err)
 		}
 		return kubefox.ErrUnexpected()
@@ -515,9 +509,9 @@ func (brk *broker) matchComponents(ctx context.Context, evt *BrokerEvent) error 
 
 	case evt.Target.Commit == "" && evt.RouteId == api.DefaultRouteId:
 		evt.Target.Commit = depComp.Commit
-		reg, err := brk.store.Component(ctx, evt.Target)
-		if err != nil {
-			return kubefox.ErrUnexpected(err)
+		reg, found := brk.store.Component(ctx, evt.Target)
+		if !found {
+			return kubefox.ErrNotFound(fmt.Errorf("target component not found"))
 		}
 		if !reg.DefaultHandler {
 			return kubefox.ErrRouteNotFound(fmt.Errorf("target component does not have default handler"))
@@ -548,39 +542,6 @@ func (brk *broker) matchComponents(ctx context.Context, evt *BrokerEvent) error 
 	}
 
 	return nil
-}
-
-func (brk *broker) startRegUpdater() {
-	log := brk.log.With(logkf.KeyWorker, "registration-updater")
-	defer func() {
-		log.Info("registration-updater stopped")
-		brk.wg.Done()
-	}()
-
-	ticker := time.NewTicker(ComponentsTTL / 2)
-	for {
-		select {
-		case <-ticker.C:
-			brk.updateReg(log)
-
-		case <-brk.ctx.Done():
-			return
-		}
-	}
-}
-
-func (brk *broker) updateReg(log *logkf.Logger) {
-	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
-	defer cancel()
-
-	for _, sub := range brk.subMgr.Subscriptions() {
-		if !sub.IsGroupEnabled() {
-			continue
-		}
-		if err := brk.store.RegisterComponent(ctx, sub.Component(), sub.ComponentSpec()); err != nil {
-			log.Error("error updating component registration: %v", err)
-		}
-	}
 }
 
 func (brk *broker) shutdown(code int, err error) {

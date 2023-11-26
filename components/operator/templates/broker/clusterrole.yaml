@@ -5,7 +5,7 @@ rules:
   - apiGroups:
       - kubefox.xigxog.io
     resources:
-      - environments
+      - "*"
     verbs:
       - list
       - get

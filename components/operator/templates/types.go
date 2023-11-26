@@ -41,12 +41,13 @@ type Component struct {
 	common.PodSpec
 	common.ContainerSpec
 
-	Name            string
-	App             string
-	Commit          string
-	Image           string
-	ImagePullPolicy string
-	ImagePullSecret string
+	Name                string
+	App                 string
+	Commit              string
+	Image               string
+	ImagePullPolicy     string
+	ImagePullSecret     string
+	IsPlatformComponent bool
 }
 
 type ResourceList struct {
@@ -93,6 +94,9 @@ func (d Data) ComponentFullName() string {
 	commit := d.Component.Commit
 	if len(d.Component.Commit) > 7 {
 		commit = commit[0:7]
+	}
+	if d.Component.IsPlatformComponent {
+		commit = ""
 	}
 
 	name := d.Component.App

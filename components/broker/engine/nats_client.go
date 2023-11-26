@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/nats-io/nats.go"
-	"github.com/nats-io/nats.go/jetstream"
 	"github.com/xigxog/kubefox/api"
 	"github.com/xigxog/kubefox/components/broker/config"
 	kubefox "github.com/xigxog/kubefox/core"
@@ -33,8 +32,7 @@ var (
 type RecvMsg func(*nats.Msg)
 
 type NATSClient struct {
-	nc     *nats.Conn
-	compKV jetstream.KeyValue
+	nc *nats.Conn
 
 	consumerMap map[string]bool
 
@@ -75,30 +73,7 @@ func (c *NATSClient) Connect(ctx context.Context) error {
 		return c.log.ErrorN("connecting to NATS failed: %v", err)
 	}
 
-	if err := c.setupCompsKV(ctx); err != nil {
-		return err
-	}
-
 	c.log.Info("nats client connected")
-	return nil
-}
-
-func (c *NATSClient) setupCompsKV(ctx context.Context) (err error) {
-	js, err := jetstream.New(c.nc)
-	if err != nil {
-		return c.log.ErrorN("connecting to JetStream failed: %v", err)
-	}
-
-	c.compKV, err = js.CreateKeyValue(ctx, jetstream.KeyValueConfig{
-		Bucket:      compBucket,
-		Description: "Durable key/value store used by Brokers to register Components. Values are retained for 12 hours.",
-		Storage:     jetstream.FileStorage,
-		TTL:         ComponentsTTL,
-	})
-	if err != nil {
-		return c.log.ErrorN("unable to create components key/value store: %v", err)
-	}
-
 	return nil
 }
 
@@ -110,10 +85,6 @@ func (c *NATSClient) Close() {
 	if c.nc != nil {
 		c.nc.Drain()
 	}
-}
-
-func (c *NATSClient) ComponentsKV() jetstream.KeyValue {
-	return c.compKV
 }
 
 func (c *NATSClient) Request(subject string, evt *kubefox.Event) error {
@@ -150,10 +121,9 @@ func (c *NATSClient) Msg(subject string, evt *kubefox.Event) (*nats.Msg, error) 
 	}
 
 	h := make(nats.Header)
-	// Note, use of `Nats-Msg-Id` enables de-dupe and increases NATS mem usage.
 	h.Set(CloudEventId, evt.Id)
 
-	// Headers create sizeable overhead for storage. Disabling most for now.
+	// Headers create sizeable overhead for small msgs. Disabling most for now.
 	//
 	// h.Set("ce_specversion", "1.0")
 	// h.Set("ce_type", evt.Type)

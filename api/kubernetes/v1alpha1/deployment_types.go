@@ -15,10 +15,10 @@ import (
 
 // AppDeploymentSpec defines the desired state of AppDeployment
 type AppDeploymentSpec struct {
+	App App `json:"app"`
 	// Version of the App. Use of semantic versioning is recommended. Once set
 	// the AppDeployment spec becomes immutable.
 	Version string `json:"version,omitempty"`
-	App     App    `json:"app"`
 	// +kubebuilder:validation:MinProperties=1
 	Components map[string]*Component `json:"components"`
 }
@@ -47,9 +47,7 @@ type Component struct {
 // AppDeploymentStatus defines the observed state of AppDeployment
 type AppDeploymentStatus struct {
 	// +kubebuilder:validation:Optional
-	Ready bool `json:"ready"`
-	// // +kubebuilder:validation:Optional
-	// UpdateTime metav1.Time `json:"updateTime"`
+	Available bool `json:"available"`
 }
 
 // AppDeploymentDetails defines additional details of AppDeployment
@@ -60,7 +58,6 @@ type AppDeploymentDetails struct {
 
 //+kubebuilder:object:root=true
 //+kubebuilder:subresource:status
-//+kubebuilder:subresource:details
 
 // AppDeployment is the Schema for the AppDeployments API
 type AppDeployment struct {
