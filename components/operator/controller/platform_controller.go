@@ -81,9 +81,17 @@ func (r *PlatformReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 
 	p, err := r.reconcile(ctx, req, log)
 	if p != nil {
+		curStatus := p.Status
+
 		p.Status.Available = (err == nil)
-		if err := r.updateStatus(ctx, p); err != nil {
+		if err := r.updateComponentsStatus(ctx, p); err != nil {
 			r.log.Error(err)
+		}
+
+		if !k8s.DeepEqual(curStatus, p.Status) {
+			if err := r.Status().Update(ctx, p); err != nil {
+				r.log.Error(err)
+			}
 		}
 
 		if err == nil {
@@ -230,7 +238,7 @@ func (r *PlatformReconciler) reconcile(ctx context.Context, req ctrl.Request, lo
 	return p, nil
 }
 
-func (r *PlatformReconciler) updateStatus(ctx context.Context, p *v1alpha1.Platform) error {
+func (r *PlatformReconciler) updateComponentsStatus(ctx context.Context, p *v1alpha1.Platform) error {
 	p.Status.Components = nil
 
 	podList := &v1.PodList{}
@@ -254,7 +262,7 @@ func (r *PlatformReconciler) updateStatus(ctx context.Context, p *v1alpha1.Platf
 		})
 	}
 
-	return r.Status().Update(ctx, p)
+	return nil
 }
 
 // TODO break operations into funcs and move to reusable vault client

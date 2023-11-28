@@ -329,6 +329,7 @@ func (brk *broker) routeEvent(log *logkf.Logger, evt *BrokerEvent) error {
 			sub, _ = brk.subMgr.ReplicaSubscription(evt.Target)
 
 		case evt.Target.Id == "":
+
 			sub, _ = brk.subMgr.GroupSubscription(evt.Target)
 		}
 	}

@@ -18,6 +18,7 @@ import (
 	"github.com/xigxog/kubefox/api/kubernetes/v1alpha1"
 	"github.com/xigxog/kubefox/k8s"
 	"github.com/xigxog/kubefox/logkf"
+	"github.com/xigxog/kubefox/utils"
 )
 
 // AppDeploymentReconciler reconciles a AppDeployment object
@@ -71,6 +72,7 @@ func (r *AppDeploymentReconciler) reconcile(ctx context.Context, req ctrl.Reques
 
 	k8s.UpdateLabel(appDep, api.LabelK8sAppVersion, appDep.Spec.Version)
 	k8s.UpdateLabel(appDep, api.LabelK8sAppCommit, appDep.Spec.App.Commit)
+	k8s.UpdateLabel(appDep, api.LabelK8sAppCommitShort, utils.ShortCommit(appDep.Spec.App.Commit))
 	k8s.UpdateLabel(appDep, api.LabelK8sAppTag, appDep.Spec.App.Tag)
 	k8s.UpdateLabel(appDep, api.LabelK8sAppBranch, appDep.Spec.App.Branch)
 

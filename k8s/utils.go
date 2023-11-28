@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/xigxog/kubefox/api"
 	kubefox "github.com/xigxog/kubefox/core"
 	"github.com/xigxog/kubefox/utils"
 	v1 "k8s.io/api/core/v1"
@@ -13,6 +14,12 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
+
+func init() {
+	equality.Semantic.AddFunc(func(lhs, rhs *api.Val) bool {
+		return lhs.Equals(rhs)
+	})
+}
 
 func Key(namespace, name string) types.NamespacedName {
 	return types.NamespacedName{
@@ -87,6 +94,13 @@ func IsNotFound(err error) bool {
 		return false
 	}
 	return apierrors.IsNotFound(err) || errors.Is(err, kubefox.ErrNotFound())
+}
+
+func IsAlreadyExists(err error) bool {
+	if err == nil {
+		return false
+	}
+	return apierrors.IsAlreadyExists(err)
 }
 
 func ToString(obj client.Object) string {

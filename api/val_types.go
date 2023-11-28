@@ -23,7 +23,7 @@ const (
 )
 
 type Val struct {
-	booVal      bool      `json:"-"`
+	boolVal     bool      `json:"-"`
 	numVal      float64   `json:"-"`
 	strVal      string    `json:"-"`
 	arrayNumVal []float64 `json:"-"`
@@ -86,7 +86,7 @@ func ValNil() *Val {
 }
 
 func ValBool(val bool) *Val {
-	return &Val{Type: Bool, booVal: val}
+	return &Val{Type: Bool, boolVal: val}
 }
 
 func ValInt(val int) *Val {
@@ -119,7 +119,7 @@ func ValArrayString(val []string) *Val {
 func (val *Val) Any() any {
 	switch val.Type {
 	case Bool:
-		return val.booVal
+		return val.boolVal
 	case Number:
 		return val.numVal
 	case String:
@@ -136,7 +136,7 @@ func (val *Val) Any() any {
 func (val *Val) Proto() *structpb.Value {
 	switch val.Type {
 	case Bool:
-		return structpb.NewBoolValue(val.booVal)
+		return structpb.NewBoolValue(val.boolVal)
 	case Number:
 		return structpb.NewNumberValue(val.numVal)
 	case String:
@@ -161,7 +161,7 @@ func (val *Val) Proto() *structpb.Value {
 func (val *Val) Bool() bool {
 	switch val.Type {
 	case Bool:
-		return val.booVal
+		return val.boolVal
 	case Number:
 		if val.numVal == 0 {
 			return false
@@ -180,7 +180,7 @@ func (val *Val) BoolDef(def bool) bool {
 	if val.Type != Bool {
 		return def
 	}
-	return val.booVal
+	return val.boolVal
 }
 
 // Int returns the int value if type is Number. If type is Bool 1 will be
@@ -205,7 +205,7 @@ func (val *Val) IntDef(def int) int {
 func (val *Val) Float() float64 {
 	switch val.Type {
 	case Bool:
-		if val.booVal {
+		if val.boolVal {
 			return 1
 		} else {
 			return 0
@@ -234,7 +234,7 @@ func (val *Val) FloatDef(def float64) float64 {
 func (val *Val) String() string {
 	switch val.Type {
 	case Bool:
-		return fmt.Sprintf("%t", val.booVal)
+		return fmt.Sprintf("%t", val.boolVal)
 	case Number:
 		return ftos(val.numVal)
 	case String:
@@ -298,6 +298,17 @@ func (val *Val) ArrayString() []string {
 	return nil
 }
 
+func (val *Val) Equals(rhs *Val) bool {
+	if val == nil && rhs == nil {
+		return true
+	}
+	if val == nil || rhs == nil {
+		return false
+	}
+
+	return val.Type == rhs.Type && val.Any() == rhs.Any()
+}
+
 func (val *Val) IsUnknown() bool {
 	return val.Type == Unknown
 }
@@ -359,10 +370,8 @@ func (val *Val) UnmarshalJSON(value []byte) error {
 		val.Type = String
 		return nil
 
-	case 't':
-		fallthrough
-	case 'f':
-		if err := json.Unmarshal(value, &val.booVal); err != nil {
+	case 't', 'f':
+		if err := json.Unmarshal(value, &val.boolVal); err != nil {
 			return err
 		}
 		val.Type = Bool
@@ -389,7 +398,7 @@ func (val *Val) MarshalJSON() ([]byte, error) {
 	case Nil:
 		return json.Marshal(nil)
 	case Bool:
-		return json.Marshal(val.booVal)
+		return json.Marshal(val.boolVal)
 	case Number:
 		return json.Marshal(val.numVal)
 	case String:

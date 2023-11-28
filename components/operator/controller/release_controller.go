@@ -16,6 +16,7 @@ import (
 	"github.com/xigxog/kubefox/api/kubernetes/v1alpha1"
 	"github.com/xigxog/kubefox/k8s"
 	"github.com/xigxog/kubefox/logkf"
+	"github.com/xigxog/kubefox/utils"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -126,6 +127,7 @@ func (r *ReleaseReconciler) reconcile(ctx context.Context, req ctrl.Request, log
 		log.Debugf("found AppDeployment '%s'", appDep.Name)
 
 		k8s.UpdateLabel(rel, api.LabelK8sAppCommit, appDep.Spec.App.Commit)
+		k8s.UpdateLabel(rel, api.LabelK8sAppCommitShort, utils.ShortCommit(appDep.Spec.App.Commit))
 		k8s.UpdateLabel(rel, api.LabelK8sAppTag, appDep.Spec.App.Tag)
 		k8s.UpdateLabel(rel, api.LabelK8sAppBranch, appDep.Spec.App.Branch)
 
@@ -154,6 +156,7 @@ func (r *ReleaseReconciler) reconcile(ctx context.Context, req ctrl.Request, log
 	case k8s.IsNotFound(err):
 		myStatus.AvailableTime = nil
 		k8s.RemoveLabel(rel, api.LabelK8sAppCommit)
+		k8s.RemoveLabel(rel, api.LabelK8sAppCommitShort)
 		k8s.RemoveLabel(rel, api.LabelK8sAppTag)
 		k8s.RemoveLabel(rel, api.LabelK8sAppBranch)
 		// TODO set condition
@@ -166,7 +169,8 @@ func (r *ReleaseReconciler) reconcile(ctx context.Context, req ctrl.Request, log
 		appDepPolicy api.AppDeploymentPolicy = api.AppDeploymentPolicyVersionRequired
 		envPolicy    api.VirtualEnvPolicy    = api.VirtualEnvPolicySnapshotRequired
 	)
-	envObj, err := r.GetVirtualEnvObj(ctx, rel.Namespace, rel.Name, rel.Spec.VirtualEnvSnapshot)
+	envId := utils.First(rel.Spec.VirtualEnvSnapshot, rel.Name)
+	envObj, err := r.GetVirtualEnvObj(ctx, rel.Namespace, envId, rel.Spec.VirtualEnvSnapshot != "")
 	switch {
 	case err == nil:
 		if envObj.GetEnvName() != rel.Name {

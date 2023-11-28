@@ -122,63 +122,63 @@ func init() {
 	SchemeBuilder.Register(&VirtualEnv{}, &VirtualEnvList{})
 }
 
-func Merge(src, dest VirtualEnvObject) {
-	if dest.GetData().Vars == nil {
-		dest.GetData().Vars = map[string]*api.Val{}
+func MergeVirtualEnvironment(dst, src VirtualEnvObject) {
+	if dst.GetData().Vars == nil {
+		dst.GetData().Vars = map[string]*api.Val{}
 	}
 	if src.GetDetails().Vars == nil {
 		src.GetDetails().Vars = map[string]api.Details{}
 	}
 	for k, v := range src.GetData().Vars {
-		dest.GetData().Vars[k] = v
+		dst.GetData().Vars[k] = v
 		if details, found := src.GetDetails().Vars[k]; found {
-			snapshotDetails := dest.GetDetails().Vars[k]
+			snapshotDetails := dst.GetDetails().Vars[k]
 			if details.Title != "" {
 				snapshotDetails.Title = details.Title
 			}
 			if details.Description != "" {
 				snapshotDetails.Description = details.Description
 			}
-			dest.GetDetails().Vars[k] = snapshotDetails
+			dst.GetDetails().Vars[k] = snapshotDetails
 		}
 	}
 
-	if dest.GetData().Adapters == nil {
-		dest.GetData().Adapters = map[string]*EnvAdapter{}
+	if dst.GetData().Adapters == nil {
+		dst.GetData().Adapters = map[string]*EnvAdapter{}
 	}
 	if src.GetDetails().Adapters == nil {
 		src.GetDetails().Adapters = map[string]api.Details{}
 	}
 	for k, v := range src.GetData().Adapters {
-		dest.GetData().Adapters[k] = v
+		dst.GetData().Adapters[k] = v
 		if details, found := src.GetDetails().Adapters[k]; found {
-			snapshotDetails := dest.GetDetails().Adapters[k]
+			snapshotDetails := dst.GetDetails().Adapters[k]
 			if details.Title != "" {
 				snapshotDetails.Title = details.Title
 			}
 			if details.Description != "" {
 				snapshotDetails.Description = details.Description
 			}
-			dest.GetDetails().Adapters[k] = snapshotDetails
+			dst.GetDetails().Adapters[k] = snapshotDetails
 		}
 	}
 
 	if src.GetReleasePolicy() != nil {
-		if dest.GetReleasePolicy() == nil {
-			dest.SetReleasePolicy(&EnvReleasePolicy{})
+		if dst.GetReleasePolicy() == nil {
+			dst.SetReleasePolicy(&EnvReleasePolicy{})
 		}
 		if src.GetReleasePolicy().AppDeploymentPolicy != "" {
-			dest.GetReleasePolicy().AppDeploymentPolicy = src.GetReleasePolicy().AppDeploymentPolicy
+			dst.GetReleasePolicy().AppDeploymentPolicy = src.GetReleasePolicy().AppDeploymentPolicy
 		}
 		if src.GetReleasePolicy().VirtualEnvPolicy != "" {
-			dest.GetReleasePolicy().VirtualEnvPolicy = src.GetReleasePolicy().VirtualEnvPolicy
+			dst.GetReleasePolicy().VirtualEnvPolicy = src.GetReleasePolicy().VirtualEnvPolicy
 		}
 	}
 
 	if src.GetDetails().Title != "" {
-		dest.GetDetails().Title = src.GetDetails().Title
+		dst.GetDetails().Title = src.GetDetails().Title
 	}
 	if src.GetDetails().Description != "" {
-		dest.GetDetails().Description = src.GetDetails().Description
+		dst.GetDetails().Description = src.GetDetails().Description
 	}
 }

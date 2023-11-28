@@ -15,6 +15,7 @@ func main() {
 	k := kit.New()
 
 	backend = k.Component("backend")
+	// TODO mark env var as unique
 	k.Route("Path(`/{{.Env.subPath}}/hello`)", sayHello)
 
 	k.Start()

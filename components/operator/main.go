@@ -136,6 +136,12 @@ func main() {
 	}).SetupWithManager(mgr); err != nil {
 		log.Fatalf("unable to create Platform controller: %v", err)
 	}
+	if err = (&controller.EnvironmentReconciler{
+		Client:  ctrlClient,
+		CompMgr: compMgr,
+	}).SetupWithManager(mgr); err != nil {
+		log.Fatalf("unable to create VirtualEnvironmentSnapshot controller: %v", err)
+	}
 	if err = (&controller.AppDeploymentReconciler{
 		Client:  ctrlClient,
 		CompMgr: compMgr,

@@ -163,8 +163,9 @@ func (cm *ComponentManager) ReconcileApps(ctx context.Context, namespace string)
 					},
 					Component: templates.Component{
 						Name:            n,
-						App:             d.App.Name,
 						Commit:          c.Commit,
+						App:             d.App.Name,
+						AppCommit:       d.App.Commit,
 						Image:           image,
 						ImagePullPolicy: d.App.ImagePullSecretName,
 					},

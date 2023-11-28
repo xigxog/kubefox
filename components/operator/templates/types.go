@@ -42,8 +42,9 @@ type Component struct {
 	common.ContainerSpec
 
 	Name                string
-	App                 string
 	Commit              string
+	App                 string
+	AppCommit           string
 	Image               string
 	ImagePullPolicy     string
 	ImagePullSecret     string

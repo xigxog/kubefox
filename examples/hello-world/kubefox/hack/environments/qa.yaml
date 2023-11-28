@@ -1,5 +1,5 @@
 apiVersion: kubefox.xigxog.io/v1alpha1
-kind: Environment
+kind: VirtualEnvironment
 metadata:
   name: qa
 spec:

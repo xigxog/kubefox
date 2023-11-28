@@ -130,7 +130,6 @@ func (str *Store) Component(ctx context.Context, comp *kubefox.Component) (*api.
 	return str.compCache.Get(comp.GroupKey())
 }
 
-// TODO need to register all genesis adapters. Perhaps operator adds to Platform status?
 func (str *Store) IsGenesisAdapter(ctx context.Context, comp *kubefox.Component) bool {
 	r, found := str.Component(ctx, comp)
 	if !found {
@@ -169,9 +168,9 @@ func (str *Store) Environment(name string) (v1alpha1.VirtualEnvObject, error) {
 			if err := str.get(env.Spec.Parent, clusterEnv, false); err != nil {
 				return nil, err
 			}
-			v1alpha1.Merge(clusterEnv, envSnap)
+			v1alpha1.MergeVirtualEnvironment(envSnap, clusterEnv)
 		}
-		v1alpha1.Merge(env, envSnap)
+		v1alpha1.MergeVirtualEnvironment(envSnap, env)
 
 		return envSnap, nil
 

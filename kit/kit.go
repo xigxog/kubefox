@@ -38,6 +38,10 @@ type kit struct {
 	log *logkf.Logger
 }
 
+type kitRoute struct {
+	*kit
+}
+
 func New() Kit {
 	svc := &kit{
 		routes: make([]*route, 0),
@@ -122,7 +126,7 @@ func (svc *kit) Description(description string) {
 	svc.spec.Title = description
 }
 
-func (svc *kit) Route(rule string, handler EventHandler) {
+func (svc *kit) Route(rule string, handler EventHandler) KitRoute {
 	r := &route{
 		RouteSpec: api.RouteSpec{
 			Id:   len(svc.routes),
@@ -132,6 +136,8 @@ func (svc *kit) Route(rule string, handler EventHandler) {
 	}
 	svc.routes = append(svc.routes, r)
 	svc.spec.Routes = append(svc.spec.Routes, r.RouteSpec)
+
+	return &kitRoute{kit: svc}
 }
 
 func (svc *kit) Default(handler EventHandler) {
@@ -154,6 +160,11 @@ func (svc *kit) EnvVar(name string, opts ...env.VarOption) EnvVar {
 	svc.spec.EnvSchema[name] = schema
 
 	return env.NewVar(name, schema.Type)
+}
+
+func (r *kitRoute) EnvVar(name string, opts ...env.VarOption) KitRoute {
+	r.kit.EnvVar(name, opts...)
+	return r
 }
 
 func (svc *kit) Component(name string) Dependency {

@@ -76,6 +76,26 @@ func ByteArrayToUInt(b []byte) uint64 {
 	return *(*uint64)(unsafe.Pointer(&b[0]))
 }
 
+func ShortCommit(commit string) string {
+	if len(commit) < 7 {
+		return ""
+	}
+
+	return commit[0:7]
+}
+
+// First returns the first non-empty string. If all strings are empty then empty
+// string is returned.
+func First(strs ...string) string {
+	for _, s := range strs {
+		if s != "" {
+			return s
+		}
+	}
+
+	return ""
+}
+
 // CleanName returns name with all special characters replaced with dashes and
 // set to lowercase. If name is a path only the basename is used.
 //
@@ -86,6 +106,10 @@ func CleanName(name string) string {
 	cleaned = RegexpNameSpecialChar.ReplaceAllLiteralString(cleaned, "-")
 	cleaned = strings.TrimPrefix(strings.TrimSuffix(cleaned, "-"), "-")
 	return cleaned
+}
+
+func IsValidName(name string) bool {
+	return name == CleanName(name)
 }
 
 // CleanLabel returns the label value with all special characters replaced with

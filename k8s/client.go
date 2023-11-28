@@ -2,9 +2,11 @@ package k8s
 
 import (
 	"context"
+	"fmt"
+	"time"
 
 	"github.com/xigxog/kubefox/api/kubernetes/v1alpha1"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 	cmd "k8s.io/client-go/tools/clientcmd"
@@ -56,7 +58,7 @@ func (c *Client) Upsert(ctx context.Context, obj client.Object, dryRun bool) err
 		opts = append(opts, client.DryRunAll)
 	}
 	err := c.Create(ctx, obj, opts...)
-	if apierrors.IsAlreadyExists(err) {
+	if IsAlreadyExists(err) {
 		copy := obj.DeepCopyObject().(client.Object)
 		if err := c.Get(ctx, client.ObjectKey{Namespace: obj.GetNamespace(), Name: obj.GetName()}, copy); err != nil {
 			return err
@@ -100,23 +102,80 @@ func (c *Client) ApplyStatus(ctx context.Context, obj client.Object, opts ...cli
 	return c.Status().Patch(ctx, obj, client.Apply, opts...)
 }
 
-func (r *Client) GetVirtualEnvObj(ctx context.Context, namespace, envName, snapshotName string) (v1alpha1.VirtualEnvObject, error) {
-	if snapshotName != "" {
-		env := &v1alpha1.VirtualEnvSnapshot{}
-		return env, r.Get(ctx, Key(namespace, envName), env)
+func (r *Client) GetVirtualEnvObj(ctx context.Context, namespace, envId string, requireSnapshot bool) (v1alpha1.VirtualEnvObject, error) {
+	var (
+		obj v1alpha1.VirtualEnvObject
+		err error
+	)
+
+	obj = &v1alpha1.VirtualEnvSnapshot{}
+	if err = r.Get(ctx, Key(namespace, envId), obj); IgnoreNotFound(err) != nil {
+		return nil, err
+	} else if IsNotFound(err) && requireSnapshot {
+		return nil, err
+	} else if err == nil {
+		return obj, nil
 	}
 
-	env := &v1alpha1.VirtualEnv{}
-	err := r.Get(ctx, Key(namespace, envName), env)
-	switch {
-	case err == nil:
-		return env, nil
+	obj = &v1alpha1.VirtualEnv{}
+	if err = r.Get(ctx, Key(namespace, envId), obj); IgnoreNotFound(err) != nil {
+		return nil, err
+	} else if err == nil {
+		return obj, nil
+	}
 
-	case apierrors.IsNotFound(err):
-		env := &v1alpha1.ClusterVirtualEnv{}
-		return env, r.Get(ctx, Key("", envName), env)
+	obj = &v1alpha1.ClusterVirtualEnv{}
+	if err = r.Get(ctx, Key("", envId), obj); IgnoreNotFound(err) != nil {
+		return nil, err
+	} else if err == nil {
+		return obj, nil
+	}
 
-	default:
+	return nil, err
+}
+
+func (r *Client) SnapshotVirtualEnv(ctx context.Context, namespace, envName string) (*v1alpha1.VirtualEnvSnapshot, error) {
+	envObj, err := r.GetVirtualEnvObj(ctx, namespace, envName, false)
+	if err != nil {
 		return nil, err
 	}
+
+	envSnapshot := &v1alpha1.VirtualEnvSnapshot{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: v1alpha1.GroupVersion.Identifier(),
+			Kind:       "VirtualEnvSnapshot",
+		},
+	}
+	if envObj.GetParent() != "" {
+		// Parent must be ClusterVirtualEnv so clear namespace.
+		parent := &v1alpha1.ClusterVirtualEnv{}
+		if err := r.Get(ctx, Key("", envObj.GetParent()), parent); err != nil {
+			return nil, err
+		}
+		v1alpha1.MergeVirtualEnvironment(envSnapshot, parent)
+	}
+
+	v1alpha1.MergeVirtualEnvironment(envSnapshot, envObj)
+
+	var kind string
+	switch envObj.(type) {
+	case *v1alpha1.VirtualEnvSnapshot:
+		kind = "VirtualEnvSnapshot"
+	case *v1alpha1.VirtualEnv:
+		kind = "VirtualEnv"
+	case *v1alpha1.ClusterVirtualEnv:
+		kind = "ClusterVirtualEnv"
+	}
+
+	now := time.Now()
+	envSnapshot.Data.SnapshotTime = metav1.NewTime(now)
+	envSnapshot.Name = fmt.Sprintf("%s-%s-%s", envName, envObj.GetResourceVersion(), now.UTC().Format("20060102-150405"))
+	envSnapshot.Namespace = namespace
+	envSnapshot.Data.Source = v1alpha1.EnvSource{
+		Kind:            kind,
+		Name:            envName,
+		ResourceVersion: envObj.GetResourceVersion(),
+	}
+
+	return envSnapshot, nil
 }

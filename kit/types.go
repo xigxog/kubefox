@@ -16,7 +16,7 @@ type EventHandler func(kit Kontext) error
 type Kit interface {
 	Start()
 
-	Route(string, EventHandler)
+	Route(string, EventHandler) KitRoute
 	Default(EventHandler)
 
 	EnvVar(name string, opts ...env.VarOption) EnvVar
@@ -28,6 +28,10 @@ type Kit interface {
 	Description(description string)
 
 	Log() *logkf.Logger
+}
+
+type KitRoute interface {
+	EnvVar(name string, opts ...env.VarOption) KitRoute
 }
 
 type Kontext interface {
