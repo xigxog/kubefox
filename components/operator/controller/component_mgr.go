@@ -121,16 +121,11 @@ func (cm *ComponentManager) ReconcileApps(ctx context.Context, namespace string)
 		return false, nil
 	}
 
-	depList := &v1alpha1.AppDeploymentList{}
-	if err := cm.List(ctx, depList, client.InNamespace(platform.Namespace)); err != nil {
+	appDepList := &v1alpha1.AppDeploymentList{}
+	if err := cm.List(ctx, appDepList, client.InNamespace(platform.Namespace)); err != nil {
 		return false, err
 	}
-	log.Debugf("found %d AppDeployments", len(depList.Items))
-
-	specs := map[string]*v1alpha1.AppDeploymentSpec{}
-	for _, d := range depList.Items {
-		specs[d.Name] = &d.Spec
-	}
+	log.Debugf("found %d AppDeployments", len(appDepList.Items))
 
 	compDepList := &appsv1.DeploymentList{}
 	if err := cm.List(ctx, compDepList,
@@ -145,11 +140,11 @@ func (cm *ComponentManager) ReconcileApps(ctx context.Context, namespace string)
 		maxEventSize = api.DefaultMaxEventSizeBytes
 	}
 	compMap := make(map[string]TemplateData)
-	for _, d := range specs {
-		for n, c := range d.Components {
-			image := c.Image
+	for _, appDep := range appDepList.Items {
+		for compName, comp := range appDep.Spec.Components {
+			image := comp.Image
 			if image == "" {
-				image = fmt.Sprintf("%s/%s:%s", d.App.ContainerRegistry, n, c.Commit)
+				image = fmt.Sprintf("%s/%s:%s", appDep.Spec.App.ContainerRegistry, compName, comp.Commit)
 			}
 			td := TemplateData{
 				Data: templates.Data{
@@ -162,12 +157,12 @@ func (cm *ComponentManager) ReconcileApps(ctx context.Context, namespace string)
 						Namespace: platform.Namespace,
 					},
 					Component: templates.Component{
-						Name:            n,
-						Commit:          c.Commit,
-						App:             d.App.Name,
-						AppCommit:       d.App.Commit,
+						Name:            compName,
+						Commit:          comp.Commit,
+						App:             appDep.Spec.App.Name,
+						AppCommit:       appDep.Spec.App.Commit,
 						Image:           image,
-						ImagePullPolicy: d.App.ImagePullSecretName,
+						ImagePullPolicy: appDep.Spec.App.ImagePullSecretName,
 					},
 					Owner: []*metav1.OwnerReference{
 						metav1.NewControllerRef(platform, platform.GroupVersionKind()),
@@ -198,7 +193,7 @@ func (cm *ComponentManager) ReconcileApps(ctx context.Context, namespace string)
 		compReadyMap[CompReadyKey(compTD.Component.Name, compTD.Component.Commit)] = available
 	}
 
-	for _, d := range depList.Items {
+	for _, d := range appDepList.Items {
 		available := IsAppDeploymentAvailable(&d.Spec, compReadyMap)
 		if d.Status.Available != available {
 			d.Status.Available = available

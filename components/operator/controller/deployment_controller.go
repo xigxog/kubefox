@@ -54,9 +54,6 @@ func (r *AppDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 	}
 
 	log.Debugf("reconciling AppDeployment '%s.%s' done", req.Name, req.Namespace)
-	if _, err := r.CompMgr.ReconcileApps(ctx, req.Namespace); err != nil {
-		return ctrl.Result{}, err
-	}
 
 	return ctrl.Result{}, nil
 }
@@ -79,6 +76,10 @@ func (r *AppDeploymentReconciler) reconcile(ctx context.Context, req ctrl.Reques
 	if !k8s.DeepEqual(curAppDep.ObjectMeta, appDep.ObjectMeta) {
 		log.Debug("AppDeployment updated, persisting")
 		return r.Update(ctx, appDep)
+	}
+
+	if _, err := r.CompMgr.ReconcileApps(ctx, req.Namespace); err != nil {
+		return err
 	}
 
 	// TODO update conditions
