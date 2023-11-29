@@ -174,7 +174,9 @@ Run the following commands to continue. Note the changes to the two environment
 variables on lines numbered 11,12 and 23,24.
 
 ```{ .shell .copy }
-cat -b hack/environments/* && kubectl apply --namespace kubefox-demo --filename hack/environments/
+cat -b hack/environments/* && \
+  kubectl create namespace kubefox-demo && \
+  kubectl apply --namespace kubefox-demo --filename hack/environments/
 ```
 
 ??? example "Output"
@@ -588,10 +590,10 @@ git add . && \
     metadata:
       creationTimestamp: "1970-01-01T00:00:00Z"
       generation: 1
-      name: v0-1-0
+      name: main
       namespace: kubefox-demo
       resourceVersion: "2258944"
-      uid: 782a0938-7f9d-4bae-a6b5-900499fca6f7
+      uid: 5ad9a257-01c0-43e0-b6be-92757a47ba7c
     details:
       app:
         description: A simple app demonstrating the use of KubeFox.
@@ -683,11 +685,11 @@ two deployments and release. Because the `backend` component did not change
 between deployments KubeFox is able to share a single pod. Not only are
 environments injected per request, routing is performed dynamically.
 
-For fun publish the new version, release it to the `qa` environment, then
-promote version `v0.1.0` to the `prod` environment. Because of the stricter
-release policies set in the `prod` environment a snapshot is required for the
-release. Much like a versioned deployment, an environment snapshot is immutable,
-ensuring a stable release even if the `prod` environment is changed.
+For fun publish the new version of the app, release it to the `qa` environment,
+then promote version `v0.1.0` to the `prod` environment. Because of the stricter
+policies set in the `prod` environment a snapshot is required to release. Much
+like a versioned deployment an environment snapshot is immutable ensuring a
+stable release even if the `prod` environment is changed.
 
 Check out those blazing fast the releases.
 
