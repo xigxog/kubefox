@@ -684,14 +684,18 @@ between deployments KubeFox is able to share a single pod. Not only are
 environments injected per request, routing is performed dynamically.
 
 For fun publish the new version, release it to the `qa` environment, then
-promote version `v0.1.0` to the `prod` environment. Check out those blazing fast
-the releases.
+promote version `v0.1.0` to the `prod` environment. Because of the stricter
+release policies set in the `prod` environment a snapshot is required for the
+release. Much like a versioned deployment, an environment snapshot is immutable,
+ensuring a stable release even if the `prod` environment is changed.
+
+Check out those blazing fast the releases.
 
 ```{ .shell .copy }
 git tag v0.1.1 && \
   fox publish --version v0.1.1 --wait 5m && \
   fox release v0.1.1 --virtual-env qa && \
-  fox release v0.1.0 --virtual-env prod
+  fox release v0.1.0 --virtual-env prod --create-snapshot
 ```
 
 ??? example "Output"
@@ -700,7 +704,7 @@ git tag v0.1.1 && \
     $ git tag v0.1.1 && \
         fox publish --version v0.1.1 --wait 5m && \
         fox release v0.1.1 --virtual-env qa && \
-        fox release v0.1.0 --virtual-env prod
+        fox release v0.1.0 --virtual-env prod --create-snapshot
     info    Component image 'localhost/kubefox/hello-world/backend:bb702a1' exists.
     info    Loading component image 'localhost/kubefox/hello-world/backend:bb702a1' into kind cluster 'kind'.
 

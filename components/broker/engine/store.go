@@ -346,13 +346,21 @@ func (str *Store) buildReleaseMatcher(ctx context.Context) (*matcher.EventMatche
 			vars  map[string]*api.Val
 		)
 
-		if appDep, err := str.AppDeployment(rel.Spec.AppDeployment.Name); err != nil {
+		var appDepName string
+		if rel.Status.Current != nil {
+			appDepName = rel.Status.Current.AppDeployment.Name
+		}
+		if appDepName == "" {
+			str.log.Debugf("Release '%s/%s' does not have a current AppDeployment", rel.Namespace, rel.Name)
+			continue
+		}
+
+		if appDep, err := str.AppDeployment(appDepName); err != nil {
 			str.log.Warn(err)
 			continue
 		} else {
 			comps = appDep.Spec.Components
 		}
-
 		if env, err := str.ReleaseEnv(rel.Name); err != nil {
 			str.log.Warn(err)
 			continue
