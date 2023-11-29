@@ -232,7 +232,7 @@ func (r *ReleaseReconciler) reconcile(ctx context.Context, req ctrl.Request, log
 	}
 
 	if !k8s.DeepEqual(curRel.ObjectMeta, rel.ObjectMeta) {
-		log.Debug("Release updated, persisting")
+		log.Debug("Release modified, updating")
 		return ctrl.Result{}, r.Update(ctx, rel)
 	}
 
@@ -250,7 +250,7 @@ func (r *ReleaseReconciler) reconcile(ctx context.Context, req ctrl.Request, log
 	}
 
 	if !k8s.DeepEqual(curRel.Status, rel.Status) {
-		log.Debug("Release status updated, persisting")
+		log.Debug("Release status modified, updating")
 		if err := r.Status().Update(ctx, rel); err != nil {
 			return ctrl.Result{}, err
 		}

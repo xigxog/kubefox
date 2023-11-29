@@ -74,7 +74,7 @@ func (r *AppDeploymentReconciler) reconcile(ctx context.Context, req ctrl.Reques
 	k8s.UpdateLabel(appDep, api.LabelK8sAppBranch, appDep.Spec.App.Branch)
 
 	if !k8s.DeepEqual(curAppDep.ObjectMeta, appDep.ObjectMeta) {
-		log.Debug("AppDeployment updated, persisting")
+		log.Debug("AppDeployment modified, updating")
 		return r.Update(ctx, appDep)
 	}
 
