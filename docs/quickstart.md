@@ -99,7 +99,8 @@ one-time setup. You can answer the prompts as indicated below.
 
 ```{ .shell .copy }
 export FOX_INFO=true && \
-  mkdir kubefox-hello-world && cd kubefox-hello-world
+  mkdir kubefox-hello-world && \
+  cd kubefox-hello-world
 ```
 
 ```{ .shell .copy }
@@ -113,13 +114,17 @@ Are you only using KubeFox with local kind cluster? [y/N] y
 Enter the kind cluster's name (default 'kind'): kind
 Would you like to initialize the 'hello-world' KubeFox app? [y/N] y
 Enter URL for remote Git repo (optional): # Press ENTER to skip
+Would you like to create a KubeFox platform? [Y/n] y
+Enter the KubeFox platform's name (required): demo
+Enter the Kubernetes namespace of the KubeFox platform (default 'kubefox-demo'): kubefox-demo
 ```
 
 ??? example "Output"
 
     ```text
     $ export FOX_INFO=true && \
-        mkdir kubefox-hello-world && cd kubefox-hello-world
+        mkdir kubefox-hello-world && \
+        cd kubefox-hello-world
 
     $ fox init
     info    It looks like this is the first time you are using 🦊 Fox. Welcome!
@@ -153,6 +158,12 @@ Enter URL for remote Git repo (optional): # Press ENTER to skip
     Would you like to initialize the 'hello-world' KubeFox app? [y/N] y
     Enter URL for remote Git repo (optional):
 
+    info    You need to have a KubeFox platform instance running to deploy your components.
+    info    Don't worry, 🦊 Fox can create one for you.
+    Would you like to create a KubeFox platform? [Y/n] y
+    Enter the KubeFox platform's name (required): demo
+    Enter the Kubernetes namespace of the KubeFox platform (default 'kubefox-demo'): kubefox-demo
+
     info    KubeFox app initialization complete!
     ```
 
@@ -175,14 +186,14 @@ variables on lines numbered 11,12 and 23,24.
 
 ```{ .shell .copy }
 cat -b hack/environments/* && \
-  kubectl create namespace kubefox-demo && \
   kubectl apply --namespace kubefox-demo --filename hack/environments/
 ```
 
 ??? example "Output"
 
-    ```text hl_lines="12 13 25 26"
-    $ cat -b hack/environments/* && kubectl apply --namespace kubefox-demo --filename hack/environments/
+    ```text hl_lines="13 14 26 27"
+    $ cat -b hack/environments/* && \
+        kubectl apply --namespace kubefox-demo --filename hack/environments/
      1  apiVersion: kubefox.xigxog.io/v1alpha1
      2  kind: VirtualEnv
      3  metadata:
@@ -195,7 +206,7 @@ cat -b hack/environments/* && \
     10    vars:
     11      subPath: prod
     12      who: Universe
-    
+
     13  apiVersion: kubefox.xigxog.io/v1alpha1
     14  kind: VirtualEnv
     15  metadata:
@@ -218,20 +229,12 @@ images, load them onto the kind cluster, and deploy them to a KubeFox platform.
 The first run might take some time as it needs to download dependencies, but
 future runs should be much faster. Remember, you can add the `--verbose` flag
 for extra output if you want to see what's going on behind the scenes. Note that
-the first deployment will initialize a platform so it might take a couple
+the platform created earlier might still be initializing, it could take a few
 minutes for all the pods to be ready. But don't worry, future deployments will
 be much faster.
 
 ```{ .shell .copy }
 fox publish main --wait 5m
-```
-
-Answer the prompts:
-
-```text
-Would you like to create a KubeFox platform? [Y/n] y
-Enter the KubeFox platform's name (required): demo
-Enter the Kubernetes namespace of the KubeFox platform (default 'kubefox-demo'): kubefox-demo
 ```
 
 ??? example "Output"
@@ -243,12 +246,6 @@ Enter the Kubernetes namespace of the KubeFox platform (default 'kubefox-demo'):
 
     info    Building component image 'localhost/kubefox/hello-world/frontend:bb702a1'.
     info    Loading component image 'localhost/kubefox/hello-world/frontend:bb702a1' into kind cluster 'kind'.
-
-    info    You need to have a KubeFox platform instance running to deploy your components.
-    info    Don't worry, 🦊 Fox can create one for you.
-    Would you like to create a KubeFox platform? [Y/n] y
-    Enter the KubeFox platform's name (required): demo
-    Enter the Kubernetes namespace of the KubeFox platform (default 'kubefox-demo'): kubefox-demo
 
     info    Waiting for KubeFox platform 'demo' to be ready.
     info    Waiting for component 'backend' to be ready.
@@ -656,9 +653,9 @@ curl "http://localhost:8080/qa/hello"
 
     $ curl "http://localhost:8080/prod/hello?kf-dep=main&kf-env=prod"
     👋 Hey Universe!
-    
+
     $ curl "http://localhost:8080/qa/hello"
-    👋 Hello Universe!
+    👋 Hello World!
     ```
 
 Again, take look at the pods running on Kubernetes with the new deployment.
