@@ -43,7 +43,8 @@ type ReleaseStatusEntry struct {
 }
 
 type ReleaseStatus struct {
-	Current   *ReleaseStatusEntry `json:"current,omitempty"`
+	// +kubebuilder:validation:Optional
+	Current   *ReleaseStatusEntry `json:"current"`
 	Requested *ReleaseStatusEntry `json:"requested,omitempty"`
 
 	History []ReleaseStatusEntry `json:"history,omitempty"`

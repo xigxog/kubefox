@@ -253,6 +253,7 @@ func (str *Store) DeploymentMatcher(ctx context.Context, evtCtx *kubefox.EventCo
 
 func (str *Store) OnAdd(obj interface{}, isInInitialList bool) {
 	if isInInitialList {
+		str.log.Debugf("%T initialized", obj)
 		return
 	}
 	str.onChange(obj, "added")

@@ -51,8 +51,8 @@ func NewClient(fieldOwner client.FieldOwner) (*Client, error) {
 }
 
 func (c *Client) Upsert(ctx context.Context, obj client.Object, dryRun bool) error {
-	// Hang on to TypeMeta as it is erased by create.
-	t := obj.GetObjectKind()
+	orig := obj.DeepCopyObject().(client.Object)
+
 	opts := []client.CreateOption{c.FieldOwner}
 	if dryRun {
 		opts = append(opts, client.DryRunAll)
@@ -73,7 +73,7 @@ func (c *Client) Upsert(ctx context.Context, obj client.Object, dryRun bool) err
 		err = c.Update(ctx, obj, opts...)
 	}
 	// Restore TypeMeta.
-	obj.GetObjectKind().SetGroupVersionKind(t.GroupVersionKind())
+	obj.GetObjectKind().SetGroupVersionKind(orig.GetObjectKind().GroupVersionKind())
 
 	return err
 }

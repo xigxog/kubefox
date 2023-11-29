@@ -109,7 +109,7 @@ func ToString(obj client.Object) string {
 	if grp == "" {
 		grp = "core"
 	}
-	return fmt.Sprintf("%s/%s/%s/%s.%s", grp, gvk.Version, gvk.Kind, obj.GetName(), obj.GetNamespace())
+	return fmt.Sprintf("%s/%s/%s/%s/%s", obj.GetNamespace(), grp, gvk.Version, gvk.Kind, obj.GetName())
 }
 
 func PodCondition(pod *v1.Pod, typ v1.PodConditionType) v1.PodCondition {

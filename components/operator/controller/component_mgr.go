@@ -108,6 +108,7 @@ func (cm *ComponentManager) ReconcileApps(ctx context.Context, namespace string)
 		return false, k8s.IgnoreNotFound(err)
 	}
 	if !platform.Status.Available {
+		cm.log.Debug("Platform not available")
 		return false, nil
 	}
 
@@ -115,11 +116,6 @@ func (cm *ComponentManager) ReconcileApps(ctx context.Context, namespace string)
 		logkf.KeyInstance, cm.instance,
 		logkf.KeyPlatform, platform.Name,
 	)
-
-	if !platform.Status.Available {
-		log.Debug("Platform not available")
-		return false, nil
-	}
 
 	appDepList := &v1alpha1.AppDeploymentList{}
 	if err := cm.List(ctx, appDepList, client.InNamespace(platform.Namespace)); err != nil {
@@ -202,7 +198,7 @@ func (cm *ComponentManager) ReconcileApps(ctx context.Context, namespace string)
 			}
 		}
 
-		log.Debugf("AppDeployment '%s.%s'; available: %t", d.Name, d.Namespace, available)
+		log.Debugf("AppDeployment '%s/%s'; available: %t", d.Namespace, d.Name, available)
 	}
 
 	for _, d := range compDepList.Items {

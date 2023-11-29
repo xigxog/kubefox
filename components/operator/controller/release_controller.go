@@ -62,7 +62,7 @@ func (r *ReleaseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		"namespace", req.Namespace,
 		"name", req.Name,
 	)
-	log.Debugf("reconciling Release '%s.%s'", req.Name, req.Namespace)
+	log.Debugf("reconciling Release '%s/%s'", req.Namespace, req.Name)
 
 	result, err := r.reconcile(ctx, req, log)
 	if IsFailedWebhookErr(err) {
@@ -70,7 +70,7 @@ func (r *ReleaseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		return ctrl.Result{RequeueAfter: time.Second * 15}, nil
 	}
 
-	log.Debugf("reconciling Release '%s.%s' done", req.Name, req.Namespace)
+	log.Debugf("reconciling Release '%s/%s' done", req.Namespace, req.Name)
 
 	return result, err
 }
@@ -82,7 +82,7 @@ func (r *ReleaseReconciler) reconcile(ctx context.Context, req ctrl.Request, log
 		return ctrl.Result{}, err
 	}
 	if k8s.IsNotFound(err) || rel.ResourceVersion == "0" {
-		log.Debug("Release deleted")
+		log.Debugf("Release '%s/%s does not exists'", req.Namespace, req.Name)
 		return ctrl.Result{}, nil
 	}
 	if rel.DeletionTimestamp != nil {
@@ -333,7 +333,11 @@ func (r *ReleaseReconciler) watchClusterVirtualEnv(ctx context.Context, env clie
 }
 
 func (r *ReleaseReconciler) watchVirtualEnv(ctx context.Context, env client.Object) []reconcile.Request {
-	return []reconcile.Request{{NamespacedName: k8s.Key(env.GetNamespace(), env.GetName())}}
+	return r.findReleases(ctx,
+		client.MatchingLabels{
+			api.LabelK8sVirtualEnv: env.GetName(),
+		},
+	)
 }
 
 func (r *ReleaseReconciler) watchVirtualEnvSnapshot(ctx context.Context, env client.Object) []reconcile.Request {

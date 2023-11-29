@@ -109,6 +109,9 @@ func CleanName(name string) string {
 }
 
 func IsValidName(name string) bool {
+	if name == "" {
+		return false
+	}
 	return name == CleanName(name)
 }
 

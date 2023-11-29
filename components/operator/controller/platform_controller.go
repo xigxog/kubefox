@@ -71,25 +71,24 @@ func (r *PlatformReconciler) SetupWithManager(mgr ctrl.Manager) error {
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
-
 func (r *PlatformReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	log := r.log.With(
 		"namespace", req.Namespace,
 		"name", req.Name,
 	)
-	log.Debugf("reconciling Platform '%s.%s'", req.Name, req.Namespace)
+	log.Debugf("reconciling Platform '%s/%s'", req.Namespace, req.Name)
 
-	p, err := r.reconcile(ctx, req, log)
+	p, ready, err := r.reconcile(ctx, req, log)
 	if p != nil {
 		curStatus := p.Status
 
-		p.Status.Available = (err == nil)
+		p.Status.Available = ready && (err == nil)
 		if err := r.updateComponentsStatus(ctx, p); err != nil {
 			r.log.Error(err)
 		}
 
 		if !k8s.DeepEqual(curStatus, p.Status) {
-			if err := r.Status().Update(ctx, p); err != nil {
+			if err := r.ApplyStatus(ctx, p); err != nil {
 				r.log.Error(err)
 			}
 		}
@@ -99,33 +98,35 @@ func (r *PlatformReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		}
 	}
 
-	log.Debugf("reconciling Platform '%s.%s' done", req.Name, req.Namespace)
+	log.Debugf("reconciling Platform '%s/%s' done", req.Namespace, req.Name)
 
 	return ctrl.Result{}, err
 }
 
-func (r *PlatformReconciler) reconcile(ctx context.Context, req ctrl.Request, log *logkf.Logger) (*v1alpha1.Platform, error) {
+func (r *PlatformReconciler) reconcile(ctx context.Context, req ctrl.Request, log *logkf.Logger) (*v1alpha1.Platform, bool, error) {
+	pKey := fmt.Sprintf("%s/%s", req.Namespace, req.Name)
+
 	ns := &v1.Namespace{}
 	if err := r.Get(ctx, k8s.Key("", req.Namespace), ns); err != nil {
-		if k8s.IsNotFound(err) {
-			log.Debug("Namespace is gone")
-			return nil, nil
-		}
-		return nil, log.ErrorN("unable to fetch Namespace: %w", err)
+		r.setSetup(pKey, false)
+		return nil, false, k8s.IgnoreNotFound(err)
 	}
 	if ns.Status.Phase == v1.NamespaceTerminating {
 		log.Debug("Namespace is terminating")
-		return nil, nil
+		r.setSetup(pKey, false)
+		return nil, false, nil
 	}
 
 	p := &v1alpha1.Platform{}
 	if err := r.Get(ctx, req.NamespacedName, p); err != nil {
-		return nil, err
+		r.setSetup(pKey, false)
+		return nil, false, k8s.IgnoreNotFound(err)
 	}
 
 	cm := &v1.ConfigMap{}
 	if err := r.Get(ctx, k8s.Key(r.Namespace, r.Instance+"-root-ca"), cm); err != nil {
-		return p, log.ErrorN("unable to fetch root CA configmap: %w", err)
+		r.setSetup(pKey, false)
+		return p, false, log.ErrorN("unable to fetch root CA configmap: %w", err)
 	}
 
 	maxEventSize := p.Spec.Events.MaxSize.Value()
@@ -156,33 +157,29 @@ func (r *PlatformReconciler) reconcile(ctx context.Context, req ctrl.Request, lo
 		},
 	}
 
-	r.mutex.Lock()
-	setup := r.setupMap[baseTD.PlatformFullName()]
-	r.mutex.Unlock()
+	setup := r.isSetup(pKey)
 	if setup {
-		r.log.Debugf("Platform '%s' already setup ", baseTD.PlatformFullName())
+		r.log.Debugf("Platform '%s' already setup ", pKey)
 
 	} else {
 		// Ensure there are valid commits for Platform components.
 		if !api.RegexpCommit.MatchString(build.Info.BrokerCommit) ||
 			!api.RegexpCommit.MatchString(build.Info.HTTPSrvCommit) {
-			return p, log.ErrorN("broker or httpsrv commit from build info is invalid")
+			return p, false, log.ErrorN("broker or httpsrv commit from build info is invalid")
 		}
 		if err := r.setupVault(ctx, baseTD); err != nil {
-			return p, log.ErrorN("problem setting up vault: %w", err)
+			return p, false, log.ErrorN("problem setting up vault: %w", err)
 		}
 		if err := r.ApplyTemplate(ctx, "platform", &baseTD.Data, log); err != nil {
-			return p, log.ErrorN("problem setting up Platform: %w", err)
+			return p, false, log.ErrorN("problem setting up Platform: %w", err)
 		}
 
-		r.mutex.Lock()
-		r.setupMap[baseTD.PlatformFullName()] = true
-		r.mutex.Unlock()
+		r.setSetup(pKey, true)
 	}
 
 	if r.setDefaults(p) {
 		log.Debug("Platform defaults set, persisting")
-		return nil, r.Update(ctx, p)
+		return nil, false, r.Update(ctx, p)
 	}
 
 	td := baseTD.ForComponent(api.PlatformComponentNATS, &appsv1.StatefulSet{}, &NATSDefaults, templates.Component{
@@ -193,11 +190,11 @@ func (r *PlatformReconciler) reconcile(ctx context.Context, req ctrl.Request, lo
 		IsPlatformComponent: true,
 	})
 	if err := r.setupVaultComponent(ctx, td, ""); err != nil {
-		return p, err
+		return p, false, err
 	}
 	if rdy, err := r.CompMgr.SetupComponent(ctx, td); !rdy || err != nil {
 		chill()
-		return p, err
+		return p, rdy, err
 	}
 
 	td = baseTD.ForComponent(api.PlatformComponentBroker, &appsv1.DaemonSet{}, &BrokerDefaults, templates.Component{
@@ -209,11 +206,11 @@ func (r *PlatformReconciler) reconcile(ctx context.Context, req ctrl.Request, lo
 		IsPlatformComponent: true,
 	})
 	if err := r.setupVaultComponent(ctx, td, ""); err != nil {
-		return p, err
+		return p, false, err
 	}
 	if rdy, err := r.CompMgr.SetupComponent(ctx, td); !rdy || err != nil {
 		chill()
-		return p, err
+		return p, rdy, err
 	}
 
 	td = baseTD.ForComponent(api.PlatformComponentHTTPSrv, &appsv1.Deployment{}, &HTTPSrvDefaults, templates.Component{
@@ -228,14 +225,14 @@ func (r *PlatformReconciler) reconcile(ctx context.Context, req ctrl.Request, lo
 	td.Values["httpPort"] = p.Spec.HTTPSrv.Service.Ports.HTTP
 	td.Values["httpsPort"] = p.Spec.HTTPSrv.Service.Ports.HTTPS
 	if err := r.setupVaultComponent(ctx, td, ""); err != nil {
-		return p, err
+		return p, false, err
 	}
 	if rdy, err := r.CompMgr.SetupComponent(ctx, td); !rdy || err != nil {
 		chill()
-		return p, err
+		return p, rdy, err
 	}
 
-	return p, nil
+	return p, true, nil
 }
 
 func (r *PlatformReconciler) updateComponentsStatus(ctx context.Context, p *v1alpha1.Platform) error {
@@ -321,9 +318,7 @@ func (r *PlatformReconciler) setupVault(ctx context.Context, td *TemplateData) e
 }
 
 func (r *PlatformReconciler) setupVaultComponent(ctx context.Context, td *TemplateData, additionalPolicies string) error {
-	r.mutex.Lock()
-	setup := r.setupMap[td.ComponentFullName()]
-	r.mutex.Unlock()
+	setup := r.isSetup(td.ComponentFullName())
 	if setup {
 		r.log.Debugf("vault already setup for component '%s'", td.ComponentFullName())
 		return nil
@@ -376,9 +371,7 @@ func (r *PlatformReconciler) setupVaultComponent(ctx context.Context, td *Templa
 		return err
 	}
 
-	r.mutex.Lock()
-	r.setupMap[td.ComponentFullName()] = true
-	r.mutex.Unlock()
+	r.setSetup(td.ComponentFullName(), true)
 	r.log.Debugf("vault successfully setup for component '%s'", td.ComponentFullName())
 
 	return nil
@@ -465,6 +458,20 @@ func (r *PlatformReconciler) setDefaults(platform *v1alpha1.Platform) bool {
 	SetDefaults(&s.HTTPSrv.ContainerSpec, &HTTPSrvDefaults)
 
 	return !k8s.DeepEqual(cur, s)
+}
+
+func (r *PlatformReconciler) setSetup(key string, val bool) {
+	r.mutex.Lock()
+	defer r.mutex.Unlock()
+
+	r.setupMap[key] = val
+}
+
+func (r *PlatformReconciler) isSetup(key string) bool {
+	r.mutex.Lock()
+	defer r.mutex.Unlock()
+
+	return r.setupMap[key]
 }
 
 // chill waits a few seconds for things to chillax.

@@ -22,7 +22,7 @@ type ClusterVirtualEnv struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec    ClusterEnvSpec `json:"spec"`
+	Spec    ClusterEnvSpec `json:"spec,omitempty"`
 	Data    EnvData        `json:"data,omitempty"`
 	Details EnvDetails     `json:"details,omitempty"`
 }

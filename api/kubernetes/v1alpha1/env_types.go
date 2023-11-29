@@ -81,7 +81,7 @@ type VirtualEnv struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec    EnvSpec    `json:"spec"`
+	Spec    EnvSpec    `json:"spec,omitempty"`
 	Data    EnvData    `json:"data,omitempty"`
 	Details EnvDetails `json:"details,omitempty"`
 }

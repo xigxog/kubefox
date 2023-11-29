@@ -33,7 +33,7 @@ type VirtualEnvSnapshot struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec    ClusterEnvSpec  `json:"spec"`
+	Spec    ClusterEnvSpec  `json:"spec,omitempty"`
 	Data    EnvSnapshotData `json:"data,omitempty"`
 	Details EnvDetails      `json:"details,omitempty"`
 }

@@ -42,7 +42,7 @@ func (r *SnapshotReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		"namespace", req.Namespace,
 		"name", req.Name,
 	)
-	log.Debugf("reconciling VirtualEnvSnapshot '%s.%s'", req.Name, req.Namespace)
+	log.Debugf("reconciling VirtualEnvSnapshot '%s/%s'", req.Namespace, req.Name)
 
 	if err := r.reconcile(ctx, req, log); err != nil {
 		if IsFailedWebhookErr(err) {
@@ -52,7 +52,7 @@ func (r *SnapshotReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		return ctrl.Result{}, err
 	}
 
-	log.Debugf("reconciling VirtualEnvSnapshot '%s.%s' done", req.Name, req.Namespace)
+	log.Debugf("reconciling VirtualEnvSnapshot '%s/%s' done", req.Namespace, req.Name)
 
 	return ctrl.Result{}, nil
 }
