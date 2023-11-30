@@ -70,7 +70,11 @@ func (c *Client) Upsert(ctx context.Context, obj client.Object, dryRun bool) err
 		if dryRun {
 			opts = append(opts, client.DryRunAll)
 		}
-		err = c.Update(ctx, obj, opts...)
+		if err = c.Update(ctx, obj, opts...); IsConflict(err) {
+			// Perform single retry on conflict.
+			err = c.Update(ctx, obj, opts...)
+		}
+
 	}
 	// Restore TypeMeta.
 	obj.GetObjectKind().SetGroupVersionKind(orig.GetObjectKind().GroupVersionKind())

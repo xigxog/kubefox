@@ -156,7 +156,6 @@ func (cm *ComponentManager) ReconcileApps(ctx context.Context, namespace string)
 						Name:            compName,
 						Commit:          comp.Commit,
 						App:             appDep.Spec.App.Name,
-						AppCommit:       appDep.Spec.App.Commit,
 						Image:           image,
 						ImagePullPolicy: appDep.Spec.App.ImagePullSecretName,
 					},

@@ -103,6 +103,13 @@ func IsAlreadyExists(err error) bool {
 	return apierrors.IsAlreadyExists(err)
 }
 
+func IsConflict(err error) bool {
+	if err == nil {
+		return false
+	}
+	return apierrors.IsConflict(err)
+}
+
 func ToString(obj client.Object) string {
 	gvk := obj.GetObjectKind().GroupVersionKind()
 	grp := gvk.Group
