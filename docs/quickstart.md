@@ -94,8 +94,9 @@ repo for the demo. To get things started create a new directory and use Fox to
 initialize the `hello-world` app. You'll want to run all the remaining commands
 from this directory. The export command tells Fox to print some extra info about
 what is going on. You can also pass the `--verbose` flag to print debug
-statements. If this is your first time using Fox it will run you through
-one-time setup. You can answer the prompts as indicated below.
+statements. Passing the `--quickstart` flags lets Fox know to use defaults for
+its configuration and to create a KubeFox platform named `demo` in the
+`kubefox-demo` namespace.
 
 ```{ .shell .copy }
 export FOX_INFO=true && \
@@ -103,20 +104,10 @@ export FOX_INFO=true && \
   cd kubefox-hello-world
 ```
 
+TODO add quickstart flag and default as below
+
 ```{ .shell .copy }
-fox init
-```
-
-Answer the prompts:
-
-```text
-Are you only using KubeFox with local kind cluster? [y/N] y
-Enter the kind cluster's name (default 'kind'): kind
-Would you like to initialize the 'hello-world' KubeFox app? [y/N] y
-Enter URL for remote Git repo (optional): # Press ENTER to skip
-Would you like to create a KubeFox platform? [Y/n] y
-Enter the KubeFox platform's name (required): demo
-Enter the Kubernetes namespace of the KubeFox platform (default 'kubefox-demo'): kubefox-demo
+fox init --quickstart
 ```
 
 ??? example "Output"
@@ -126,45 +117,9 @@ Enter the Kubernetes namespace of the KubeFox platform (default 'kubefox-demo'):
         mkdir kubefox-hello-world && \
         cd kubefox-hello-world
 
-    $ fox init
-    info    It looks like this is the first time you are using 🦊 Fox. Welcome!
-
-    info    🦊 Fox needs some information from you to configure itself. The setup process only
-    info    needs to be run once, but if you ever want change things you can use the
-    info    command 'fox config setup'.
-
-    info    Please make sure your workstation has Docker installed (https://docs.docker.com/engine/install)
-    info    and that KubeFox is installed (https://docs.kubefox.io/install) on your Kubernetes cluster.
-
-    info    If you don't have a Kubernetes cluster you can run one locally with kind (https://kind.sigs.k8s.io)
-    info    to experiment with KubeFox.
-
-    info    🦊 Fox needs a place to store the component images it will build, normally this is
-    info    a remote container registry. However, if you only want to use KubeFox locally
-    info    with kind you can skip this step.
-    Are you only using KubeFox with local kind cluster? [y/N] y
-    Enter the kind cluster's name (default 'kind'): kind
-
-    info    Configuration successfully written to '/home/xadhatter/.config/kubefox/config.yaml'.
-
-    info    Congrats, you are ready to use KubeFox!
-    info    Check out the quickstart for next steps (https://docs.kubefox.io/quickstart/).
-    info    If you run into any problems please let us know on GitHub (https://github.com/xigxog/kubefox/issues).
-
-    info    Let's initialize a KubeFox app!
-
-    info    To get things started quickly 🦊 Fox can create a 'hello-world' KubeFox app which
-    info    includes two components and example environments for testing.
-    Would you like to initialize the 'hello-world' KubeFox app? [y/N] y
-    Enter URL for remote Git repo (optional):
-
-    info    You need to have a KubeFox platform instance running to deploy your components.
-    info    Don't worry, 🦊 Fox can create one for you.
-    Would you like to create a KubeFox platform? [Y/n] y
-    Enter the KubeFox platform's name (required): demo
-    Enter the Kubernetes namespace of the KubeFox platform (default 'kubefox-demo'): kubefox-demo
-
-    info    KubeFox app initialization complete!
+    $ fox init --quickstart
+    info    Waiting for KubeFox Platform 'demo' to be ready...
+    info    KubeFox initialized for the quickstart guide!
     ```
 
 You should see some newly created directories and files. The `hello-world` app
@@ -181,8 +136,8 @@ component's `main.go` line 21.
 k.Route("Path(`/{{.Env.subPath}}/hello`)", sayHello)
 ```
 
-Run the following commands to continue. Note the changes to the two environment
-variables on lines numbered 11,12 and 23,24.
+Run the following commands to continue. Note the differences between the two
+environments' variables on lines numbered 11,12 and 23,24.
 
 ```{ .shell .copy }
 cat -b hack/environments/* && \
@@ -228,10 +183,7 @@ Now you'll deploy the app. The following command will build the component's OCI
 images, load them onto the kind cluster, and deploy them to a KubeFox platform.
 The first run might take some time as it needs to download dependencies, but
 future runs should be much faster. Remember, you can add the `--verbose` flag
-for extra output if you want to see what's going on behind the scenes. Note that
-the platform created earlier might still be initializing, it could take a few
-minutes for all the pods to be ready. But don't worry, future deployments will
-be much faster.
+for extra output if you want to see what's going on behind the scenes.
 
 ```{ .shell .copy }
 fox publish main --wait 5m
@@ -689,6 +641,8 @@ like a versioned deployment an environment snapshot is immutable ensuring a
 stable release even if the `prod` environment is changed.
 
 Check out those blazing fast the releases.
+
+TODO break release into two sections
 
 ```{ .shell .copy }
 git tag v0.1.1 && \
