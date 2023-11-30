@@ -62,15 +62,13 @@ func (r *SnapshotReconciler) reconcile(ctx context.Context, req ctrl.Request, lo
 	if err := r.Get(ctx, req.NamespacedName, env); err != nil {
 		return k8s.IgnoreNotFound(err)
 	}
-	curAppDep := env.DeepCopy()
 
-	k8s.UpdateLabel(env, api.LabelK8sVirtualEnv, env.Data.Source.Name)
-	k8s.UpdateLabel(env, api.LabelK8sSourceKind, env.Data.Source.Kind)
-	k8s.UpdateLabel(env, api.LabelK8sSourceResourceVersion, env.Data.Source.ResourceVersion)
+	if k8s.UpdateLabel(env, api.LabelK8sVirtualEnv, env.Data.Source.Name) ||
+		k8s.UpdateLabel(env, api.LabelK8sSourceKind, env.Data.Source.Kind) ||
+		k8s.UpdateLabel(env, api.LabelK8sSourceResourceVersion, env.Data.Source.ResourceVersion) {
 
-	if !k8s.DeepEqual(curAppDep.ObjectMeta, env.ObjectMeta) {
 		log.Debug("VirtualEnvSnapshot modified, updating")
-		return r.Update(ctx, env)
+		return r.Apply(ctx, env)
 	}
 
 	return nil

@@ -90,6 +90,8 @@ spec:
                   requestTime:
                     format: date-time
                     type: string
+                  virtualEnvSnapshot:
+                    type: string
                 required:
                 - appDeployment
                 type: object
@@ -119,6 +121,8 @@ spec:
                     requestTime:
                       format: date-time
                       type: string
+                    virtualEnvSnapshot:
+                      type: string
                   required:
                   - appDeployment
                   type: object
@@ -147,6 +151,8 @@ spec:
                     type: string
                   requestTime:
                     format: date-time
+                    type: string
+                  virtualEnvSnapshot:
                     type: string
                 required:
                 - appDeployment

@@ -90,15 +90,16 @@ func (r *ReleaseReconciler) reconcile(ctx context.Context, req ctrl.Request, log
 	}
 
 	now := metav1.Now()
-	curRel := rel.DeepCopy()
+	origRel := rel.DeepCopy()
 
 	isCurrent := rel.Status.Current != nil && rel.Status.Current.AppDeployment == rel.Spec.AppDeployment
 	isRequested := rel.Status.Requested != nil && rel.Status.Requested.AppDeployment == rel.Spec.AppDeployment
 	if !isCurrent && !isRequested {
 		isRequested = true
 		rel.Status.Requested = &v1alpha1.ReleaseStatusEntry{
-			AppDeployment: rel.Spec.AppDeployment,
-			RequestTime:   now,
+			AppDeployment:      rel.Spec.AppDeployment,
+			VirtualEnvSnapshot: rel.Spec.VirtualEnvSnapshot,
+			RequestTime:        now,
 		}
 	}
 
@@ -112,7 +113,7 @@ func (r *ReleaseReconciler) reconcile(ctx context.Context, req ctrl.Request, log
 	// Need finalizer so Release object is available after deletion providing
 	// access to AppDeployment and VirtualEnvs names.
 	if k8s.AddFinalizer(rel, api.FinalizerReleaseProtection) {
-		return ctrl.Result{}, r.Update(ctx, rel)
+		return ctrl.Result{}, r.Merge(ctx, rel, origRel)
 	}
 
 	k8s.UpdateLabel(rel, api.LabelK8sVirtualEnvSnapshot, rel.Spec.VirtualEnvSnapshot)
@@ -125,6 +126,7 @@ func (r *ReleaseReconciler) reconcile(ctx context.Context, req ctrl.Request, log
 	switch {
 	case err == nil:
 		log.Debugf("found AppDeployment '%s'", appDep.Name)
+		origAppDep := appDep.DeepCopy()
 
 		k8s.UpdateLabel(rel, api.LabelK8sAppCommit, appDep.Spec.App.Commit)
 		k8s.UpdateLabel(rel, api.LabelK8sAppCommitShort, utils.ShortCommit(appDep.Spec.App.Commit))
@@ -132,7 +134,7 @@ func (r *ReleaseReconciler) reconcile(ctx context.Context, req ctrl.Request, log
 		k8s.UpdateLabel(rel, api.LabelK8sAppBranch, appDep.Spec.App.Branch)
 
 		if k8s.AddFinalizer(appDep, api.FinalizerReleaseProtection) {
-			if err := r.Update(ctx, appDep); err != nil {
+			if err := r.Merge(ctx, appDep, origAppDep); err != nil {
 				return ctrl.Result{}, err
 			}
 		}
@@ -181,8 +183,9 @@ func (r *ReleaseReconciler) reconcile(ctx context.Context, req ctrl.Request, log
 		log.Debugf("found VirtualEnvObject '%s' of type '%T'", envObj.GetName(), envObj)
 
 		if _, ok := envObj.(*v1alpha1.VirtualEnvSnapshot); ok {
+			origEnv := envObj.DeepCopyObject().(client.Object)
 			if k8s.AddFinalizer(envObj, api.FinalizerReleaseProtection) {
-				if err := r.Update(ctx, envObj); err != nil {
+				if err := r.Merge(ctx, envObj, origEnv); err != nil {
 					return ctrl.Result{}, err
 				}
 			}
@@ -231,9 +234,9 @@ func (r *ReleaseReconciler) reconcile(ctx context.Context, req ctrl.Request, log
 		// TODO set condition
 	}
 
-	if !k8s.DeepEqual(curRel.ObjectMeta, rel.ObjectMeta) {
+	if !k8s.DeepEqual(rel.ObjectMeta, origRel.ObjectMeta) {
 		log.Debug("Release modified, updating")
-		return ctrl.Result{}, r.Update(ctx, rel)
+		return ctrl.Result{}, r.Apply(ctx, rel)
 	}
 
 	if isCurrent {
@@ -249,9 +252,9 @@ func (r *ReleaseReconciler) reconcile(ctx context.Context, req ctrl.Request, log
 		rel.Status.Requested = nil
 	}
 
-	if !k8s.DeepEqual(curRel.Status, rel.Status) {
+	if !k8s.DeepEqual(rel.Status, origRel.Status) {
 		log.Debug("Release status modified, updating")
-		if err := r.Status().Update(ctx, rel); err != nil {
+		if err := r.MergeStatus(ctx, rel, origRel); err != nil {
 			return ctrl.Result{}, err
 		}
 	}
@@ -262,6 +265,7 @@ func (r *ReleaseReconciler) reconcile(ctx context.Context, req ctrl.Request, log
 
 func (r *ReleaseReconciler) releaseDeleted(ctx context.Context, rel *v1alpha1.Release, log *logkf.Logger) error {
 	log.Debugf("Release deleted, cleaning up finalizers")
+	origRel := rel.DeepCopy()
 
 	appDep := &v1alpha1.AppDeployment{
 		ObjectMeta: metav1.ObjectMeta{
@@ -283,7 +287,7 @@ func (r *ReleaseReconciler) releaseDeleted(ctx context.Context, rel *v1alpha1.Re
 
 	if k8s.RemoveFinalizer(rel, api.FinalizerReleaseProtection) {
 		log.Debugf("removing finalizer from %T '%s'", rel, rel.Name)
-		if err := r.Update(ctx, rel); err != nil {
+		if err := r.Merge(ctx, rel, origRel); err != nil {
 			return err
 		}
 	}
@@ -292,6 +296,10 @@ func (r *ReleaseReconciler) releaseDeleted(ctx context.Context, rel *v1alpha1.Re
 }
 
 func (r *ReleaseReconciler) checkFinalizer(ctx context.Context, rel *v1alpha1.Release, obj client.Object, label string, log *logkf.Logger) error {
+	if obj.GetName() == "" {
+		return nil
+	}
+
 	relList := &v1alpha1.ReleaseList{}
 	if err := r.List(ctx, relList, client.InNamespace(rel.Namespace), client.MatchingLabels{
 		label: obj.GetName(),
@@ -301,12 +309,15 @@ func (r *ReleaseReconciler) checkFinalizer(ctx context.Context, rel *v1alpha1.Re
 	log.Debugf("found '%d' Releases using %T '%s'", len(relList.Items), obj, obj.GetName())
 
 	if len(relList.Items) == 0 || len(relList.Items) == 1 && relList.Items[0].Name == rel.Name {
-		if err := r.Get(ctx, k8s.Key(rel.Namespace, obj.GetName()), obj); k8s.IgnoreNotFound(err) != nil {
+		err := r.Get(ctx, k8s.Key(rel.Namespace, obj.GetName()), obj)
+		if k8s.IgnoreNotFound(err) != nil {
 			return err
+		}
 
-		} else if err == nil && k8s.RemoveFinalizer(obj, api.FinalizerReleaseProtection) {
+		orig := obj.DeepCopyObject().(client.Object)
+		if err == nil && k8s.RemoveFinalizer(obj, api.FinalizerReleaseProtection) {
 			log.Debugf("removing finalizer from %T '%s'", obj, obj.GetName())
-			if err := r.Update(ctx, obj); err != nil {
+			if err := r.Merge(ctx, obj, orig); err != nil {
 				return err
 			}
 		}

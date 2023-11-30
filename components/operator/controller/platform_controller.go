@@ -78,17 +78,16 @@ func (r *PlatformReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	)
 	log.Debugf("reconciling Platform '%s/%s'", req.Namespace, req.Name)
 
-	p, ready, err := r.reconcile(ctx, req, log)
-	if p != nil {
-		curStatus := p.Status
+	platform, ready, err := r.reconcile(ctx, req, log)
+	if platform != nil {
+		orig := platform.DeepCopy()
 
-		p.Status.Available = ready && (err == nil)
-		if err := r.updateComponentsStatus(ctx, p); err != nil {
+		platform.Status.Available = ready && (err == nil)
+		if err := r.updateComponentsStatus(ctx, platform); err != nil {
 			r.log.Error(err)
 		}
-
-		if !k8s.DeepEqual(curStatus, p.Status) {
-			if err := r.ApplyStatus(ctx, p); err != nil {
+		if !k8s.DeepEqual(platform.Status, orig.Status) {
+			if err := r.MergeStatus(ctx, platform, orig); err != nil {
 				r.log.Error(err)
 			}
 		}
@@ -117,8 +116,8 @@ func (r *PlatformReconciler) reconcile(ctx context.Context, req ctrl.Request, lo
 		return nil, false, nil
 	}
 
-	p := &v1alpha1.Platform{}
-	if err := r.Get(ctx, req.NamespacedName, p); err != nil {
+	platform := &v1alpha1.Platform{}
+	if err := r.Get(ctx, req.NamespacedName, platform); err != nil {
 		r.setSetup(pKey, false)
 		return nil, false, k8s.IgnoreNotFound(err)
 	}
@@ -126,11 +125,11 @@ func (r *PlatformReconciler) reconcile(ctx context.Context, req ctrl.Request, lo
 	cm := &v1.ConfigMap{}
 	if err := r.Get(ctx, k8s.Key(r.Namespace, r.Instance+"-root-ca"), cm); err != nil {
 		r.setSetup(pKey, false)
-		return p, false, log.ErrorN("unable to fetch root CA configmap: %w", err)
+		return platform, false, log.ErrorN("unable to fetch root CA configmap: %w", err)
 	}
 
-	maxEventSize := p.Spec.Events.MaxSize.Value()
-	if p.Spec.Events.MaxSize.IsZero() {
+	maxEventSize := platform.Spec.Events.MaxSize.Value()
+	if platform.Spec.Events.MaxSize.IsZero() {
 		maxEventSize = api.DefaultMaxEventSizeBytes
 	}
 	baseTD := &TemplateData{
@@ -142,14 +141,14 @@ func (r *PlatformReconciler) reconcile(ctx context.Context, req ctrl.Request, lo
 				BootstrapImage: BootstrapImage,
 			},
 			Platform: templates.Platform{
-				Name:      p.Name,
-				Namespace: p.Namespace,
+				Name:      platform.Name,
+				Namespace: platform.Namespace,
 			},
 			Owner: []*metav1.OwnerReference{
-				metav1.NewControllerRef(p, p.GroupVersionKind()),
+				metav1.NewControllerRef(platform, platform.GroupVersionKind()),
 			},
 			BuildInfo: build.Info,
-			Logger:    p.Spec.Logger,
+			Logger:    platform.Spec.Logger,
 			Values: map[string]any{
 				"maxEventSize": maxEventSize,
 				"vaultURL":     r.VaultURL,
@@ -165,74 +164,74 @@ func (r *PlatformReconciler) reconcile(ctx context.Context, req ctrl.Request, lo
 		// Ensure there are valid commits for Platform components.
 		if !api.RegexpCommit.MatchString(build.Info.BrokerCommit) ||
 			!api.RegexpCommit.MatchString(build.Info.HTTPSrvCommit) {
-			return p, false, log.ErrorN("broker or httpsrv commit from build info is invalid")
+			return platform, false, log.ErrorN("broker or httpsrv commit from build info is invalid")
 		}
 		if err := r.setupVault(ctx, baseTD); err != nil {
-			return p, false, log.ErrorN("problem setting up vault: %w", err)
+			return platform, false, log.ErrorN("problem setting up vault: %w", err)
 		}
 		if err := r.ApplyTemplate(ctx, "platform", &baseTD.Data, log); err != nil {
-			return p, false, log.ErrorN("problem setting up Platform: %w", err)
+			return platform, false, log.ErrorN("problem setting up Platform: %w", err)
 		}
 
 		r.setSetup(pKey, true)
 	}
 
-	if r.setDefaults(p) {
-		log.Debug("Platform defaults set, persisting")
-		return nil, false, r.Update(ctx, p)
+	if r.setDefaults(platform) {
+		log.Debug("Platform defaults set, updating")
+		return nil, false, r.Apply(ctx, platform)
 	}
 
 	td := baseTD.ForComponent(api.PlatformComponentNATS, &appsv1.StatefulSet{}, &NATSDefaults, templates.Component{
 		Name:                api.PlatformComponentNATS,
 		Image:               NATSImage,
-		PodSpec:             p.Spec.NATS.PodSpec,
-		ContainerSpec:       p.Spec.NATS.ContainerSpec,
+		PodSpec:             platform.Spec.NATS.PodSpec,
+		ContainerSpec:       platform.Spec.NATS.ContainerSpec,
 		IsPlatformComponent: true,
 	})
 	if err := r.setupVaultComponent(ctx, td, ""); err != nil {
-		return p, false, err
+		return platform, false, err
 	}
 	if rdy, err := r.CompMgr.SetupComponent(ctx, td); !rdy || err != nil {
 		chill()
-		return p, rdy, err
+		return platform, rdy, err
 	}
 
 	td = baseTD.ForComponent(api.PlatformComponentBroker, &appsv1.DaemonSet{}, &BrokerDefaults, templates.Component{
 		Name:                api.PlatformComponentBroker,
 		Commit:              build.Info.BrokerCommit,
 		Image:               BrokerImage,
-		PodSpec:             p.Spec.Broker.PodSpec,
-		ContainerSpec:       p.Spec.Broker.ContainerSpec,
+		PodSpec:             platform.Spec.Broker.PodSpec,
+		ContainerSpec:       platform.Spec.Broker.ContainerSpec,
 		IsPlatformComponent: true,
 	})
 	if err := r.setupVaultComponent(ctx, td, ""); err != nil {
-		return p, false, err
+		return platform, false, err
 	}
 	if rdy, err := r.CompMgr.SetupComponent(ctx, td); !rdy || err != nil {
 		chill()
-		return p, rdy, err
+		return platform, rdy, err
 	}
 
 	td = baseTD.ForComponent(api.PlatformComponentHTTPSrv, &appsv1.Deployment{}, &HTTPSrvDefaults, templates.Component{
 		Name:                api.PlatformComponentHTTPSrv,
 		Commit:              build.Info.HTTPSrvCommit,
 		Image:               HTTPSrvImage,
-		PodSpec:             p.Spec.HTTPSrv.PodSpec,
-		ContainerSpec:       p.Spec.HTTPSrv.ContainerSpec,
+		PodSpec:             platform.Spec.HTTPSrv.PodSpec,
+		ContainerSpec:       platform.Spec.HTTPSrv.ContainerSpec,
 		IsPlatformComponent: true,
 	})
-	td.Values["serviceType"] = p.Spec.HTTPSrv.Service.Type
-	td.Values["httpPort"] = p.Spec.HTTPSrv.Service.Ports.HTTP
-	td.Values["httpsPort"] = p.Spec.HTTPSrv.Service.Ports.HTTPS
+	td.Values["serviceType"] = platform.Spec.HTTPSrv.Service.Type
+	td.Values["httpPort"] = platform.Spec.HTTPSrv.Service.Ports.HTTP
+	td.Values["httpsPort"] = platform.Spec.HTTPSrv.Service.Ports.HTTPS
 	if err := r.setupVaultComponent(ctx, td, ""); err != nil {
-		return p, false, err
+		return platform, false, err
 	}
 	if rdy, err := r.CompMgr.SetupComponent(ctx, td); !rdy || err != nil {
 		chill()
-		return p, rdy, err
+		return platform, rdy, err
 	}
 
-	return p, true, nil
+	return platform, true, nil
 }
 
 func (r *PlatformReconciler) updateComponentsStatus(ctx context.Context, p *v1alpha1.Platform) error {
@@ -426,23 +425,23 @@ func (r *PlatformReconciler) vaultClient(ctx context.Context, url string, caCert
 }
 
 func (r *PlatformReconciler) setDefaults(platform *v1alpha1.Platform) bool {
-	s := &platform.Spec
-	cur := s.DeepCopy()
+	spec := &platform.Spec
+	origSpec := spec.DeepCopy()
 
-	if s.Logger.Format == "" {
-		s.Logger.Format = api.DefaultLogFormat
+	if spec.Logger.Format == "" {
+		spec.Logger.Format = api.DefaultLogFormat
 	}
-	if s.Logger.Level == "" {
-		s.Logger.Level = api.DefaultLogLevel
+	if spec.Logger.Level == "" {
+		spec.Logger.Level = api.DefaultLogLevel
 	}
-	if s.Events.TimeoutSeconds == 0 {
-		s.Events.TimeoutSeconds = api.DefaultTimeoutSeconds
+	if spec.Events.TimeoutSeconds == 0 {
+		spec.Events.TimeoutSeconds = api.DefaultTimeoutSeconds
 	}
-	if s.Events.MaxSize.IsZero() {
-		s.Events.MaxSize.Set(api.DefaultMaxEventSizeBytes)
+	if spec.Events.MaxSize.IsZero() {
+		spec.Events.MaxSize.Set(api.DefaultMaxEventSizeBytes)
 	}
 
-	svc := &s.HTTPSrv.Service
+	svc := &spec.HTTPSrv.Service
 	if svc.Type == "" {
 		svc.Type = "ClusterIP"
 	}
@@ -453,11 +452,11 @@ func (r *PlatformReconciler) setDefaults(platform *v1alpha1.Platform) bool {
 		svc.Ports.HTTPS = 443
 	}
 
-	SetDefaults(&s.NATS.ContainerSpec, &NATSDefaults)
-	SetDefaults(&s.Broker.ContainerSpec, &BrokerDefaults)
-	SetDefaults(&s.HTTPSrv.ContainerSpec, &HTTPSrvDefaults)
+	SetDefaults(&spec.NATS.ContainerSpec, &NATSDefaults)
+	SetDefaults(&spec.Broker.ContainerSpec, &BrokerDefaults)
+	SetDefaults(&spec.HTTPSrv.ContainerSpec, &HTTPSrvDefaults)
 
-	return !k8s.DeepEqual(cur, s)
+	return !k8s.DeepEqual(spec, origSpec)
 }
 
 func (r *PlatformReconciler) setSetup(key string, val bool) {

@@ -65,17 +65,15 @@ func (r *AppDeploymentReconciler) reconcile(ctx context.Context, req ctrl.Reques
 	if err := r.Get(ctx, req.NamespacedName, appDep); err != nil {
 		return k8s.IgnoreNotFound(err)
 	}
-	curAppDep := appDep.DeepCopy()
 
-	k8s.UpdateLabel(appDep, api.LabelK8sAppVersion, appDep.Spec.Version)
-	k8s.UpdateLabel(appDep, api.LabelK8sAppCommit, appDep.Spec.App.Commit)
-	k8s.UpdateLabel(appDep, api.LabelK8sAppCommitShort, utils.ShortCommit(appDep.Spec.App.Commit))
-	k8s.UpdateLabel(appDep, api.LabelK8sAppTag, appDep.Spec.App.Tag)
-	k8s.UpdateLabel(appDep, api.LabelK8sAppBranch, appDep.Spec.App.Branch)
+	if k8s.UpdateLabel(appDep, api.LabelK8sAppVersion, appDep.Spec.Version) ||
+		k8s.UpdateLabel(appDep, api.LabelK8sAppCommit, appDep.Spec.App.Commit) ||
+		k8s.UpdateLabel(appDep, api.LabelK8sAppCommitShort, utils.ShortCommit(appDep.Spec.App.Commit)) ||
+		k8s.UpdateLabel(appDep, api.LabelK8sAppTag, appDep.Spec.App.Tag) ||
+		k8s.UpdateLabel(appDep, api.LabelK8sAppBranch, appDep.Spec.App.Branch) {
 
-	if !k8s.DeepEqual(curAppDep.ObjectMeta, appDep.ObjectMeta) {
 		log.Debug("AppDeployment modified, updating")
-		return r.Update(ctx, appDep)
+		return r.Apply(ctx, appDep)
 	}
 
 	if _, err := r.CompMgr.ReconcileApps(ctx, req.Namespace); err != nil {

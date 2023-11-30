@@ -59,22 +59,19 @@ func (c *Client) Upsert(ctx context.Context, obj client.Object, dryRun bool) err
 	}
 	err := c.Create(ctx, obj, opts...)
 	if IsAlreadyExists(err) {
-		copy := obj.DeepCopyObject().(client.Object)
-		if err := c.Get(ctx, client.ObjectKey{Namespace: obj.GetNamespace(), Name: obj.GetName()}, copy); err != nil {
+		latest := obj.DeepCopyObject().(client.Object)
+		if err := c.Get(ctx, client.ObjectKey{Namespace: obj.GetNamespace(), Name: obj.GetName()}, latest); err != nil {
 			return err
 		}
 
-		obj.SetResourceVersion(copy.GetResourceVersion())
+		obj.SetResourceVersion(latest.GetResourceVersion())
 
-		opts := []client.UpdateOption{c.FieldOwner}
+		opts := []client.PatchOption{c.FieldOwner}
 		if dryRun {
 			opts = append(opts, client.DryRunAll)
 		}
-		if err = c.Update(ctx, obj, opts...); IsConflict(err) {
-			// Perform single retry on conflict.
-			err = c.Update(ctx, obj, opts...)
-		}
 
+		err = c.Merge(ctx, obj, latest, opts...)
 	}
 	// Restore TypeMeta.
 	obj.GetObjectKind().SetGroupVersionKind(orig.GetObjectKind().GroupVersionKind())
@@ -89,14 +86,13 @@ func (c *Client) Apply(ctx context.Context, obj client.Object, opts ...client.Pa
 	return c.Patch(ctx, obj, client.Apply, opts...)
 }
 
-func (c *Client) Merge(ctx context.Context, obj client.Object, opts ...client.PatchOption) error {
-	key := client.ObjectKeyFromObject(obj)
-	og := obj.DeepCopyObject().(client.Object)
-	if err := c.Get(ctx, key, og); err != nil {
+func (c *Client) Merge(ctx context.Context, modified, original client.Object, opts ...client.PatchOption) error {
+	p, err := c.merge(ctx, modified, original)
+	if err != nil {
 		return err
 	}
 
-	return c.Patch(ctx, obj, client.MergeFrom(og), opts...)
+	return c.Patch(ctx, modified, p, opts...)
 }
 
 func (c *Client) ApplyStatus(ctx context.Context, obj client.Object, opts ...client.SubResourcePatchOption) error {
@@ -104,6 +100,28 @@ func (c *Client) ApplyStatus(ctx context.Context, obj client.Object, opts ...cli
 	obj.SetResourceVersion("")
 	opts = append(opts, c.FieldOwner, client.ForceOwnership)
 	return c.Status().Patch(ctx, obj, client.Apply, opts...)
+}
+
+func (c *Client) MergeStatus(ctx context.Context, modified, original client.Object, opts ...client.SubResourcePatchOption) error {
+	p, err := c.merge(ctx, modified, original)
+	if err != nil {
+		return err
+	}
+
+	return c.Status().Patch(ctx, modified, p, opts...)
+}
+
+func (c *Client) merge(ctx context.Context, modified, original client.Object) (client.Patch, error) {
+	key := client.ObjectKeyFromObject(modified)
+	if original == nil {
+		original = modified.DeepCopyObject().(client.Object)
+		if err := c.Get(ctx, key, original); err != nil {
+			return nil, err
+		}
+	}
+	modified.SetResourceVersion(original.GetResourceVersion())
+
+	return client.MergeFrom(original), nil
 }
 
 func (r *Client) GetVirtualEnvObj(ctx context.Context, namespace, envId string, requireSnapshot bool) (v1alpha1.VirtualEnvObject, error) {

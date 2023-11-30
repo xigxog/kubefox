@@ -13,8 +13,9 @@ import (
 )
 
 type ReleaseSpec struct {
-	AppDeployment      ReleaseAppDeployment `json:"appDeployment"`
-	VirtualEnvSnapshot string               `json:"virtualEnvSnapshot,omitempty"`
+	AppDeployment ReleaseAppDeployment `json:"appDeployment"`
+	// +kubebuilder:validation:Optional
+	VirtualEnvSnapshot string               `json:"virtualEnvSnapshot"`
 	HistoryLimit       *ReleaseHistoryLimit `json:"historyLimit,omitempty"`
 }
 
@@ -24,7 +25,8 @@ type ReleaseAppDeployment struct {
 	// Version of the App being released. Use of semantic versioning is
 	// recommended. If set the value is compared to the AppDeployment version.
 	// If the two versions do not match the release will fail.
-	Version string `json:"version,omitempty"`
+	// +kubebuilder:validation:Optional
+	Version string `json:"version"`
 }
 
 type ReleaseHistoryLimit struct {
@@ -36,10 +38,11 @@ type ReleaseHistoryLimit struct {
 }
 
 type ReleaseStatusEntry struct {
-	AppDeployment ReleaseAppDeployment `json:"appDeployment"`
-	RequestTime   metav1.Time          `json:"requestTime,omitempty"`
-	AvailableTime *metav1.Time         `json:"availableTime,omitempty"`
-	ArchiveTime   *metav1.Time         `json:"archiveTime,omitempty"`
+	AppDeployment      ReleaseAppDeployment `json:"appDeployment"`
+	VirtualEnvSnapshot string               `json:"virtualEnvSnapshot,omitempty"`
+	RequestTime        metav1.Time          `json:"requestTime,omitempty"`
+	AvailableTime      *metav1.Time         `json:"availableTime,omitempty"`
+	ArchiveTime        *metav1.Time         `json:"archiveTime,omitempty"`
 }
 
 type ReleaseStatus struct {
