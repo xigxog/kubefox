@@ -1,5 +1,5 @@
 # Compress binary
-FROM ghcr.io/xigxog/upx:4.2.0 AS upx
+FROM ghcr.io/xigxog/upx:4.2.1 AS upx
 
 ARG COMPONENT
 ARG COMPRESS=false
