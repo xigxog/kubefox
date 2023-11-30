@@ -104,8 +104,6 @@ export FOX_INFO=true && \
   cd kubefox-hello-world
 ```
 
-TODO add quickstart flag and default as below
-
 ```{ .shell .copy }
 fox init --quickstart
 ```
@@ -634,21 +632,22 @@ two deployments and release. Because the `backend` component did not change
 between deployments KubeFox is able to share a single pod. Not only are
 environments injected per request, routing is performed dynamically.
 
-For fun publish the new version of the app, release it to the `qa` environment,
-then promote version `v0.1.0` to the `prod` environment. Because of the stricter
-policies set in the `prod` environment a snapshot is required to release. Much
-like a versioned deployment an environment snapshot is immutable ensuring a
-stable release even if the `prod` environment is changed.
+For fun publish the new version of the app and release it to the `qa`
+environment. Then promote version `v0.1.0` to the `prod` environment. Because of
+the stricter policies set in the `prod` environment a snapshot is required to
+release. Much like a versioned deployment an environment snapshot is immutable
+ensuring a stable release even if the `prod` environment is changed.
 
-Check out those blazing fast the releases.
-
-TODO break release into two sections
+First release the new version to `qa` and give it a test.
 
 ```{ .shell .copy }
 git tag v0.1.1 && \
   fox publish --version v0.1.1 --wait 5m && \
-  fox release v0.1.1 --virtual-env qa && \
-  fox release v0.1.0 --virtual-env prod --create-snapshot
+  fox release v0.1.1 --virtual-env qa
+```
+
+```{ .shell .copy }
+curl "http://localhost:8080/qa/hello"
 ```
 
 ??? example "Output"
@@ -736,6 +735,26 @@ git tag v0.1.1 && \
           version: v0.1.0
         requestTime: "2023-11-29T18:10:16Z"
 
+    $ curl "http://localhost:8080/qa/hello"
+    👋 Hey World!
+    ```
+
+Now release the original version `v0.1.0` to the `prod` environment and send a
+request to see it working.
+
+```{ .shell .copy }
+fox release v0.1.0 --virtual-env prod --create-snapshot
+```
+
+```{ .shell .copy }
+curl "http://localhost:8080/prod/hello"
+```
+
+??? example "Output"
+
+    ```text
+    $ fox release v0.1.0 --virtual-env prod --create-snapshot
+
     apiVersion: kubefox.xigxog.io/v1alpha1
     kind: Release
     metadata:
@@ -751,23 +770,6 @@ git tag v0.1.1 && \
         version: v0.1.0
     status:
       current: null
-    ```
-
-Test it out when everything is done.
-
-```{ .shell .copy }
-curl "http://localhost:8080/qa/hello"
-```
-
-```{ .shell .copy }
-curl "http://localhost:8080/prod/hello"
-```
-
-??? example "Output"
-
-    ```text
-    $ curl "http://localhost:8080/qa/hello"
-    👋 Hey World!
 
     $ curl "http://localhost:8080/prod/hello"
     👋 Hello Universe!
