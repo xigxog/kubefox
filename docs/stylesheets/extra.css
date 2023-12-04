@@ -34,3 +34,7 @@ img[alt="diagram"] {
 .md-tooltip {
   text-align: center;
 }
+
+.md-grid {
+  max-width: 90%; /* or 100%, if you want to stretch to full-width */
+}

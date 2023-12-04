@@ -7,7 +7,7 @@ what components are currently running in the cluster, and what components have
 changed in the new deployment.  In so doing KubeFox helps you control
 provisioning.
 
-For purposes of illustration, consider an Order [**System**](concepts.md).
+For purposes of illustration, consider an Order [System](../concepts.md).
 
 Note: There are additional things happening during these deployment cycles which
 are discussed toward the bottom of the page. For this part of the discussion,
@@ -24,7 +24,7 @@ The Fulfillment app is composed of 4 components, 2 of which are adapters:
 1. CRON adapter
 2. State Store adapter
 
-**[Adapters](concepts.md)** are Brokers for External Components, in this case
+[Adapters](../concepts.md) are Brokers for External Components, in this case
 serving to proxy events, requests and responses to CRON and a State Store (like
 a database).
 

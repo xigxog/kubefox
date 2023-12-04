@@ -287,7 +287,7 @@ func (r *ReleaseReconciler) releaseDeleted(ctx context.Context, rel *v1alpha1.Re
 
 	if k8s.RemoveFinalizer(rel, api.FinalizerReleaseProtection) {
 		log.Debugf("removing finalizer from %T '%s'", rel, rel.Name)
-		if err := r.Merge(ctx, rel, origRel); err != nil {
+		if err := r.Merge(ctx, rel, origRel); k8s.IgnoreNotFound(err) != nil {
 			return err
 		}
 	}

@@ -38,6 +38,8 @@ func (r *AppDeploymentReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Complete(r)
 }
 
+// Reconcile is part of the main kubernetes reconciliation loop which aims to
+// move the current state of the cluster closer to the desired state.
 func (r *AppDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	log := r.log.With(
 		"namespace", req.Namespace,
@@ -53,13 +55,15 @@ func (r *AppDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 		return ctrl.Result{}, err
 	}
 
+	if _, err := r.CompMgr.ReconcileApps(ctx, req.Namespace); err != nil {
+		return ctrl.Result{}, err
+	}
+
 	log.Debugf("reconciling AppDeployment '%s/%s' done", req.Namespace, req.Name)
 
 	return ctrl.Result{}, nil
 }
 
-// Reconcile is part of the main kubernetes reconciliation loop which aims to
-// move the current state of the cluster closer to the desired state.
 func (r *AppDeploymentReconciler) reconcile(ctx context.Context, req ctrl.Request, log *logkf.Logger) error {
 	appDep := &v1alpha1.AppDeployment{}
 	if err := r.Get(ctx, req.NamespacedName, appDep); err != nil {
@@ -74,10 +78,6 @@ func (r *AppDeploymentReconciler) reconcile(ctx context.Context, req ctrl.Reques
 
 		log.Debug("AppDeployment modified, updating")
 		return r.Apply(ctx, appDep)
-	}
-
-	if _, err := r.CompMgr.ReconcileApps(ctx, req.Namespace); err != nil {
-		return err
 	}
 
 	// TODO update conditions

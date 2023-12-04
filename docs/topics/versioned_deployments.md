@@ -134,7 +134,7 @@ A KubeFox deployment results in the following:
    component or new component in version B will be deployed when version B of
    the System is deployed.
 
-    See [**Deployment Distillation**](deployment_distillation.md) for a deeper
+    See [Deployment Distillation](deployment_distillation.md) for a deeper
     discussion of the component distillation facilities of KubeFox
 
 2. The new version of the System (version B) is available only via explicit
@@ -149,8 +149,8 @@ A KubeFox release results in the following:
 
 With KubeFox, you are always releasing a version of a System, even if a single
 component changed.  KubeFox shapes traffic delivery to each component of the
-system dynamically (see [**Dynamic Routing and Guaranteed
-Delivery**](dynamic_routing.md)).  Because release is such a lightweight
+system dynamically (see [Dynamic Routing and Guaranteed
+Delivery](dynamic_routing.md)).  Because release is such a lightweight
 operation, it is almost instantaneous.  And it yields a great deal of power and
 flexibility when dealing with new versions of Systems.
   

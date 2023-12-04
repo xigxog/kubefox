@@ -106,9 +106,9 @@ workloads - including for deployments that have already occurred.
 
 KubeFox segregates the developer sandboxes while leveraging its capabilities to
 distill the number of Pods running to only those that are unique and necessary
-(this is discussed in greater depth both in [**Versioned
-Deployments**](versioned_deployments.md) and [**Deployment
-Distillation**](deployment_distillation.md).
+(this is discussed in greater depth both in [Versioned
+Deployments](versioned_deployments.md) and [Deployment
+Distillation](deployment_distillation.md).
 
 In Figure 4, we have a complex Retail System comprising 3 applications (a Web UI
 app, a Catalog app and a Fulfillment app), 2 components that are shared amongst

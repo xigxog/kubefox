@@ -1,19 +1,26 @@
 # Quickstart
 
+Welcome to the world of KubeFox! In this technical guide, we'll walk you through
+the process of setting up a local Kubernetes cluster using kind and deploying
+your first KubeFox app. From creating environments and deploying apps to testing
+and version control, we'll cover it all. Whether you're a seasoned developer or
+just getting started, this guide will help you navigate the intricacies of
+KubeFox with ease. Let's dive in!
+
 ## Prerequisites
 
-The following tools must be installed for this quickstart:
+Ensure that the following tools are installed for this quick start:
 
 - [Docker](https://docs.docker.com/engine/install/) - A container toolset and
-  runtime. Used to build KubeFox components' OCI images and run a local
+  runtime used to build KubeFox components' OCI images and run a local
   Kubernetes cluster via kind.
-- [Fox](https://github.com/xigxog/kubefox-cli/releases/) -
-  CLI for communicating with the KubeFox platform. Download the latest release
-  and put the binary on your path.
+- [Fox](https://github.com/xigxog/kubefox-cli/releases/) - A CLI for
+  communicating with the KubeFox platform. Download the latest release and add
+  the binary to your system's path.
 - [Git](https://github.com/git-guides/install-git) - A distributed version
   control system.
-- [Helm](https://helm.sh/docs/intro/install/) - Package manager for Kubernetes.
-  Used to install the KubeFox platform on Kubernetes.
+- [Helm](https://helm.sh/docs/intro/install/) - Package manager for Kubernetes
+  used to install the KubeFox platform on Kubernetes.
 - [Kind](https://kind.sigs.k8s.io/docs/user/quick-start/) - **K**uberentes
   **in** **D**ocker. A tool for running local Kubernetes clusters using Docker
   container "nodes".
@@ -22,16 +29,16 @@ The following tools must be installed for this quickstart:
 
 Here are a few optional but recommended tools:
 
-- [Go](https://go.dev/doc/install) - Programming language. The
-  `hello-world` sample app is written in Go but Fox is able to compile it even
-  without Go installed.
+- [Go](https://go.dev/doc/install) - A programming language. The `hello-world`
+  sample app is written in Go, but Fox is able to compile it even without Go
+  installed.
 - [VS Code](https://code.visualstudio.com/download) - A lightweight but powerful
   source code editor. Helpful if you want to explore the `hello-world` app.
 
-## Install KubeFox Platform
+## Install KubeFox
 
-You will start with setting up a local Kubernetes cluster using kind. The
-following command can be used to create the cluster.
+Let's kick things off by setting up a local Kubernetes cluster using kind. Use
+the following command to create the cluster.
 
 ```{ .shell .copy }
 kind create cluster --wait 5m
@@ -58,9 +65,8 @@ kind create cluster --wait 5m
     Have a nice day! 👋
     ```
 
-Next you need to install the KubeFox Helm Chart. This will start the KubeFox
-operator on your Kubernetes cluster. It is responsible for managing KubeFox
-platforms and apps.
+Now, install the KubeFox Helm Chart to initiate the KubeFox operator on your
+Kubernetes cluster. The operator manages KubeFox platforms and apps.
 
 ```{ .shell .copy }
 helm upgrade kubefox kubefox \
@@ -86,22 +92,20 @@ helm upgrade kubefox kubefox \
     TEST SUITE: None
     ```
 
-## Deploy App
+## Deploy
 
-Great now you're ready to create your first KubeFox app and deploy it to a
-KubeFox platform running on the local kind cluster. You'll be using a local Git
-repo for the demo. To get things started create a new directory and use Fox to
-initialize the `hello-world` app. You'll want to run all the remaining commands
-from this directory. The export command tells Fox to print some extra info about
-what is going on. You can also pass the `--verbose` flag to print debug
-statements. Passing the `--quickstart` flags lets Fox know to use defaults for
-its configuration and to create a KubeFox platform named `demo` in the
+Awesome! You're all set to create your first KubeFox app and deploy it to a
+KubeFox platform running on the local kind cluster. To begin, create a new
+directory and use Fox to initialize the `hello-world` app. Run all subsequent
+commands from this directory. The environment variable `FOX_INFO` tells Fox to
+to provide additional output about what is going on. Employ the `--quickstart`
+flag to use defaults and create a KubeFox platform named `demo` in the
 `kubefox-demo` namespace.
 
 ```{ .shell .copy }
 export FOX_INFO=true && \
-  mkdir kubefox-hello-world && \
-  cd kubefox-hello-world
+  mkdir kubefox-quickstart && \
+  cd kubefox-quickstart
 ```
 
 ```{ .shell .copy }
@@ -112,30 +116,29 @@ fox init --quickstart
 
     ```text
     $ export FOX_INFO=true && \
-        mkdir kubefox-hello-world && \
-        cd kubefox-hello-world
+        mkdir kubefox-quickstart && \
+        cd kubefox-quickstart
 
     $ fox init --quickstart
     info    Waiting for KubeFox Platform 'demo' to be ready...
     info    KubeFox initialized for the quickstart guide!
     ```
 
-You should see some newly created directories and files. The `hello-world` app
-includes two components and example environments. You might have noticed Fox
-initialized a new Git repo for you. Take a look around!
+Notice the newly created directories and files. The `hello-world` app comprises
+two components and example environments. Fox also initialized a new Git repo for
+you. Take a look around!
 
-When you're ready it's time to create some environments. Two example
-environments are provided in the `hack` dir. Take a quick look at them, then use
-`kubectl` to apply them to Kubernetes. The `subPath` variable is used to ensure
-unique routes between environments. You can see how it used in the `frontend`
-component's `main.go` line 21.
+Now, let's create some environments. Two example environments are available in
+the `hack` directory. The `subPath` variable ensures unique routes between
+environments, as demonstrated in the frontend component's `main.go` line 21.
 
 ```{ .go .no-copy linenums="21" }
 k.Route("Path(`/{{.Env.subPath}}/hello`)", sayHello)
 ```
 
-Run the following commands to continue. Note the differences between the two
-environments' variables on lines numbered 11,12 and 23,24.
+Run the following command to examine the environments and apply them to
+Kubernetes using `kubectl`. Note the differences between the two environments'
+variables on lines numbered 11,12 and 23,24.
 
 ```{ .shell .copy }
 cat -b hack/environments/* && \
@@ -177,11 +180,11 @@ cat -b hack/environments/* && \
     virtualenv.kubefox.xigxog.io/qa created
     ```
 
-Now you'll deploy the app. The following command will build the component's OCI
-images, load them onto the kind cluster, and deploy them to a KubeFox platform.
-The first run might take some time as it needs to download dependencies, but
-future runs should be much faster. Remember, you can add the `--verbose` flag
-for extra output if you want to see what's going on behind the scenes.
+Next, deploy the `hello-world` app. The `publish` command builds the component's
+OCI images, loads them onto the kind cluster, and deploys the app to the KubeFox
+platform. The initial run might take some time as it downloads dependencies, but
+subsequent runs will be faster. Optionally add the the `--verbose` flag for
+extra output.
 
 ```{ .shell .copy }
 fox publish main --wait 5m
@@ -249,7 +252,7 @@ fox publish main --wait 5m
       available: false
     ```
 
-Now take a quick look at what is running on Kubernetes.
+Inspect what's running on Kubernetes.
 
 ```{ .shell .copy }
 kubectl get pods --namespace kubefox-demo
@@ -267,15 +270,13 @@ kubectl get pods --namespace kubefox-demo
     hello-world-frontend-bb702a1-5d998f5cb-t9qp6    1/1     Running   0          2s
     ```
 
-You can see the two components running that you just deployed,
-`hello-world-backend` and `hello-world-frontend`. The `broker`, `httpsrv`, and
-`nats` pods are part of the KubeFox platform and were started by the operator
-when you created the platform.
+The pods for two components you deployed were created, `hello-world-backend` and
+`hello-world-frontend`. The `broker`, `httpsrv`, and `nats` pods are part of the
+KubeFox platform initiated by the operator during platform creation.
 
-Normally connections to the KubeFox platform would be made through a public
-facing load balancer, but setting that up is outside the scope of this
-quickstart. Instead you can use Fox to create a local proxy. In a new terminal
-start this command.
+Typically, connections to KubeFox apps are made through a public-facing load
+balancer. For the simplicity of this guide use Fox to create a local proxy
+instead. In a new terminal run the following command.
 
 ```{ .shell .copy }
 fox proxy 8080
@@ -299,11 +300,11 @@ fox proxy 8080
     HTTP proxy started on http://127.0.0.1:8080
     ```
 
-Now back in the original terminal you can test the deployment. When KubeFox
-deploys an app it starts the components but will not route requests to it until
-it is released. But you can still test deployments by providing some context.
-KubeFox needs two pieces of information, the deployment to use and the
-environment to inject. These can be passed as headers or query parameters.
+Now, back in the original terminal, test the deployment. KubeFox won't route
+requests to the app until it's released, but you can still test deployments by
+manually providing context. KubeFox needs two pieces of information to route an
+event, the deployment to use and the environment to inject. These can be passed
+as headers or query parameters.
 
 ```{ .shell .copy }
 curl "http://localhost:8080/qa/hello?kf-dep=main&kf-env=qa"
@@ -316,12 +317,11 @@ curl "http://localhost:8080/qa/hello?kf-dep=main&kf-env=qa"
     👋 Hello World!
     ```
 
-Next try switching to the `prod` environment created earlier. With KubeFox
-there is no need to create another deployment to switch environments, simply
-change the query parameter. This is possible because KubeFox injects context at
-request time instead of at deployment. Adding environments has nearly zero
-overhead! Be sure to change the `subPath` from `qa` to `prod` to reflect the
-change of environment.
+Try switching to the `prod` environment — this can be done seamlessly with
+KubeFox without creating another deployment. This is possible because KubeFox
+injects context at request time instead of at deployment. Adding environments
+has nearly zero overhead! Be sure to change the `subPath` from `qa` to `prod` to
+reflect the change of environment.
 
 ```{ .shell .copy }
 curl "http://localhost:8080/prod/hello?kf-dep=main&kf-env=prod"
@@ -334,33 +334,36 @@ curl "http://localhost:8080/prod/hello?kf-dep=main&kf-env=prod"
     👋 Hello Universe!
     ```
 
-## Release App
+## Release
 
-Now you will release the app to the `qa` environment. Once released you don't
-have to specify all those details in the request, routes are matched
-automatically. First you'll publish a versioned deployment. Unlike normal
-deployments which can be updated freely, versioned deployments are immutable.
-They provide a stable deployment that can be promoted to higher environments
-when needed. Whenever you create a versioned deployment is it recommended to tag
-the Git repo to make keeping track of versions easier.
+To have KubeFox automatically route requests without specifying context you need
+to create a release. Once a deployment is released, KubeFox will match requests
+to components' routes and automatically inject context. Before creating a
+release it is recommended to publish a versioned deployment and tag the Git
+repo. Unlike normal deployments, which can be updated freely, versioned
+deployments are immutable. They provide a stable deployment that can be promoted
+to higher environments.
+
+Tag the Git repo, publish the versioned deployment, and release it to the `qa`
+environment with this command.
 
 ```{ .shell .copy }
-git tag v0.1.0 && \
-  fox publish --version v0.1.0 && \
+fox publish --version v0.1.0 --create-tag && \
   fox release v0.1.0 --virtual-env qa --wait 5m
 ```
 
 ??? example "Output"
 
     ```text
-    $ git tag v0.1.0 && \
-        fox publish --version v0.1.0 && \
+    $ fox publish --version v0.1.0 --create-tag && \
         fox release v0.1.0 --virtual-env qa --wait 5m
     info    Component image 'localhost/kubefox/hello-world/backend:bb702a1' exists, skipping build.
     info    Loading component image 'localhost/kubefox/hello-world/backend:bb702a1' into kind cluster 'kind'.
 
     info    Component image 'localhost/kubefox/hello-world/frontend:bb702a1' exists, skipping build.
     info    Loading component image 'localhost/kubefox/hello-world/frontend:bb702a1' into kind cluster 'kind'.
+
+    info    Creating tag 'v0.1.0'.
 
     apiVersion: kubefox.xigxog.io/v1alpha1
     kind: AppDeployment
@@ -431,9 +434,9 @@ git tag v0.1.0 && \
       current: null
     ```
 
-Try the same request from above, but this time don't specify the context. Since
-the app has been released the request will get matched by the component's route
-and the context information will be automatically injected by KubeFox.
+Test the same request as before, but this time without specifying context. Since
+the app has been released, the request is matched by the component's route, and
+context information is automatically applied.
 
 ```{ .shell .copy }
 curl "http://localhost:8080/qa/hello"
@@ -446,8 +449,8 @@ curl "http://localhost:8080/qa/hello"
     👋 Hello World!
     ```
 
-Take another look at the pods running on Kubernetes now that you performed
-another deployment and release.
+Inspect the pods running on Kubernetes now that you performed another deployment
+and release.
 
 ```{ .shell .copy }
 kubectl get pods --namespace kubefox-demo
@@ -465,14 +468,15 @@ kubectl get pods --namespace kubefox-demo
     hello-world-frontend-bb702a1-5d998f5cb-t9qp6    1/1     Running   0          6m1s
     ```
 
-Surprise, nothing has changed! KubeFox is dynamically injecting the context per
-request just like when you changed environments above.
+Surprisingly, nothing has changed in the pods running on Kubernetes. KubeFox
+dynamically injects context per request, just like when you changed environments
+earlier with the query parameters.
 
-## Update and Promote App
+## Update
 
-Next you'll make a modification to the `frontend` component and deploy it. Open
-up `components/frontend/main.go` in your favorite editor and update line 32 in
-the `sayHello` function to say something new.
+Next, make a modification to the `frontend` component, commit the changes, and
+deploy. Open up `components/frontend/main.go` in your favorite editor and update
+line 32 in the `sayHello` function to say something new.
 
 ```go linenums="26" hl_lines="7"
 func sayHello(k kit.Kontext) error {
@@ -502,10 +506,9 @@ func sayHello(k kit.Kontext) error {
 
 Fox operates against the current commit of the Git repo when deploying
 components. That means before deploying you need to commit the changes to record
-them. Then you can update the `main` deployment and test. Take note of the hash
-generated by the commit, in the example output below it is `780e2db`. The commit
-hashes are used to version the components as can be seen in the container OCI
-image tags.
+them. You can then re-deploy the `main` deployment and test. Take note of the
+commit hash, in the example output below it is `780e2db`. Commit hashes are used
+to version components.
 
 ```{ .shell .copy }
 git add . && \
@@ -608,7 +611,7 @@ curl "http://localhost:8080/qa/hello"
     👋 Hello World!
     ```
 
-Again, take look at the pods running on Kubernetes with the new deployment.
+Inspect the pods running on Kubernetes with the new deployment.
 
 ```{ .shell .copy }
 kubectl get pods --namespace kubefox-demo
@@ -629,43 +632,38 @@ kubectl get pods --namespace kubefox-demo
 
 You might be surprised to find only three component pods running to support the
 two deployments and release. Because the `backend` component did not change
-between deployments KubeFox is able to share a single pod. Not only are
-environments injected per request, routing is performed dynamically.
+between deployments, KubeFox shares a single pod. Based on the context applied
+at request time, routing to the correct component versions is dynamically
+performed.
 
-For fun publish the new version of the app and release it to the `qa`
-environment. Then promote version `v0.1.0` to the `prod` environment. Because of
-the stricter policies set in the `prod` environment a snapshot is required to
-release. Much like a versioned deployment an environment snapshot is immutable
-ensuring a stable release even if the `prod` environment is changed.
+## Promote
 
-First release the new version to `qa` and give it a test.
+Finally, publish the new version of the app, release it to the `qa`
+environment, and then promote version `v0.1.0` to the `prod` environment.
+Stricter policies of the `prod` environment require an environment snapshot to
+exist for a release. Similar to a versioned deployment, an environment snapshot
+is immutable ensuring a stable release even if the source environment is
+changed.
 
-```{ .shell .copy }
-git tag v0.1.1 && \
-  fox publish --version v0.1.1 --wait 5m && \
-  fox release v0.1.1 --virtual-env qa
-```
+Release the new version to `qa`.
 
 ```{ .shell .copy }
-curl "http://localhost:8080/qa/hello"
+fox publish --version v0.1.1 --create-tag && \
+  fox release v0.1.1 --virtual-env qa --wait 5m
 ```
 
 ??? example "Output"
 
     ```text
-    $ git tag v0.1.1 && \
-        fox publish --version v0.1.1 --wait 5m && \
-        fox release v0.1.1 --virtual-env qa && \
-        fox release v0.1.0 --virtual-env prod --create-snapshot
+    $ fox publish --version v0.1.1 --create-tag && \
+        fox release v0.1.1 --virtual-env qa --wait 5m
     info    Component image 'localhost/kubefox/hello-world/backend:bb702a1' exists.
     info    Loading component image 'localhost/kubefox/hello-world/backend:bb702a1' into kind cluster 'kind'.
 
     info    Component image 'localhost/kubefox/hello-world/frontend:780e2db' exists.
     info    Loading component image 'localhost/kubefox/hello-world/frontend:780e2db' into kind cluster 'kind'.
 
-    info    Waiting for KubeFox Platform 'demo' to be ready...
-    info    Waiting for component 'backend' to be ready...
-    info    Waiting for component 'frontend' to be ready...
+    info    Creating tag 'v0.1.1'.
 
     apiVersion: kubefox.xigxog.io/v1alpha1
     kind: AppDeployment
@@ -714,6 +712,9 @@ curl "http://localhost:8080/qa/hello"
             rule: Path(`/{{.Env.subpath}}/hello`)
     status:
       available: false
+    info    Waiting for KubeFox Platform 'demo' to be ready...
+    info    Waiting for component 'backend' to be ready...
+    info    Waiting for component 'frontend' to be ready...
 
     apiVersion: kubefox.xigxog.io/v1alpha1
     kind: Release
@@ -734,20 +735,27 @@ curl "http://localhost:8080/qa/hello"
           name: v0-1-0
           version: v0.1.0
         requestTime: "2023-11-29T18:10:16Z"
+    ```
 
+Test the release. You should see the output from the updated `frontend`
+component.
+
+```{ .shell .copy }
+curl "http://localhost:8080/qa/hello"
+```
+
+??? example "Output"
+
+    ```text
     $ curl "http://localhost:8080/qa/hello"
     👋 Hey World!
     ```
 
-Now release the original version `v0.1.0` to the `prod` environment and send a
-request to see it working.
+Now, release the original version `v0.1.0` to the `prod` environment and create
+the required environment snapshot.
 
 ```{ .shell .copy }
 fox release v0.1.0 --virtual-env prod --create-snapshot
-```
-
-```{ .shell .copy }
-curl "http://localhost:8080/prod/hello"
 ```
 
 ??? example "Output"
@@ -770,10 +778,21 @@ curl "http://localhost:8080/prod/hello"
         version: v0.1.0
     status:
       current: null
+    ```
 
+Send a request to see it working.
+
+```{ .shell .copy }
+curl "http://localhost:8080/prod/hello"
+```
+
+??? example "Output"
+
+    ```text
     $ curl "http://localhost:8080/prod/hello"
     👋 Hello Universe!
     ```
 
-Check out the rest of the docs for more. If you run into any problems please let
-us know on [GitHub Issues](https://github.com/xigxog/kubefox/issues).
+Explore the rest of the documentation for more details. If you encounter any
+problems please let us know on [GitHub
+Issues](https://github.com/xigxog/kubefox/issues).

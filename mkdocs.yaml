@@ -7,22 +7,6 @@ site_description: Documentation for KubeFox
 site_author: John Long
 copyright: Copyright © XigXog
 
-nav:
-  - index.md
-  - quickstart.md
-  - kubernetes_challenges.md
-  - why_kubefox.md
-  - concepts.md
-  - design.md
-  - versioned_deployments.md
-  - deployment_distillation.md
-  - dynamic_routing.md
-  - virtual_environments.md
-  - telemetry.md
-  - Reference:
-      - reference/events.md
-      - reference/protobuf.md
-
 extra:
   homepage: https://kubefox.io
   social:
@@ -65,14 +49,13 @@ theme:
         name: Switch to light mode
   features:
     - content.code.annotate
-    - navigation.expand
     - navigation.instant
-    - navigation.sections
     - navigation.tracking
     - toc.integrate
 
 plugins:
   - search
+  - awesome-pages
   - mermaid2:
       arguments:
         theme: |
