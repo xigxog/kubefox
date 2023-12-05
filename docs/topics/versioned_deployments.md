@@ -12,8 +12,8 @@ Let’s start with a Retail System composed of 3 applications, a Web UI app, a
 Catalog app and a fulfillment app, as shown in Figure 1:
 
 <figure markdown>
-  <img src="../diagrams/deployments/versioned/light/retail_system_composition_v1(light).svg#only-light" width=90% height=90%>
-  <img src="../diagrams/deployments/versioned/dark/retail_system_composition_v1(dark).svg#only-dark" width=90% height=90%>
+  <img src="../../diagrams/deployments/versioned/light/retail_system_composition_v1(light).svg#only-light" width=90% height=90%>
+  <img src="../../diagrams/deployments/versioned/dark/retail_system_composition_v1(dark).svg#only-dark" width=90% height=90%>
   <figcaption>Figure 1 - Composition of Version 1 of the Retail System</figcaption>
 </figure>
 
@@ -23,7 +23,7 @@ Service and Member Service components.  When the Retail System is deployed by
 KubeFox, the cluster will look like the diagram in Figure 2.  
 
 <figure markdown>
-  <img src="../diagrams/deployments/versioned/retail_system_v1.svg" width=100% height=100%>
+  <img src="../../diagrams/deployments/versioned/retail_system_v1.svg" width=100% height=100%>
   <figcaption>Figure 2 - First Deployment of the Retail System</figcaption>
 </figure>
 
@@ -42,8 +42,8 @@ current example, if we update the Catalog Query component in the Catalog app,
 our Retail System will be composed of the components shown in Figure 3.
 
 <figure markdown>
-  <img src="../diagrams/deployments/versioned/light/retail_system_composition_v2(light).svg#only-light" width=90% height=90%>
-  <img src="../diagrams/deployments/versioned/dark/retail_system_composition_v2(dark).svg#only-dark" width=90% height=90%>
+  <img src="../../diagrams/deployments/versioned/light/retail_system_composition_v2(light).svg#only-light" width=90% height=90%>
+  <img src="../../diagrams/deployments/versioned/dark/retail_system_composition_v2(dark).svg#only-dark" width=90% height=90%>
   <figcaption>Figure 3 - Composition of Version 2 of the Retail System</figcaption>
 </figure>
 
@@ -52,7 +52,7 @@ change within a System - whether an updated to a component, or addition of a
 component - will yield a new version of that System.
 
 <figure markdown>
-  <img src="../diagrams/deployments/versioned/retail_system_v2.svg" width=100% height=100%>
+  <img src="../../diagrams/deployments/versioned/retail_system_v2.svg" width=100% height=100%>
   <figcaption>Figure 4 - Version 2 of the Retail System with the modified Catalog Query component</figcaption>
 </figure>
 
@@ -80,13 +80,13 @@ version 1 of the Retail System, so we only need version 2 of the Catalog Query
 component.  The component building blocks will be those shown in Figure 5.
 
 <figure markdown>
-  <img src="../diagrams/deployments/versioned/light/retail_system_composition_v3(light).svg#only-light" width=90% height=90%>
-  <img src="../diagrams/deployments/versioned/dark/retail_system_composition_v3(dark).svg#only-dark" width=90% height=90%>
+  <img src="../../diagrams/deployments/versioned/light/retail_system_composition_v3(light).svg#only-light" width=90% height=90%>
+  <img src="../../diagrams/deployments/versioned/dark/retail_system_composition_v3(dark).svg#only-dark" width=90% height=90%>
   <figcaption>Figure 5 - Composition of Version 3 of the Retail System</figcaption>
 </figure>
 
 <figure markdown>
-  <img src="../diagrams/deployments/versioned/retail_system_v3.svg" width=100% height=100%>
+  <img src="../../diagrams/deployments/versioned/retail_system_v3.svg" width=100% height=100%>
   <figcaption>Figure 6 - Version 3 of the Retail System</figcaption>
 </figure>
 
@@ -99,7 +99,7 @@ component (thereby creating Version 4 of the Retail System), we can choose to
 deprecate the v1 version of Vendor Services (Figure 7).
 
 <figure markdown>
-  <img src="../diagrams/deployments/versioned/retail_system_v4.svg" width=100% height=100%>
+  <img src="../../diagrams/deployments/versioned/retail_system_v4.svg" width=100% height=100%>
   <figcaption>Figure 7 - Version 4 of the Retail System</figcaption>
 </figure>
 
@@ -116,7 +116,7 @@ Now is a good time to review KubeFox deployments and releases.
 
 <!-- <object
   id="color-change-svg"
-  data="../diagrams/deployments/dark/test.svg"
+  data="../../diagrams/deployments/dark/test.svg"
   type="image/svg+xml"
   >
  </object> -->

@@ -1,7 +1,8 @@
 # Concepts
 
-We’ll start with brief descriptions of KubeFox constituents and gradually drop
-deeper into detail.
+The following are brief descriptions of KubeFox constituents. For more details
+and tutorials on their use checkout additional documentation under
+[topics](../topics).
 
 ## Event
 

@@ -14,7 +14,7 @@ You can visualize the behavior of the entire System (all applications composing
 the Retail System) as shown in Figure 1:
 
 <figure markdown>
-  <img src="../diagrams/telemetry/telemetry_system.svg" width=100% height=100%>
+  <img src="../../diagrams/telemetry/telemetry_system.svg" width=100% height=100%>
   <figcaption>Figure 1 - Span-based telemetry for the entire System</figcaption>
 </figure>
 
@@ -22,13 +22,13 @@ You can visualize behavior by Application (Figure 2) - for instance for the
 Fulfillment app:
 
 <figure markdown>
-  <img src="../diagrams/telemetry/telemetry_application.svg" width=100% height=100%>
+  <img src="../../diagrams/telemetry/telemetry_application.svg" width=100% height=100%>
   <figcaption>Figure 2 - Span-based telemetry for the Fulfillment App</figcaption>
 </figure>
 
 And you can visualize behavior by individual Component (Figure 3):
 
 <figure markdown>
-  <img src="../diagrams/telemetry/telemetry_component.svg" width=100% height=100%>
+  <img src="../../diagrams/telemetry/telemetry_component.svg" width=100% height=100%>
   <figcaption>Figure 3 - Span-based telemetry for the Web UI component of the Web UI App</figcaption>
 </figure>

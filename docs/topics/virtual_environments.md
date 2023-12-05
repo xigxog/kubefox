@@ -19,7 +19,7 @@ critical in prod etc.  Environments enable us to build policy controls
 supporting these tenets. Figure 1 shows a typical dev environment.
 
 <figure markdown>
-  <img src="../diagrams/environments/typical_dev_environment.svg" width=100% height=100%>
+  <img src="../../diagrams/environments/typical_dev_environment.svg" width=100% height=100%>
   <figcaption>Figure 1 - A typical Dev environment</figcaption>
 </figure>
 
@@ -81,7 +81,7 @@ Polina can test her new code in Environment A, which is unique to her (Figure
 2):
 
 <figure markdown>
-  <img src="../diagrams/environments/polina_environment_a.svg" width=100% height=100%>
+  <img src="../../diagrams/environments/polina_environment_a.svg" width=100% height=100%>
   <figcaption>Figure 2 - Polina testing in environment A</figcaption>
 </figure>
 
@@ -89,7 +89,7 @@ and then shift instantly to Environment B (Figure 3), perhaps to compare her
 changes with the prior version of software:
 
 <figure markdown>
-  <img src="../diagrams/environments/polina_environment_b.svg" width=100% height=100%>
+  <img src="../../diagrams/environments/polina_environment_b.svg" width=100% height=100%>
   <figcaption>Figure 3 - Polina testing in environment B</figcaption>
 </figure>
 
@@ -117,7 +117,7 @@ component of the Web UI app.  But KubeFox has distilled the deployment to only
 those unique versions of the Web UI component.
 
 <figure markdown>
-  <img src="../diagrams/environments/distilled_dev_environment.svg" width=100% height=100%>
+  <img src="../../diagrams/environments/distilled_dev_environment.svg" width=100% height=100%>
   <figcaption>Figure 4 - KubeFox Distilled Dev Environment</figcaption>
 </figure>
 
@@ -126,7 +126,7 @@ appear to be independent sandboxes with dedicated resources.  For instance, to
 Polina, the system appears as in Figure 5.
 
 <figure markdown>
-  <img src="../diagrams/environments/distilled_dev_environment.svg" width=100% height=100%>
+  <img src="../../diagrams/environments/distilled_dev_environment.svg" width=100% height=100%>
   <figcaption>Figure 5 - Polina's Dev Environment</figcaption>
 </figure>
 

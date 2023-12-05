@@ -52,8 +52,8 @@ When the Order System is initially deployed (we'll call this the 'a'
 deployment), it will look like this in KubeFox (Figure 1):
 
 <figure markdown>
-  <img src="../diagrams/deployments/distillation/light/deployment_a(light).svg#only-light" width=100% height=100%>
-  <img src="../diagrams/deployments/distillation/dark/deployment_a(dark).svg#only-dark" width=100% height=100%>
+  <img src="../../diagrams/deployments/distillation/light/deployment_a(light).svg#only-light" width=100% height=100%>
+  <img src="../../diagrams/deployments/distillation/dark/deployment_a(dark).svg#only-dark" width=100% height=100%>
   <figcaption>Figure 1 - Initial Deployment [a]</figcaption>
 </figure>
 
@@ -69,8 +69,8 @@ Let's say that the user needs to make a change to the order-ui component. When
 System b is deployed, it will look as shown in Figure 2:
 
 <figure markdown>
-  <img src="../diagrams/deployments/distillation/light/deployment_b(light).svg#only-light" width=100% height=100%>
-  <img src="../diagrams/deployments/distillation/dark/deployment_b(dark).svg#only-dark" width=100% height=100%>
+  <img src="../../diagrams/deployments/distillation/light/deployment_b(light).svg#only-light" width=100% height=100%>
+  <img src="../../diagrams/deployments/distillation/dark/deployment_b(dark).svg#only-dark" width=100% height=100%>
   <figcaption>Figure 2 - Deployment [b] to change the order-ui component</figcaption>
 </figure>
 
@@ -85,8 +85,8 @@ component. Again, KubeFox checks the state of the System and deploys only
 api-srv[c]:
 
 <figure markdown>
-  <img src="../diagrams/deployments/distillation/light/deployment_c(light).svg#only-light" width=100% height=100%>
-  <img src="../diagrams/deployments/distillation/dark/deployment_c(dark).svg#only-dark" width=100% height=100%>
+  <img src="../../diagrams/deployments/distillation/light/deployment_c(light).svg#only-light" width=100% height=100%>
+  <img src="../../diagrams/deployments/distillation/dark/deployment_c(dark).svg#only-dark" width=100% height=100%>
   <figcaption>Figure 3 - Deployment [c] to change the api-srv component</figcaption>
 </figure>
 
@@ -103,8 +103,8 @@ In our final deployment [d], the user does a couple of things:
 When the System is deployed, it looks as shown in Figure 4:
 
 <figure markdown>
-  <img src="../diagrams/deployments/distillation/light/deployment_d(light).svg#only-light" width=100% height=100%>
-  <img src="../diagrams/deployments/distillation/dark/deployment_d(dark).svg#only-dark" width=100% height=100%>
+  <img src="../../diagrams/deployments/distillation/light/deployment_d(light).svg#only-light" width=100% height=100%>
+  <img src="../../diagrams/deployments/distillation/dark/deployment_d(dark).svg#only-dark" width=100% height=100%>
   <figcaption>Figure 4 - Deployment [d] to add a component and modify order-ui</figcaption>
 </figure>
 
