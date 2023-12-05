@@ -64,6 +64,81 @@ spec:
                   commitTime:
                     format: date-time
                     type: string
+                  components:
+                    additionalProperties:
+                      properties:
+                        commit:
+                          pattern: ^[a-z0-9]{40}$
+                          type: string
+                        defaultHandler:
+                          type: boolean
+                        dependencies:
+                          additionalProperties:
+                            properties:
+                              type:
+                                enum:
+                                - db
+                                - kubefox
+                                - http
+                                type: string
+                            required:
+                            - type
+                            type: object
+                          type: object
+                        envSchema:
+                          additionalProperties:
+                            properties:
+                              required:
+                                type: boolean
+                              type:
+                                enum:
+                                - array
+                                - boolean
+                                - number
+                                - string
+                                type: string
+                              unique:
+                                description: Unique indicates that this environment
+                                  variable must have a unique value across all environments.
+                                  If the value is not unique then making a dynamic
+                                  request or creating a release that utilizes this
+                                  variable will fail.
+                                type: boolean
+                            required:
+                            - required
+                            - type
+                            - unique
+                            type: object
+                          type: object
+                        image:
+                          type: string
+                        routes:
+                          items:
+                            properties:
+                              id:
+                                type: integer
+                              priority:
+                                type: integer
+                              rule:
+                                type: string
+                            required:
+                            - id
+                            - rule
+                            type: object
+                          type: array
+                        type:
+                          enum:
+                          - db
+                          - genesis
+                          - kubefox
+                          - http
+                          type: string
+                      required:
+                      - commit
+                      - type
+                      type: object
+                    minProperties: 1
+                    type: object
                   containerRegistry:
                     type: string
                   imagePullSecretName:
@@ -78,90 +153,15 @@ spec:
                 required:
                 - commit
                 - commitTime
+                - components
                 - name
                 type: object
-              components:
-                additionalProperties:
-                  properties:
-                    commit:
-                      pattern: ^[a-z0-9]{40}$
-                      type: string
-                    defaultHandler:
-                      type: boolean
-                    dependencies:
-                      additionalProperties:
-                        properties:
-                          type:
-                            enum:
-                            - db
-                            - kubefox
-                            - http
-                            type: string
-                        required:
-                        - type
-                        type: object
-                      type: object
-                    envSchema:
-                      additionalProperties:
-                        properties:
-                          required:
-                            type: boolean
-                          type:
-                            enum:
-                            - array
-                            - boolean
-                            - number
-                            - string
-                            type: string
-                          unique:
-                            description: Unique indicates that this environment variable
-                              must have a unique value across all environments. If
-                              the value is not unique then making a dynamic request
-                              or creating a release that utilizes this variable will
-                              fail.
-                            type: boolean
-                        required:
-                        - required
-                        - type
-                        - unique
-                        type: object
-                      type: object
-                    image:
-                      type: string
-                    routes:
-                      items:
-                        properties:
-                          id:
-                            type: integer
-                          priority:
-                            type: integer
-                          rule:
-                            type: string
-                        required:
-                        - id
-                        - rule
-                        type: object
-                      type: array
-                    type:
-                      enum:
-                      - db
-                      - genesis
-                      - kubefox
-                      - http
-                      type: string
-                  required:
-                  - commit
-                  - type
-                  type: object
-                minProperties: 1
-                type: object
               version:
-                description: Version of the App. Use of semantic versioning is recommended.
-                  Once set the AppDeployment spec becomes immutable.
+                description: Version of the defined App. Use of semantic versioning
+                  is recommended. Once set the AppDeployment spec becomes immutable.
                 type: string
             required:
             - app
-            - components
             type: object
           status:
             description: AppDeploymentStatus defines the observed state of AppDeployment

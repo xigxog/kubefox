@@ -29,6 +29,12 @@ func New() *EventMatcher {
 		routes: make([]*kubefox.Route, 0),
 	}
 
+	// TODO add various event criteria for route predicates:
+	// - only genesis events, only comp-comp, etc.
+	// - contains certain role/claim
+	// - comes from particular component or adapter
+	// - etc.
+
 	// Create a new parser and define the supported operators and methods
 	m.parser, _ = predicate.NewParser(predicate.Def{
 		Functions: map[string]interface{}{

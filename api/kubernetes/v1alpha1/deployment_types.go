@@ -16,11 +16,9 @@ import (
 // AppDeploymentSpec defines the desired state of AppDeployment
 type AppDeploymentSpec struct {
 	App App `json:"app"`
-	// Version of the App. Use of semantic versioning is recommended. Once set
-	// the AppDeployment spec becomes immutable.
+	// Version of the defined App. Use of semantic versioning is recommended.
+	// Once set the AppDeployment spec becomes immutable.
 	Version string `json:"version,omitempty"`
-	// +kubebuilder:validation:MinProperties=1
-	Components map[string]*Component `json:"components"`
 }
 
 type App struct {
@@ -34,6 +32,8 @@ type App struct {
 	// +kubebuilder:validation:Format=uri
 	RepoURL             string `json:"repoURL,omitempty"`
 	ImagePullSecretName string `json:"imagePullSecretName,omitempty"`
+	// +kubebuilder:validation:MinProperties=1
+	Components map[string]*Component `json:"components"`
 }
 
 type Component struct {

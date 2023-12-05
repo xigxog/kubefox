@@ -137,7 +137,7 @@ func (cm *ComponentManager) ReconcileApps(ctx context.Context, namespace string)
 	}
 	compMap := make(map[string]TemplateData)
 	for _, appDep := range appDepList.Items {
-		for compName, comp := range appDep.Spec.Components {
+		for compName, comp := range appDep.Spec.App.Components {
 			image := comp.Image
 			if image == "" {
 				image = fmt.Sprintf("%s/%s:%s", appDep.Spec.App.ContainerRegistry, compName, comp.Commit)
@@ -257,7 +257,7 @@ func CompReadyKey(name, commit string) string {
 }
 
 func IsAppDeploymentAvailable(spec *v1alpha1.AppDeploymentSpec, compReadyMap map[string]bool) bool {
-	for name, c := range spec.Components {
+	for name, c := range spec.App.Components {
 		key := CompReadyKey(name, c.Commit)
 		if found, available := compReadyMap[key]; !found || !available {
 			return false

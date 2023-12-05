@@ -152,7 +152,7 @@ type EventContext struct {
 
 	Deployment  string `protobuf:"bytes,1,opt,name=deployment,proto3" json:"deployment,omitempty"`
 	Environment string `protobuf:"bytes,2,opt,name=environment,proto3" json:"environment,omitempty"`
-	Release     string `protobuf:"bytes,3,opt,name=release,proto3" json:"release,omitempty"`
+	Release     string `protobuf:"bytes,3,opt,name=release,proto3" json:"release,omitempty"` // TODO add trace and span?
 }
 
 func (x *EventContext) Reset() {

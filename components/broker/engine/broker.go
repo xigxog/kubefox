@@ -495,7 +495,7 @@ func (brk *broker) checkComponents(ctx context.Context, evt *BrokerEvent) error 
 	if evt.Adapters != nil {
 		adapter = evt.Adapters[evt.Target.Name]
 	}
-	depComp := appDep.Spec.Components[evt.Target.Name]
+	depComp := appDep.Spec.App.Components[evt.Target.Name]
 	switch {
 	case depComp == nil && adapter == nil:
 		if !brk.store.IsGenesisAdapter(ctx, evt.Target) {
@@ -526,7 +526,7 @@ func (brk *broker) checkComponents(ctx context.Context, evt *BrokerEvent) error 
 	if evt.Adapters != nil {
 		adapter = evt.Adapters[evt.Source.Name]
 	}
-	depComp = appDep.Spec.Components[evt.Source.Name]
+	depComp = appDep.Spec.App.Components[evt.Source.Name]
 	switch {
 	case depComp == nil && adapter == nil:
 		if !brk.store.IsGenesisAdapter(ctx, evt.Source) {

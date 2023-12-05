@@ -1,29 +1,35 @@
 # Conditions
 
+Conditions provide a standard mechanism for higher-level status reporting from
+the KubeFox operator. Conditions provide summary information about resources
+without needing to understand resource-specific status details. They complement
+more detailed information about the observed status of an object
+
 ## Platform
 
-| Type      | Status | Reason             | Description                                                        |
-| --------- | ------ | ------------------ | ------------------------------------------------------------------ |
-| Available | True   | PlatformAvailable  | The KubeFox Broker, HTTP Server, and NATS event bus are available. |
-|           | False  | BrokerUnavailable  | The KubeFox Broker is not available.                               |
-|           |        | HTTPSrvUnavailable | The KubeFox HTTP Server is not available.                          |
-|           |        | NATSUnavailable    | The NATS event bus is not available.                               |
+| Type      | Status | Reason             | Description                                              |
+| --------- | ------ | ------------------ | -------------------------------------------------------- |
+| Available | True   |                    | The KubeFox Broker, HTTP Server, and NATS are available. |
+|           | False  | BrokerUnavailable  | The KubeFox Broker is not available.                     |
+|           |        | HTTPSrvUnavailable | The KubeFox HTTP Server is not available.                |
+|           |        | NATSUnavailable    | The NATS is not available.                               |
 
 ## AppDeployment
 
-| Type      | Status | Reason | Description                                   |
-| --------- | ------ | ------ | --------------------------------------------- |
-| Available | True   |        | All component Pods have Ready condition.      |
-|           | False  |        | One or more component Pods is not ready.      |
-| Deployed  | True   |        | All components were successfully deployed.    |
-|           | False  |        | One or more components could not be deployed. |
+| Type      | Status | Reason             | Description                                   |
+| --------- | ------ | ------------------ | --------------------------------------------- |
+| Available | True   | ComponentsReady    | All component Pods have Ready condition.      |
+|           | False  | ComponentsNotReady | One or more component Pods is not ready.      |
+| Deployed  | True   | ComponentsDeployed | All components were successfully deployed.    |
+|           | False  | TODO               | One or more components could not be deployed. |
 
 ## Release
 
 | Type                   | Status | Reason                   | Description                                                                                                                  |
 | ---------------------- | ------ | ------------------------ | ---------------------------------------------------------------------------------------------------------------------------- |
 | Available              | True   |                          | The AppDeployment and VirtualEnv specified are available.                                                                    |
-|                        | False  |                          | The AppDeployment or VirtualEnv specified are not available.                                                                 |
+|                        | False  | AppDeploymentUnavailable | The AppDeployment is not available.                                                                                          |
+|                        |        | VirtualEnvUnavailable    | The VirtualEnv is not available.                                                                                             |
 | AppDeploymentAvailable | True   |                          | The AppDeployment specified exists, matches the Release version, and is available.                                           |
 |                        | False  | AppDeploymentNotFound    | The AppDeployment does not exist.                                                                                            |
 |                        |        | AppDeploymentUnavailable | The AppDeployment has one or more component Pods that are not ready.                                                         |

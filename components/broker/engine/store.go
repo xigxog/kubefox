@@ -239,7 +239,7 @@ func (str *Store) DeploymentMatcher(ctx context.Context, evtCtx *kubefox.EventCo
 		return depM, nil
 	}
 
-	routes, err := str.buildRoutes(ctx, dep.Spec.Components, env.GetData().Vars, evtCtx)
+	routes, err := str.buildRoutes(ctx, dep.Spec.App.Components, env.GetData().Vars, evtCtx)
 	if err != nil {
 		return nil, err
 	}
@@ -307,7 +307,7 @@ func (str *Store) buildComponentCache(ctx context.Context) (cache.Cache[*api.Com
 	}
 
 	for _, app := range list.Items {
-		for compName, compSpec := range app.Spec.Components {
+		for compName, compSpec := range app.Spec.App.Components {
 			comp := &kubefox.Component{Name: compName, Commit: compSpec.Commit}
 			compCache.Set(comp.GroupKey(), &compSpec.ComponentDefinition)
 		}
@@ -359,7 +359,7 @@ func (str *Store) buildReleaseMatcher(ctx context.Context) (*matcher.EventMatche
 			str.log.Warn(err)
 			continue
 		} else {
-			comps = appDep.Spec.Components
+			comps = appDep.Spec.App.Components
 		}
 		if env, err := str.ReleaseEnv(rel.Name); err != nil {
 			str.log.Warn(err)

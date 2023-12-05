@@ -1,11 +1,11 @@
 # Quickstart
 
-Welcome to the world of KubeFox! In this technical guide, we'll walk you through
-the process of setting up a local Kubernetes cluster using kind and deploying
-your first KubeFox app. From creating environments and deploying apps to testing
+Welcome to the world of KubeFox! This technical guide will walk you through the
+process of setting up a local Kubernetes cluster using kind and deploying your
+inaugural KubeFox app. From crafting environments and deploying apps to testing
 and version control, we'll cover it all. Whether you're a seasoned developer or
-just getting started, this guide will help you navigate the intricacies of
-KubeFox with ease. Let's dive in!
+just getting started, this guide will help you navigate the fundamentals of a
+comprehensive software development lifecycle leveraging KubeFox. Let's dive in!
 
 ## Prerequisites
 

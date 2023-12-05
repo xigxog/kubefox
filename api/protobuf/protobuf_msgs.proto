@@ -25,6 +25,7 @@ message EventContext {
   string deployment = 1;
   string environment = 2;
   string release = 3;
+  // TODO add trace and span?
 }
 
 message Event {
