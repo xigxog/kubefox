@@ -90,7 +90,7 @@ TODO add app?
 | ----- | ---- | ----- | ----------- |
 | deployment | [string](#string) |  |  |
 | environment | [string](#string) |  |  |
-| release | [string](#string) |  |  |
+| release | [string](#string) |  | TODO add trace and span? |
 
 
 
