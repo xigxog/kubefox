@@ -8,12 +8,12 @@ and tutorials on their use checkout additional documentation under
 
 : KubeFox operates on an event-driven architecture, where all requests and
 responses, including synchronous calls, are conceptualized as Events and
-communicated as messages among Components via brokers. The KubeFox Event model
+communicated as messages among Components via Brokers. The KubeFox Event model
 offers a straightforward and versatile interface to encapsulate distinct, and
 optionally typed, state changes.
 
 : To illustrate, an HTTP request undergoes conversion by the HTTP Adapter into a
-KubeFox Event, which is subsequently transmitted to a broker for routing to a
+KubeFox Event, which is subsequently transmitted to a Broker for routing to a
 specific Component. The Component can then utilize the Event in a generic manner
 or, alternatively, inspect its type and access type-specific attributes as
 needed.
@@ -62,10 +62,10 @@ named parameters, which are then passed to the handler.
 ## Broker
 
 : A Broker serves as an Event router, responsible for matching and transporting
-events between components. It determines the context of an Event and scrutinizes
-the corresponding App Deployment to ensure that the event is authorized to be
+Events between components. It determines the context of an Event and scrutinizes
+the corresponding App Deployment to ensure that the Event is authorized to be
 passed to the matching Component. The Broker also injects Virtual Environment
-variables and Adapter configurations into events as necessary.
+variables and Adapter configurations into Events as necessary.
 
 ## External Component
 
@@ -100,9 +100,9 @@ of the App.
 
 : A Virtual Environment is an object encompassing a collection of variables and
 Adapter configurations. A Component can specify dependencies on both Virtual
-Environment variables and Adapters. During runtime, the broker extracts the
+Environment variables and Adapters. During runtime, the Broker extracts the
 necessary variables from the Virtual Environment and attaches them to any Event
-routed to the Component. Simultaneously, the broker attaches the requisite
+routed to the Component. Simultaneously, the Broker attaches the requisite
 configuration to Events directed to an Adapter.
 
 : As Components explicitly define their dependencies, a Virtual Environment can
