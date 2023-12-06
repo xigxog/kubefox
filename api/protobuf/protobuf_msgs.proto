@@ -13,8 +13,8 @@ enum Category {
   RESPONSE = 3;
 }
 
-// TODO add app?
 message Component {
+  // TODO add app?
   string name = 1;
   string commit = 2;
   string id = 3;

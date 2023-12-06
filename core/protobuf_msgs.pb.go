@@ -73,12 +73,12 @@ func (Category) EnumDescriptor() ([]byte, []int) {
 	return file_protobuf_msgs_proto_rawDescGZIP(), []int{0}
 }
 
-// TODO add app?
 type Component struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
+	// TODO add app?
 	Name     string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
 	Commit   string `protobuf:"bytes,2,opt,name=commit,proto3" json:"commit,omitempty"`
 	Id       string `protobuf:"bytes,3,opt,name=id,proto3" json:"id,omitempty"`

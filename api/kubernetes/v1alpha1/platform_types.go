@@ -52,6 +52,20 @@ type HTTPSrvService struct {
 	// +kubebuilder:validation:Enum=ClusterIP;NodePort;LoadBalancer
 	Type  string       `json:"type,omitempty"`
 	Ports HTTPSrvPorts `json:"ports,omitempty"`
+
+	// TODO add to service templates
+	// Map of string keys and values that can be used to organize and categorize
+	// (scope and select) objects. May match selectors of replication
+	// controllers and services.
+	//
+	// More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/labels
+	Labels map[string]string `json:"labels,omitempty"`
+	// Annotations is an unstructured key value map stored with a resource that
+	// may be set by external tools to store and retrieve arbitrary metadata.
+	// They are not queryable and should be preserved when modifying objects.
+	//
+	// More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations
+	Annotations map[string]string `json:"annotations,omitempty"`
 }
 
 type HTTPSrvPorts struct {

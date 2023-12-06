@@ -2,10 +2,8 @@ module github.com/xigxog/kubefox/examples/hello-world/kubefox
 
 go 1.21
 
-replace github.com/xigxog/kubefox => ../../../
-
 // TODO update when kubefox is released
-require github.com/xigxog/kubefox v0.2.5-alpha.0.20231030185832-519fa63e00a6
+require github.com/xigxog/kubefox v0.2.5-alpha.0.20231206144113-48f17b47cb37
 
 require (
 	github.com/golang/protobuf v1.5.3 // indirect

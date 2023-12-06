@@ -42,7 +42,7 @@ theme:
     - media: "(prefers-color-scheme: dark)"
       scheme: slate
       primary: yellow
-      accent: deep orange
+      accent: orange
       # Palette toggle for dark mode
       toggle:
         icon: material/weather-sunny
@@ -51,6 +51,9 @@ theme:
     - content.code.annotate
     - navigation.instant
     - navigation.tracking
+    - search.highlight
+    - search.share
+    - search.suggest
     - toc.integrate
 
 plugins:
@@ -85,6 +88,3 @@ markdown_extensions:
           format: !!python/name:pymdownx.superfences.fence_code_format
   - pymdownx.tasklist:
       custom_checkbox: true
-
-extra_javascript:
-  - scripts/refresh_on_toggle_dark_light.js

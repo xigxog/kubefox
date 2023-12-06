@@ -105,11 +105,8 @@ flag to use defaults and create a KubeFox platform named `demo` in the
 ```{ .shell .copy }
 export FOX_INFO=true && \
   mkdir kubefox-quickstart && \
-  cd kubefox-quickstart
-```
-
-```{ .shell .copy }
-fox init --quickstart
+  cd kubefox-quickstart && \
+  fox init --quickstart
 ```
 
 ??? example "Output"
@@ -117,9 +114,8 @@ fox init --quickstart
     ```text
     $ export FOX_INFO=true && \
         mkdir kubefox-quickstart && \
-        cd kubefox-quickstart
-
-    $ fox init --quickstart
+        cd kubefox-quickstart && \
+        fox init --quickstart
     info    Waiting for KubeFox Platform 'demo' to be ready...
     info    KubeFox initialized for the quickstart guide!
     ```
@@ -242,7 +238,7 @@ fox publish main --wait 5m
               type: kubefox
           envSchema:
             subPath:
-              required: false
+              required: true
               type: string
               unique: true
           routes:
@@ -404,7 +400,7 @@ fox publish --version v0.1.0 --create-tag && \
               type: kubefox
           envSchema:
             subPath:
-              required: false
+              required: true
               type: string
               unique: true
           routes:
@@ -478,27 +474,19 @@ Next, make a modification to the `frontend` component, commit the changes, and
 deploy. Open up `components/frontend/main.go` in your favorite editor and update
 line 32 in the `sayHello` function to say something new.
 
-```go linenums="26" hl_lines="7"
+```go linenums="25" hl_lines="7"
 func sayHello(k kit.Kontext) error {
-  r, err := k.Req(backend).Send()
-  if err != nil {
-    return err
-  }
+    r, err := k.Req(backend).Send()
+    if err != nil {
+        return err
+    }
 
-  msg := fmt.Sprintf("👋 Hello %s!", r.Str()) //(1)
-  k.Log().Debug(msg)
+    msg := fmt.Sprintf("👋 Hello %s!", r.Str()) //(1)
+    k.Log().Debug(msg)
 
-  a := strings.ToLower(k.Header("accept"))
-  switch {
-  case strings.Contains(a, "application/json"):
-    return k.Resp().SendJSON(map[string]any{"msg": msg})
-
-  case strings.Contains(a, "text/html"):
-    return k.Resp().SendHTML(fmt.Sprintf(html, msg))
-
-  default:
-    return k.Resp().SendStr(msg)
-  }
+    json := map[string]any{"msg": msg}
+    html := fmt.Sprintf(htmlTmpl, msg)
+    return k.Resp().SendAccepts(json, html, msg)
 }
 ```
 
@@ -573,7 +561,7 @@ git add . && \
               type: kubefox
           envSchema:
             subPath:
-              required: false
+              required: true
               type: string
               unique: true
           routes:
@@ -590,9 +578,23 @@ out the updated deployment and current release.
 curl "http://localhost:8080/qa/hello?kf-dep=main&kf-env=qa"
 ```
 
+??? example "Output"
+
+    ```text
+    $ curl "http://localhost:8080/qa/hello?kf-dep=main&kf-env=qa"
+    👋 Hey World!
+    ```
+
 ```{ .shell .copy }
 curl "http://localhost:8080/prod/hello?kf-dep=main&kf-env=prod"
 ```
+
+??? example "Output"
+
+    ```text
+    $ curl "http://localhost:8080/prod/hello?kf-dep=main&kf-env=prod"
+    👋 Hey Universe!
+    ```
 
 ```{ .shell .copy }
 curl "http://localhost:8080/qa/hello"
@@ -601,12 +603,6 @@ curl "http://localhost:8080/qa/hello"
 ??? example "Output"
 
     ```text
-    $ curl "http://localhost:8080/qa/hello?kf-dep=main&kf-env=qa"
-    👋 Hey World!
-
-    $ curl "http://localhost:8080/prod/hello?kf-dep=main&kf-env=prod"
-    👋 Hey Universe!
-
     $ curl "http://localhost:8080/qa/hello"
     👋 Hello World!
     ```
@@ -704,7 +700,7 @@ fox publish --version v0.1.1 --create-tag && \
               type: kubefox
           envSchema:
             subPath:
-              required: false
+              required: true
               type: string
               unique: true
           routes:
@@ -776,6 +772,7 @@ fox release v0.1.0 --virtual-env prod --create-snapshot
       appDeployment:
         name: v0-1-0
         version: v0.1.0
+      virtualEnvSnapshot: prod-1520-19700101-000000
     status:
       current: null
     ```

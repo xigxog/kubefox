@@ -53,6 +53,7 @@ func Required() VarOption {
 
 func Unique() VarOption {
 	return func(evs *api.EnvVarSchema) {
+		evs.Required = true
 		evs.Unique = true
 	}
 }

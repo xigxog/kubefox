@@ -23,8 +23,8 @@ if [ -d "${FOX_ROOT}" ]; then
         cd "${FOX_ROOT}"
         make docs
     )
-    rm -rf ${DOCS_SRC}/fox
-    cp -r ${FOX_ROOT}/docs ${DOCS_SRC}/fox
+    rm -rf ${DOCS_SRC}/reference/fox
+    cp -r ${FOX_ROOT}/docs ${DOCS_SRC}/reference/fox
 fi
 
 pipenv install

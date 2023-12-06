@@ -3053,6 +3053,23 @@ spec:
                     type: object
                   service:
                     properties:
+                      annotations:
+                        additionalProperties:
+                          type: string
+                        description: "Annotations is an unstructured key value map
+                          stored with a resource that may be set by external tools
+                          to store and retrieve arbitrary metadata. They are not queryable
+                          and should be preserved when modifying objects. \n More
+                          info: https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations"
+                        type: object
+                      labels:
+                        additionalProperties:
+                          type: string
+                        description: "TODO add to service templates Map of string
+                          keys and values that can be used to organize and categorize
+                          (scope and select) objects. May match selectors of replication
+                          controllers and services. \n More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/labels"
+                        type: object
                       ports:
                         properties:
                           http:

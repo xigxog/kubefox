@@ -1,17 +1,23 @@
 :root {
-  --md-tooltip-width: 400px;
-  --md-text-font: "Open Sans", sans-serif;
+  --md-tooltip-width: 300px;
+  --md-text-font: "Noto Sans", sans-serif;
   --md-code-font: "Source Code Pro", monospace;
 }
 
+[data-md-color-primary="yellow"]:not([data-md-color-scheme="slate"]) {
+  --md-typeset-a-color: #2824d3;
+}
+
 img[alt="diagram"] {
-  border: 1.5rem solid white;
+  display: block;
+  margin: 0 auto;
+  padding: 3%;
+  border: 1px solid gray;
+  background-color: white;
 }
 
 [dir="ltr"] .md-header__title {
   margin-left: 0;
-  font-size: 1.4rem;
-  font-weight: bold;
 }
 
 .md-header__button.md-logo {
@@ -19,12 +25,14 @@ img[alt="diagram"] {
 }
 
 .md-logo img {
-  height: 3rem !important;
+  height: 3.5rem !important;
+  margin-right: -0.75rem;
+  margin-bottom: -0.25rem;
 }
 
 .md-typeset summary {
-  font-size: 0.9em;
-  font-weight: 600;
+  font-size: 0.8em;
+  font-weight: 400;
 }
 
 .md-typeset details {
@@ -36,5 +44,5 @@ img[alt="diagram"] {
 }
 
 .md-grid {
-  max-width: 90%; /* or 100%, if you want to stretch to full-width */
+  max-width: 90%;
 }

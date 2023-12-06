@@ -6,12 +6,12 @@
 <a name="kubefoxprotov1component"></a>
 
 ### Component
-TODO add app?
+
 
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
-| name | [string](#string) |  |  |
+| name | [string](#string) |  | TODO add app? |
 | commit | [string](#string) |  |  |
 | id | [string](#string) |  |  |
 | broker_id | [string](#string) |  |  |
