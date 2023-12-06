@@ -67,6 +67,7 @@ type Resp interface {
 	SendStr(s string) error
 	SendHTML(h string) error
 	SendJSON(v any) error
+	SendAccepts(json any, html, str string) error
 	SendBytes(contentType string, b []byte) error
 	SendReader(contentType string, reader io.Reader) error
 	Send() error

@@ -9,11 +9,11 @@ type EventRoundTripper struct {
 }
 
 func (rt *EventRoundTripper) RoundTrip(httpReq *http.Request) (*http.Response, error) {
-	if err := rt.req.SetHTTPRequest(httpReq, rt.req.maxEventSize); err != nil {
+	if err := rt.req.SetHTTPRequest(httpReq, rt.req.ktx.kit.maxEventSize); err != nil {
 		return nil, err
 	}
 
-	resp, err := rt.req.brk.SendReq(rt.req.ctx, rt.req.Event, rt.req.start)
+	resp, err := rt.req.ktx.kit.brk.SendReq(rt.req.ktx.ctx, rt.req.Event, rt.req.ktx.start)
 	if err != nil {
 		return nil, err
 	}

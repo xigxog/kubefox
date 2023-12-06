@@ -5,11 +5,11 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/xigxog/kubefox/api"
 	kubefox "github.com/xigxog/kubefox/core"
-	"github.com/xigxog/kubefox/grpc"
 	"github.com/xigxog/kubefox/logkf"
 
 	"google.golang.org/protobuf/types/known/structpb"
@@ -29,17 +29,13 @@ type kontext struct {
 type respKontext struct {
 	*kubefox.Event
 
-	brk   *grpc.Client
-	start time.Time
+	ktx *kontext
 }
 
 type reqKontext struct {
 	*kubefox.Event
 
-	brk          *grpc.Client
-	start        time.Time
-	maxEventSize int64
-	ctx          context.Context
+	ktx *kontext
 }
 
 func (k *kontext) Context() context.Context {
@@ -82,8 +78,7 @@ func (k *kontext) ForwardResp(resp kubefox.EventReader) Resp {
 			Source: k.kit.brk.Component,
 			Target: k.Event.Source,
 		}),
-		brk:   k.kit.brk,
-		start: k.start,
+		ktx: k,
 	}
 }
 
@@ -94,8 +89,7 @@ func (k *kontext) Resp() Resp {
 			Source: k.kit.brk.Component,
 			Target: k.Event.Source,
 		}),
-		brk:   k.kit.brk,
-		start: k.start,
+		ktx: k,
 	}
 }
 
@@ -107,9 +101,7 @@ func (k *kontext) Req(c Dependency) Req {
 			Source: k.kit.brk.Component,
 			Target: &kubefox.Component{Name: c.Name()},
 		}),
-		brk:   k.kit.brk,
-		start: k.start,
-		ctx:   k.ctx,
+		ktx: k,
 	}
 }
 
@@ -121,9 +113,7 @@ func (k *kontext) Forward(c Dependency) Req {
 			Source: k.kit.brk.Component,
 			Target: &kubefox.Component{Name: c.Name()},
 		}),
-		brk:   k.kit.brk,
-		start: k.start,
-		ctx:   k.ctx,
+		ktx: k,
 	}
 }
 
@@ -142,10 +132,7 @@ func (k *kontext) Transport(c Dependency) http.RoundTripper {
 				Source: k.kit.brk.Component,
 				Target: &kubefox.Component{Name: c.Name()},
 			}),
-			brk:          k.kit.brk,
-			start:        k.start,
-			maxEventSize: k.kit.maxEventSize,
-			ctx:          k.ctx,
+			ktx: k,
 		},
 	}
 }
@@ -168,6 +155,20 @@ func (resp *respKontext) SendJSON(val any) error {
 	return resp.Send()
 }
 
+func (resp *respKontext) SendAccepts(json any, html, str string) error {
+	a := strings.ToLower(resp.ktx.Header("accept"))
+	switch {
+	case strings.Contains(a, "application/json"):
+		return resp.SendJSON(json)
+
+	case strings.Contains(a, "text/html"):
+		return resp.SendHTML(html)
+
+	default:
+		return resp.SendStr(str)
+	}
+}
+
 func (resp *respKontext) SendReader(contentType string, reader io.Reader) error {
 	bytes, err := io.ReadAll(reader)
 	if err != nil {
@@ -185,7 +186,7 @@ func (resp *respKontext) SendBytes(contentType string, b []byte) error {
 }
 
 func (resp *respKontext) Send() error {
-	return resp.brk.SendResp(resp.Event, resp.start)
+	return resp.ktx.kit.brk.SendResp(resp.Event, resp.ktx.start)
 }
 
 func (req *reqKontext) SendStr(val string) (kubefox.EventReader, error) {
@@ -223,5 +224,5 @@ func (req *reqKontext) SendBytes(contentType string, b []byte) (kubefox.EventRea
 }
 
 func (req *reqKontext) Send() (kubefox.EventReader, error) {
-	return req.brk.SendReq(req.ctx, req.Event, req.start)
+	return req.ktx.kit.brk.SendReq(req.ktx.ctx, req.Event, req.ktx.start)
 }

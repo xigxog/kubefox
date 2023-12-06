@@ -2,9 +2,9 @@ package main
 
 import (
 	"fmt"
-	"strings"
 
 	"github.com/xigxog/kubefox/kit"
+	"github.com/xigxog/kubefox/kit/env"
 )
 
 var (
@@ -15,7 +15,8 @@ func main() {
 	k := kit.New()
 
 	backend = k.Component("backend")
-	// TODO mark env var as unique
+
+	k.EnvVar("subPath", env.Unique())
 	k.Route("Path(`/{{.Env.subPath}}/hello`)", sayHello)
 
 	k.Start()
@@ -30,20 +31,12 @@ func sayHello(k kit.Kontext) error {
 	msg := fmt.Sprintf("👋 Hello %s!", r.Str())
 	k.Log().Debug(msg)
 
-	a := strings.ToLower(k.Header("accept"))
-	switch {
-	case strings.Contains(a, "application/json"):
-		return k.Resp().SendJSON(map[string]any{"msg": msg})
-
-	case strings.Contains(a, "text/html"):
-		return k.Resp().SendHTML(fmt.Sprintf(html, msg))
-
-	default:
-		return k.Resp().SendStr(msg)
-	}
+	json := map[string]any{"msg": msg}
+	html := fmt.Sprintf(htmlTmpl, msg)
+	return k.Resp().SendAccepts(json, html, msg)
 }
 
-const html = `
+const htmlTmpl = `
 <!DOCTYPE html>
 <html>
   <head>
