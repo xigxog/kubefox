@@ -50,7 +50,7 @@ func (c *Client) Start(ctx context.Context) error {
 	// tlsCfg, err := cl.tls()
 	// if err != nil {
 	// 	cl.log.Error(err)
-	// 	os.Exit(kubefox.TelemetryErrorCode)
+	// 	os.Exit(core.TelemetryErrorCode)
 	// }
 
 	res := resource.NewWithAttributes(

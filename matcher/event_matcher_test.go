@@ -4,7 +4,7 @@ import (
 	"testing"
 
 	"github.com/xigxog/kubefox/api"
-	kubefox "github.com/xigxog/kubefox/core"
+	"github.com/xigxog/kubefox/core"
 )
 
 func TestPath(t *testing.T) {
@@ -16,33 +16,33 @@ func TestPath(t *testing.T) {
 		"c": api.ValArrayString([]string{"a", "b"}),
 	}
 
-	r1 := &kubefox.Route{
+	r1 := &core.Route{
 		RouteSpec: api.RouteSpec{
 			Id:   1,
 			Rule: "PathPrefix(`/customize/{{.Env.b}}`)",
 		},
-		Component:    &kubefox.Component{},
-		EventContext: &kubefox.EventContext{},
+		Component:    &core.Component{},
+		EventContext: &core.EventContext{},
 	}
 	if err := r1.Resolve(v, nil); err != nil {
 		t.Log(err)
 		t.FailNow()
 	}
 
-	r2 := &kubefox.Route{
+	r2 := &core.Route{
 		RouteSpec: api.RouteSpec{
 			Id:   2,
 			Rule: "Method(`PUT`,`GET`,`POST`) && (Query(`q1`, `{q[1-2]}`) && Header(`header-one`,`{[a-z0-9]+}`)) && Host(`{{.Env.a}}.0.0.{i}`) && Path(`/customize/{{.Env.b}}/{j:[a-z]+}`)",
 		},
-		Component:    &kubefox.Component{},
-		EventContext: &kubefox.EventContext{},
+		Component:    &core.Component{},
+		EventContext: &core.EventContext{},
 	}
 	if err := r2.Resolve(v, nil); err != nil {
 		t.Log(err)
 		t.FailNow()
 	}
 
-	if err := p.AddRoutes([]*kubefox.Route{r1, r2}); err != nil {
+	if err := p.AddRoutes([]*core.Route{r1, r2}); err != nil {
 		t.Log(err)
 		t.FailNow()
 	}
@@ -62,8 +62,8 @@ func TestPath(t *testing.T) {
 
 }
 
-func evt(evtType api.EventType) *kubefox.Event {
-	evt := kubefox.NewEvent()
+func evt(evtType api.EventType) *core.Event {
+	evt := core.NewEvent()
 	evt.Type = string(evtType)
 	evt.SetValue(api.ValKeyURL, "http://127.0.0.1/customize/1/a?q1=q1&q2=q2")
 	evt.SetValue(api.ValKeyHost, "127.0.0.1")

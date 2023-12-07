@@ -8,7 +8,7 @@ import (
 
 	"github.com/xigxog/kubefox/api/kubernetes/v1alpha1"
 	"github.com/xigxog/kubefox/components/operator/templates"
-	kubefox "github.com/xigxog/kubefox/core"
+	"github.com/xigxog/kubefox/core"
 	"github.com/xigxog/kubefox/k8s"
 	"github.com/xigxog/kubefox/logkf"
 	v1 "k8s.io/api/core/v1"
@@ -61,7 +61,7 @@ func (r *Client) GetPlatform(ctx context.Context, namespace string) (*v1alpha1.P
 		return nil, fmt.Errorf("unable to fetch namespace: %w", err)
 	}
 	if ns.Status.Phase == v1.NamespaceTerminating {
-		return nil, kubefox.ErrNotFound()
+		return nil, core.ErrNotFound()
 	}
 
 	p := &v1alpha1.Platform{}
@@ -71,11 +71,11 @@ func (r *Client) GetPlatform(ctx context.Context, namespace string) (*v1alpha1.P
 	}
 	switch c := len(l.Items); c {
 	case 0:
-		return nil, kubefox.ErrNotFound()
+		return nil, core.ErrNotFound()
 	case 1:
 		p = &l.Items[0]
 	default:
-		return nil, kubefox.ErrInvalid(fmt.Errorf("too many Platforms"))
+		return nil, core.ErrInvalid(fmt.Errorf("too many Platforms"))
 	}
 
 	return p, nil

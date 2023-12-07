@@ -13,7 +13,7 @@ import (
 	"time"
 
 	"github.com/xigxog/kubefox/api"
-	kubefox "github.com/xigxog/kubefox/core"
+	core "github.com/xigxog/kubefox/core"
 
 	"github.com/xigxog/kubefox/logkf"
 	gogrpc "google.golang.org/grpc"
@@ -21,7 +21,7 @@ import (
 )
 
 type ClientOpts struct {
-	Component     *kubefox.Component
+	Component     *core.Component
 	BrokerAddr    string
 	HealthSrvAddr string
 }
@@ -45,13 +45,13 @@ type Client struct {
 }
 
 type ComponentEvent struct {
-	*kubefox.MatchedEvent
+	*core.MatchedEvent
 
 	ReceivedAt time.Time
 }
 
 type ActiveReq struct {
-	respCh     chan *kubefox.Event
+	respCh     chan *core.Event
 	expiration time.Time
 }
 
@@ -126,7 +126,7 @@ func (c *Client) run(spec *api.ComponentDefinition, retry int) (int, error) {
 		return retry + 1, fmt.Errorf("subscribing to broker failed: %v", err)
 	}
 
-	evt := kubefox.NewReq(kubefox.EventOpts{
+	evt := core.NewReq(core.EventOpts{
 		Type:   api.EventTypeRegister,
 		Source: c.Component,
 	})
@@ -157,10 +157,10 @@ func (c *Client) run(spec *api.ComponentDefinition, retry int) (int, error) {
 		}
 
 		switch evt.Event.Category {
-		case kubefox.Category_REQUEST:
+		case core.Category_REQUEST:
 			go c.recvReq(evt)
 
-		case kubefox.Category_RESPONSE:
+		case core.Category_RESPONSE:
 			go c.recvResp(evt.Event)
 
 		default:
@@ -177,7 +177,7 @@ func (c *Client) Req() chan *ComponentEvent {
 	return c.recvCh
 }
 
-func (c *Client) SendReq(ctx context.Context, req *kubefox.Event, start time.Time) (*kubefox.Event, error) {
+func (c *Client) SendReq(ctx context.Context, req *core.Event, start time.Time) (*core.Event, error) {
 	respCh, err := c.SendReqChan(req, start)
 	if err != nil {
 		return nil, err
@@ -188,17 +188,17 @@ func (c *Client) SendReq(ctx context.Context, req *kubefox.Event, start time.Tim
 		return resp, resp.Err()
 
 	case <-ctx.Done():
-		return nil, kubefox.ErrTimeout(err)
+		return nil, core.ErrTimeout(err)
 
 	case <-c.brk.Context().Done():
-		return nil, kubefox.ErrBrokerUnavailable(err)
+		return nil, core.ErrBrokerUnavailable(err)
 	}
 }
 
-func (c *Client) SendReqChan(req *kubefox.Event, start time.Time) (chan *kubefox.Event, error) {
+func (c *Client) SendReqChan(req *core.Event, start time.Time) (chan *core.Event, error) {
 	c.log.WithEvent(req).Debug("send request")
 
-	respCh := make(chan *kubefox.Event)
+	respCh := make(chan *core.Event)
 	c.reqMapMutex.Lock()
 	c.reqMap[req.Id] = &ActiveReq{
 		respCh:     respCh,
@@ -213,17 +213,17 @@ func (c *Client) SendReqChan(req *kubefox.Event, start time.Time) (chan *kubefox
 	return respCh, nil
 }
 
-func (c *Client) SendResp(resp *kubefox.Event, start time.Time) error {
+func (c *Client) SendResp(resp *core.Event, start time.Time) error {
 	c.log.WithEvent(resp).Debug("send response")
 	return c.send(resp, start)
 }
 
-func (c *Client) recvReq(req *kubefox.MatchedEvent) {
+func (c *Client) recvReq(req *core.MatchedEvent) {
 	c.log.WithEvent(req.Event).Debug("receive request")
 	c.recvCh <- &ComponentEvent{MatchedEvent: req, ReceivedAt: time.Now()}
 }
 
-func (c *Client) recvResp(resp *kubefox.Event) {
+func (c *Client) recvResp(resp *core.Event) {
 	log := c.log.WithEvent(resp)
 	log.Debug("receive response")
 
@@ -240,14 +240,14 @@ func (c *Client) recvResp(resp *kubefox.Event) {
 	respCh.respCh <- resp
 }
 
-func (c *Client) send(evt *kubefox.Event, start time.Time) error {
+func (c *Client) send(evt *core.Event, start time.Time) error {
 	// Need to protect the stream from being called by multiple threads.
 	c.sendMutex.Lock()
 	defer c.sendMutex.Unlock()
 
 	evt.ReduceTTL(start)
 	if evt.TTL() < 0 {
-		return kubefox.ErrTimeout()
+		return core.ErrTimeout()
 	}
 
 	return c.brk.Send(evt)

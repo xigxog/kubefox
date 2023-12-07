@@ -6,7 +6,7 @@ import (
 	"net/http"
 
 	"github.com/xigxog/kubefox/api"
-	kubefox "github.com/xigxog/kubefox/core"
+	"github.com/xigxog/kubefox/core"
 	"github.com/xigxog/kubefox/kit/env"
 	"github.com/xigxog/kubefox/logkf"
 )
@@ -31,7 +31,7 @@ type Kit interface {
 }
 
 type Kontext interface {
-	kubefox.EventReader
+	core.EventReader
 
 	Env(v EnvVar) string
 	EnvV(v EnvVar) *api.Val
@@ -39,7 +39,7 @@ type Kontext interface {
 	EnvDefV(v EnvVar, def *api.Val) *api.Val
 
 	Resp() Resp
-	ForwardResp(resp kubefox.EventReader) Resp
+	ForwardResp(resp core.EventReader) Resp
 
 	Req(c Dependency) Req
 	Forward(c Dependency) Req
@@ -51,18 +51,18 @@ type Kontext interface {
 }
 
 type Req interface {
-	kubefox.EventWriter
+	core.EventWriter
 
-	SendStr(s string) (kubefox.EventReader, error)
-	SendHTML(h string) (kubefox.EventReader, error)
-	SendJSON(v any) (kubefox.EventReader, error)
-	SendBytes(contentType string, b []byte) (kubefox.EventReader, error)
-	SendReader(contentType string, reader io.Reader) (kubefox.EventReader, error)
-	Send() (kubefox.EventReader, error)
+	SendStr(s string) (core.EventReader, error)
+	SendHTML(h string) (core.EventReader, error)
+	SendJSON(v any) (core.EventReader, error)
+	SendBytes(contentType string, b []byte) (core.EventReader, error)
+	SendReader(contentType string, reader io.Reader) (core.EventReader, error)
+	Send() (core.EventReader, error)
 }
 
 type Resp interface {
-	kubefox.EventWriter
+	core.EventWriter
 
 	SendStr(s string) error
 	SendHTML(h string) error

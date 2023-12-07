@@ -12,7 +12,7 @@ import (
 
 	"github.com/xigxog/kubefox/api"
 	"github.com/xigxog/kubefox/build"
-	kubefox "github.com/xigxog/kubefox/core"
+	"github.com/xigxog/kubefox/core"
 	"github.com/xigxog/kubefox/grpc"
 	"github.com/xigxog/kubefox/kit/env"
 	"github.com/xigxog/kubefox/logkf"
@@ -51,11 +51,10 @@ func New() Kit {
 		},
 	}
 
-	comp := &kubefox.Component{Id: kubefox.GenerateId()}
+	comp := &core.Component{Id: core.GenerateId()}
 
 	var help bool
 	var brokerAddr, healthAddr, logFormat, logLevel string
-	//-tls-skip-verify
 	flag.StringVar(&comp.Name, "name", "", "Component name. (required)")
 	flag.StringVar(&comp.Commit, "commit", "", "Commit the Component was built from. (required)")
 	flag.StringVar(&brokerAddr, "broker-addr", "127.0.0.1:6060", "Address of the Broker gRPC server.")
@@ -70,7 +69,7 @@ func New() Kit {
 
 	if help {
 		fmt.Fprintf(flag.CommandLine.Output(), `
-Flags can be set using names below or the environment variable listed.
+Flags can be set using names below.
 
 Flags:
 `)
@@ -94,7 +93,6 @@ Flags:
 	logkf.Global = logkf.
 		BuildLoggerOrDie(logFormat, logLevel).
 		WithComponent(comp)
-	defer logkf.Global.Sync()
 
 	svc.log = logkf.Global
 	svc.log.DebugInterface("build info:", build.Info)
@@ -105,7 +103,7 @@ Flags:
 		HealthSrvAddr: healthAddr,
 	})
 
-	svc.log.Info("🦊 kit created")
+	svc.log.Info("kit created 🦊")
 
 	return svc
 }
@@ -181,19 +179,19 @@ func (svc *kit) dependency(name string, typ api.ComponentType) Dependency {
 }
 
 func (svc *kit) Start() {
+	defer logkf.Global.Sync()
+
+	if err := svc.start(); err != nil {
+		os.Exit(1)
+	}
+}
+
+func (svc *kit) start() (err error) {
 	if svc.export {
 		c, _ := json.MarshalIndent(svc.spec, "", "  ")
 		fmt.Println(string(c))
 		os.Exit(0)
 	}
-
-	var err error
-	defer func() {
-		if err != nil {
-			logkf.Global.Sync()
-			os.Exit(1)
-		}
-	}()
 
 	svc.log.DebugInterface("component spec:", svc.spec)
 
@@ -216,15 +214,16 @@ func (svc *kit) Start() {
 				select {
 				case req := <-svc.brk.Req():
 					svc.recvReq(req)
-				case err = <-svc.brk.Err():
+				case err = <-svc.brk.Err(): // Sets start() err
 					svc.log.Errorf("broker error: %v", err)
 					return
 				}
 			}
 		}()
 	}
-
 	wg.Wait()
+
+	return
 }
 
 func (svc *kit) recvReq(req *grpc.ComponentEvent) {
@@ -248,7 +247,7 @@ func (svc *kit) recvReq(req *grpc.ComponentEvent) {
 	switch {
 	case req.RouteId == api.DefaultRouteId:
 		if svc.defHandler == nil {
-			err = kubefox.ErrNotFound(fmt.Errorf("default handler not found"))
+			err = core.ErrNotFound(fmt.Errorf("default handler not found"))
 		} else {
 			err = svc.defHandler(ktx)
 		}
@@ -257,13 +256,13 @@ func (svc *kit) recvReq(req *grpc.ComponentEvent) {
 		err = svc.routes[req.RouteId].handler(ktx)
 
 	default:
-		err = kubefox.ErrNotFound(fmt.Errorf("invalid route id %d", req.RouteId))
+		err = core.ErrNotFound(fmt.Errorf("invalid route id %d", req.RouteId))
 	}
 
 	if err != nil {
 		log.Error(err)
 
-		errEvt := kubefox.NewErr(err, kubefox.EventOpts{})
+		errEvt := core.NewErr(err, core.EventOpts{})
 		if err := ktx.ForwardResp(errEvt).Send(); err != nil {
 			log.Error(err)
 		}

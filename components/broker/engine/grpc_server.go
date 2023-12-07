@@ -10,7 +10,7 @@ import (
 
 	"github.com/xigxog/kubefox/api"
 	"github.com/xigxog/kubefox/components/broker/config"
-	kubefox "github.com/xigxog/kubefox/core"
+	"github.com/xigxog/kubefox/core"
 	"github.com/xigxog/kubefox/grpc"
 	"github.com/xigxog/kubefox/logkf"
 
@@ -43,7 +43,7 @@ func (srv *GRPCServer) Start(ctx context.Context) error {
 
 	creds, err := credentials.NewServerTLSFromFile(api.PathTLSCert, api.PathTLSKey)
 	if err != nil {
-		return kubefox.ErrUnexpected(err)
+		return core.ErrUnexpected(err)
 	}
 	srv.wrapped = gogrpc.NewServer(
 		gogrpc.Creds(creds),
@@ -55,7 +55,7 @@ func (srv *GRPCServer) Start(ctx context.Context) error {
 
 	lis, err := net.Listen("tcp", config.GRPCSrvAddr)
 	if err != nil {
-		return kubefox.ErrPortUnavailable(err)
+		return core.ErrPortUnavailable(err)
 	}
 
 	go func() {
@@ -127,18 +127,18 @@ func (srv *GRPCServer) subscribe(stream grpc.Broker_SubscribeServer) (ReplicaSub
 	var (
 		err       error
 		authToken string
-		comp      *kubefox.Component
+		comp      *core.Component
 		sub       ReplicaSubscription
 		sendMutex sync.Mutex
 	)
 
 	if authToken, comp, err = parseMD(stream); err != nil {
-		return nil, kubefox.ErrUnauthorized(err)
+		return nil, core.ErrUnauthorized(err)
 	}
 	subLog := srv.log.WithComponent(comp)
 
 	if err := srv.brk.AuthorizeComponent(stream.Context(), comp, authToken); err != nil {
-		return nil, kubefox.ErrUnauthorized(err)
+		return nil, core.ErrUnauthorized(err)
 	}
 
 	sendEvt := func(evt *BrokerEvent) error {
@@ -149,7 +149,7 @@ func (srv *GRPCServer) subscribe(stream grpc.Broker_SubscribeServer) (ReplicaSub
 		subLog.WithEvent(evt.Event).Debug("send event")
 
 		if err := stream.Send(evt.MatchedEvent()); err != nil {
-			return kubefox.ErrUnexpected(err)
+			return core.ErrUnexpected(err)
 		}
 		return nil
 	}
@@ -157,15 +157,15 @@ func (srv *GRPCServer) subscribe(stream grpc.Broker_SubscribeServer) (ReplicaSub
 	// The first event sent should be the component spec.
 	regEvt, err := stream.Recv()
 	if err != nil {
-		return nil, kubefox.ErrUnauthorized(err)
+		return nil, core.ErrUnauthorized(err)
 	}
 	if regEvt.EventType() != api.EventTypeRegister {
-		return nil, kubefox.ErrUnauthorized(fmt.Errorf("expected event of type %s but got %s",
+		return nil, core.ErrUnauthorized(fmt.Errorf("expected event of type %s but got %s",
 			api.EventTypeRegister, regEvt.Type))
 	}
 	compSpec := &api.ComponentDefinition{}
 	if err := regEvt.Bind(compSpec); err != nil {
-		return nil, kubefox.ErrUnauthorized(err)
+		return nil, core.ErrUnauthorized(err)
 	}
 
 	sub, err = srv.brk.Subscribe(stream.Context(), &SubscriptionConf{
@@ -179,7 +179,7 @@ func (srv *GRPCServer) subscribe(stream grpc.Broker_SubscribeServer) (ReplicaSub
 	}
 
 	regResp := &BrokerEvent{
-		Event: kubefox.NewResp(kubefox.EventOpts{
+		Event: core.NewResp(core.EventOpts{
 			Type:   api.EventTypeRegister,
 			Parent: regEvt,
 			Source: srv.brk.Component(),
@@ -195,7 +195,7 @@ func (srv *GRPCServer) subscribe(stream grpc.Broker_SubscribeServer) (ReplicaSub
 	// This simply receives events from the gRPC stream and places them on a
 	// channel. This makes checking for the context to be done easier by using a
 	// select in the next code block.
-	recvCh := make(chan *kubefox.Event)
+	recvCh := make(chan *core.Event)
 	go func() {
 		for {
 			if !sub.IsActive() {
@@ -219,17 +219,17 @@ func (srv *GRPCServer) subscribe(stream grpc.Broker_SubscribeServer) (ReplicaSub
 			if evt.Source == nil {
 				evt.Source = comp
 			} else if !evt.Source.Equal(comp) {
-				return sub, kubefox.ErrUnauthorized(
+				return sub, core.ErrUnauthorized(
 					fmt.Errorf("event from '%s' claiming to be '%s'", comp.Key(), evt.Source.Key()))
 			}
 			evt.Source.BrokerId = srv.brk.Component().Id
 
 			brkEvt := srv.brk.RecvEvent(evt, ReceiverGRPCServer)
 			if err := <-brkEvt.Done(); err != nil &&
-				evt.Category == kubefox.Category_REQUEST &&
-				err.Code() != kubefox.CodeTimeout {
+				evt.Category == core.Category_REQUEST &&
+				err.Code() != core.CodeTimeout {
 
-				errResp := kubefox.NewErr(err, kubefox.EventOpts{
+				errResp := core.NewErr(err, core.EventOpts{
 					Parent: evt,
 					Source: srv.brk.Component(),
 					Target: evt.Source,
@@ -246,7 +246,7 @@ func (srv *GRPCServer) subscribe(stream grpc.Broker_SubscribeServer) (ReplicaSub
 	}
 }
 
-func parseMD(stream grpc.Broker_SubscribeServer) (authToken string, comp *kubefox.Component, err error) {
+func parseMD(stream grpc.Broker_SubscribeServer) (authToken string, comp *core.Component, err error) {
 	md, found := metadata.FromIncomingContext(stream.Context())
 	if !found {
 		err = fmt.Errorf("gRPC metadata missing")
@@ -271,7 +271,7 @@ func parseMD(stream grpc.Broker_SubscribeServer) (authToken string, comp *kubefo
 		return
 	}
 
-	comp = &kubefox.Component{
+	comp = &core.Component{
 		Id:     compId,
 		Commit: compCommit,
 		Name:   compName,

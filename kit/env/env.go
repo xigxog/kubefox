@@ -21,39 +21,29 @@ func (v *Var) Type() api.EnvVarType {
 	return v.typ
 }
 
-func Array() VarOption {
-	return func(evs *api.EnvVarSchema) {
+var (
+	Array = func(evs *api.EnvVarSchema) {
 		evs.Type = api.EnvVarTypeArray
 	}
-}
 
-func Bool() VarOption {
-	return func(evs *api.EnvVarSchema) {
+	Bool = func(evs *api.EnvVarSchema) {
 		evs.Type = api.EnvVarTypeBoolean
 	}
-}
 
-func Number() VarOption {
-	return func(evs *api.EnvVarSchema) {
+	Number = func(evs *api.EnvVarSchema) {
 		evs.Type = api.EnvVarTypeNumber
 	}
-}
 
-func String() VarOption {
-	return func(evs *api.EnvVarSchema) {
+	String = func(evs *api.EnvVarSchema) {
 		evs.Type = api.EnvVarTypeString
 	}
-}
 
-func Required() VarOption {
-	return func(evs *api.EnvVarSchema) {
+	Required = func(evs *api.EnvVarSchema) {
 		evs.Required = true
 	}
-}
 
-func Unique() VarOption {
-	return func(evs *api.EnvVarSchema) {
+	Unique = func(evs *api.EnvVarSchema) {
 		evs.Required = true
 		evs.Unique = true
 	}
-}
+)

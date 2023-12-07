@@ -11,7 +11,7 @@ import (
 	"github.com/xigxog/kubefox/api/kubernetes/v1alpha1"
 	"github.com/xigxog/kubefox/cache"
 	"github.com/xigxog/kubefox/components/broker/config"
-	kubefox "github.com/xigxog/kubefox/core"
+	"github.com/xigxog/kubefox/core"
 	"github.com/xigxog/kubefox/k8s"
 	"github.com/xigxog/kubefox/logkf"
 	"github.com/xigxog/kubefox/matcher"
@@ -126,11 +126,11 @@ func (str *Store) Close() {
 	str.cancel()
 }
 
-func (str *Store) Component(ctx context.Context, comp *kubefox.Component) (*api.ComponentDefinition, bool) {
+func (str *Store) Component(ctx context.Context, comp *core.Component) (*api.ComponentDefinition, bool) {
 	return str.compCache.Get(comp.GroupKey())
 }
 
-func (str *Store) IsGenesisAdapter(ctx context.Context, comp *kubefox.Component) bool {
+func (str *Store) IsGenesisAdapter(ctx context.Context, comp *core.Component) bool {
 	r, found := str.Component(ctx, comp)
 	if !found {
 		return false
@@ -224,7 +224,7 @@ func (str *Store) ReleaseMatcher(ctx context.Context) (*matcher.EventMatcher, er
 	return str.relMatcher, nil
 }
 
-func (str *Store) DeploymentMatcher(ctx context.Context, evtCtx *kubefox.EventContext) (*matcher.EventMatcher, error) {
+func (str *Store) DeploymentMatcher(ctx context.Context, evtCtx *core.EventContext) (*matcher.EventMatcher, error) {
 	dep, err := str.AppDeployment(evtCtx.Deployment)
 	if err != nil {
 		return nil, err
@@ -308,7 +308,7 @@ func (str *Store) buildComponentCache(ctx context.Context) (cache.Cache[*api.Com
 
 	for _, app := range list.Items {
 		for compName, compSpec := range app.Spec.App.Components {
-			comp := &kubefox.Component{Name: compName, Commit: compSpec.Commit}
+			comp := &core.Component{Name: compName, Commit: compSpec.Commit}
 			compCache.Set(comp.GroupKey(), &compSpec.ComponentDefinition)
 		}
 	}
@@ -320,7 +320,7 @@ func (str *Store) buildComponentCache(ctx context.Context) (cache.Cache[*api.Com
 
 	for _, c := range p.Status.Components {
 		if c.Name == api.PlatformComponentHTTPSrv {
-			comp := &kubefox.Component{Name: c.Name, Commit: c.Commit}
+			comp := &core.Component{Name: c.Name, Commit: c.Commit}
 			compCache.Set(comp.GroupKey(), &api.ComponentDefinition{
 				Type: api.ComponentTypeGenesis,
 			})
@@ -368,7 +368,7 @@ func (str *Store) buildReleaseMatcher(ctx context.Context) (*matcher.EventMatche
 			vars = env.GetData().Vars
 		}
 
-		evtCtx := &kubefox.EventContext{Release: rel.Name}
+		evtCtx := &core.EventContext{Release: rel.Name}
 
 		routes, err := str.buildRoutes(ctx, comps, vars, evtCtx)
 		if err != nil {
@@ -388,13 +388,13 @@ func (str *Store) buildRoutes(
 	ctx context.Context,
 	comps map[string]*v1alpha1.Component,
 	vars map[string]*api.Val,
-	evtCtx *kubefox.EventContext) ([]*kubefox.Route, error) {
+	evtCtx *core.EventContext) ([]*core.Route, error) {
 
-	routes := make([]*kubefox.Route, 0)
+	routes := make([]*core.Route, 0)
 	for compName, compSpec := range comps {
-		comp := &kubefox.Component{Name: compName, Commit: compSpec.Commit}
+		comp := &core.Component{Name: compName, Commit: compSpec.Commit}
 		for _, r := range compSpec.Routes {
-			route := &kubefox.Route{
+			route := &core.Route{
 				RouteSpec:    r,
 				Component:    comp,
 				EventContext: evtCtx,

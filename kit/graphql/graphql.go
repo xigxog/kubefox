@@ -14,12 +14,6 @@ type Client struct {
 }
 
 func New(ktx kit.Kontext, dependency kit.Dependency) *Client {
-	// c := graphql.NewClient("http://hasura-graphql-engine.default:8080/v1/graphql", &http.Client{
-	// 	Transport: ktx.Transport(dependency),
-	// }).WithRequestModifier(func(r *http.Request) {
-	// 	r.Header.Set("x-hasura-admin-secret", "hasura")
-	// })
-
 	return &Client{
 		ktx: ktx,
 		wrapped: graphql.NewClient("", &http.Client{

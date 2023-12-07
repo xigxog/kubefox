@@ -10,7 +10,7 @@ import (
 
 	"github.com/vulcand/predicate"
 	"github.com/xigxog/kubefox/api"
-	kubefox "github.com/xigxog/kubefox/core"
+	"github.com/xigxog/kubefox/core"
 )
 
 type param struct {
@@ -19,14 +19,14 @@ type param struct {
 }
 
 type EventMatcher struct {
-	routes []*kubefox.Route
+	routes []*core.Route
 	parser predicate.Parser
 	mutex  sync.RWMutex
 }
 
 func New() *EventMatcher {
 	m := &EventMatcher{
-		routes: make([]*kubefox.Route, 0),
+		routes: make([]*core.Route, 0),
 	}
 
 	// TODO add various event criteria for route predicates:
@@ -61,7 +61,7 @@ func (m *EventMatcher) IsEmpty() bool {
 	return len(m.routes) == 0
 }
 
-func (m *EventMatcher) AddRoutes(routes []*kubefox.Route) error {
+func (m *EventMatcher) AddRoutes(routes []*core.Route) error {
 	for _, r := range routes {
 		if r.ResolvedRule == "" {
 			return fmt.Errorf("route %d has unresolved rule", r.Id)
@@ -75,7 +75,7 @@ func (m *EventMatcher) AddRoutes(routes []*kubefox.Route) error {
 			r.ParseErr = fmt.Errorf("invalid route '%s': parsing '%s' failed; %w", r.Rule, r.ResolvedRule, err)
 			continue
 		}
-		r.Predicate = parsed.(kubefox.EventPredicate)
+		r.Predicate = parsed.(core.EventPredicate)
 
 		m.mutex.Lock()
 		m.routes = append(m.routes, r)
@@ -90,7 +90,7 @@ func (m *EventMatcher) AddRoutes(routes []*kubefox.Route) error {
 	return nil
 }
 
-func (m *EventMatcher) Match(evt *kubefox.Event) (*kubefox.Route, bool) {
+func (m *EventMatcher) Match(evt *core.Event) (*core.Route, bool) {
 	m.mutex.RLock()
 	defer m.mutex.RUnlock()
 
@@ -113,13 +113,13 @@ func (m *EventMatcher) Match(evt *kubefox.Event) (*kubefox.Route, bool) {
 	return nil, false
 }
 
-func (m *EventMatcher) all() kubefox.EventPredicate {
-	return func(e *kubefox.Event) bool {
+func (m *EventMatcher) all() core.EventPredicate {
+	return func(e *core.Event) bool {
 		return true
 	}
 }
 
-func (m *EventMatcher) header(key, val string) (kubefox.EventPredicate, error) {
+func (m *EventMatcher) header(key, val string) (core.EventPredicate, error) {
 	if key == "" {
 		return nil, fmt.Errorf("header key must be provided")
 	}
@@ -130,24 +130,24 @@ func (m *EventMatcher) header(key, val string) (kubefox.EventPredicate, error) {
 		return nil, fmt.Errorf("invalid regex of header predicate %s: %w", val, err)
 	}
 
-	return func(e *kubefox.Event) bool {
+	return func(e *core.Event) bool {
 		return matchMap(key, val, regex, e.ValueMap(api.ValKeyHeader))
 	}, nil
 }
 
-func (m *EventMatcher) host(s string) (kubefox.EventPredicate, error) {
+func (m *EventMatcher) host(s string) (core.EventPredicate, error) {
 	parts, params, err := split(s, '.')
 	if err != nil {
 		return nil, err
 	}
 
-	return func(e *kubefox.Event) bool {
+	return func(e *core.Event) bool {
 		return matchParts(api.ValKeyHost, ".", parts, params, e, false)
 	}, nil
 }
 
-func (m *EventMatcher) method(s ...string) kubefox.EventPredicate {
-	return func(e *kubefox.Event) bool {
+func (m *EventMatcher) method(s ...string) core.EventPredicate {
+	return func(e *core.Event) bool {
 		m := e.Value(api.ValKeyMethod)
 		for _, v := range s {
 			if strings.EqualFold(m, v) {
@@ -158,29 +158,29 @@ func (m *EventMatcher) method(s ...string) kubefox.EventPredicate {
 	}
 }
 
-func (m *EventMatcher) path(s string) (kubefox.EventPredicate, error) {
+func (m *EventMatcher) path(s string) (core.EventPredicate, error) {
 	parts, params, err := split(s, '/')
 	if err != nil {
 		return nil, err
 	}
 
-	return func(e *kubefox.Event) bool {
+	return func(e *core.Event) bool {
 		return matchParts(api.ValKeyPath, "/", parts, params, e, false)
 	}, nil
 }
 
-func (m *EventMatcher) pathPrefix(s string) (kubefox.EventPredicate, error) {
+func (m *EventMatcher) pathPrefix(s string) (core.EventPredicate, error) {
 	parts, params, err := split(s, '/')
 	if err != nil {
 		return nil, err
 	}
 
-	return func(e *kubefox.Event) bool {
+	return func(e *core.Event) bool {
 		return matchParts(api.ValKeyPath, "/", parts, params, e, true)
 	}, nil
 }
 
-func (m *EventMatcher) query(key, val string) (kubefox.EventPredicate, error) {
+func (m *EventMatcher) query(key, val string) (core.EventPredicate, error) {
 	if key == "" {
 		return nil, fmt.Errorf("query param key must be provided")
 	}
@@ -190,34 +190,34 @@ func (m *EventMatcher) query(key, val string) (kubefox.EventPredicate, error) {
 		return nil, fmt.Errorf("invalid regex of query predicate %s: %w", val, err)
 	}
 
-	return func(e *kubefox.Event) bool {
+	return func(e *core.Event) bool {
 		return matchMap(key, val, regex, e.ValueMap(api.ValKeyQuery))
 	}, nil
 }
 
-func (m *EventMatcher) eventType(s string) kubefox.EventPredicate {
-	return func(e *kubefox.Event) bool {
+func (m *EventMatcher) eventType(s string) core.EventPredicate {
+	return func(e *core.Event) bool {
 		return e.GetType() == s
 	}
 }
 
 // Logical operator AND that combines predicates
-func and(a, b kubefox.EventPredicate) kubefox.EventPredicate {
-	return func(e *kubefox.Event) bool {
+func and(a, b core.EventPredicate) core.EventPredicate {
+	return func(e *core.Event) bool {
 		return a(e) && b(e)
 	}
 }
 
 // Logical operator OR that combines predicates
-func or(a, b kubefox.EventPredicate) kubefox.EventPredicate {
-	return func(e *kubefox.Event) bool {
+func or(a, b core.EventPredicate) core.EventPredicate {
+	return func(e *core.Event) bool {
 		return a(e) || b(e)
 	}
 }
 
 // Logical operator NOT that negates predicates
-func not(a kubefox.EventPredicate) kubefox.EventPredicate {
-	return func(e *kubefox.Event) bool {
+func not(a core.EventPredicate) core.EventPredicate {
+	return func(e *core.Event) bool {
 		return !a(e)
 	}
 }
@@ -252,7 +252,7 @@ func matchMap(key, val string, regex *regexp.Regexp, m map[string][]string) bool
 	return false
 }
 
-func matchParts(val string, sep string, parts []string, params map[int]*param, e *kubefox.Event, prefix bool) bool {
+func matchParts(val string, sep string, parts []string, params map[int]*param, e *core.Event, prefix bool) bool {
 	evtParts := strings.Split(strings.Trim(e.Value(val), sep), sep)
 
 	if len(parts) > len(evtParts) {

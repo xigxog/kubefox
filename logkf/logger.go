@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"os"
 
-	kubefox "github.com/xigxog/kubefox/core"
+	"github.com/xigxog/kubefox/core"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 )
@@ -104,7 +104,7 @@ func BuildLogger(format, level string) (*Logger, error) {
 	// ensures log messages are shown to be from caller instead of this logger
 	z = z.WithOptions(zap.AddCallerSkip(skip))
 
-	kubefox.RecordStackTraces = (level == "debug")
+	core.RecordStackTraces = (level == "debug")
 
 	return &Logger{wrapped: z.Sugar()}, nil
 }
@@ -164,7 +164,7 @@ func (log *Logger) WithPlatformComponent(val string) *Logger {
 	return log.With(KeyPlatformComponent, val)
 }
 
-func (log *Logger) WithComponent(comp *kubefox.Component) *Logger {
+func (log *Logger) WithComponent(comp *core.Component) *Logger {
 	if comp == nil {
 		return log
 	}
@@ -176,7 +176,7 @@ func (log *Logger) WithComponent(comp *kubefox.Component) *Logger {
 	)
 }
 
-func (log *Logger) WithSource(src *kubefox.Component) *Logger {
+func (log *Logger) WithSource(src *core.Component) *Logger {
 	if src == nil {
 		return log
 	}
@@ -188,7 +188,7 @@ func (log *Logger) WithSource(src *kubefox.Component) *Logger {
 	)
 }
 
-func (log *Logger) WithTarget(tgt *kubefox.Component) *Logger {
+func (log *Logger) WithTarget(tgt *core.Component) *Logger {
 	if tgt == nil {
 		return log
 	}
@@ -200,7 +200,7 @@ func (log *Logger) WithTarget(tgt *kubefox.Component) *Logger {
 	)
 }
 
-func (log *Logger) WithEvent(evt *kubefox.Event) *Logger {
+func (log *Logger) WithEvent(evt *core.Event) *Logger {
 	if evt == nil {
 		return log
 	}

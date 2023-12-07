@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"github.com/xigxog/kubefox/api"
-	kubefox "github.com/xigxog/kubefox/core"
+	"github.com/xigxog/kubefox/core"
 	"github.com/xigxog/kubefox/grpc"
 	"github.com/xigxog/kubefox/logkf"
 )
@@ -106,12 +106,12 @@ func (srv *Server) Shutdown() {
 }
 
 func (srv *Server) ServeHTTP(resWriter http.ResponseWriter, httpReq *http.Request) {
-	ctx, cancel := context.WithTimeoutCause(httpReq.Context(), EventTimeout, kubefox.ErrTimeout())
+	ctx, cancel := context.WithTimeoutCause(httpReq.Context(), EventTimeout, core.ErrTimeout())
 	defer cancel()
 
 	resWriter.Header().Set(api.HeaderAdapter, Component.Key())
 
-	req := kubefox.NewReq(kubefox.EventOpts{
+	req := core.NewReq(core.EventOpts{
 		Source: Component,
 	})
 	req.SetTTL(EventTimeout)
@@ -153,7 +153,7 @@ func writeError(resWriter http.ResponseWriter, err error, log *logkf.Logger) {
 	log.Debugf("event failed: %v", err)
 
 	statusCode := http.StatusInternalServerError
-	kfErr := &kubefox.Err{}
+	kfErr := &core.Err{}
 	if ok := errors.As(err, &kfErr); ok {
 		statusCode = kfErr.HTTPCode()
 	}

@@ -4,7 +4,7 @@ import (
 	"time"
 
 	"github.com/xigxog/kubefox/api"
-	kubefox "github.com/xigxog/kubefox/core"
+	"github.com/xigxog/kubefox/core"
 )
 
 var (
@@ -15,6 +15,6 @@ var (
 )
 
 var (
-	Component = new(kubefox.Component)
+	Component = new(core.Component)
 	Spec      = new(api.ComponentDefinition)
 )

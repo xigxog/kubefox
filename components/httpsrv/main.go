@@ -9,7 +9,7 @@ import (
 	"github.com/xigxog/kubefox/api"
 	"github.com/xigxog/kubefox/build"
 	"github.com/xigxog/kubefox/components/httpsrv/server"
-	kubefox "github.com/xigxog/kubefox/core"
+	"github.com/xigxog/kubefox/core"
 	"github.com/xigxog/kubefox/logkf"
 	"github.com/xigxog/kubefox/utils"
 )
@@ -36,7 +36,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	server.Component.Id = kubefox.GenerateId()
+	server.Component.Id = core.GenerateId()
 
 	server.Spec = &api.ComponentDefinition{
 		Type: api.ComponentTypeGenesis,

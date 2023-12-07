@@ -9,7 +9,7 @@ import (
 	"github.com/nats-io/nats.go"
 	"github.com/xigxog/kubefox/api"
 	"github.com/xigxog/kubefox/components/broker/config"
-	kubefox "github.com/xigxog/kubefox/core"
+	"github.com/xigxog/kubefox/core"
 	"github.com/xigxog/kubefox/logkf"
 	"google.golang.org/protobuf/proto"
 )
@@ -87,7 +87,7 @@ func (c *NATSClient) Close() {
 	}
 }
 
-func (c *NATSClient) Request(subject string, evt *kubefox.Event) error {
+func (c *NATSClient) Request(subject string, evt *core.Event) error {
 	msg, err := c.Msg(subject, evt)
 	if err != nil {
 		return err
@@ -103,7 +103,7 @@ func (c *NATSClient) Request(subject string, evt *kubefox.Event) error {
 	return nil
 }
 
-func (c *NATSClient) Publish(subject string, evt *kubefox.Event) error {
+func (c *NATSClient) Publish(subject string, evt *core.Event) error {
 	msg, err := c.Msg(subject, evt)
 	if err != nil {
 		return err
@@ -114,7 +114,7 @@ func (c *NATSClient) Publish(subject string, evt *kubefox.Event) error {
 	return c.nc.PublishMsg(msg)
 }
 
-func (c *NATSClient) Msg(subject string, evt *kubefox.Event) (*nats.Msg, error) {
+func (c *NATSClient) Msg(subject string, evt *core.Event) (*nats.Msg, error) {
 	dataBytes, err := proto.Marshal(evt)
 	if err != nil {
 		return nil, err
@@ -129,8 +129,8 @@ func (c *NATSClient) Msg(subject string, evt *kubefox.Event) (*nats.Msg, error) 
 	// h.Set("ce_type", evt.Type)
 	// h.Set("ce_time", time.Now().Format(time.RFC3339))
 	// h.Set("ce_source", fmt.Sprintf("kubefox:component:%s", evt.Source.Key()))
-	// h.Set("ce_dataschema", kubefox.DataSchemaKubefox)
-	// h.Set("ce_datacontenttype", kubefox.ContentTypeProtobuf)
+	// h.Set("ce_dataschema", core.DataSchemaKubefox)
+	// h.Set("ce_datacontenttype", core.ContentTypeProtobuf)
 	//
 
 	return &nats.Msg{
@@ -173,7 +173,7 @@ func (c *NATSClient) ConsumeEvents(ctx context.Context, name, subj string) error
 func (c *NATSClient) handleMsg(msg *nats.Msg) {
 	c.log.Debugf("handling msg from nats")
 
-	evt := kubefox.NewEvent()
+	evt := core.NewEvent()
 	if err := proto.Unmarshal(msg.Data, evt); err != nil {
 		evtId := msg.Header.Get(CloudEventId)
 		c.log.With(logkf.KeyEventId, evtId).Warn("message contains invalid event data: %v", err)

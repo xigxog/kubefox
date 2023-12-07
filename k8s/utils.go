@@ -5,7 +5,7 @@ import (
 	"fmt"
 
 	"github.com/xigxog/kubefox/api"
-	kubefox "github.com/xigxog/kubefox/core"
+	"github.com/xigxog/kubefox/core"
 	"github.com/xigxog/kubefox/utils"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -93,7 +93,7 @@ func IsNotFound(err error) bool {
 	if err == nil {
 		return false
 	}
-	return apierrors.IsNotFound(err) || errors.Is(err, kubefox.ErrNotFound())
+	return apierrors.IsNotFound(err) || errors.Is(err, core.ErrNotFound())
 }
 
 func IsAlreadyExists(err error) bool {

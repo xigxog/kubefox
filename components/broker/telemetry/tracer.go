@@ -6,7 +6,8 @@ import (
 	"time"
 
 	"github.com/xigxog/kubefox/api"
-	kubefox "github.com/xigxog/kubefox/core"
+	"github.com/xigxog/kubefox/core"
+
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
@@ -17,16 +18,16 @@ var (
 )
 
 type Span interface {
-	End(*kubefox.Event)
+	End(*core.Event)
 }
 
 type span struct {
 	cancel   context.CancelFunc
 	otelSpan trace.Span
-	req      *kubefox.Event
+	req      *core.Event
 }
 
-func NewSpan(ctx context.Context, timeout time.Duration, req *kubefox.Event) (context.Context, Span) {
+func NewSpan(ctx context.Context, timeout time.Duration, req *core.Event) (context.Context, Span) {
 	ctx, cancel := context.WithTimeout(ctx, timeout)
 
 	typ := api.EventTypeUnknown
@@ -59,7 +60,7 @@ func NewSpan(ctx context.Context, timeout time.Duration, req *kubefox.Event) (co
 	}
 }
 
-func (sp *span) End(resp *kubefox.Event) {
+func (sp *span) End(resp *core.Event) {
 	if resp != nil {
 		sp.otelSpan.SetAttributes(traceAttrs(resp)...)
 		resp.SetTraceId(sp.otelSpan.SpanContext().TraceID().String())
@@ -77,7 +78,7 @@ func (sp *span) End(resp *kubefox.Event) {
 	sp.cancel()
 }
 
-func traceAttrs(req *kubefox.Event) []attribute.KeyValue {
+func traceAttrs(req *core.Event) []attribute.KeyValue {
 	attrs := []attribute.KeyValue{}
 
 	if req != nil && req.Type != "" {

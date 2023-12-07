@@ -7,15 +7,15 @@ import (
 	"sync/atomic"
 
 	"github.com/xigxog/kubefox/api"
-	kubefox "github.com/xigxog/kubefox/core"
+	"github.com/xigxog/kubefox/core"
 	"github.com/xigxog/kubefox/logkf"
 )
 
 type SubscriptionMgr interface {
 	Create(ctx context.Context, cfg *SubscriptionConf, recvCh chan *BrokerEvent) (ReplicaSubscription, GroupSubscription, error)
-	Subscription(comp *kubefox.Component) (Subscription, bool)
-	ReplicaSubscription(comp *kubefox.Component) (ReplicaSubscription, bool)
-	GroupSubscription(comp *kubefox.Component) (GroupSubscription, bool)
+	Subscription(comp *core.Component) (Subscription, bool)
+	ReplicaSubscription(comp *core.Component) (ReplicaSubscription, bool)
+	GroupSubscription(comp *core.Component) (GroupSubscription, bool)
 	Subscriptions() []ReplicaSubscription
 	Close()
 }
@@ -31,7 +31,7 @@ type GroupSubscription interface {
 }
 
 type SubscriptionConf struct {
-	Component     *kubefox.Component
+	Component     *core.Component
 	ComponentSpec *api.ComponentDefinition
 	SendFunc      SendEvent
 	EnableGroup   bool
@@ -39,7 +39,7 @@ type SubscriptionConf struct {
 
 type ReplicaSubscription interface {
 	Subscription
-	Component() *kubefox.Component
+	Component() *core.Component
 	ComponentSpec() *api.ComponentDefinition
 	IsGroupEnabled() bool
 	Cancel(err error)
@@ -64,7 +64,7 @@ type subscriptionGroup struct {
 }
 
 type subscription struct {
-	comp     *kubefox.Component
+	comp     *core.Component
 	compSpec *api.ComponentDefinition
 	mgr      *subscriptionMgr
 
@@ -145,7 +145,7 @@ func (mgr *subscriptionMgr) Create(ctx context.Context, cfg *SubscriptionConf, r
 	return sub, grpSub, nil
 }
 
-func (mgr *subscriptionMgr) Subscription(comp *kubefox.Component) (Subscription, bool) {
+func (mgr *subscriptionMgr) Subscription(comp *core.Component) (Subscription, bool) {
 	if sub, found := mgr.ReplicaSubscription(comp); found {
 		return sub, true
 	}
@@ -153,7 +153,7 @@ func (mgr *subscriptionMgr) Subscription(comp *kubefox.Component) (Subscription,
 	return mgr.GroupSubscription(comp)
 }
 
-func (mgr *subscriptionMgr) ReplicaSubscription(comp *kubefox.Component) (ReplicaSubscription, bool) {
+func (mgr *subscriptionMgr) ReplicaSubscription(comp *core.Component) (ReplicaSubscription, bool) {
 	mgr.mutex.RLock()
 	defer mgr.mutex.RUnlock()
 
@@ -165,7 +165,7 @@ func (mgr *subscriptionMgr) ReplicaSubscription(comp *kubefox.Component) (Replic
 	return sub, true
 }
 
-func (mgr *subscriptionMgr) GroupSubscription(comp *kubefox.Component) (GroupSubscription, bool) {
+func (mgr *subscriptionMgr) GroupSubscription(comp *core.Component) (GroupSubscription, bool) {
 	mgr.mutex.RLock()
 	defer mgr.mutex.RUnlock()
 
@@ -247,7 +247,7 @@ func (sub *subscription) IsActive() bool {
 	return !sub.canceled.Load()
 }
 
-func (sub *subscription) Component() *kubefox.Component {
+func (sub *subscription) Component() *core.Component {
 	return sub.comp
 }
 
@@ -293,7 +293,7 @@ func (sub *subscription) processSendChan() {
 	}
 }
 
-func checkComp(comp *kubefox.Component) error {
+func checkComp(comp *core.Component) error {
 	if comp.Name == "" {
 		return fmt.Errorf("component is missing name")
 	}

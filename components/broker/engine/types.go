@@ -6,7 +6,7 @@ import (
 
 	"github.com/xigxog/kubefox/api"
 	"github.com/xigxog/kubefox/api/kubernetes/v1alpha1"
-	kubefox "github.com/xigxog/kubefox/core"
+	"github.com/xigxog/kubefox/core"
 	"google.golang.org/protobuf/types/known/structpb"
 )
 
@@ -22,7 +22,7 @@ const (
 type SendEvent func(*BrokerEvent) error
 
 type BrokerEvent struct {
-	*kubefox.Event
+	*core.Event
 
 	EnvVars map[string]*api.Val
 	RouteId int64
@@ -32,7 +32,7 @@ type BrokerEvent struct {
 
 	Receiver   Receiver
 	ReceivedAt time.Time
-	DoneCh     chan *kubefox.Err
+	DoneCh     chan *core.Err
 
 	tick  time.Time
 	mutex sync.Mutex
@@ -52,11 +52,11 @@ func (evt *BrokerEvent) TTL() time.Duration {
 	return evt.Event.TTL()
 }
 
-func (evt *BrokerEvent) Done() chan *kubefox.Err {
+func (evt *BrokerEvent) Done() chan *core.Err {
 	return evt.DoneCh
 }
 
-func (evt *BrokerEvent) MatchedEvent() *kubefox.MatchedEvent {
+func (evt *BrokerEvent) MatchedEvent() *core.MatchedEvent {
 	var env map[string]*structpb.Value
 	if evt.EnvVars != nil {
 		env = make(map[string]*structpb.Value, len(evt.EnvVars))
@@ -65,7 +65,7 @@ func (evt *BrokerEvent) MatchedEvent() *kubefox.MatchedEvent {
 		}
 	}
 
-	return &kubefox.MatchedEvent{
+	return &core.MatchedEvent{
 		Event:   evt.Event,
 		RouteId: evt.RouteId,
 		Env:     env,

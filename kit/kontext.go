@@ -9,14 +9,14 @@ import (
 	"time"
 
 	"github.com/xigxog/kubefox/api"
-	kubefox "github.com/xigxog/kubefox/core"
+	"github.com/xigxog/kubefox/core"
 	"github.com/xigxog/kubefox/logkf"
 
 	"google.golang.org/protobuf/types/known/structpb"
 )
 
 type kontext struct {
-	*kubefox.Event
+	*core.Event
 
 	kit *kit
 	env map[string]*structpb.Value
@@ -27,13 +27,13 @@ type kontext struct {
 }
 
 type respKontext struct {
-	*kubefox.Event
+	*core.Event
 
 	ktx *kontext
 }
 
 type reqKontext struct {
-	*kubefox.Event
+	*core.Event
 
 	ktx *kontext
 }
@@ -71,9 +71,9 @@ func (k *kontext) EnvDefV(v EnvVar, def *api.Val) *api.Val {
 	}
 }
 
-func (k *kontext) ForwardResp(resp kubefox.EventReader) Resp {
+func (k *kontext) ForwardResp(resp core.EventReader) Resp {
 	return &respKontext{
-		Event: kubefox.CloneToResp(resp.(*kubefox.Event), kubefox.EventOpts{
+		Event: core.CloneToResp(resp.(*core.Event), core.EventOpts{
 			Parent: k.Event,
 			Source: k.kit.brk.Component,
 			Target: k.Event.Source,
@@ -84,7 +84,7 @@ func (k *kontext) ForwardResp(resp kubefox.EventReader) Resp {
 
 func (k *kontext) Resp() Resp {
 	return &respKontext{
-		Event: kubefox.NewResp(kubefox.EventOpts{
+		Event: core.NewResp(core.EventOpts{
 			Parent: k.Event,
 			Source: k.kit.brk.Component,
 			Target: k.Event.Source,
@@ -95,11 +95,11 @@ func (k *kontext) Resp() Resp {
 
 func (k *kontext) Req(c Dependency) Req {
 	return &reqKontext{
-		Event: kubefox.NewReq(kubefox.EventOpts{
+		Event: core.NewReq(core.EventOpts{
 			Type:   c.EventType(),
 			Parent: k.Event,
 			Source: k.kit.brk.Component,
-			Target: &kubefox.Component{Name: c.Name()},
+			Target: &core.Component{Name: c.Name()},
 		}),
 		ktx: k,
 	}
@@ -107,11 +107,11 @@ func (k *kontext) Req(c Dependency) Req {
 
 func (k *kontext) Forward(c Dependency) Req {
 	return &reqKontext{
-		Event: kubefox.CloneToReq(k.Event, kubefox.EventOpts{
+		Event: core.CloneToReq(k.Event, core.EventOpts{
 			Type:   c.EventType(),
 			Parent: k.Event,
 			Source: k.kit.brk.Component,
-			Target: &kubefox.Component{Name: c.Name()},
+			Target: &core.Component{Name: c.Name()},
 		}),
 		ktx: k,
 	}
@@ -126,11 +126,11 @@ func (k *kontext) HTTP(c Dependency) *http.Client {
 func (k *kontext) Transport(c Dependency) http.RoundTripper {
 	return &EventRoundTripper{
 		req: &reqKontext{
-			Event: kubefox.NewReq(kubefox.EventOpts{
+			Event: core.NewReq(core.EventOpts{
 				Type:   c.EventType(),
 				Parent: k.Event,
 				Source: k.kit.brk.Component,
-				Target: &kubefox.Component{Name: c.Name()},
+				Target: &core.Component{Name: c.Name()},
 			}),
 			ktx: k,
 		},
@@ -189,17 +189,17 @@ func (resp *respKontext) Send() error {
 	return resp.ktx.kit.brk.SendResp(resp.Event, resp.ktx.start)
 }
 
-func (req *reqKontext) SendStr(val string) (kubefox.EventReader, error) {
+func (req *reqKontext) SendStr(val string) (core.EventReader, error) {
 	c := fmt.Sprintf("%s; %s", api.ContentTypePlain, api.CharSetUTF8)
 	return req.SendBytes(c, []byte(val))
 }
 
-func (req *reqKontext) SendHTML(val string) (kubefox.EventReader, error) {
+func (req *reqKontext) SendHTML(val string) (core.EventReader, error) {
 	c := fmt.Sprintf("%s; %s", api.ContentTypeHTML, api.CharSetUTF8)
 	return req.SendBytes(c, []byte(val))
 }
 
-func (req *reqKontext) SendJSON(val any) (kubefox.EventReader, error) {
+func (req *reqKontext) SendJSON(val any) (core.EventReader, error) {
 	if err := req.SetJSON(val); err != nil {
 		return nil, err
 	}
@@ -207,7 +207,7 @@ func (req *reqKontext) SendJSON(val any) (kubefox.EventReader, error) {
 	return req.Send()
 }
 
-func (req *reqKontext) SendReader(contentType string, reader io.Reader) (kubefox.EventReader, error) {
+func (req *reqKontext) SendReader(contentType string, reader io.Reader) (core.EventReader, error) {
 	bytes, err := io.ReadAll(reader)
 	if err != nil {
 		return nil, err
@@ -216,13 +216,13 @@ func (req *reqKontext) SendReader(contentType string, reader io.Reader) (kubefox
 	return req.SendBytes(contentType, bytes)
 }
 
-func (req *reqKontext) SendBytes(contentType string, b []byte) (kubefox.EventReader, error) {
+func (req *reqKontext) SendBytes(contentType string, b []byte) (core.EventReader, error) {
 	req.Event.ContentType = contentType
 	req.Event.Content = b
 
 	return req.Send()
 }
 
-func (req *reqKontext) Send() (kubefox.EventReader, error) {
+func (req *reqKontext) Send() (core.EventReader, error) {
 	return req.ktx.kit.brk.SendReq(req.ktx.ctx, req.Event, req.ktx.start)
 }

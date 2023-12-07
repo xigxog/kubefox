@@ -14,7 +14,7 @@ import (
 	"github.com/xigxog/kubefox/api"
 	"github.com/xigxog/kubefox/api/kubernetes/v1alpha1"
 	"github.com/xigxog/kubefox/components/broker/config"
-	kubefox "github.com/xigxog/kubefox/core"
+	"github.com/xigxog/kubefox/core"
 	"github.com/xigxog/kubefox/logkf"
 )
 
@@ -88,7 +88,7 @@ func NewHTTPClient(brk Broker) *HTTPClient {
 func (c *HTTPClient) SendEvent(req *BrokerEvent) error {
 	adapter := req.TargetAdapter
 	if adapter == nil {
-		return kubefox.ErrInvalid(fmt.Errorf("adapter is missing"))
+		return core.ErrInvalid(fmt.Errorf("adapter is missing"))
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), req.TTL())
@@ -97,11 +97,11 @@ func (c *HTTPClient) SendEvent(req *BrokerEvent) error {
 	httpReq, err := req.Event.HTTPRequest(ctx)
 	if err != nil {
 		cancel()
-		return kubefox.ErrInvalid(err)
+		return core.ErrInvalid(err)
 	}
 	if adapterURL, err := url.Parse(adapter.URL.StringVal); err != nil { // success
 		cancel()
-		return kubefox.ErrInvalid(fmt.Errorf("error parsing adapter url: %v", err))
+		return core.ErrInvalid(fmt.Errorf("error parsing adapter url: %v", err))
 
 	} else {
 		adapterURL = adapterURL.JoinPath(httpReq.URL.EscapedPath())
@@ -132,10 +132,10 @@ func (c *HTTPClient) SendEvent(req *BrokerEvent) error {
 		httpReq.Header.Set(k, v.StringVal)
 	}
 
-	resp := kubefox.NewResp(kubefox.EventOpts{
+	resp := core.NewResp(core.EventOpts{
 		Parent: req.Event,
 		Target: req.Source,
-		Source: &kubefox.Component{
+		Source: &core.Component{
 			Name:     req.Target.Name,
 			Commit:   c.brk.Component().Commit,
 			Id:       c.brk.Component().Id,
@@ -148,13 +148,13 @@ func (c *HTTPClient) SendEvent(req *BrokerEvent) error {
 
 		var reqErr error
 		if httpResp, err := c.adapterClient(adapter).Do(httpReq); err != nil {
-			reqErr = kubefox.ErrUnexpected(fmt.Errorf("http request failed: %v", err))
+			reqErr = core.ErrUnexpected(fmt.Errorf("http request failed: %v", err))
 		} else {
 			reqErr = resp.SetHTTPResponse(httpResp, config.MaxEventSize)
 		}
 		if reqErr != nil {
-			if !errors.Is(reqErr, &kubefox.Err{}) {
-				reqErr = kubefox.ErrUnexpected(reqErr)
+			if !errors.Is(reqErr, &core.Err{}) {
+				reqErr = core.ErrUnexpected(reqErr)
 			}
 			resp.Type = string(api.EventTypeError)
 			resp.SetJSON(reqErr)
