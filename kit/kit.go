@@ -23,6 +23,13 @@ const (
 	maxAttempts = 5
 )
 
+// TODO also support declarative routes? Example:
+//
+//	kit.RouteBuilder().
+//	    Header("host", "google.com").
+//	    Query("param1", "fish").
+//	    Handler(myHandler)
+
 type kit struct {
 	spec *api.ComponentDetails
 
@@ -112,6 +119,10 @@ func (svc *kit) Log() *logkf.Logger {
 	return svc.log
 }
 
+func (svc *kit) L() *logkf.Logger {
+	return svc.log
+}
+
 func (svc *kit) Title(title string) {
 	svc.spec.Title = title
 }
@@ -120,12 +131,6 @@ func (svc *kit) Description(description string) {
 	svc.spec.Title = description
 }
 
-// TODO also support declarative routes? Example:
-//
-//	kit.RouteBuilder().
-//	    Header("host", "google.com").
-//	    Query("param1", "fish").
-//	    Handler(myHandler)
 func (svc *kit) Route(rule string, handler EventHandler) {
 	r := &route{
 		RouteSpec: api.RouteSpec{
@@ -143,7 +148,7 @@ func (svc *kit) Default(handler EventHandler) {
 	svc.spec.DefaultHandler = handler != nil
 }
 
-func (svc *kit) EnvVar(name string, opts ...env.VarOption) EnvVar {
+func (svc *kit) EnvVar(name string, opts ...env.VarOption) EnvVarDep {
 	if name == "" {
 		svc.log.Fatal("environment variable name is required")
 	}
@@ -160,15 +165,15 @@ func (svc *kit) EnvVar(name string, opts ...env.VarOption) EnvVar {
 	return env.NewVar(name, schema.Type)
 }
 
-func (svc *kit) Component(name string) Dependency {
+func (svc *kit) Component(name string) ComponentDep {
 	return svc.dependency(name, api.ComponentTypeKubeFox)
 }
 
-func (svc *kit) HTTPAdapter(name string) Dependency {
+func (svc *kit) HTTPAdapter(name string) ComponentDep {
 	return svc.dependency(name, api.ComponentTypeHTTP)
 }
 
-func (svc *kit) dependency(name string, typ api.ComponentType) Dependency {
+func (svc *kit) dependency(name string, typ api.ComponentType) ComponentDep {
 	c := &dependency{
 		typ:  typ,
 		name: name,
@@ -263,7 +268,7 @@ func (svc *kit) recvReq(req *grpc.ComponentEvent) {
 		log.Error(err)
 
 		errEvt := core.NewErr(err, core.EventOpts{})
-		if err := ktx.ForwardResp(errEvt).Send(); err != nil {
+		if err := ktx.Resp().Forward(errEvt); err != nil {
 			log.Error(err)
 		}
 	}

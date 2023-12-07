@@ -212,7 +212,7 @@ func (brk *broker) AuthorizeComponent(ctx context.Context, comp *core.Component,
 		}
 	}
 
-	// TODO is this safe?
+	// TODO use platform status to check if component is platform component.
 	platformCompName := fmt.Sprintf("%s-%s", config.Platform, comp.Name)
 	if !strings.HasSuffix(svcAccName, comp.GroupKey()) && svcAccName != platformCompName {
 		return fmt.Errorf("service account name does not match component")
@@ -232,6 +232,8 @@ func (brk *broker) AuthorizeComponent(ctx context.Context, comp *core.Component,
 	if !review.Status.Authenticated {
 		return fmt.Errorf("unauthorized component: %s", review.Status.Error)
 	}
+
+	// TODO make sure component exists in an AppDeployment
 
 	return nil
 }

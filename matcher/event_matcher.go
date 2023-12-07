@@ -197,7 +197,8 @@ func (m *EventMatcher) query(key, val string) (core.EventPredicate, error) {
 
 func (m *EventMatcher) eventType(s string) core.EventPredicate {
 	return func(e *core.Event) bool {
-		return e.GetType() == s
+		return e.GetType() == s ||
+			strings.HasSuffix(strings.ToLower(e.GetType()), strings.ToLower(s))
 	}
 }
 

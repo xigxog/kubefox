@@ -8,7 +8,7 @@ import (
 )
 
 var (
-	backend kit.Dependency
+	backend kit.ComponentDep
 )
 
 func main() {

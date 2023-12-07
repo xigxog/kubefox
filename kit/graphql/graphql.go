@@ -13,7 +13,7 @@ type Client struct {
 	wrapped *graphql.Client
 }
 
-func New(ktx kit.Kontext, dependency kit.Dependency) *Client {
+func New(ktx kit.Kontext, dependency kit.ComponentDep) *Client {
 	return &Client{
 		ktx: ktx,
 		wrapped: graphql.NewClient("", &http.Client{

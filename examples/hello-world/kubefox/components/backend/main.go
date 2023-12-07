@@ -6,7 +6,7 @@ import (
 )
 
 var (
-	who kit.EnvVar
+	who kit.EnvVarDep
 )
 
 func main() {

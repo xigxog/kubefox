@@ -337,6 +337,21 @@ func (val *Val) IsArrayString() bool {
 	return val.Type == ArrayString
 }
 
+func (val *Val) IsEmpty() bool {
+	switch val.Type {
+	case Unknown, Nil:
+		return true
+	case String:
+		return val.String() == ""
+	case ArrayNumber:
+		return len(val.arrayNumVal) == 0
+	case ArrayString:
+		return len(val.arrayStrVal) == 0
+	default:
+		return false
+	}
+}
+
 // UnmarshalJSON implements the json.Unmarshaller interface.
 func (val *Val) UnmarshalJSON(value []byte) error {
 	defErr := errors.New("value must be type boolean, number, string, []number, or []string; nested objects are not supported")

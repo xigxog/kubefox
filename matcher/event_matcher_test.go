@@ -32,7 +32,7 @@ func TestPath(t *testing.T) {
 	r2 := &core.Route{
 		RouteSpec: api.RouteSpec{
 			Id:   2,
-			Rule: "Method(`PUT`,`GET`,`POST`) && (Query(`q1`, `{q[1-2]}`) && Header(`header-one`,`{[a-z0-9]+}`)) && Host(`{{.Env.a}}.0.0.{i}`) && Path(`/customize/{{.Env.b}}/{j:[a-z]+}`)",
+			Rule: "Type(`http`) && Method(`PUT`,`GET`,`POST`) && (Query(`q1`, `{q[1-2]}`) && Header(`header-one`,`{[a-z0-9]+}`)) && Host(`{{.Env.a}}.0.0.{i}`) && Path(`/customize/{{.Env.b}}/{j:[a-z]+}`)",
 		},
 		Component:    &core.Component{},
 		EventContext: &core.EventContext{},

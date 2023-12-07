@@ -46,16 +46,16 @@ func (k *kontext) Log() *logkf.Logger {
 	return k.log
 }
 
-func (k *kontext) Env(v EnvVar) string {
+func (k *kontext) Env(v EnvVarDep) string {
 	return k.EnvV(v).String()
 }
 
-func (k *kontext) EnvV(v EnvVar) *api.Val {
+func (k *kontext) EnvV(v EnvVarDep) *api.Val {
 	val, _ := api.ValProto(k.env[v.Name()])
 	return val
 }
 
-func (k *kontext) EnvDef(v EnvVar, def string) string {
+func (k *kontext) EnvDef(v EnvVarDep, def string) string {
 	if val := k.Env(v); val == "" {
 		return def
 	} else {
@@ -63,22 +63,11 @@ func (k *kontext) EnvDef(v EnvVar, def string) string {
 	}
 }
 
-func (k *kontext) EnvDefV(v EnvVar, def *api.Val) *api.Val {
-	if val := k.EnvV(v); val == nil {
+func (k *kontext) EnvDefV(v EnvVarDep, def *api.Val) *api.Val {
+	if val := k.EnvV(v); val.IsEmpty() {
 		return def
 	} else {
 		return val
-	}
-}
-
-func (k *kontext) ForwardResp(resp core.EventReader) Resp {
-	return &respKontext{
-		Event: core.CloneToResp(resp.(*core.Event), core.EventOpts{
-			Parent: k.Event,
-			Source: k.kit.brk.Component,
-			Target: k.Event.Source,
-		}),
-		ktx: k,
 	}
 }
 
@@ -93,7 +82,7 @@ func (k *kontext) Resp() Resp {
 	}
 }
 
-func (k *kontext) Req(c Dependency) Req {
+func (k *kontext) Req(c ComponentDep) Req {
 	return &reqKontext{
 		Event: core.NewReq(core.EventOpts{
 			Type:   c.EventType(),
@@ -105,7 +94,7 @@ func (k *kontext) Req(c Dependency) Req {
 	}
 }
 
-func (k *kontext) Forward(c Dependency) Req {
+func (k *kontext) Forward(c ComponentDep) Req {
 	return &reqKontext{
 		Event: core.CloneToReq(k.Event, core.EventOpts{
 			Type:   c.EventType(),
@@ -117,13 +106,13 @@ func (k *kontext) Forward(c Dependency) Req {
 	}
 }
 
-func (k *kontext) HTTP(c Dependency) *http.Client {
+func (k *kontext) HTTP(c ComponentDep) *http.Client {
 	return &http.Client{
 		Transport: k.Transport(c),
 	}
 }
 
-func (k *kontext) Transport(c Dependency) http.RoundTripper {
+func (k *kontext) Transport(c ComponentDep) http.RoundTripper {
 	return &EventRoundTripper{
 		req: &reqKontext{
 			Event: core.NewReq(core.EventOpts{
@@ -137,9 +126,19 @@ func (k *kontext) Transport(c Dependency) http.RoundTripper {
 	}
 }
 
-func (resp *respKontext) SendStr(val string) error {
+func (resp *respKontext) Forward(evt core.EventReader) error {
+	resp.Event = core.CloneToResp(evt.(*core.Event), core.EventOpts{
+		Parent: resp.ktx.Event,
+		Source: resp.ktx.kit.brk.Component,
+		Target: resp.ktx.Event.Source,
+	})
+
+	return resp.Send()
+}
+
+func (resp *respKontext) SendStr(val ...string) error {
 	c := fmt.Sprintf("%s; %s", api.ContentTypePlain, api.CharSetUTF8)
-	return resp.SendBytes(c, []byte(val))
+	return resp.SendBytes(c, []byte(strings.Join(val, "")))
 }
 
 func (resp *respKontext) SendHTML(val string) error {
@@ -170,6 +169,10 @@ func (resp *respKontext) SendAccepts(json any, html, str string) error {
 }
 
 func (resp *respKontext) SendReader(contentType string, reader io.Reader) error {
+	if closer, ok := reader.(io.ReadCloser); ok {
+		defer closer.Close()
+	}
+
 	bytes, err := io.ReadAll(reader)
 	if err != nil {
 		return err
