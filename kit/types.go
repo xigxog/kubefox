@@ -15,20 +15,20 @@ type EventHandler func(ktx Kontext) error
 
 type Kit interface {
 	// Start connects to the Broker passing the Component's Service Account
-	// Token for authorization. Once connected Kit will accept incoming Events.
-	// If an error occurs the program will exit with a status code of 1. Start
-	// is a blocking call.
+	// Token to authenticate. Once connected Kit will accept incoming request
+	// Events. If an error occurs the program will exit with a status code of 1.
+	// Start is a blocking call.
 	Start()
 
-	// Route registers a EventHandler for the specified rule. If an Event
-	// matches the rule the Broker will route it to the Component and Kit will
-	// call the EventHandler.
+	// Route registers an EventHandler for the specified rule. If an incoming
+	// Event matches the rule the Broker will route it to the Component and Kit
+	// will call the EventHandler.
 	//
 	// Rules are written in a simple predicate based language that matches parts
 	// of an Event. Some predicates accept inputs which should be surrounded
-	// with back ticks. The boolean operators '&&' (and), '||' (or), and '!'
-	// (not) can be used to combined predicates. The following predicates are
-	// supported:
+	// with back ticks. The boolean operators '&&' (and) and '||' (or) can be
+	// used to combined predicates. Predicates can be negated with the '!' (not)
+	// operator. The following predicates are supported:
 	//
 	//   All()
 	//     Matches all Events.
@@ -67,10 +67,11 @@ type Kit interface {
 	//
 	// For example, the following will match Events of type 'http' that are
 	// 'GET' requests and have a path with three parts. The first part of the
-	// path must equal the value of th environment variable 'SUB_PATH', the
-	// second part must equal 'orders', and the third part can be one or more
-	// lower case letter or number. The third part of the path is extracted to
-	// the parameter 'orderId' which can be used by the EventHandler:
+	// path must equal the value of the environment variable 'SUB_PATH', the
+	// second part must equal the string literal 'orders', and the third part
+	// can be one or more lower case letters or numbers. The third part of the
+	// path is extracted to the parameter 'orderId' which can be used by the
+	// EventHandler:
 	//
 	//   kit.Route("Type(`http`) && Method(`GET`) && Path(`/{{.Env.SUB_PATH}}/orders/{orderId:[a-z0-9]+}`)",
 	//     func(ktx kit.Kontext) error {
@@ -107,9 +108,9 @@ type Kit interface {
 	//   })
 	Component(name string) ComponentDep
 
-	// HTTPAdapter registers a dependency on the HTTP Adapter. The returned
-	// ComponentDep can be used by EventHandlers to invoke the Adapter at
-	// request time.
+	// HTTPAdapter registers a dependency on the named HTTP Adapter. The
+	// returned ComponentDep can be used by EventHandlers to invoke the Adapter
+	// at request time.
 	//
 	// For example:
 	//
@@ -136,12 +137,13 @@ type Kontext interface {
 	// Env returns the value of the given environment variable as a string. If
 	// the environment variable does not exist or cannot be converted to a
 	// string, empty string is returned. To check if an environment exists use
-	// EnvV() and check if the returned Val's ValType is 'Nil'.
+	// EnvV() and check if the returned api.Val's is 'Nil'.
 	Env(v EnvVarDep) string
 
-	// EnvV returns the value of the given environment variable as a Val. It is
-	// guaranteed the returned Val will not be nil. If the environment variable
-	// does not exist the ValType of the returned Val will be 'Nil'.
+	// EnvV returns the value of the given environment variable as an api.Val.
+	// It is guaranteed the returned api.Val will not be nil. If the environment
+	// variable does not exist the api.ValType of the returned api.Val will be
+	// 'Nil'.
 	EnvV(v EnvVarDep) *api.Val
 
 	// EnvDef returns the value of the given environment variable as a string.
@@ -149,32 +151,33 @@ type Kontext interface {
 	// converted to a string, then the given 'def' string is returned.
 	EnvDef(v EnvVarDep, def string) string
 
-	// EnvDefV returns the value of the given environment variable as a Val. If
-	// the environment variable does not exist, is an empty string, or an empty
-	// array, then the given 'def' Val is returned. If the environment variable
-	// exists and is a boolean or number, then it's value will be returned.
+	// EnvDefV returns the value of the given environment variable as an
+	// api.Val. If the environment variable does not exist, is an empty string,
+	// or an empty array, then the given 'def' api.Val is returned. If the
+	// environment variable exists and is a boolean or number, then it's value
+	// will be returned.
 	EnvDefV(v EnvVarDep, def *api.Val) *api.Val
 
-	// Resp returns a Resp object that can be used to send a response to the
-	// source of the current request.
+	// Resp returns a Resp object that can be used to send a response Event to
+	// the source of the current request.
 	Resp() Resp
 
-	// Req returns an empty Req object that can be used to send a request to the
-	// given Component.
-	Req(c ComponentDep) Req
+	// Req returns an empty Req object that can be used to send a request Event
+	// to the given target Component.
+	Req(target ComponentDep) Req
 
-	// Forward returns a Req object that can be used to send a request to the
-	// given Component. The Req object is a clone of the current request.
-	Forward(c ComponentDep) Req
+	// Forward returns a clone of the current request Event as a Req object that
+	// can be used to send it to the given target Component.
+	Forward(target ComponentDep) Req
 
 	// HTTP returns a native Go http.Client. Any requests made with the client
-	// are sent to the given Component. The target Component should be capable
-	// of processing HTTP requests.
-	HTTP(c ComponentDep) *http.Client
+	// are sent to the given target Component. The target should be capable of
+	// processing HTTP requests.
+	HTTP(target ComponentDep) *http.Client
 
 	// HTTP returns a native go http.RoundTripper. This is useful to integrate
 	// with HTTP based libraries.
-	Transport(c ComponentDep) http.RoundTripper
+	Transport(target ComponentDep) http.RoundTripper
 
 	// Context returns a context.Context with it's duration set to the TTL of
 	// the current request.
@@ -187,24 +190,74 @@ type Kontext interface {
 type Req interface {
 	core.EventWriter
 
+	// SendStr sends the request to the target Component and returns the
+	// response. The given string is used as the content of the request Event,
+	// content-type is set to 'text/plain'.
 	SendStr(s string) (core.EventReader, error)
+
+	// SendHTML sends the request to the target Component and returns the
+	// response. The given HTML is used as the content of the request Event,
+	// content-type is set to 'text/html'.
 	SendHTML(h string) (core.EventReader, error)
+
+	// SendJSON sends the request to the target Component and returns the
+	// response. The given object is marshalled to JSON and the output is used
+	// as the content of the request Event, content-type is set to
+	// 'application/json'.
 	SendJSON(v any) (core.EventReader, error)
-	SendBytes(contentType string, b []byte) (core.EventReader, error)
+
+	// SendBytes sends the request to the target Component using the given
+	// content-type and content and returns the response.
+	SendBytes(contentType string, content []byte) (core.EventReader, error)
+
+	// SendReader sends the request to the target Component and returns the
+	// response. All data is read from the given reader and is used as the
+	// content of the request Event. If the reader implements io.ReadCloser then
+	// it will be automatically closed.
 	SendReader(contentType string, reader io.Reader) (core.EventReader, error)
+
+	// Send sends the request to the target Component and returns the response.
 	Send() (core.EventReader, error)
 }
 
 type Resp interface {
 	core.EventWriter
 
-	Forward(resp core.EventReader) error
+	// Forward sends the response to the source Component of the current
+	// request. The response Event is a clone of the given Event.
+	Forward(evt core.EventReader) error
+
+	// SendStr sends the response to the source Component of the current
+	// request. The given string is used as the content of the response Event,
+	// content-type is set to 'text/plain'.
 	SendStr(s ...string) error
+
+	// SendHTML sends the response to the source Component of the current
+	// request. The given HTML is used as the content of the response Event,
+	// content-type is set to 'text/html'.
 	SendHTML(h string) error
+
+	// SendJSON sends the response to the source Component of the current
+	// request. The given object is marshalled to JSON and the output is used as
+	// the content of the response Event, content-type is set to
+	// 'application/json'.
 	SendJSON(v any) error
+
+	// SendAccepts sends the response to the source Component using one of the
+	// given values based on the 'Accept' header of the request Event.
 	SendAccepts(json any, html, str string) error
+
+	// SendBytes sends the response to the source Component of the current
+	// request using the given content-type and content.
 	SendBytes(contentType string, b []byte) error
+
+	// SendReader sends the response to the source Component of the current
+	// request. All data is read from the given reader and is used as the
+	// content of the response Event. If the reader implements io.ReadCloser
+	// then it will be automatically closed.
 	SendReader(contentType string, reader io.Reader) error
+
+	// Send sends the response to the source Component of the current request.
 	Send() error
 }
 

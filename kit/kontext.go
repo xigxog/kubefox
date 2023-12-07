@@ -82,44 +82,43 @@ func (k *kontext) Resp() Resp {
 	}
 }
 
-func (k *kontext) Req(c ComponentDep) Req {
+func (k *kontext) Req(target ComponentDep) Req {
 	return &reqKontext{
 		Event: core.NewReq(core.EventOpts{
-			Type:   c.EventType(),
+			Type:   target.EventType(),
 			Parent: k.Event,
 			Source: k.kit.brk.Component,
-			Target: &core.Component{Name: c.Name()},
+			Target: &core.Component{Name: target.Name()},
 		}),
 		ktx: k,
 	}
 }
 
-func (k *kontext) Forward(c ComponentDep) Req {
+func (k *kontext) Forward(target ComponentDep) Req {
 	return &reqKontext{
 		Event: core.CloneToReq(k.Event, core.EventOpts{
-			Type:   c.EventType(),
 			Parent: k.Event,
 			Source: k.kit.brk.Component,
-			Target: &core.Component{Name: c.Name()},
+			Target: &core.Component{Name: target.Name()},
 		}),
 		ktx: k,
 	}
 }
 
-func (k *kontext) HTTP(c ComponentDep) *http.Client {
+func (k *kontext) HTTP(target ComponentDep) *http.Client {
 	return &http.Client{
-		Transport: k.Transport(c),
+		Transport: k.Transport(target),
 	}
 }
 
-func (k *kontext) Transport(c ComponentDep) http.RoundTripper {
+func (k *kontext) Transport(target ComponentDep) http.RoundTripper {
 	return &EventRoundTripper{
 		req: &reqKontext{
 			Event: core.NewReq(core.EventOpts{
-				Type:   c.EventType(),
+				Type:   target.EventType(),
 				Parent: k.Event,
 				Source: k.kit.brk.Component,
-				Target: &core.Component{Name: c.Name()},
+				Target: &core.Component{Name: target.Name()},
 			}),
 			ktx: k,
 		},
