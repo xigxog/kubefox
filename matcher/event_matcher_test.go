@@ -19,12 +19,12 @@ func TestPath(t *testing.T) {
 	r1 := &core.Route{
 		RouteSpec: api.RouteSpec{
 			Id:   1,
-			Rule: "PathPrefix(`/customize/{{.Env.b}}`)",
+			Rule: "PathPrefix(`/customize/{{b}}`)",
 		},
 		Component:    &core.Component{},
 		EventContext: &core.EventContext{},
 	}
-	if err := r1.Resolve(v, nil); err != nil {
+	if err := r1.Resolve(v); err != nil {
 		t.Log(err)
 		t.FailNow()
 	}
@@ -32,12 +32,12 @@ func TestPath(t *testing.T) {
 	r2 := &core.Route{
 		RouteSpec: api.RouteSpec{
 			Id:   2,
-			Rule: "Type(`http`) && Method(`PUT`,`GET`,`POST`) && (Query(`q1`, `{q[1-2]}`) && Header(`header-one`,`{[a-z0-9]+}`)) && Host(`{{.Env.a}}.0.0.{i}`) && Path(`/customize/{{.Env.b}}/{j:[a-z]+}`)",
+			Rule: "Type(`http`) && Method(`PUT`,`GET`,`POST`) && (Query(`q1`, `{q[1-2]}`) && Header(`header-one`,`{[a-z0-9]+}`)) && Host(`{{a}}.0.0.{i}`) && Path(`/customize/{{b}}/{j:[a-z]+}`)",
 		},
 		Component:    &core.Component{},
 		EventContext: &core.EventContext{},
 	}
-	if err := r2.Resolve(v, nil); err != nil {
+	if err := r2.Resolve(v); err != nil {
 		t.Log(err)
 		t.FailNow()
 	}

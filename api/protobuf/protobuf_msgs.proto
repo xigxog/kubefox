@@ -14,7 +14,6 @@ enum Category {
 }
 
 message Component {
-  // TODO add app?
   string name = 1;
   string commit = 2;
   string id = 3;
@@ -25,7 +24,6 @@ message EventContext {
   string deployment = 1;
   string environment = 2;
   string release = 3;
-  // TODO add trace and span?
 }
 
 message Event {

@@ -11,7 +11,7 @@
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
-| name | [string](#string) |  | TODO add app? |
+| name | [string](#string) |  |  |
 | commit | [string](#string) |  |  |
 | id | [string](#string) |  |  |
 | broker_id | [string](#string) |  |  |
@@ -90,7 +90,7 @@
 | ----- | ---- | ----- | ----------- |
 | deployment | [string](#string) |  |  |
 | environment | [string](#string) |  |  |
-| release | [string](#string) |  | TODO add trace and span? |
+| release | [string](#string) |  |  |
 
 
 

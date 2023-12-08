@@ -7,6 +7,8 @@ site_description: Documentation for KubeFox
 site_author: John Long
 copyright: Copyright © XigXog
 
+use_directory_urls: false
+
 extra:
   homepage: https://kubefox.io
   social:
@@ -51,14 +53,13 @@ theme:
     - content.action.edit
     - content.code.annotate
     - navigation.instant
-    # - navigation.tabs
-    # - navigation.tabs.sticky
+    - navigation.tabs
+    - navigation.tabs.sticky
     - navigation.tracking
     - search.highlight
     - search.share
     - search.suggest
     - toc.integrate
-    
 
 plugins:
   - awesome-pages
@@ -68,10 +69,8 @@ plugins:
 markdown_extensions:
   - admonition
   - attr_list
-  - md_in_html
-  - toc:
-      permalink: false
   - def_list
+  - md_in_html
   - pymdownx.details
   - pymdownx.emoji:
       emoji_index: !!python/name:material.extensions.emoji.twemoji
@@ -89,3 +88,5 @@ markdown_extensions:
           format: !!python/name:pymdownx.superfences.fence_code_format
   - pymdownx.tasklist:
       custom_checkbox: true
+  - toc:
+      permalink: true

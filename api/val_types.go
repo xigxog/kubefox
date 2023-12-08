@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"strconv"
 
+	"github.com/xigxog/kubefox/utils"
 	"google.golang.org/protobuf/types/known/structpb"
 )
 
@@ -227,16 +228,15 @@ func (val *Val) FloatDef(def float64) float64 {
 	return val.numVal
 }
 
-// String returns the string value if type is String. If type is Bool the
-// `fmt.Sprintf("%t", bool)` of the bool value is returned. If type is Number
-// the `fmt.Sprintf("%f", float)` of the number value is returned.
-// If type is Array the JSON representation of the array is returned.
+// String returns the string value if type is String. If type is Array the JSON
+// representation of the array is returned. Otherwise default string format of
+// the value is returned.
 func (val *Val) String() string {
 	switch val.Type {
 	case Bool:
-		return fmt.Sprintf("%t", val.boolVal)
+		return utils.DefString(val.boolVal)
 	case Number:
-		return ftos(val.numVal)
+		return utils.DefString(val.numVal)
 	case String:
 		return val.strVal
 	case ArrayNumber:
@@ -290,7 +290,7 @@ func (val *Val) ArrayString() []string {
 	if val.Type == ArrayNumber {
 		a := make([]string, len(val.arrayNumVal))
 		for i, v := range val.arrayNumVal {
-			a[i] = ftos(v)
+			a[i] = utils.DefString(v)
 		}
 		return a
 	}
@@ -349,6 +349,19 @@ func (val *Val) IsEmpty() bool {
 		return len(val.arrayStrVal) == 0
 	default:
 		return false
+	}
+}
+
+func (val *Val) EnvVarType() EnvVarType {
+	switch val.Type {
+	case ArrayNumber, ArrayString:
+		return EnvVarTypeArray
+	case Bool:
+		return EnvVarTypeBoolean
+	case Number:
+		return EnvVarTypeNumber
+	default:
+		return EnvVarTypeString
 	}
 }
 
@@ -424,15 +437,5 @@ func (val *Val) MarshalJSON() ([]byte, error) {
 		return json.Marshal(val.arrayStrVal)
 	default:
 		return []byte{}, fmt.Errorf("impossible var type")
-	}
-}
-
-func ftos(val float64) string {
-	if val == float64(int(val)) {
-		// float is an int
-		return fmt.Sprintf("%d", int(val))
-	} else {
-		// float is a float
-		return fmt.Sprintf("%f", val)
 	}
 }

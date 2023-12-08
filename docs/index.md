@@ -1,4 +1,4 @@
-# Overview
+# Home
 
 KubeFox is an SDK, platform and infrastructure to enable rapid construction and
 deployment of secure and robust applications for Kubernetes, and which

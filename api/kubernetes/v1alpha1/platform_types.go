@@ -53,7 +53,6 @@ type HTTPSrvService struct {
 	Type  string       `json:"type,omitempty"`
 	Ports HTTPSrvPorts `json:"ports,omitempty"`
 
-	// TODO add to service templates
 	// Map of string keys and values that can be used to organize and categorize
 	// (scope and select) objects. May match selectors of replication
 	// controllers and services.

@@ -6,7 +6,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/Masterminds/sprig"
 	"github.com/xigxog/kubefox/api"
 	"github.com/xigxog/kubefox/api/kubernetes/v1alpha1"
 	"github.com/xigxog/kubefox/cache"
@@ -394,12 +393,13 @@ func (str *Store) buildRoutes(
 	for compName, compSpec := range comps {
 		comp := &core.Component{Name: compName, Commit: compSpec.Commit}
 		for _, r := range compSpec.Routes {
+			// TODO? cache routes so template doesn't need to be parsed again
 			route := &core.Route{
 				RouteSpec:    r,
 				Component:    comp,
 				EventContext: evtCtx,
 			}
-			if err := route.Resolve(vars, sprig.FuncMap()); err != nil {
+			if err := route.Resolve(vars); err != nil {
 				return nil, err
 			}
 			routes = append(routes, route)
