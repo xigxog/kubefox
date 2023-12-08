@@ -35,7 +35,7 @@ const (
 	LabelK8sPlatform              string = "kubefox.xigxog.io/platform"
 	LabelK8sPlatformComponent     string = "kubefox.xigxog.io/platform-component"
 	LabelK8sReleaseStatus         string = "kubefox.xigxog.io/release-status"
-	LabelK8sRuntimeVersion        string = "app.kubernetes.io/runtime-version"
+	LabelK8sRuntimeVersion        string = "kubefox.xigxog.io/runtime-version"
 	LabelK8sSourceKind            string = "kubefox.xigxog.io/source-kind"
 	LabelK8sSourceResourceVersion string = "kubefox.xigxog.io/source-resource-version"
 	LabelK8sVirtualEnv            string = "kubefox.xigxog.io/virtual-env"
