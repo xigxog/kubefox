@@ -1,8 +1,8 @@
 site_name: KubeFox
 site_url: https://docs.kubefox.io
 repo_url: https://github.com/xigxog/kubefox
+edit_uri: edit/main/docs
 repo_name: xigxog/kubefox
-# edit_uri: ""
 site_description: Documentation for KubeFox
 site_author: John Long
 copyright: Copyright © XigXog
@@ -48,21 +48,22 @@ theme:
         icon: material/weather-sunny
         name: Switch to light mode
   features:
+    - content.action.edit
     - content.code.annotate
     - navigation.instant
+    # - navigation.tabs
+    # - navigation.tabs.sticky
     - navigation.tracking
     - search.highlight
     - search.share
     - search.suggest
     - toc.integrate
+    
 
 plugins:
-  - search
   - awesome-pages
-  - mermaid2:
-      arguments:
-        theme: |
-          ^(JSON.parse(__md_get("__palette").index == 1)) ? 'dark' : 'light'
+  - mermaid2
+  - search
 
 markdown_extensions:
   - admonition

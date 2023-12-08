@@ -9,7 +9,7 @@ comprehensive software development lifecycle leveraging KubeFox. Let's dive in!
 
 ## Prerequisites
 
-Ensure that the following tools are installed for this quick start:
+Ensure that the following tools are installed for this quickstart:
 
 - [Docker](https://docs.docker.com/engine/install/) - A container toolset and
   runtime used to build KubeFox components' OCI images and run a local
