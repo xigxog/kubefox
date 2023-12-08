@@ -136,11 +136,6 @@ func main() {
 	}).SetupWithManager(mgr); err != nil {
 		log.Fatalf("unable to create Platform controller: %v", err)
 	}
-	if err = (&controller.SnapshotReconciler{
-		Client: ctrlClient,
-	}).SetupWithManager(mgr); err != nil {
-		log.Fatalf("unable to create VirtualEnvironmentSnapshot controller: %v", err)
-	}
 	if err = (&controller.AppDeploymentReconciler{
 		Client:  ctrlClient,
 		CompMgr: compMgr,
@@ -160,9 +155,13 @@ func main() {
 			Decoder: admission.NewDecoder(scheme),
 		},
 	})
+	mgr.GetWebhookServer().Register("/index/mutate", &webhook.Admission{
+		Handler: &controller.IndexWebhook{
+			Decoder: admission.NewDecoder(scheme),
+		},
+	})
 	mgr.GetWebhookServer().Register("/immutable/validate", &webhook.Admission{
 		Handler: &controller.ImmutableWebhook{
-			Client:  ctrlClient,
 			Decoder: admission.NewDecoder(scheme),
 		},
 	})

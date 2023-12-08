@@ -23,17 +23,16 @@ import (
 
 	"github.com/xigxog/kubefox/api/kubernetes/v1alpha1"
 	"github.com/xigxog/kubefox/k8s"
-	v1 "k8s.io/api/admission/v1"
+	admv1 "k8s.io/api/admission/v1"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 )
 
 type ImmutableWebhook struct {
-	*Client
 	*admission.Decoder
 }
 
 func (r *ImmutableWebhook) Handle(ctx context.Context, req admission.Request) admission.Response {
-	if req.Operation != v1.Update {
+	if req.Operation != admv1.Update {
 		return admission.Allowed("🦊")
 	}
 

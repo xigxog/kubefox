@@ -1,0 +1,37 @@
+apiVersion: admissionregistration.k8s.io/v1
+kind: MutatingWebhookConfiguration
+metadata:
+  name: {{ name }}-operator
+  namespace: {{ namespace }}
+  labels:
+    {{- include "labels" . | nindent 4 }}
+  annotations:
+    {{- include "annotations" . | nindent 4 }}
+  {{- with .Owner }}
+  ownerReferences:
+    {{- . | toYaml | nindent 4 }}
+  {{- end }}
+webhooks:
+  - name: index-mutation.kubefox.xigxog.io
+    failurePolicy: Fail
+    sideEffects: None
+    admissionReviewVersions:
+      - v1
+    clientConfig:
+      caBundle: {{ .Values.caBundle }}
+      service:
+        name: {{ name }}-operator
+        namespace: {{ namespace }}
+        path: /index/mutate
+    rules:
+      - apiGroups:
+          - kubefox.xigxog.io
+        apiVersions:
+          - v1alpha1
+        operations:
+          - CREATE
+          - UPDATE
+        resources:
+          - appdeployments
+          - releases
+          - virtualenvsnapshots

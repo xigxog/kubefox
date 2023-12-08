@@ -110,28 +110,12 @@ func (r *ReleaseReconciler) reconcile(ctx context.Context, req ctrl.Request, log
 		myStatus = rel.Status.Requested
 	}
 
-	// Need finalizer so Release object is available after deletion providing
-	// access to AppDeployment and VirtualEnvs names.
-	if k8s.AddFinalizer(rel, api.FinalizerReleaseProtection) {
-		return ctrl.Result{}, r.Merge(ctx, rel, origRel)
-	}
-
-	k8s.UpdateLabel(rel, api.LabelK8sVirtualEnvSnapshot, rel.Spec.VirtualEnvSnapshot)
-	k8s.UpdateLabel(rel, api.LabelK8sVirtualEnv, rel.Name)
-	k8s.UpdateLabel(rel, api.LabelK8sAppDeployment, rel.Spec.AppDeployment.Name)
-	k8s.UpdateLabel(rel, api.LabelK8sAppVersion, rel.Spec.AppDeployment.Version)
-
 	appDep := &v1alpha1.AppDeployment{}
 	err = r.Get(ctx, k8s.Key(rel.Namespace, rel.Spec.AppDeployment.Name), appDep)
 	switch {
 	case err == nil:
 		log.Debugf("found AppDeployment '%s'", appDep.Name)
 		origAppDep := appDep.DeepCopy()
-
-		k8s.UpdateLabel(rel, api.LabelK8sAppCommit, appDep.Spec.App.Commit)
-		k8s.UpdateLabel(rel, api.LabelK8sAppCommitShort, utils.ShortCommit(appDep.Spec.App.Commit))
-		k8s.UpdateLabel(rel, api.LabelK8sAppTag, appDep.Spec.App.Tag)
-		k8s.UpdateLabel(rel, api.LabelK8sAppBranch, appDep.Spec.App.Branch)
 
 		if k8s.AddFinalizer(appDep, api.FinalizerReleaseProtection) {
 			if err := r.Merge(ctx, appDep, origAppDep); err != nil {
@@ -157,10 +141,6 @@ func (r *ReleaseReconciler) reconcile(ctx context.Context, req ctrl.Request, log
 
 	case k8s.IsNotFound(err):
 		myStatus.AvailableTime = nil
-		k8s.RemoveLabel(rel, api.LabelK8sAppCommit)
-		k8s.RemoveLabel(rel, api.LabelK8sAppCommitShort)
-		k8s.RemoveLabel(rel, api.LabelK8sAppTag)
-		k8s.RemoveLabel(rel, api.LabelK8sAppBranch)
 		// TODO set condition
 
 	case err != nil:
@@ -232,11 +212,6 @@ func (r *ReleaseReconciler) reconcile(ctx context.Context, req ctrl.Request, log
 	if envPolicy == api.VirtualEnvPolicySnapshotRequired && rel.Spec.VirtualEnvSnapshot == "" {
 		myStatus.AvailableTime = nil
 		// TODO set condition
-	}
-
-	if !k8s.DeepEqual(rel.ObjectMeta, origRel.ObjectMeta) {
-		log.Debug("Release modified, updating")
-		return ctrl.Result{}, r.Apply(ctx, rel)
 	}
 
 	if isCurrent {

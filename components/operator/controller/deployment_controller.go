@@ -10,15 +10,11 @@ package controller
 
 import (
 	"context"
-	"time"
 
 	ctrl "sigs.k8s.io/controller-runtime"
 
-	"github.com/xigxog/kubefox/api"
 	"github.com/xigxog/kubefox/api/kubernetes/v1alpha1"
-	"github.com/xigxog/kubefox/k8s"
 	"github.com/xigxog/kubefox/logkf"
-	"github.com/xigxog/kubefox/utils"
 )
 
 // AppDeploymentReconciler reconciles a AppDeployment object
@@ -47,14 +43,6 @@ func (r *AppDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 	)
 	log.Debugf("reconciling AppDeployment '%s/%s'", req.Namespace, req.Name)
 
-	if err := r.reconcile(ctx, req, log); err != nil {
-		if IsFailedWebhookErr(err) {
-			log.Debug("reconcile failed because of webhook, retrying in 15 seconds")
-			return ctrl.Result{RequeueAfter: time.Second * 15}, nil
-		}
-		return ctrl.Result{}, err
-	}
-
 	if _, err := r.CompMgr.ReconcileApps(ctx, req.Namespace); err != nil {
 		return ctrl.Result{}, err
 	}
@@ -62,25 +50,4 @@ func (r *AppDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 	log.Debugf("reconciling AppDeployment '%s/%s' done", req.Namespace, req.Name)
 
 	return ctrl.Result{}, nil
-}
-
-func (r *AppDeploymentReconciler) reconcile(ctx context.Context, req ctrl.Request, log *logkf.Logger) error {
-	appDep := &v1alpha1.AppDeployment{}
-	if err := r.Get(ctx, req.NamespacedName, appDep); err != nil {
-		return k8s.IgnoreNotFound(err)
-	}
-
-	if k8s.UpdateLabel(appDep, api.LabelK8sAppVersion, appDep.Spec.Version) ||
-		k8s.UpdateLabel(appDep, api.LabelK8sAppCommit, appDep.Spec.App.Commit) ||
-		k8s.UpdateLabel(appDep, api.LabelK8sAppCommitShort, utils.ShortCommit(appDep.Spec.App.Commit)) ||
-		k8s.UpdateLabel(appDep, api.LabelK8sAppTag, appDep.Spec.App.Tag) ||
-		k8s.UpdateLabel(appDep, api.LabelK8sAppBranch, appDep.Spec.App.Branch) {
-
-		log.Debug("AppDeployment modified, updating")
-		return r.Apply(ctx, appDep)
-	}
-
-	// TODO update conditions
-
-	return nil
 }
