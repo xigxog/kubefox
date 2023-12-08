@@ -1,6 +1,22 @@
 apiVersion: v1
 kind: Service
-{{ include "metadata" . }}
+metadata:
+  name: {{ componentFullName }}
+  namespace: {{ namespace }}
+  labels:
+    {{- include "labels" . | nindent 4 }}
+    {{- range $k, $v := .Values.serviceLabels }}
+    {{- printf "%s: %s" $k ($v | cleanLabel | quote) | nindent 4 }}
+    {{- end }}
+  annotations:
+    {{- include "annotations" . | nindent 4 }}
+    {{- with .Values.serviceAnnotations }}
+    {{- . | toYaml | nindent 4 }}
+    {{- end }}
+  {{- with .Owner }}
+  ownerReferences:
+    {{- . | toYaml | nindent 4 }}
+  {{- end }}
 spec:
   type: {{ .Values.serviceType | default "ClusterIP" }}
   selector:

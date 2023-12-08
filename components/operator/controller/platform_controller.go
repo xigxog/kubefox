@@ -87,6 +87,7 @@ func (r *PlatformReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 			r.log.Error(err)
 		}
 		if !k8s.DeepEqual(platform.Status, orig.Status) {
+			log.Debugf("updating Platform '%s/%s' status", req.Namespace, req.Name)
 			if err := r.MergeStatus(ctx, platform, orig); err != nil {
 				r.log.Error(err)
 			}
@@ -220,6 +221,8 @@ func (r *PlatformReconciler) reconcile(ctx context.Context, req ctrl.Request, lo
 		ContainerSpec:       platform.Spec.HTTPSrv.ContainerSpec,
 		IsPlatformComponent: true,
 	})
+	td.Values["serviceLabels"] = platform.Spec.HTTPSrv.Service.Labels
+	td.Values["serviceAnnotations"] = platform.Spec.HTTPSrv.Service.Annotations
 	td.Values["serviceType"] = platform.Spec.HTTPSrv.Service.Type
 	td.Values["httpPort"] = platform.Spec.HTTPSrv.Service.Ports.HTTP
 	td.Values["httpsPort"] = platform.Spec.HTTPSrv.Service.Ports.HTTPS

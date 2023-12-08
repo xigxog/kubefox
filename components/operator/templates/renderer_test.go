@@ -143,6 +143,13 @@ func TestRenderBroker(t *testing.T) {
 func TestRenderHTTPSrv(t *testing.T) {
 	d := &Data{
 		Values: map[string]any{
+			"serviceLabels": map[string]string{
+				"test": "test",
+				"bad":  "i'm a bad^labl",
+			},
+			"serviceAnnotations": map[string]string{
+				"test": "test",
+			},
 			"serviceType": "",
 			"httpPort":    0,
 			"httpsPort":   0,
