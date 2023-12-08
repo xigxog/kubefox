@@ -64,7 +64,6 @@ func (r *Client) GetPlatform(ctx context.Context, namespace string) (*v1alpha1.P
 		return nil, core.ErrNotFound()
 	}
 
-	p := &v1alpha1.Platform{}
 	l := &v1alpha1.PlatformList{}
 	if err := r.List(ctx, l, client.InNamespace(namespace)); err != nil {
 		return nil, fmt.Errorf("unable to fetch platform: %w", err)
@@ -73,12 +72,10 @@ func (r *Client) GetPlatform(ctx context.Context, namespace string) (*v1alpha1.P
 	case 0:
 		return nil, core.ErrNotFound()
 	case 1:
-		p = &l.Items[0]
+		return &l.Items[0], nil
 	default:
 		return nil, core.ErrInvalid(fmt.Errorf("too many Platforms"))
 	}
-
-	return p, nil
 }
 
 // IsFailedWebhookErr will return true if error indicates it was caused by

@@ -6,7 +6,7 @@ ${SCRIPTS}/clean.sh
 ${SCRIPTS}/generate.sh
 ${SCRIPTS}/docs.sh
 
-go fmt ./...
+gofmt -l -s -w .
 go vet ./...
 
 git add .
