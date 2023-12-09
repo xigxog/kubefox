@@ -132,14 +132,19 @@ func (svc *kit) Description(description string) {
 }
 
 func (svc *kit) Route(rule string, handler EventHandler) {
-	r := &route{
+	r := &core.Route{
 		RouteSpec: api.RouteSpec{
 			Id:   len(svc.routes),
 			Rule: rule,
 		},
-		handler: handler,
 	}
-	svc.routes = append(svc.routes, r)
+	r.BuildEnvSchema()
+
+	kitRoute := &route{
+		RouteSpec: r.RouteSpec,
+		handler:   handler,
+	}
+	svc.routes = append(svc.routes, kitRoute)
 	svc.spec.Routes = append(svc.spec.Routes, r.RouteSpec)
 }
 

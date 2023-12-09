@@ -11,7 +11,7 @@ package api
 
 type EnvVarSchema struct {
 	// +kubebuilder:validation:Enum=array;boolean;number;string
-	Type     EnvVarType `json:"type"`
+	Type     EnvVarType `json:"type,omitempty"`
 	Required bool       `json:"required"`
 	// Unique indicates that this environment variable must have a unique value
 	// across all environments. If the value is not unique then making a dynamic
@@ -44,9 +44,10 @@ type ComponentDetails struct {
 }
 
 type RouteSpec struct {
-	Id       int    `json:"id"`
-	Rule     string `json:"rule"`
-	Priority int    `json:"priority,omitempty"`
+	Id        int                      `json:"id"`
+	Rule      string                   `json:"rule"`
+	Priority  int                      `json:"priority,omitempty"`
+	EnvSchema map[string]*EnvVarSchema `json:"envSchema,omitempty"`
 }
 
 type Dependency struct {

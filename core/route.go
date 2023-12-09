@@ -6,6 +6,7 @@ import (
 	"strings"
 	"sync"
 	"text/template"
+	"text/template/parse"
 
 	"github.com/xigxog/kubefox/api"
 )
@@ -23,78 +24,65 @@ type Route struct {
 	Component    *Component
 	EventContext *EventContext
 
-	EnvSchema map[string]*api.EnvVarSchema
+	tree *parse.Tree
 
-	tpl   *template.Template
 	mutex sync.Mutex
 }
 
 type envVar struct {
-	Name   string
-	Val    *api.Val
-	Schema *api.EnvVarSchema
+	Val *api.Val
 }
 
 var (
 	paramRegexp = regexp.MustCompile(`([^\\])({[^}]+})`)
 )
 
-func (r *Route) Resolve(envVars map[string]*api.Val) error {
-	r.mutex.Lock()
-	defer r.mutex.Unlock()
+func (r *Route) Match(evt *Event) (bool, error) {
+	if r.ParseErr != nil {
+		return false, r.ParseErr
+	}
 
+	return r.Predicate != nil && r.Predicate(evt), nil
+}
+
+func (r *Route) Resolve(envVars map[string]*api.Val) error {
 	r.ResolvedRule = ""
 
-	tpl, err := r.getTpl(envVars)
-	if err != nil {
+	if err := r.buildTree(); err != nil {
 		return err
 	}
 
-	r.EnvSchema = make(map[string]*api.EnvVarSchema)
 	envFuncs := make(template.FuncMap, len(envVars))
 	for k, v := range envVars {
+		// Create copies for use in func().
 		name := k
 		val := *v
 		envFuncs[name] = func() *envVar {
-			if _, found := r.EnvSchema[name]; !found {
-				r.EnvSchema[name] = &api.EnvVarSchema{
-					Type:     val.EnvVarType(),
-					Required: true,
-				}
-			}
-			return &envVar{
-				Name: name,
-				Val:  &val,
-			}
+			return &envVar{Val: &val}
 		}
 	}
 
+	// Check if there is an env var named unique.
 	curUnique, curUniqueFound := envFuncs["unique"].(func() *envVar)
-	envFuncs["unique"] = func(v ...any) (any, error) {
+	envFuncs["unique"] = func(v ...any) (*envVar, error) {
+		// If unique is called with no args the env var will be returned, if it
+		// exists, otherwise the unique function will be used.
 		if len(v) == 0 && curUniqueFound {
 			return curUnique(), nil
 		}
 		if len(v) != 1 {
-			return nil, fmt.Errorf("wrong number of args for unique: want 1 got %d", len(v))
+			return nil, fmt.Errorf("wrong number of args for 'unique': want 1, got %d", len(v))
 		}
 		envVar, ok := v[0].(*envVar)
 		if !ok {
-			return nil, fmt.Errorf("wrong type of arg for unique: want EnvVar got %T", v[0])
-		}
-
-		if s, found := r.EnvSchema[envVar.Name]; !found {
-			r.EnvSchema[envVar.Name] = &api.EnvVarSchema{
-				Type:     envVar.Val.EnvVarType(),
-				Required: true,
-				Unique:   true,
-			}
-		} else {
-			s.Unique = true
+			return nil, fmt.Errorf("wrong type of arg for 'unique': want 'EnvVar', got '%T'", v[0])
 		}
 
 		return envVar, nil
 	}
 
+	tpl := template.New("route").Option("missingkey=zero")
+	tpl.Tree = r.tree
 	tpl.Funcs(envFuncs)
 
 	var buf strings.Builder
@@ -109,30 +97,71 @@ func (r *Route) Resolve(envVars map[string]*api.Val) error {
 	return nil
 }
 
-func (r *Route) getTpl(envVars map[string]*api.Val) (*template.Template, error) {
-	if r.tpl != nil {
-		// We've already parsed the template.
-		return r.tpl, nil
+func (r *Route) BuildEnvSchema() error {
+	if err := r.buildTree(); err != nil {
+		return err
+	}
+
+	r.mutex.Lock()
+	defer r.mutex.Unlock()
+
+	if r.RouteSpec.EnvSchema != nil {
+		return nil
+	}
+
+	envSchema := map[string]*api.EnvVarSchema{}
+	for _, n := range r.tree.Root.Nodes {
+		action, ok := n.(*parse.ActionNode)
+		if !ok {
+			continue
+		}
+
+		var (
+			name   string
+			unique bool
+		)
+		switch cmds := action.Pipe.Cmds; len(cmds) {
+		case 1:
+			name = cmds[0].String()
+		case 2:
+			if cmds[1].String() != "unique" {
+				return fmt.Errorf("wrong modifier for EnvVar: want 'unique', got '%s'", cmds[1].String())
+			}
+			name = cmds[0].String()
+			unique = true
+		default:
+			return fmt.Errorf("wrong number of commands: want 1 or 2, got %d", len(cmds))
+		}
+
+		envSchema[name] = &api.EnvVarSchema{
+			Required: true,
+			Unique:   unique,
+		}
+	}
+
+	r.RouteSpec.EnvSchema = envSchema
+	return nil
+}
+
+func (r *Route) buildTree() error {
+	r.mutex.Lock()
+	defer r.mutex.Unlock()
+
+	if r.tree != nil {
+		return nil
 	}
 
 	// removes any extra whitespace
 	resolved := strings.Join(strings.Fields(r.Rule), " ")
 
-	tpl := template.New("route").Option("missingkey=zero")
-	if _, err := tpl.Parse(resolved); err != nil {
-		return nil, err
-	}
-	r.tpl = tpl
-
-	return r.tpl, nil
-}
-
-func (r *Route) Match(evt *Event) (bool, error) {
-	if r.ParseErr != nil {
-		return false, r.ParseErr
+	t := parse.New("route")
+	t.Mode = t.Mode | parse.SkipFuncCheck
+	if _, err := t.Parse(resolved, "{{", "}}", map[string]*parse.Tree{}); err != nil {
+		return err
 	}
 
-	return r.Predicate != nil && r.Predicate(evt), nil
+	r.tree = t
+	return nil
 }
 
 func (e *envVar) String() string {

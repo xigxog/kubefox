@@ -3065,10 +3065,10 @@ spec:
                       labels:
                         additionalProperties:
                           type: string
-                        description: "TODO add to service templates Map of string
-                          keys and values that can be used to organize and categorize
-                          (scope and select) objects. May match selectors of replication
-                          controllers and services. \n More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/labels"
+                        description: "Map of string keys and values that can be used
+                          to organize and categorize (scope and select) objects. May
+                          match selectors of replication controllers and services.
+                          \n More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/labels"
                         type: object
                       ports:
                         properties:
