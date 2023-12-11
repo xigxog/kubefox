@@ -75,6 +75,37 @@ const (
 	PlatformComponentOperator  string = "operator"
 )
 
+const (
+	ConditionTypeAppDeploymentAvailable string = "AppDeploymentAvailable"
+	ConditionTypeAvailable              string = "Available"
+	ConditionTypeDeployed               string = "Deployed"
+	ConditionTypeVirtualEnvAvailable    string = "VirtualEnvAvailable"
+)
+
+const (
+	ConditionReasonActive                   string = "Active"
+	ConditionReasonAdapterInvalid           string = "AdapterInvalid"
+	ConditionReasonAdapterMissing           string = "AdapterMissing"
+	ConditionReasonAppDeploymentUnavailable string = "AppDeploymentUnavailable"
+	ConditionReasonBrokerUnavailable        string = "BrokerUnavailable"
+	ConditionReasonComponentsAvailable      string = "ComponentsAvailable"
+	ConditionReasonComponentsDeployed       string = "ComponentsDeployed"
+	ConditionReasonComponentsNotReady       string = "ComponentsNotReady"
+	ConditionReasonComponentsReady          string = "ComponentsReady"
+	ConditionReasonHTTPSrvUnavailable       string = "HTTPSrvUnavailable"
+	ConditionReasonNameMismatch             string = "NameMismatch"
+	ConditionReasonNATSUnavailable          string = "NATSUnavailable"
+	ConditionReasonNotFound                 string = "NotFound"
+	ConditionReasonPolicyViolation          string = "PolicyViolation"
+	ConditionReasonReconcileError           string = "ReconcileError"
+	ConditionReasonValid                    string = "Valid"
+	ConditionReasonVarConflict              string = "VarConflict"
+	ConditionReasonVarMissing               string = "VarMissing"
+	ConditionReasonVarWrongType             string = "VarWrongType"
+	ConditionReasonVersionMismatch          string = "VersionMismatch"
+	ConditionReasonVirtualEnvUnavailable    string = "VirtualEnvUnavailable"
+)
+
 type EnvVarType string
 
 const (

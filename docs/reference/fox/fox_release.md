@@ -47,7 +47,6 @@ fox release v1.2.3 --virtual-env prod --create-snapshot
   -a, --app string      path to directory containing KubeFox App
   -i, --info            enable info output
   -o, --output string   output format, one of ["json", "yaml"] (default "yaml")
-  -r, --repo string     path to directory containing Git repository
   -v, --verbose         enable verbose output
 ```
 

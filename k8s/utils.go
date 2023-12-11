@@ -10,6 +10,7 @@ import (
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -137,4 +138,35 @@ func PodCondition(pod *v1.Pod, typ v1.PodConditionType) v1.PodCondition {
 		Type:   typ,
 		Status: v1.ConditionUnknown,
 	}
+}
+
+func UpdateCondition(now metav1.Time, conds []metav1.Condition, cond *metav1.Condition) ([]metav1.Condition, bool) {
+	for i, c := range conds {
+		if c.Type == cond.Type {
+			if c.Status != cond.Status {
+				cond.LastTransitionTime = now
+			} else {
+				cond.LastTransitionTime = c.LastTransitionTime
+			}
+			conds[i] = *cond
+			return conds, true
+		}
+	}
+
+	cond.LastTransitionTime = now
+	return append(conds, *cond), true
+}
+
+func Condition(conds []metav1.Condition, typ string) *metav1.Condition {
+	for _, c := range conds {
+		if c.Type == typ {
+			return &c
+		}
+	}
+
+	return &metav1.Condition{Type: typ, Status: metav1.ConditionUnknown}
+}
+
+func IsAvailable(conds []metav1.Condition) bool {
+	return Condition(conds, api.ConditionTypeAvailable).Status == metav1.ConditionTrue
 }

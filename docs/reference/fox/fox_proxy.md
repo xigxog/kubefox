@@ -50,7 +50,6 @@ fox proxy 8080 --virtual-env my-env --app-deployment my-dep
   -a, --app string      path to directory containing KubeFox App
   -i, --info            enable info output
   -o, --output string   output format, one of ["json", "yaml"] (default "yaml")
-  -r, --repo string     path to directory containing Git repository
   -v, --verbose         enable verbose output
 ```
 

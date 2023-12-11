@@ -78,24 +78,48 @@ func (r *PlatformReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	)
 	log.Debugf("reconciling Platform '%s/%s'", req.Namespace, req.Name)
 
-	platform, ready, err := r.reconcile(ctx, req, log)
-	if platform != nil {
-		orig := platform.DeepCopy()
+	pKey := fmt.Sprintf("%s/%s", req.Namespace, req.Name)
 
-		platform.Status.Available = ready && (err == nil)
-		if err := r.updateComponentsStatus(ctx, platform); err != nil {
+	ns := &v1.Namespace{}
+	if err := r.Get(ctx, k8s.Key("", req.Namespace), ns); err != nil {
+		r.setSetup(pKey, false)
+		return ctrl.Result{}, k8s.IgnoreNotFound(err)
+	}
+	if ns.Status.Phase == v1.NamespaceTerminating {
+		log.Debug("Namespace is terminating")
+		r.setSetup(pKey, false)
+		return ctrl.Result{}, nil
+	}
+
+	platform := &v1alpha1.Platform{}
+	if err := r.Get(ctx, req.NamespacedName, platform); err != nil {
+		r.setSetup(pKey, false)
+		return ctrl.Result{}, k8s.IgnoreNotFound(err)
+	}
+
+	err := r.reconcile(ctx, platform, log)
+	if err != nil {
+		platform.Status.Conditions, _ = k8s.UpdateCondition(metav1.Now(), platform.Status.Conditions, &metav1.Condition{
+			Type:               api.ConditionTypeAvailable,
+			Status:             metav1.ConditionUnknown,
+			ObservedGeneration: platform.ObjectMeta.Generation,
+			Reason:             api.ConditionReasonReconcileError,
+		})
+	}
+
+	if err == nil {
+		if _, err := r.CompMgr.ReconcileApps(ctx, req.Namespace); err != nil {
 			r.log.Error(err)
 		}
-		if !k8s.DeepEqual(platform.Status, orig.Status) {
-			log.Debugf("updating Platform '%s/%s' status", req.Namespace, req.Name)
-			if err := r.MergeStatus(ctx, platform, orig); err != nil {
-				r.log.Error(err)
-			}
-		}
+	}
 
-		if err == nil {
-			_, err = r.CompMgr.ReconcileApps(ctx, req.Namespace)
-		}
+	if err := r.updateComponentsStatus(ctx, platform); err != nil {
+		r.log.Error(err)
+	}
+
+	log.Debugf("updating Platform '%s/%s' status", req.Namespace, req.Name)
+	if err := r.ApplyStatus(ctx, platform); err != nil {
+		r.log.Error(err)
 	}
 
 	log.Debugf("reconciling Platform '%s/%s' done", req.Namespace, req.Name)
@@ -103,30 +127,13 @@ func (r *PlatformReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	return ctrl.Result{}, err
 }
 
-func (r *PlatformReconciler) reconcile(ctx context.Context, req ctrl.Request, log *logkf.Logger) (*v1alpha1.Platform, bool, error) {
-	pKey := fmt.Sprintf("%s/%s", req.Namespace, req.Name)
-
-	ns := &v1.Namespace{}
-	if err := r.Get(ctx, k8s.Key("", req.Namespace), ns); err != nil {
-		r.setSetup(pKey, false)
-		return nil, false, k8s.IgnoreNotFound(err)
-	}
-	if ns.Status.Phase == v1.NamespaceTerminating {
-		log.Debug("Namespace is terminating")
-		r.setSetup(pKey, false)
-		return nil, false, nil
-	}
-
-	platform := &v1alpha1.Platform{}
-	if err := r.Get(ctx, req.NamespacedName, platform); err != nil {
-		r.setSetup(pKey, false)
-		return nil, false, k8s.IgnoreNotFound(err)
-	}
+func (r *PlatformReconciler) reconcile(ctx context.Context, platform *v1alpha1.Platform, log *logkf.Logger) error {
+	pKey := fmt.Sprintf("%s/%s", platform.Namespace, platform.Name)
 
 	cm := &v1.ConfigMap{}
 	if err := r.Get(ctx, k8s.Key(r.Namespace, r.Instance+"-root-ca"), cm); err != nil {
 		r.setSetup(pKey, false)
-		return platform, false, log.ErrorN("unable to fetch root CA configmap: %w", err)
+		return log.ErrorN("unable to fetch root CA configmap: %w", err)
 	}
 
 	maxEventSize := platform.Spec.Events.MaxSize.Value()
@@ -165,21 +172,26 @@ func (r *PlatformReconciler) reconcile(ctx context.Context, req ctrl.Request, lo
 		// Ensure there are valid commits for Platform components.
 		if !api.RegexpCommit.MatchString(build.Info.BrokerCommit) ||
 			!api.RegexpCommit.MatchString(build.Info.HTTPSrvCommit) {
-			return platform, false, log.ErrorN("broker or httpsrv commit from build info is invalid")
+			log.Error("broker or httpsrv commit from build info is invalid")
+			return nil
 		}
 		if err := r.setupVault(ctx, baseTD); err != nil {
-			return platform, false, log.ErrorN("problem setting up vault: %w", err)
+			return log.ErrorN("problem setting up vault: %w", err)
 		}
 		if err := r.ApplyTemplate(ctx, "platform", &baseTD.Data, log); err != nil {
-			return platform, false, log.ErrorN("problem setting up Platform: %w", err)
+			return log.ErrorN("problem setting up Platform: %w", err)
 		}
 
 		r.setSetup(pKey, true)
 	}
 
+	// TODO move defaults to annotations?
+	// https://book.kubebuilder.io/reference/markers/crd-validation.html
+	// +kubebuilder:default
+	// or move to webhook
 	if r.setDefaults(platform) {
 		log.Debug("Platform defaults set, updating")
-		return nil, false, r.Apply(ctx, platform)
+		return r.Apply(ctx, platform)
 	}
 
 	td := baseTD.ForComponent(api.PlatformComponentNATS, &appsv1.StatefulSet{}, &NATSDefaults, templates.Component{
@@ -190,11 +202,16 @@ func (r *PlatformReconciler) reconcile(ctx context.Context, req ctrl.Request, lo
 		IsPlatformComponent: true,
 	})
 	if err := r.setupVaultComponent(ctx, td, ""); err != nil {
-		return platform, false, err
+		return err
 	}
 	if rdy, err := r.CompMgr.SetupComponent(ctx, td); !rdy || err != nil {
-		chill()
-		return platform, rdy, err
+		platform.Status.Conditions, _ = k8s.UpdateCondition(metav1.Now(), platform.Status.Conditions, &metav1.Condition{
+			Type:               api.ConditionTypeAvailable,
+			Status:             metav1.ConditionFalse,
+			ObservedGeneration: platform.ObjectMeta.Generation,
+			Reason:             api.ConditionReasonNATSUnavailable,
+		})
+		return chill(err)
 	}
 
 	td = baseTD.ForComponent(api.PlatformComponentBroker, &appsv1.DaemonSet{}, &BrokerDefaults, templates.Component{
@@ -206,11 +223,16 @@ func (r *PlatformReconciler) reconcile(ctx context.Context, req ctrl.Request, lo
 		IsPlatformComponent: true,
 	})
 	if err := r.setupVaultComponent(ctx, td, ""); err != nil {
-		return platform, false, err
+		return err
 	}
 	if rdy, err := r.CompMgr.SetupComponent(ctx, td); !rdy || err != nil {
-		chill()
-		return platform, rdy, err
+		platform.Status.Conditions, _ = k8s.UpdateCondition(metav1.Now(), platform.Status.Conditions, &metav1.Condition{
+			Type:               api.ConditionTypeAvailable,
+			Status:             metav1.ConditionFalse,
+			ObservedGeneration: platform.ObjectMeta.Generation,
+			Reason:             api.ConditionReasonBrokerUnavailable,
+		})
+		return chill(err)
 	}
 
 	td = baseTD.ForComponent(api.PlatformComponentHTTPSrv, &appsv1.Deployment{}, &HTTPSrvDefaults, templates.Component{
@@ -227,14 +249,26 @@ func (r *PlatformReconciler) reconcile(ctx context.Context, req ctrl.Request, lo
 	td.Values["httpPort"] = platform.Spec.HTTPSrv.Service.Ports.HTTP
 	td.Values["httpsPort"] = platform.Spec.HTTPSrv.Service.Ports.HTTPS
 	if err := r.setupVaultComponent(ctx, td, ""); err != nil {
-		return platform, false, err
+		return err
 	}
 	if rdy, err := r.CompMgr.SetupComponent(ctx, td); !rdy || err != nil {
-		chill()
-		return platform, rdy, err
+		platform.Status.Conditions, _ = k8s.UpdateCondition(metav1.Now(), platform.Status.Conditions, &metav1.Condition{
+			Type:               api.ConditionTypeAvailable,
+			Status:             metav1.ConditionFalse,
+			ObservedGeneration: platform.ObjectMeta.Generation,
+			Reason:             api.ConditionReasonHTTPSrvUnavailable,
+		})
+		return chill(err)
 	}
 
-	return platform, true, nil
+	platform.Status.Conditions, _ = k8s.UpdateCondition(metav1.Now(), platform.Status.Conditions, &metav1.Condition{
+		Type:               api.ConditionTypeAvailable,
+		Status:             metav1.ConditionTrue,
+		ObservedGeneration: platform.ObjectMeta.Generation,
+		Reason:             api.ConditionReasonComponentsAvailable,
+	})
+
+	return nil
 }
 
 func (r *PlatformReconciler) updateComponentsStatus(ctx context.Context, p *v1alpha1.Platform) error {
@@ -476,6 +510,7 @@ func (r *PlatformReconciler) isSetup(key string) bool {
 }
 
 // chill waits a few seconds for things to chillax.
-func chill() {
+func chill(err error) error {
 	time.Sleep(time.Second * 3)
+	return err
 }

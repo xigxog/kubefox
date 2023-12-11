@@ -51,7 +51,11 @@ type ReleaseStatus struct {
 	Requested *ReleaseStatusEntry `json:"requested,omitempty"`
 
 	History []ReleaseStatusEntry `json:"history,omitempty"`
-	// TODO conditions
+	// +patchStrategy=merge
+	// +patchMergeKey=type
+	// +listType=map
+	// +listMapKey=type
+	Conditions []metav1.Condition `json:"conditions,omitempty" patchStrategy:"merge" patchMergeKey:"type"`
 }
 
 // +kubebuilder:object:root=true

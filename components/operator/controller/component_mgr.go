@@ -88,7 +88,11 @@ func (cm *ComponentManager) SetupComponent(ctx context.Context, td *TemplateData
 		available = obj.Status.AvailableReplicas
 
 	case *appsv1.DaemonSet:
-		available = obj.Status.NumberAvailable
+		if obj.Status.CurrentNumberScheduled-obj.Status.DesiredNumberScheduled < 0 {
+			available = 0
+		} else {
+			available = obj.Status.NumberAvailable
+		}
 	}
 	if available <= 0 {
 		log.Debug("component is not available, applying template to ensure correct state")
@@ -107,7 +111,7 @@ func (cm *ComponentManager) ReconcileApps(ctx context.Context, namespace string)
 	if err != nil {
 		return false, k8s.IgnoreNotFound(err)
 	}
-	if !platform.Status.Available {
+	if !k8s.IsAvailable(platform.Status.Conditions) {
 		cm.log.Debug("Platform not available")
 		return false, nil
 	}
@@ -188,10 +192,25 @@ func (cm *ComponentManager) ReconcileApps(ctx context.Context, namespace string)
 		compReadyMap[CompReadyKey(compTD.Component.Name, compTD.Component.Commit)] = available
 	}
 
+	now := metav1.Now()
 	for _, d := range appDepList.Items {
 		available := IsAppDeploymentAvailable(&d.Spec, compReadyMap)
-		if d.Status.Available != available {
-			d.Status.Available = available
+		if k8s.IsAvailable(d.Status.Conditions) != available {
+			status := metav1.ConditionFalse
+			reason := api.ConditionReasonComponentsNotReady
+			if available {
+				status = metav1.ConditionTrue
+				reason = api.ConditionReasonComponentsReady
+			}
+
+			k8s.UpdateCondition(now, d.Status.Conditions, &metav1.Condition{
+				Type:               api.ConditionTypeAvailable,
+				Status:             status,
+				ObservedGeneration: d.Generation,
+				Reason:             reason,
+				// TODO Message:            "",
+			})
+
 			if err := cm.ApplyStatus(ctx, &d); err != nil {
 				log.Error(err)
 			}
@@ -204,6 +223,8 @@ func (cm *ComponentManager) ReconcileApps(ctx context.Context, namespace string)
 		if _, found := compMap[d.Name]; !found {
 			log.Debugf("deleting Component '%s'", d.Name)
 
+			// TODO turn annotation into list of resources created to avoid
+			// leaking data.
 			tdStr := d.Annotations[api.AnnotationTemplateData]
 			data := &templates.Data{}
 			if err := json.Unmarshal([]byte(tdStr), data); err != nil {

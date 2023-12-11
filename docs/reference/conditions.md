@@ -7,12 +7,12 @@ more detailed information about the observed status of an object
 
 ## Platform
 
-| Type      | Status | Reason             | Description                                              |
-| --------- | ------ | ------------------ | -------------------------------------------------------- |
-| Available | True   |                    | The KubeFox Broker, HTTP Server, and NATS are available. |
-|           | False  | BrokerUnavailable  | The KubeFox Broker is not available.                     |
-|           |        | HTTPSrvUnavailable | The KubeFox HTTP Server is not available.                |
-|           |        | NATSUnavailable    | The NATS is not available.                               |
+| Type      | Status | Reason              | Description                                              |
+| --------- | ------ | ------------------- | -------------------------------------------------------- |
+| Available | True   | ComponentsAvailable | The KubeFox Broker, HTTP Server, and NATS are available. |
+|           | False  | BrokerUnavailable   | The KubeFox Broker is not available.                     |
+|           |        | HTTPSrvUnavailable  | The KubeFox HTTP Server is not available.                |
+|           |        | NATSUnavailable     | The NATS is not available.                               |
 
 ## AppDeployment
 
@@ -27,16 +27,18 @@ more detailed information about the observed status of an object
 
 | Type                   | Status | Reason                   | Description                                                                                                                  |
 | ---------------------- | ------ | ------------------------ | ---------------------------------------------------------------------------------------------------------------------------- |
-| Available              | True   |                          | The AppDeployment and VirtualEnv specified are available.                                                                    |
+| Available              | True   | Active                   | The AppDeployment and VirtualEnv specified are available and Release is active.                                              |
 |                        | False  | AppDeploymentUnavailable | The AppDeployment is not available.                                                                                          |
 |                        |        | VirtualEnvUnavailable    | The VirtualEnv is not available.                                                                                             |
-| AppDeploymentAvailable | True   |                          | The AppDeployment specified exists, matches the Release version, and is available.                                           |
-|                        | False  | AppDeploymentNotFound    | The AppDeployment does not exist.                                                                                            |
-|                        |        | AppDeploymentUnavailable | The AppDeployment has one or more component Pods that are not ready.                                                         |
+| AppDeploymentAvailable | True   | ComponentsReady          | The AppDeployment specified exists, matches the Release version, and is available.                                           |
+|                        | False  | ComponentsNotReady       | The AppDeployment has one or more component Pods that are not ready.                                                         |
+|                        |        | NotFound                 | The AppDeployment does not exist.                                                                                            |
 |                        |        | VersionMismatch          | The AppDeployment and Release versions do not match.                                                                         |
-| VirtualEnvAvailable    | True   |                          | The VirtualEnv specified has correctly typed variables, all required variables, and all required adapters present and valid. |
-|                        | False  | VarMissing               | The VirtualEnv has one or more required variables missing.                                                                   |
-|                        |        | VarConflict              | The VirtualEnv has one or more unique variables in conflict.                                                                 |
-|                        |        | VarWrongType             | The VirtualEnv has one or more variables of the incorrect type.                                                              |
+| VirtualEnvAvailable    | True   | Valid                    | The VirtualEnv specified has correctly typed variables, all required variables, and all required adapters present and valid. |
+|                        | False  | AdapterInvalid           | The VirtualEnv has one or more Adapters that could not be validated.                                                         |
 |                        |        | AdapterMissing           | The VirtualEnv has one or more Adapters missing.                                                                             |
-|                        |        | AdapterInvalid           | The VirtualEnv has one or more Adapters that could not be validated.                                                         |
+|                        |        | NotFound                 | The VirtualEnv does not exist.                                                                                               |
+|                        |        | PolicyViolation          | The Release violates the VirtualEnv release policy.                                                                          |
+|                        |        | VarConflict              | The VirtualEnv has one or more unique variables in conflict.                                                                 |
+|                        |        | VarMissing               | The VirtualEnv has one or more required variables missing.                                                                   |
+|                        |        | VarWrongType             | The VirtualEnv has one or more variables of the incorrect type.                                                              |

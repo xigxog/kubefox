@@ -46,8 +46,11 @@ type Component struct {
 
 // AppDeploymentStatus defines the observed state of AppDeployment
 type AppDeploymentStatus struct {
-	// +kubebuilder:validation:Optional
-	Available bool `json:"available"`
+	// +patchStrategy=merge
+	// +patchMergeKey=type
+	// +listType=map
+	// +listMapKey=type
+	Conditions []metav1.Condition `json:"conditions,omitempty" patchStrategy:"merge" patchMergeKey:"type"`
 }
 
 // AppDeploymentDetails defines additional details of AppDeployment

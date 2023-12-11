@@ -78,20 +78,26 @@ type HTTPSrvPorts struct {
 
 // PlatformStatus defines the observed state of Platform
 type PlatformStatus struct {
-	// +kubebuilder:validation:Optional
-	Available  bool              `json:"available"`
-	Components []ComponentStatus `json:"components,omitempty"`
+	// +patchStrategy=merge
+	// +patchMergeKey=podName
+	// +listType=map
+	// +listMapKey=podName
+	Components []ComponentStatus `json:"components,omitempty" patchStrategy:"merge" patchMergeKey:"podName"`
+	// +patchStrategy=merge
+	// +patchMergeKey=type
+	// +listType=map
+	// +listMapKey=type
+	Conditions []metav1.Condition `json:"conditions,omitempty" patchStrategy:"merge" patchMergeKey:"type"`
 }
 
 type ComponentStatus struct {
-	// +kubebuilder:validation:Optional
 	Ready    bool   `json:"ready"`
-	Name     string `json:"name,omitempty"`
+	Name     string `json:"name"`
 	Commit   string `json:"commit,omitempty"`
-	PodName  string `json:"podName,omitempty"`
-	PodIP    string `json:"podIP,omitempty"`
-	NodeName string `json:"nodeName,omitempty"`
-	NodeIP   string `json:"nodeIP,omitempty"`
+	PodName  string `json:"podName"`
+	PodIP    string `json:"podIP"`
+	NodeName string `json:"nodeName"`
+	NodeIP   string `json:"nodeIP"`
 }
 
 // PlatformDetails defines additional details of Platform

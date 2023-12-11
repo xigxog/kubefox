@@ -10,6 +10,7 @@ package controller
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/xigxog/kubefox/api"
@@ -126,38 +127,59 @@ func (r *ReleaseReconciler) reconcile(ctx context.Context, req ctrl.Request, log
 		relVer, appDepVer := rel.Spec.AppDeployment.Version, appDep.Spec.Version
 		switch {
 		case relVer != "" && relVer != appDepVer:
-			myStatus.AvailableTime = nil
-			// TODO set condition
+			rel.Status.Conditions, _ = k8s.UpdateCondition(now, rel.Status.Conditions, &metav1.Condition{
+				Type:               api.ConditionTypeAppDeploymentAvailable,
+				Status:             metav1.ConditionFalse,
+				ObservedGeneration: rel.ObjectMeta.Generation,
+				Reason:             api.ConditionReasonVersionMismatch,
+				Message:            fmt.Sprintf("Release version '%s' does not match AppDeployment version '%s'", relVer, appDepVer),
+			})
 
-		case !appDep.Status.Available:
-			myStatus.AvailableTime = nil
-			// TODO set condition
+		case !k8s.IsAvailable(appDep.Status.Conditions):
+			rel.Status.Conditions, _ = k8s.UpdateCondition(now, rel.Status.Conditions, &metav1.Condition{
+				Type:               api.ConditionTypeAppDeploymentAvailable,
+				Status:             metav1.ConditionFalse,
+				ObservedGeneration: rel.ObjectMeta.Generation,
+				Reason:             api.ConditionReasonComponentsNotReady,
+				Message:            k8s.Condition(appDep.Status.Conditions, api.ConditionTypeAvailable).Message,
+			})
 
-		case appDep.Status.Available:
-			if myStatus.AvailableTime == nil {
-				myStatus.AvailableTime = &now
-			}
+		default:
+			rel.Status.Conditions, _ = k8s.UpdateCondition(now, rel.Status.Conditions, &metav1.Condition{
+				Type:               api.ConditionTypeAppDeploymentAvailable,
+				Status:             metav1.ConditionTrue,
+				ObservedGeneration: rel.ObjectMeta.Generation,
+				Reason:             api.ConditionReasonComponentsReady,
+				Message:            k8s.Condition(appDep.Status.Conditions, api.ConditionTypeAvailable).Message,
+			})
 		}
 
 	case k8s.IsNotFound(err):
-		myStatus.AvailableTime = nil
-		// TODO set condition
+		rel.Status.Conditions, _ = k8s.UpdateCondition(now, rel.Status.Conditions, &metav1.Condition{
+			Type:               api.ConditionTypeAppDeploymentAvailable,
+			Status:             metav1.ConditionFalse,
+			ObservedGeneration: rel.ObjectMeta.Generation,
+			Reason:             api.ConditionReasonNotFound,
+			Message:            fmt.Sprintf("AppDeployment '%s' not found.", rel.Spec.AppDeployment.Name),
+		})
 
 	case err != nil:
 		return ctrl.Result{}, err
 	}
 
-	var (
-		appDepPolicy api.AppDeploymentPolicy = api.AppDeploymentPolicyVersionRequired
-		envPolicy    api.VirtualEnvPolicy    = api.VirtualEnvPolicySnapshotRequired
-	)
 	envId := utils.First(rel.Spec.VirtualEnvSnapshot, rel.Name)
 	envObj, err := r.GetVirtualEnvObj(ctx, rel.Namespace, envId, rel.Spec.VirtualEnvSnapshot != "")
 	switch {
 	case err == nil:
+		kind := envObj.GetObjectKind().GroupVersionKind().Kind
 		if envObj.GetEnvName() != rel.Name {
-			myStatus.AvailableTime = nil
-			// TODO set condition
+			rel.Status.Conditions, _ = k8s.UpdateCondition(now, rel.Status.Conditions, &metav1.Condition{
+				Type:               api.ConditionTypeVirtualEnvAvailable,
+				Status:             metav1.ConditionFalse,
+				ObservedGeneration: rel.ObjectMeta.Generation,
+				Reason:             api.ConditionReasonNameMismatch,
+				Message:            fmt.Sprintf("Release name '%s' does not match %s name '%s'.", rel.Name, kind, envObj.GetEnvName()),
+			})
 			break
 		}
 		log.Debugf("found VirtualEnvObject '%s' of type '%T'", envObj.GetName(), envObj)
@@ -171,14 +193,28 @@ func (r *ReleaseReconciler) reconcile(ctx context.Context, req ctrl.Request, log
 			}
 		}
 
+		// Default policy to required.
+		appDepPolicy := api.AppDeploymentPolicyVersionRequired
+		envPolicy := api.VirtualEnvPolicySnapshotRequired
+
 		if envObj.GetParent() != "" {
 			parentEnv := &v1alpha1.ClusterVirtualEnv{}
-			if err := r.Get(ctx, k8s.Key("", envObj.GetParent()), parentEnv); err != nil {
-				myStatus.AvailableTime = nil
-				// TODO set condition
+			if err := r.Get(ctx, k8s.Key("", envObj.GetParent()), parentEnv); k8s.IgnoreNotFound(err) != nil {
+				return ctrl.Result{}, err
+
+			} else if k8s.IsNotFound(err) {
+				rel.Status.Conditions, _ = k8s.UpdateCondition(now, rel.Status.Conditions, &metav1.Condition{
+					Type:               api.ConditionTypeVirtualEnvAvailable,
+					Status:             metav1.ConditionFalse,
+					ObservedGeneration: rel.ObjectMeta.Generation,
+					Reason:             api.ConditionReasonNotFound,
+					Message:            fmt.Sprintf("VirtualEnv '%s' parent ClusterVirtualEnv '%s' not found.", envObj.GetName(), envObj.GetParent()),
+				})
 				break
 			}
+
 			if parentEnv.GetReleasePolicy() != nil {
+				// Override default to parent's release policy.
 				if parentEnv.GetReleasePolicy().AppDeploymentPolicy != "" {
 					appDepPolicy = parentEnv.GetReleasePolicy().AppDeploymentPolicy
 				}
@@ -189,6 +225,7 @@ func (r *ReleaseReconciler) reconcile(ctx context.Context, req ctrl.Request, log
 		}
 
 		if envObj.GetReleasePolicy() != nil {
+			// Override parent/default release policy.
 			if envObj.GetReleasePolicy().AppDeploymentPolicy != "" {
 				appDepPolicy = envObj.GetReleasePolicy().AppDeploymentPolicy
 			}
@@ -197,21 +234,87 @@ func (r *ReleaseReconciler) reconcile(ctx context.Context, req ctrl.Request, log
 			}
 		}
 
+		// TODO validate env vars, adapters, and component routes.
+		switch {
+		case appDepPolicy == api.AppDeploymentPolicyVersionRequired && rel.Spec.AppDeployment.Version == "":
+			rel.Status.Conditions, _ = k8s.UpdateCondition(now, rel.Status.Conditions, &metav1.Condition{
+				Type:               api.ConditionTypeVirtualEnvAvailable,
+				Status:             metav1.ConditionFalse,
+				ObservedGeneration: rel.ObjectMeta.Generation,
+				Reason:             api.ConditionReasonPolicyViolation,
+				Message:            fmt.Sprintf("%s '%s' requires a versioned AppDeployment.", kind, envObj.GetName()),
+			})
+
+		case envPolicy == api.VirtualEnvPolicySnapshotRequired && rel.Spec.VirtualEnvSnapshot == "":
+			rel.Status.Conditions, _ = k8s.UpdateCondition(now, rel.Status.Conditions, &metav1.Condition{
+				Type:               api.ConditionTypeVirtualEnvAvailable,
+				Status:             metav1.ConditionFalse,
+				ObservedGeneration: rel.ObjectMeta.Generation,
+				Reason:             api.ConditionReasonPolicyViolation,
+				Message:            fmt.Sprintf("%s '%s' requires a VirtualEnvSnapshot.", kind, envObj.GetName()),
+			})
+
+		default:
+			rel.Status.Conditions, _ = k8s.UpdateCondition(now, rel.Status.Conditions, &metav1.Condition{
+				Type:               api.ConditionTypeVirtualEnvAvailable,
+				Status:             metav1.ConditionTrue,
+				ObservedGeneration: rel.ObjectMeta.Generation,
+				Reason:             api.ConditionReasonValid,
+				Message:            fmt.Sprintf("%s '%s' is valid.", kind, envObj.GetName()),
+			})
+		}
+
 	case k8s.IsNotFound(err):
-		myStatus.AvailableTime = nil
-		// TODO set condition
+		msg := fmt.Sprintf("VirtualEnv and ClusterVirtualEnv '%s' not found.", rel.Name)
+		if rel.Spec.VirtualEnvSnapshot != "" {
+			msg = fmt.Sprintf("VirtualEnvSnapshot '%s' not found.", rel.Spec.VirtualEnvSnapshot)
+		}
+		rel.Status.Conditions, _ = k8s.UpdateCondition(now, rel.Status.Conditions, &metav1.Condition{
+			Type:               api.ConditionTypeVirtualEnvAvailable,
+			Status:             metav1.ConditionFalse,
+			ObservedGeneration: rel.ObjectMeta.Generation,
+			Reason:             api.ConditionReasonNotFound,
+			Message:            msg,
+		})
 
 	case err != nil:
 		return ctrl.Result{}, err
 	}
 
-	if appDepPolicy == api.AppDeploymentPolicyVersionRequired && rel.Spec.AppDeployment.Version == "" {
+	appDepCond := k8s.Condition(rel.Status.Conditions, api.ConditionTypeAppDeploymentAvailable)
+	envCond := k8s.Condition(rel.Status.Conditions, api.ConditionTypeVirtualEnvAvailable)
+	switch {
+	case appDepCond.Status != metav1.ConditionTrue:
 		myStatus.AvailableTime = nil
-		// TODO set condition
-	}
-	if envPolicy == api.VirtualEnvPolicySnapshotRequired && rel.Spec.VirtualEnvSnapshot == "" {
+		rel.Status.Conditions, _ = k8s.UpdateCondition(now, rel.Status.Conditions, &metav1.Condition{
+			Type:               api.ConditionTypeAvailable,
+			Status:             metav1.ConditionFalse,
+			ObservedGeneration: rel.ObjectMeta.Generation,
+			Reason:             api.ConditionReasonAppDeploymentUnavailable,
+			Message:            appDepCond.Message,
+		})
+
+	case envCond.Status != metav1.ConditionTrue:
 		myStatus.AvailableTime = nil
-		// TODO set condition
+		rel.Status.Conditions, _ = k8s.UpdateCondition(now, rel.Status.Conditions, &metav1.Condition{
+			Type:               api.ConditionTypeAvailable,
+			Status:             metav1.ConditionFalse,
+			ObservedGeneration: rel.ObjectMeta.Generation,
+			Reason:             api.ConditionReasonVirtualEnvUnavailable,
+			Message:            envCond.Message,
+		})
+
+	default:
+		if myStatus.AvailableTime == nil {
+			myStatus.AvailableTime = &now
+		}
+		rel.Status.Conditions, _ = k8s.UpdateCondition(now, rel.Status.Conditions, &metav1.Condition{
+			Type:               api.ConditionTypeAvailable,
+			Status:             metav1.ConditionTrue,
+			ObservedGeneration: rel.ObjectMeta.Generation,
+			Reason:             api.ConditionReasonActive,
+			Message:            fmt.Sprintf("AppDeployment '%s' and VirtualEnv '%s' are available.", appDep.Name, envObj.GetName()),
+		})
 	}
 
 	if isCurrent {
@@ -227,7 +330,7 @@ func (r *ReleaseReconciler) reconcile(ctx context.Context, req ctrl.Request, log
 		rel.Status.Requested = nil
 	}
 
-	if !k8s.DeepEqual(rel.Status, origRel.Status) {
+	if !k8s.DeepEqual(&rel.Status, &origRel.Status) {
 		log.Debug("Release status modified, updating")
 		if err := r.MergeStatus(ctx, rel, origRel); err != nil {
 			return ctrl.Result{}, err
