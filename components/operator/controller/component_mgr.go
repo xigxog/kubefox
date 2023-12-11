@@ -203,7 +203,7 @@ func (cm *ComponentManager) ReconcileApps(ctx context.Context, namespace string)
 				reason = api.ConditionReasonComponentsReady
 			}
 
-			k8s.UpdateCondition(now, d.Status.Conditions, &metav1.Condition{
+			d.Status.Conditions, _ = k8s.UpdateCondition(now, d.Status.Conditions, &metav1.Condition{
 				Type:               api.ConditionTypeAvailable,
 				Status:             status,
 				ObservedGeneration: d.Generation,
