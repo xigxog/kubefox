@@ -125,7 +125,7 @@ func (k *kontext) Transport(target ComponentDep) http.RoundTripper {
 	}
 }
 
-func (resp *respKontext) Forward(evt core.EventReader) error {
+func (resp *respKontext) Forward(evt EventReader) error {
 	resp.Event = core.CloneToResp(evt.(*core.Event), core.EventOpts{
 		Parent: resp.ktx.Event,
 		Source: resp.ktx.kit.brk.Component,
@@ -191,17 +191,17 @@ func (resp *respKontext) Send() error {
 	return resp.ktx.kit.brk.SendResp(resp.Event, resp.ktx.start)
 }
 
-func (req *reqKontext) SendStr(val string) (core.EventReader, error) {
+func (req *reqKontext) SendStr(val string) (EventReader, error) {
 	c := fmt.Sprintf("%s; %s", api.ContentTypePlain, api.CharSetUTF8)
 	return req.SendBytes(c, []byte(val))
 }
 
-func (req *reqKontext) SendHTML(val string) (core.EventReader, error) {
+func (req *reqKontext) SendHTML(val string) (EventReader, error) {
 	c := fmt.Sprintf("%s; %s", api.ContentTypeHTML, api.CharSetUTF8)
 	return req.SendBytes(c, []byte(val))
 }
 
-func (req *reqKontext) SendJSON(val any) (core.EventReader, error) {
+func (req *reqKontext) SendJSON(val any) (EventReader, error) {
 	if err := req.SetJSON(val); err != nil {
 		return nil, err
 	}
@@ -209,7 +209,7 @@ func (req *reqKontext) SendJSON(val any) (core.EventReader, error) {
 	return req.Send()
 }
 
-func (req *reqKontext) SendReader(contentType string, reader io.Reader) (core.EventReader, error) {
+func (req *reqKontext) SendReader(contentType string, reader io.Reader) (EventReader, error) {
 	bytes, err := io.ReadAll(reader)
 	if err != nil {
 		return nil, err
@@ -218,13 +218,13 @@ func (req *reqKontext) SendReader(contentType string, reader io.Reader) (core.Ev
 	return req.SendBytes(contentType, bytes)
 }
 
-func (req *reqKontext) SendBytes(contentType string, b []byte) (core.EventReader, error) {
+func (req *reqKontext) SendBytes(contentType string, b []byte) (EventReader, error) {
 	req.Event.ContentType = contentType
 	req.Event.Content = b
 
 	return req.Send()
 }
 
-func (req *reqKontext) Send() (core.EventReader, error) {
+func (req *reqKontext) Send() (EventReader, error) {
 	return req.ktx.kit.brk.SendReq(req.ktx.ctx, req.Event, req.ktx.start)
 }

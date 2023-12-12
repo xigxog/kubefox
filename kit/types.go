@@ -4,9 +4,9 @@ import (
 	"context"
 	"io"
 	"net/http"
+	"net/url"
 
 	"github.com/xigxog/kubefox/api"
-	"github.com/xigxog/kubefox/core"
 	"github.com/xigxog/kubefox/kit/env"
 	"github.com/xigxog/kubefox/logkf"
 )
@@ -132,7 +132,7 @@ type Kit interface {
 }
 
 type Kontext interface {
-	core.EventReader
+	EventReader
 
 	// Env returns the value of the given environment variable as a string. If
 	// the environment variable does not exist or cannot be converted to a
@@ -188,44 +188,44 @@ type Kontext interface {
 }
 
 type Req interface {
-	core.EventWriter
+	EventWriter
 
 	// SendStr sends the request to the target Component and returns the
 	// response. The given string is used as the content of the request Event,
 	// content-type is set to 'text/plain'.
-	SendStr(s string) (core.EventReader, error)
+	SendStr(s string) (EventReader, error)
 
 	// SendHTML sends the request to the target Component and returns the
 	// response. The given HTML is used as the content of the request Event,
 	// content-type is set to 'text/html'.
-	SendHTML(h string) (core.EventReader, error)
+	SendHTML(h string) (EventReader, error)
 
 	// SendJSON sends the request to the target Component and returns the
 	// response. The given object is marshalled to JSON and the output is used
 	// as the content of the request Event, content-type is set to
 	// 'application/json'.
-	SendJSON(v any) (core.EventReader, error)
+	SendJSON(v any) (EventReader, error)
 
 	// SendBytes sends the request to the target Component using the given
 	// content-type and content and returns the response.
-	SendBytes(contentType string, content []byte) (core.EventReader, error)
+	SendBytes(contentType string, content []byte) (EventReader, error)
 
 	// SendReader sends the request to the target Component and returns the
 	// response. All data is read from the given reader and is used as the
 	// content of the request Event. If the reader implements io.ReadCloser then
 	// it will be automatically closed.
-	SendReader(contentType string, reader io.Reader) (core.EventReader, error)
+	SendReader(contentType string, reader io.Reader) (EventReader, error)
 
 	// Send sends the request to the target Component and returns the response.
-	Send() (core.EventReader, error)
+	Send() (EventReader, error)
 }
 
 type Resp interface {
-	core.EventWriter
+	EventWriter
 
 	// Forward sends the response to the source Component of the current
 	// request. The response Event is a clone of the given Event.
-	Forward(evt core.EventReader) error
+	Forward(evt EventReader) error
 
 	// SendStr sends the response to the source Component of the current
 	// request. The given string is used as the content of the response Event,
@@ -259,6 +259,55 @@ type Resp interface {
 
 	// Send sends the response to the source Component of the current request.
 	Send() error
+}
+
+type EventReader interface {
+	EventType() api.EventType
+
+	Param(key string) string
+	ParamV(key string) *api.Val
+	ParamDef(key string, def string) string
+
+	URL() (*url.URL, error)
+
+	Query(key string) string
+	QueryV(key string) *api.Val
+	QueryDef(key string, def string) string
+	QueryAll(key string) []string
+
+	Header(key string) string
+	HeaderV(key string) *api.Val
+	HeaderDef(key string, def string) string
+	HeaderAll(key string) []string
+
+	Status() int
+	StatusV() *api.Val
+
+	Bind(v any) error
+	Str() string
+	Bytes() []byte
+}
+
+type EventWriter interface {
+	EventReader
+
+	SetParam(key, value string)
+	SetParamV(key string, value *api.Val)
+
+	SetURL(u *url.URL)
+	TrimPathPrefix(prefix string)
+
+	SetQuery(key, value string)
+	SetQueryV(key string, value *api.Val)
+	DelQuery(key string)
+
+	SetHeader(key, value string)
+	SetHeaderV(key string, value *api.Val)
+	AddHeader(key, value string)
+	DelHeader(key string)
+
+	SetStatus(code int)
+	SetStatusV(val *api.Val)
 }
 
 type EnvVarDep interface {

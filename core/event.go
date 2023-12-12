@@ -20,55 +20,6 @@ import (
 	"google.golang.org/protobuf/types/known/structpb"
 )
 
-type EventReader interface {
-	EventType() api.EventType
-
-	Param(key string) string
-	ParamV(key string) *api.Val
-	ParamDef(key string, def string) string
-
-	URL() (*url.URL, error)
-
-	Query(key string) string
-	QueryV(key string) *api.Val
-	QueryDef(key string, def string) string
-	QueryAll(key string) []string
-
-	Header(key string) string
-	HeaderV(key string) *api.Val
-	HeaderDef(key string, def string) string
-	HeaderAll(key string) []string
-
-	Status() int
-	StatusV() *api.Val
-
-	Bind(v any) error
-	Str() string
-	Bytes() []byte
-}
-
-type EventWriter interface {
-	EventReader
-
-	SetParam(key, value string) EventWriter
-	SetParamV(key string, value *api.Val) EventWriter
-
-	SetURL(u *url.URL) EventWriter
-	TrimPathPrefix(prefix string) EventWriter
-
-	SetQuery(key, value string) EventWriter
-	SetQueryV(key string, value *api.Val) EventWriter
-	DelQuery(key string) EventWriter
-
-	SetHeader(key, value string) EventWriter
-	SetHeaderV(key string, value *api.Val) EventWriter
-	AddHeader(key, value string) EventWriter
-	DelHeader(key string) EventWriter
-
-	SetStatus(code int) EventWriter
-	SetStatusV(val *api.Val) EventWriter
-}
-
 type EventOpts struct {
 	Type   api.EventType
 	Parent *Event
@@ -219,23 +170,20 @@ func (evt *Event) ParamProto(key string) *structpb.Value {
 	return evt.Params[key]
 }
 
-func (evt *Event) SetParam(key string, val string) EventWriter {
+func (evt *Event) SetParam(key string, val string) {
 	evt.SetParamProto(key, structpb.NewStringValue(val))
-	return evt
 }
 
-func (evt *Event) SetParamV(key string, val *api.Val) EventWriter {
+func (evt *Event) SetParamV(key string, val *api.Val) {
 	evt.SetParamProto(key, val.Proto())
-	return evt
 }
 
-func (evt *Event) SetParamProto(key string, val *structpb.Value) EventWriter {
+func (evt *Event) SetParamProto(key string, val *structpb.Value) {
 	if val == nil {
 		delete(evt.Params, key)
 	} else {
 		evt.Params[key] = val
 	}
-	return evt
 }
 
 func (evt *Event) Value(key string) string {
@@ -374,14 +322,12 @@ func (evt *Event) StatusV() *api.Val {
 	return evt.ValueV(api.ValKeyStatusCode)
 }
 
-func (evt *Event) SetStatus(code int) EventWriter {
+func (evt *Event) SetStatus(code int) {
 	evt.SetValueV(api.ValKeyStatusCode, api.ValInt(code))
-	return evt
 }
 
-func (evt *Event) SetStatusV(val *api.Val) EventWriter {
+func (evt *Event) SetStatusV(val *api.Val) {
 	evt.SetValueV(api.ValKeyStatusCode, val)
-	return evt
 }
 
 func (evt *Event) TraceId() string {
@@ -412,7 +358,7 @@ func (evt *Event) URL() (*url.URL, error) {
 	return url.Parse(evt.Value(api.ValKeyURL))
 }
 
-func (evt *Event) SetURL(u *url.URL) EventWriter {
+func (evt *Event) SetURL(u *url.URL) {
 	if u == nil {
 		u = &url.URL{}
 	}
@@ -421,17 +367,13 @@ func (evt *Event) SetURL(u *url.URL) EventWriter {
 	evt.SetValue(api.ValKeyHost, strings.ToLower(u.Host))
 	evt.SetValue(api.ValKeyPath, u.Path)
 	evt.SetValueMap(api.ValKeyQuery, u.Query())
-
-	return evt
 }
 
-func (evt *Event) TrimPathPrefix(prefix string) EventWriter {
+func (evt *Event) TrimPathPrefix(prefix string) {
 	if u, err := evt.URL(); err == nil { // success
 		u.Path = strings.TrimPrefix(u.Path, prefix)
 		evt.SetURL(u)
 	}
-
-	return evt
 }
 
 func (evt *Event) Query(key string) string {
@@ -454,18 +396,16 @@ func (evt *Event) QueryAll(key string) []string {
 	return evt.ValueMapKeyAll(api.ValKeyQuery, key)
 }
 
-func (evt *Event) SetQuery(key, value string) EventWriter {
+func (evt *Event) SetQuery(key, value string) {
 	evt.SetValueMapKey(api.ValKeyQuery, key, value, true)
-	return evt
 }
 
-func (evt *Event) SetQueryV(key string, value *api.Val) EventWriter {
-	return evt.SetQuery(key, value.String())
+func (evt *Event) SetQueryV(key string, value *api.Val) {
+	evt.SetQuery(key, value.String())
 }
 
-func (evt *Event) DelQuery(key string) EventWriter {
+func (evt *Event) DelQuery(key string) {
 	evt.DelValueMapKey(api.ValKeyQuery, key)
-	return evt
 }
 
 func (evt *Event) Header(key string) string {
@@ -490,26 +430,23 @@ func (evt *Event) HeaderAll(key string) []string {
 	return evt.ValueMapKeyAll(api.ValKeyHeader, key)
 }
 
-func (evt *Event) SetHeader(key, value string) EventWriter {
+func (evt *Event) SetHeader(key, value string) {
 	key = textproto.CanonicalMIMEHeaderKey(key)
 	evt.SetValueMapKey(api.ValKeyHeader, key, value, true)
-	return evt
 }
 
-func (evt *Event) AddHeader(key, value string) EventWriter {
+func (evt *Event) AddHeader(key, value string) {
 	key = textproto.CanonicalMIMEHeaderKey(key)
 	evt.SetValueMapKey(api.ValKeyHeader, key, value, false)
-	return evt
 }
 
-func (evt *Event) SetHeaderV(key string, value *api.Val) EventWriter {
-	return evt.SetHeader(key, value.String())
+func (evt *Event) SetHeaderV(key string, value *api.Val) {
+	evt.SetHeader(key, value.String())
 }
 
-func (evt *Event) DelHeader(key string) EventWriter {
+func (evt *Event) DelHeader(key string) {
 	key = textproto.CanonicalMIMEHeaderKey(key)
 	evt.DelValueMapKey(api.ValKeyHeader, key)
-	return evt
 }
 
 func (evt *Event) SetJSON(v any) error {
