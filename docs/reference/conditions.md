@@ -7,38 +7,60 @@ more detailed information about the observed status of an object
 
 ## Platform
 
-| Type      | Status | Reason              | Description                                              |
-| --------- | ------ | ------------------- | -------------------------------------------------------- |
+| Type      | Status | Reason              | Description                                          |
+| --------- | ------ | ------------------- | ---------------------------------------------------- |
 | Available | True   | ComponentsAvailable | KubeFox Broker, HTTP Server, and NATS are available. |
-|           | False  | BrokerUnavailable   | KubeFox Broker is not available.                     |
-|           |        | HTTPSrvUnavailable  | KubeFox HTTP Server is not available.                |
-|           |        | NATSUnavailable     | NATS is not available.                               |
+|           | False  | BrokerUnavailable   | KubeFox Broker is unavailable.                       |
+|           |        | HTTPSrvUnavailable  | KubeFox HTTP Server is unavailable.                  |
+|           |        | NATSUnavailable     | NATS is unavailable.                                 |
 
 ## AppDeployment
 
-| Type      | Status | Reason             | Description                                   |
-| --------- | ------ | ------------------ | --------------------------------------------- |
-| Available | True   | ComponentsReady    | All component Pods have Ready condition.      |
-|           | False  | ComponentsNotReady | One or more component Pods is not ready.      |
-| Deployed  | True   | ComponentsDeployed | All components were successfully deployed.    |
-|           | False  | TODO               | One or more components could not be deployed. |
+| Type        | Status | Reason                   | Description                                                                        |
+| ----------- | ------ | ------------------------ | ---------------------------------------------------------------------------------- |
+| Available   | True   | ComponentsAvailable      | Component Deployments have minimum required Pods available.                        |
+|             | False  | ComponentsUnavailable    | One or more Component Deployments do not have minimum required Pods available.     |
+| Progressing | True   | ComponentsProgressing    | One or more Component Deployments are scaling or rolling out updates.              |
+|             | False  | ProgressDeadlineExceeded | One or more Component Deployments failed to show any progress within its deadline. |
+|             |        | DeploymentError          | One or more Component Deployments failed update.                                   |
 
 ## Release
 
-| Type                   | Status | Reason                   | Description                                                                                                              |
-| ---------------------- | ------ | ------------------------ | ------------------------------------------------------------------------------------------------------------------------ |
-| Available              | True   | Active                   | AppDeployment and VirtualEnv specified are available and Release is active.                                              |
-|                        | False  | AppDeploymentUnavailable | AppDeployment is not available.                                                                                          |
-|                        |        | VirtualEnvUnavailable    | VirtualEnv is not available.                                                                                             |
-| AppDeploymentAvailable | True   | ComponentsReady          | AppDeployment specified exists, matches the Release version, and is available.                                           |
-|                        | False  | ComponentsNotReady       | AppDeployment has one or more component Pods that are not ready.                                                         |
-|                        |        | NotFound                 | AppDeployment does not exist.                                                                                            |
-|                        |        | VersionMismatch          | AppDeployment and Release versions do not match.                                                                         |
-| VirtualEnvAvailable    | True   | Valid                    | VirtualEnv specified has correctly typed variables, all required variables, and all required adapters present and valid. |
-|                        | False  | AdapterInvalid           | VirtualEnv has one or more Adapters that could not be validated.                                                         |
-|                        |        | AdapterMissing           | VirtualEnv has one or more Adapters missing.                                                                             |
-|                        |        | NotFound                 | VirtualEnv does not exist.                                                                                               |
-|                        |        | PolicyViolation          | Release violates VirtualEnv release policy.                                                                              |
-|                        |        | VarConflict              | VirtualEnv has one or more unique variables in conflict.                                                                 |
-|                        |        | VarMissing               | VirtualEnv has one or more required variables missing.                                                                   |
-|                        |        | VarWrongType             | VirtualEnv has one or more variables of the incorrect type.                                                              |
+| Type        | Status | Reason                   | Description                                                                                                         |
+| ----------- | ------ | ------------------------ | ------------------------------------------------------------------------------------------------------------------- |
+| Available   | True   | CurrentAvailable         | Current Release AppDeployment, VirtualEnv, and Routes are available.                                                |
+|             | False  | AppDeploymentUnavailable | Current Release AppDeployment is unavailable.                                                                       |
+|             |        | RoutesUnavailable        | One or Component Routes of current Release are unavailable.                                                         |
+|             |        | VirtualEnvUnavailable    | Current Release VirtualEnv is unavailable.                                                                          |
+| Progressing | True   | ReleaseRequested         | New Release requested and is pending.                                                                               |
+|             |        | ComponentsProgressing    | One or more Component Deployments of requested Release are progressing.                                             |
+|             | False  | DeploymentError          | One or more Component Deployments of requested Release failed update or to show any progress within their deadline. |
+|             |        | RoutesUnavailable        | One or more Component Routes of requested Release could not be parsed or VirtualEnv has invalid Route variables.    |
+|             |        | VirtualEnvUnavailable    | VirtualEnv for requested Release is invalid, missing, or its release policy is violated.                            |
+
+### Current/Requested Release
+
+The following conditions relate to the status of the current and requested
+Releases. They can be found at `status.current.conditions` and
+`status.requested.conditions` paths. These conditions are used to provide the
+higher level Release conditions.
+
+| Type                   | Status | Reason              | Description                                                                                                                                                   |
+| ---------------------- | ------ | ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| AppDeploymentAvailable | True   | ComponentsAvailable | AppDeployment exists, matches the Release version, and is available.                                                                                          |
+|                        | False  | DeploymentError     | AppDeployment has one or more Component Deployments that failed.                                                                                              |
+|                        |        | NotFound            | AppDeployment does not exist.                                                                                                                                 |
+|                        |        | VersionMismatch     | AppDeployment and Release versions do not match.                                                                                                              |
+| RoutesAvailable        | True   | Valid               | Routes were successfully parsed and VirtualEnv contains required Route variables, correctly typed Route variables, and no conflicting unique Route variables. |
+|                        | False  | ParseError          | One or more Component Routes could not be parsed.                                                                                                             |
+|                        |        | VarConflict         | VirtualEnv contains one or more conflicting unique Route variables.                                                                                           |
+|                        |        | VarMissing          | VirtualEnv is missing one or more required Route variables.                                                                                                   |
+|                        |        | VarWrongType        | VirtualEnv contains one or more incorrectly typed Route variables.                                                                                            |
+| VirtualEnvAvailable    | True   | Valid               | VirtualEnv contains required variables, correctly typed variables, no conflicting unique variable, and required Adapters.                                     |
+|                        | False  | AdapterInvalid      | VirtualEnv contains one or more invalid Adapters.                                                                                                             |
+|                        |        | AdapterMissing      | VirtualEnv is missing one or more Adapters.                                                                                                                   |
+|                        |        | NotFound            | VirtualEnv does not exist.                                                                                                                                    |
+|                        |        | PolicyViolation     | Release violates VirtualEnv release policy.                                                                                                                   |
+|                        |        | VarConflict         | VirtualEnv contains one or more conflicting unique variables.                                                                                                 |
+|                        |        | VarMissing          | VirtualEnv is missing one or more required variables.                                                                                                         |
+|                        |        | VarWrongType        | VirtualEnv contains one or more incorrectly typed variables.                                                                                                  |
