@@ -7,12 +7,12 @@ more detailed information about the observed status of an object
 
 ## Platform
 
-| Type      | Status | Reason              | Description                                          |
-| --------- | ------ | ------------------- | ---------------------------------------------------- |
+| Type      | Status | Reason                      | Description                                          |
+| --------- | ------ | --------------------------- | ---------------------------------------------------- |
 | Available | True   | ComponentsAvailable | KubeFox Broker, HTTP Server, and NATS are available. |
-|           | False  | BrokerUnavailable   | KubeFox Broker is unavailable.                       |
-|           |        | HTTPSrvUnavailable  | KubeFox HTTP Server is unavailable.                  |
-|           |        | NATSUnavailable     | NATS is unavailable.                                 |
+|           | False  | BrokerUnavailable           | KubeFox Broker is unavailable.                       |
+|           |        | HTTPSrvUnavailable          | KubeFox HTTP Server is unavailable.                  |
+|           |        | NATSUnavailable             | NATS is unavailable.                                 |
 
 ## AppDeployment
 
@@ -40,10 +40,10 @@ more detailed information about the observed status of an object
 
 ### Current/Requested Release
 
-The following conditions relate to the status of the current and requested
-Releases. They can be found at `status.current.conditions` and
-`status.requested.conditions` paths. These conditions are used to provide the
-higher level Release conditions.
+The following conditions are used to express the current state and requested
+state of a Release. They are located at `status.current.conditions` and
+`status.requested.conditions` paths of the Release object. If the current state
+matches the requested state the `status.requested` block will not be present.
 
 | Type                   | Status | Reason              | Description                                                                                                                                                   |
 | ---------------------- | ------ | ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |

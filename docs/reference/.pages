@@ -1,5 +1,4 @@
 nav:
   - ...
-  - Protocol Buffers: protobuf.md
   - Kit (SDK): kit
   - Fox (CLI): fox
