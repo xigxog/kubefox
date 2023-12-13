@@ -19,36 +19,36 @@ import (
 type VirtualEnvObject interface {
 	client.Object
 
-	GetData() *EnvData
-	GetDetails() *EnvDetails
-	GetReleasePolicy() *EnvReleasePolicy
-	SetReleasePolicy(*EnvReleasePolicy)
+	GetData() *VirtualEnvData
+	GetDetails() *VirtualEnvDetails
+	GetReleasePolicy() *VirtualEnvReleasePolicy
+	SetReleasePolicy(*VirtualEnvReleasePolicy)
 	GetParent() string
 	GetEnvName() string
 }
 
-type EnvSpec struct {
+type VirtualEnvSpec struct {
 	// Parent ClusterVirtualEnv.
-	Parent        string            `json:"parent,omitempty"`
-	ReleasePolicy *EnvReleasePolicy `json:"releasePolicy,omitempty"`
+	Parent        string                   `json:"parent,omitempty"`
+	ReleasePolicy *VirtualEnvReleasePolicy `json:"releasePolicy,omitempty"`
 }
 
-type EnvReleasePolicy struct {
+type VirtualEnvReleasePolicy struct {
 	// +kubebuilder:validation:Enum=VersionOptional;VersionRequired
 	AppDeploymentPolicy api.AppDeploymentPolicy `json:"appDeploymentPolicy,omitempty"`
 	// +kubebuilder:validation:Enum=SnapshotOptional;SnapshotRequired
 	VirtualEnvPolicy api.VirtualEnvPolicy `json:"virtualEnvPolicy,omitempty"`
 }
 
-type EnvData struct {
+type VirtualEnvData struct {
 	// +kubebuilder:validation:Schemaless
 	// +kubebuilder:validation:Type=object
 	// +kubebuilder:pruning:PreserveUnknownFields
-	Vars     map[string]*api.Val    `json:"vars,omitempty"`
-	Adapters map[string]*EnvAdapter `json:"adapters,omitempty"`
+	Vars     map[string]*api.Val `json:"vars,omitempty"`
+	Adapters map[string]*Adapter `json:"adapters,omitempty"`
 }
 
-type EnvAdapter struct {
+type Adapter struct {
 	// +kubebuilder:validation:Enum=db;http
 	Type api.ComponentType `json:"type"`
 	// +kubebuilder:validation:Schemaless
@@ -69,7 +69,7 @@ type EnvAdapter struct {
 	FollowRedirects api.FollowRedirects `json:"followRedirects,omitempty"`
 }
 
-type EnvDetails struct {
+type VirtualEnvDetails struct {
 	api.Details `json:",inline"`
 
 	Vars     map[string]api.Details `json:"vars,omitempty"`
@@ -81,9 +81,9 @@ type VirtualEnv struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec    EnvSpec    `json:"spec,omitempty"`
-	Data    EnvData    `json:"data,omitempty"`
-	Details EnvDetails `json:"details,omitempty"`
+	Spec    VirtualEnvSpec    `json:"spec,omitempty"`
+	Data    VirtualEnvData    `json:"data,omitempty"`
+	Details VirtualEnvDetails `json:"details,omitempty"`
 }
 
 // +kubebuilder:object:root=true
@@ -94,19 +94,19 @@ type VirtualEnvList struct {
 	Items []VirtualEnv `json:"items"`
 }
 
-func (e *VirtualEnv) GetData() *EnvData {
+func (e *VirtualEnv) GetData() *VirtualEnvData {
 	return &e.Data
 }
 
-func (e *VirtualEnv) GetDetails() *EnvDetails {
+func (e *VirtualEnv) GetDetails() *VirtualEnvDetails {
 	return &e.Details
 }
 
-func (e *VirtualEnv) GetReleasePolicy() *EnvReleasePolicy {
+func (e *VirtualEnv) GetReleasePolicy() *VirtualEnvReleasePolicy {
 	return e.Spec.ReleasePolicy
 }
 
-func (e *VirtualEnv) SetReleasePolicy(p *EnvReleasePolicy) {
+func (e *VirtualEnv) SetReleasePolicy(p *VirtualEnvReleasePolicy) {
 	e.Spec.ReleasePolicy = p
 }
 
@@ -144,7 +144,7 @@ func MergeVirtualEnvironment(dst, src VirtualEnvObject) {
 	}
 
 	if dst.GetData().Adapters == nil {
-		dst.GetData().Adapters = map[string]*EnvAdapter{}
+		dst.GetData().Adapters = map[string]*Adapter{}
 	}
 	if src.GetDetails().Adapters == nil {
 		src.GetDetails().Adapters = map[string]api.Details{}
@@ -165,7 +165,7 @@ func MergeVirtualEnvironment(dst, src VirtualEnvObject) {
 
 	if src.GetReleasePolicy() != nil {
 		if dst.GetReleasePolicy() == nil {
-			dst.SetReleasePolicy(&EnvReleasePolicy{})
+			dst.SetReleasePolicy(&VirtualEnvReleasePolicy{})
 		}
 		if src.GetReleasePolicy().AppDeploymentPolicy != "" {
 			dst.GetReleasePolicy().AppDeploymentPolicy = src.GetReleasePolicy().AppDeploymentPolicy

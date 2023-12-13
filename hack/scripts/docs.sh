@@ -4,8 +4,11 @@ source "$(dirname "${BASH_SOURCE[0]}")/setup.sh"
 
 PROTOC_GEN_DOC_VERSION="v1.5.1"
 GOMARKDOC_VERSION="v1.1.0"
+CRD_REF_DOCS_VERSION="v0.1.4"
 
 FOX_ROOT="${REPO_ROOT}/../fox"
+
+CRD_DOCS="${DOCS_SRC}/reference/kubernetes-crds.md"
 KIT_DOCS_GO="${DOCS_SRC}/reference/kit/go"
 
 rm -rf ${DOCS_OUT}
@@ -16,12 +19,14 @@ ${TOOLS_DIR}/protoc-gen-doc -version | grep -q ${PROTOC_GEN_DOC_VERSION} ||
 
 ${TOOLS_DIR}/gomarkdoc --version | grep -q ${GOMARKDOC_VERSION} ||
     go install github.com/princjef/gomarkdoc/cmd/gomarkdoc@${GOMARKDOC_VERSION}
+
+go install github.com/xigxog/crd-ref-docs@${CRD_REF_DOCS_VERSION}
 ###
 
 # Generate docs from proto files.
 protoc \
     --proto_path=./${PROTO_SRC} \
-    --doc_out=./${DOCS_SRC}/reference/ --doc_opt=./${DOCS_SRC}/protobuf.tmpl,protobuf.md \
+    --doc_out=./${DOCS_SRC}/reference/ --doc_opt=./${DOCS_SRC}/templates/protobuf/protobuf.tmpl,protobuf.md \
     protobuf_msgs.proto broker_svc.proto
 
 if [ -d "${FOX_ROOT}" ]; then
@@ -32,6 +37,17 @@ if [ -d "${FOX_ROOT}" ]; then
     rm -rf ${DOCS_SRC}/reference/fox
     cp -r ${FOX_ROOT}/docs ${DOCS_SRC}/reference/fox
 fi
+
+# Generate docs from CRDs.
+rm -f "${CRD_DOCS}"
+mkdir -p $(dirname "${CRD_DOCS}")
+
+crd-ref-docs \
+    --config ${DOCS_SRC}/crd-ref-docs.yaml \
+    --source-path ${REPO_ROOT}/api/ \
+    --output-path ${CRD_DOCS} \
+    --templates-dir ${DOCS_SRC}/templates/crd-ref-docs \
+    --renderer markdown
 
 # Generate docs from source files.
 rm -rf "${KIT_DOCS_GO}"

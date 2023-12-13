@@ -168,7 +168,7 @@ func (c *HTTPClient) SendEvent(req *BrokerEvent) error {
 	return nil
 }
 
-func (c *HTTPClient) adapterClient(a *v1alpha1.EnvAdapter) *http.Client {
+func (c *HTTPClient) adapterClient(a *v1alpha1.Adapter) *http.Client {
 	key := key(a.FollowRedirects, a.InsecureSkipVerify)
 	client := c.clients[key]
 	if client == nil {

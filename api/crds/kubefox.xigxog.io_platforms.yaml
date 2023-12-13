@@ -47,9 +47,9 @@ spec:
                   containerSpec:
                     properties:
                       livenessProbe:
-                        description: "Periodic probe of container liveness. Container
+                        description: Periodic probe of container liveness. Container
                           will be restarted if the probe fails. Cannot be updated.
-                          \n More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes"
+                          [More info](https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes).
                         properties:
                           exec:
                             description: Exec specifies the action to take.
@@ -200,9 +200,9 @@ spec:
                             type: integer
                         type: object
                       readinessProbe:
-                        description: "Periodic probe of container service readiness.
+                        description: Periodic probe of container service readiness.
                           Container will be removed from service endpoints if the
-                          probe fails. Cannot be updated. \n More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes"
+                          probe fails. Cannot be updated. [More info](https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes).
                         properties:
                           exec:
                             description: Exec specifies the action to take.
@@ -353,8 +353,8 @@ spec:
                             type: integer
                         type: object
                       resources:
-                        description: "Compute Resources required by this container.
-                          Cannot be updated. \n More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/"
+                        description: Compute Resources required by this container.
+                          Cannot be updated. [More info](https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/).
                         properties:
                           claims:
                             description: "Claims lists the names of resources, defined
@@ -403,14 +403,14 @@ spec:
                             type: object
                         type: object
                       startupProbe:
-                        description: "StartupProbe indicates that the Pod has successfully
+                        description: StartupProbe indicates that the Pod has successfully
                           initialized. If specified, no other probes are executed
                           until this completes successfully. If this probe fails,
                           the Pod will be restarted, just as if the livenessProbe
                           failed. This can be used to provide different probe parameters
                           at the beginning of a Pod's lifecycle, when it might take
                           a long time to load data or warm a cache, than during steady-state
-                          operation. This cannot be updated. \n More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes"
+                          operation. This cannot be updated. [More info](https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes).
                         properties:
                           exec:
                             description: Exec specifies the action to take.
@@ -1468,19 +1468,18 @@ spec:
                       annotations:
                         additionalProperties:
                           type: string
-                        description: "Annotations is an unstructured key value map
+                        description: Annotations is an unstructured key value map
                           stored with a resource that may be set by external tools
                           to store and retrieve arbitrary metadata. They are not queryable
-                          and should be preserved when modifying objects. \n More
-                          info: https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations"
+                          and should be preserved when modifying objects. [More info](https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations).
                         type: object
                       labels:
                         additionalProperties:
                           type: string
-                        description: "Map of string keys and values that can be used
+                        description: Map of string keys and values that can be used
                           to organize and categorize (scope and select) objects. May
                           match selectors of replication controllers and services.
-                          \n More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/labels"
+                          [More info](https://kubernetes.io/docs/concepts/overview/working-with-objects/labels).
                         type: object
                       nodeName:
                         description: NodeName is a request to schedule this pod onto
@@ -1491,10 +1490,10 @@ spec:
                       nodeSelector:
                         additionalProperties:
                           type: string
-                        description: "NodeSelector is a selector which must be true
+                        description: NodeSelector is a selector which must be true
                           for the pod to fit on a node. Selector which must match
                           a node's labels for the pod to be scheduled on that node.
-                          \n More info: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/"
+                          [More info](https://kubernetes.io/docs/concepts/configuration/assign-pod-node/).
                         type: object
                       tolerations:
                         description: If specified, the pod's tolerations.
@@ -1559,9 +1558,9 @@ spec:
                   containerSpec:
                     properties:
                       livenessProbe:
-                        description: "Periodic probe of container liveness. Container
+                        description: Periodic probe of container liveness. Container
                           will be restarted if the probe fails. Cannot be updated.
-                          \n More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes"
+                          [More info](https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes).
                         properties:
                           exec:
                             description: Exec specifies the action to take.
@@ -1712,9 +1711,9 @@ spec:
                             type: integer
                         type: object
                       readinessProbe:
-                        description: "Periodic probe of container service readiness.
+                        description: Periodic probe of container service readiness.
                           Container will be removed from service endpoints if the
-                          probe fails. Cannot be updated. \n More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes"
+                          probe fails. Cannot be updated. [More info](https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes).
                         properties:
                           exec:
                             description: Exec specifies the action to take.
@@ -1865,8 +1864,8 @@ spec:
                             type: integer
                         type: object
                       resources:
-                        description: "Compute Resources required by this container.
-                          Cannot be updated. \n More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/"
+                        description: Compute Resources required by this container.
+                          Cannot be updated. [More info](https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/).
                         properties:
                           claims:
                             description: "Claims lists the names of resources, defined
@@ -1915,14 +1914,14 @@ spec:
                             type: object
                         type: object
                       startupProbe:
-                        description: "StartupProbe indicates that the Pod has successfully
+                        description: StartupProbe indicates that the Pod has successfully
                           initialized. If specified, no other probes are executed
                           until this completes successfully. If this probe fails,
                           the Pod will be restarted, just as if the livenessProbe
                           failed. This can be used to provide different probe parameters
                           at the beginning of a Pod's lifecycle, when it might take
                           a long time to load data or warm a cache, than during steady-state
-                          operation. This cannot be updated. \n More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes"
+                          operation. This cannot be updated. [More info](https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes).
                         properties:
                           exec:
                             description: Exec specifies the action to take.
@@ -2980,19 +2979,18 @@ spec:
                       annotations:
                         additionalProperties:
                           type: string
-                        description: "Annotations is an unstructured key value map
+                        description: Annotations is an unstructured key value map
                           stored with a resource that may be set by external tools
                           to store and retrieve arbitrary metadata. They are not queryable
-                          and should be preserved when modifying objects. \n More
-                          info: https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations"
+                          and should be preserved when modifying objects. [More info](https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations).
                         type: object
                       labels:
                         additionalProperties:
                           type: string
-                        description: "Map of string keys and values that can be used
+                        description: Map of string keys and values that can be used
                           to organize and categorize (scope and select) objects. May
                           match selectors of replication controllers and services.
-                          \n More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/labels"
+                          [More info](https://kubernetes.io/docs/concepts/overview/working-with-objects/labels).
                         type: object
                       nodeName:
                         description: NodeName is a request to schedule this pod onto
@@ -3003,10 +3001,10 @@ spec:
                       nodeSelector:
                         additionalProperties:
                           type: string
-                        description: "NodeSelector is a selector which must be true
+                        description: NodeSelector is a selector which must be true
                           for the pod to fit on a node. Selector which must match
                           a node's labels for the pod to be scheduled on that node.
-                          \n More info: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/"
+                          [More info](https://kubernetes.io/docs/concepts/configuration/assign-pod-node/).
                         type: object
                       tolerations:
                         description: If specified, the pod's tolerations.
@@ -3056,19 +3054,18 @@ spec:
                       annotations:
                         additionalProperties:
                           type: string
-                        description: "Annotations is an unstructured key value map
+                        description: Annotations is an unstructured key value map
                           stored with a resource that may be set by external tools
                           to store and retrieve arbitrary metadata. They are not queryable
-                          and should be preserved when modifying objects. \n More
-                          info: https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations"
+                          and should be preserved when modifying objects. [More info](https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations).
                         type: object
                       labels:
                         additionalProperties:
                           type: string
-                        description: "Map of string keys and values that can be used
+                        description: Map of string keys and values that can be used
                           to organize and categorize (scope and select) objects. May
                           match selectors of replication controllers and services.
-                          \n More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/labels"
+                          [More info](https://kubernetes.io/docs/concepts/overview/working-with-objects/labels).
                         type: object
                       ports:
                         properties:
@@ -3109,9 +3106,9 @@ spec:
                   containerSpec:
                     properties:
                       livenessProbe:
-                        description: "Periodic probe of container liveness. Container
+                        description: Periodic probe of container liveness. Container
                           will be restarted if the probe fails. Cannot be updated.
-                          \n More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes"
+                          [More info](https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes).
                         properties:
                           exec:
                             description: Exec specifies the action to take.
@@ -3262,9 +3259,9 @@ spec:
                             type: integer
                         type: object
                       readinessProbe:
-                        description: "Periodic probe of container service readiness.
+                        description: Periodic probe of container service readiness.
                           Container will be removed from service endpoints if the
-                          probe fails. Cannot be updated. \n More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes"
+                          probe fails. Cannot be updated. [More info](https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes).
                         properties:
                           exec:
                             description: Exec specifies the action to take.
@@ -3415,8 +3412,8 @@ spec:
                             type: integer
                         type: object
                       resources:
-                        description: "Compute Resources required by this container.
-                          Cannot be updated. \n More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/"
+                        description: Compute Resources required by this container.
+                          Cannot be updated. [More info](https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/).
                         properties:
                           claims:
                             description: "Claims lists the names of resources, defined
@@ -3465,14 +3462,14 @@ spec:
                             type: object
                         type: object
                       startupProbe:
-                        description: "StartupProbe indicates that the Pod has successfully
+                        description: StartupProbe indicates that the Pod has successfully
                           initialized. If specified, no other probes are executed
                           until this completes successfully. If this probe fails,
                           the Pod will be restarted, just as if the livenessProbe
                           failed. This can be used to provide different probe parameters
                           at the beginning of a Pod's lifecycle, when it might take
                           a long time to load data or warm a cache, than during steady-state
-                          operation. This cannot be updated. \n More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes"
+                          operation. This cannot be updated. [More info](https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes).
                         properties:
                           exec:
                             description: Exec specifies the action to take.
@@ -4530,19 +4527,18 @@ spec:
                       annotations:
                         additionalProperties:
                           type: string
-                        description: "Annotations is an unstructured key value map
+                        description: Annotations is an unstructured key value map
                           stored with a resource that may be set by external tools
                           to store and retrieve arbitrary metadata. They are not queryable
-                          and should be preserved when modifying objects. \n More
-                          info: https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations"
+                          and should be preserved when modifying objects. [More info](https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations).
                         type: object
                       labels:
                         additionalProperties:
                           type: string
-                        description: "Map of string keys and values that can be used
+                        description: Map of string keys and values that can be used
                           to organize and categorize (scope and select) objects. May
                           match selectors of replication controllers and services.
-                          \n More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/labels"
+                          [More info](https://kubernetes.io/docs/concepts/overview/working-with-objects/labels).
                         type: object
                       nodeName:
                         description: NodeName is a request to schedule this pod onto
@@ -4553,10 +4549,10 @@ spec:
                       nodeSelector:
                         additionalProperties:
                           type: string
-                        description: "NodeSelector is a selector which must be true
+                        description: NodeSelector is a selector which must be true
                           for the pod to fit on a node. Selector which must match
                           a node's labels for the pod to be scheduled on that node.
-                          \n More info: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/"
+                          [More info](https://kubernetes.io/docs/concepts/configuration/assign-pod-node/).
                         type: object
                       tolerations:
                         description: If specified, the pod's tolerations.

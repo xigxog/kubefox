@@ -27,8 +27,8 @@ type BrokerEvent struct {
 	EnvVars map[string]*api.Val
 	RouteId int64
 
-	TargetAdapter *v1alpha1.EnvAdapter
-	Adapters      map[string]*v1alpha1.EnvAdapter
+	TargetAdapter *v1alpha1.Adapter
+	Adapters      map[string]*v1alpha1.Adapter
 
 	Receiver   Receiver
 	ReceivedAt time.Time

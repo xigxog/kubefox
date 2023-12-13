@@ -2,7 +2,7 @@ package env
 
 import "github.com/xigxog/kubefox/api"
 
-type VarOption func(*api.EnvVarSchema)
+type VarOption func(*api.VirtualEnvVarDefinition)
 
 type Var struct {
 	name string
@@ -22,27 +22,27 @@ func (v *Var) Type() api.EnvVarType {
 }
 
 var (
-	Array = func(evs *api.EnvVarSchema) {
+	Array = func(evs *api.VirtualEnvVarDefinition) {
 		evs.Type = api.EnvVarTypeArray
 	}
 
-	Bool = func(evs *api.EnvVarSchema) {
+	Bool = func(evs *api.VirtualEnvVarDefinition) {
 		evs.Type = api.EnvVarTypeBoolean
 	}
 
-	Number = func(evs *api.EnvVarSchema) {
+	Number = func(evs *api.VirtualEnvVarDefinition) {
 		evs.Type = api.EnvVarTypeNumber
 	}
 
-	String = func(evs *api.EnvVarSchema) {
+	String = func(evs *api.VirtualEnvVarDefinition) {
 		evs.Type = api.EnvVarTypeString
 	}
 
-	Required = func(evs *api.EnvVarSchema) {
+	Required = func(evs *api.VirtualEnvVarDefinition) {
 		evs.Required = true
 	}
 
-	Unique = func(evs *api.EnvVarSchema) {
+	Unique = func(evs *api.VirtualEnvVarDefinition) {
 		evs.Required = true
 		evs.Unique = true
 	}

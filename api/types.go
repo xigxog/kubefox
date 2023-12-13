@@ -9,7 +9,7 @@ one at https://mozilla.org/MPL/2.0/.
 // +kubebuilder:object:generate=true
 package api
 
-type EnvVarSchema struct {
+type VirtualEnvVarDefinition struct {
 	// +kubebuilder:validation:Enum=array;boolean;number;string
 	Type     EnvVarType `json:"type,omitempty"`
 	Required bool       `json:"required"`
@@ -31,11 +31,11 @@ type AppDetails struct {
 
 type ComponentDefinition struct {
 	// +kubebuilder:validation:Enum=db;genesis;kubefox;http
-	Type           ComponentType            `json:"type"`
-	Routes         []RouteSpec              `json:"routes,omitempty"`
-	DefaultHandler bool                     `json:"defaultHandler,omitempty"`
-	EnvSchema      map[string]*EnvVarSchema `json:"envSchema,omitempty"`
-	Dependencies   map[string]*Dependency   `json:"dependencies,omitempty"`
+	Type             ComponentType                       `json:"type"`
+	Routes           []RouteSpec                         `json:"routes,omitempty"`
+	DefaultHandler   bool                                `json:"defaultHandler,omitempty"`
+	VirtualEnvSchema map[string]*VirtualEnvVarDefinition `json:"virtualEnvSchema,omitempty"`
+	Dependencies     map[string]*Dependency              `json:"dependencies,omitempty"`
 }
 
 type ComponentDetails struct {
@@ -44,10 +44,10 @@ type ComponentDetails struct {
 }
 
 type RouteSpec struct {
-	Id        int                      `json:"id"`
-	Rule      string                   `json:"rule"`
-	Priority  int                      `json:"priority,omitempty"`
-	EnvSchema map[string]*EnvVarSchema `json:"envSchema,omitempty"`
+	Id               int                                 `json:"id"`
+	Rule             string                              `json:"rule"`
+	Priority         int                                 `json:"priority,omitempty"`
+	VirtualEnvSchema map[string]*VirtualEnvVarDefinition `json:"virtualEnvSchema,omitempty"`
 }
 
 type Dependency struct {

@@ -493,7 +493,7 @@ func (brk *broker) checkComponents(ctx context.Context, evt *BrokerEvent) error 
 	}
 
 	// Check if target is part of deployment spec.
-	var adapter *v1alpha1.EnvAdapter
+	var adapter *v1alpha1.Adapter
 	if evt.Adapters != nil {
 		adapter = evt.Adapters[evt.Target.Name]
 	}

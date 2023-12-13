@@ -13,6 +13,7 @@ import (
 )
 
 type ReleaseSpec struct {
+	// +kubebuilder:validation:Required
 	AppDeployment ReleaseAppDeployment `json:"appDeployment"`
 	// +kubebuilder:validation:Optional
 	VirtualEnvSnapshot string               `json:"virtualEnvSnapshot"`
@@ -20,6 +21,7 @@ type ReleaseSpec struct {
 }
 
 type ReleaseAppDeployment struct {
+	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:MinLength=1
 	Name string `json:"name"`
 	// Version of the App being released. Use of semantic versioning is

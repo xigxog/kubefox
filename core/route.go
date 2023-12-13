@@ -105,11 +105,11 @@ func (r *Route) BuildEnvSchema() error {
 	r.mutex.Lock()
 	defer r.mutex.Unlock()
 
-	if r.RouteSpec.EnvSchema != nil {
+	if r.RouteSpec.VirtualEnvSchema != nil {
 		return nil
 	}
 
-	envSchema := map[string]*api.EnvVarSchema{}
+	envSchema := map[string]*api.VirtualEnvVarDefinition{}
 	for _, n := range r.tree.Root.Nodes {
 		action, ok := n.(*parse.ActionNode)
 		if !ok {
@@ -133,13 +133,13 @@ func (r *Route) BuildEnvSchema() error {
 			return fmt.Errorf("wrong number of commands: want 1 or 2, got %d", len(cmds))
 		}
 
-		envSchema[name] = &api.EnvVarSchema{
+		envSchema[name] = &api.VirtualEnvVarDefinition{
 			Required: true,
 			Unique:   unique,
 		}
 	}
 
-	r.RouteSpec.EnvSchema = envSchema
+	r.RouteSpec.VirtualEnvSchema = envSchema
 	return nil
 }
 

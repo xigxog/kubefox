@@ -50,10 +50,10 @@ func New() Kit {
 		routes: make([]*route, 0),
 		spec: &api.ComponentDetails{
 			ComponentDefinition: api.ComponentDefinition{
-				Type:         api.ComponentTypeKubeFox,
-				Routes:       make([]api.RouteSpec, 0),
-				EnvSchema:    make(map[string]*api.EnvVarSchema),
-				Dependencies: make(map[string]*api.Dependency),
+				Type:             api.ComponentTypeKubeFox,
+				Routes:           make([]api.RouteSpec, 0),
+				VirtualEnvSchema: make(map[string]*api.VirtualEnvVarDefinition),
+				Dependencies:     make(map[string]*api.Dependency),
 			},
 		},
 	}
@@ -158,16 +158,16 @@ func (svc *kit) EnvVar(name string, opts ...env.VarOption) EnvVarDep {
 		svc.log.Fatal("environment variable name is required")
 	}
 
-	schema := &api.EnvVarSchema{}
+	envSchema := &api.VirtualEnvVarDefinition{}
 	for _, o := range opts {
-		o(schema)
+		o(envSchema)
 	}
-	if schema.Type == "" {
-		schema.Type = api.EnvVarTypeString
+	if envSchema.Type == "" {
+		envSchema.Type = api.EnvVarTypeString
 	}
-	svc.spec.EnvSchema[name] = schema
+	svc.spec.VirtualEnvSchema[name] = envSchema
 
-	return env.NewVar(name, schema.Type)
+	return env.NewVar(name, envSchema.Type)
 }
 
 func (svc *kit) Component(name string) ComponentDep {

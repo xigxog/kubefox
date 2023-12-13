@@ -12,8 +12,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-type ClusterEnvSpec struct {
-	ReleasePolicy *EnvReleasePolicy `json:"releasePolicy,omitempty"`
+type ClusterVirtualEnvSpec struct {
+	ReleasePolicy *VirtualEnvReleasePolicy `json:"releasePolicy,omitempty"`
 }
 
 // +kubebuilder:object:root=true
@@ -22,9 +22,9 @@ type ClusterVirtualEnv struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec    ClusterEnvSpec `json:"spec,omitempty"`
-	Data    EnvData        `json:"data,omitempty"`
-	Details EnvDetails     `json:"details,omitempty"`
+	Spec    ClusterVirtualEnvSpec `json:"spec,omitempty"`
+	Data    VirtualEnvData        `json:"data,omitempty"`
+	Details VirtualEnvDetails     `json:"details,omitempty"`
 }
 
 // +kubebuilder:object:root=true
@@ -35,19 +35,19 @@ type ClusterVirtualEnvList struct {
 	Items []ClusterVirtualEnv `json:"items"`
 }
 
-func (e *ClusterVirtualEnv) GetData() *EnvData {
+func (e *ClusterVirtualEnv) GetData() *VirtualEnvData {
 	return &e.Data
 }
 
-func (e *ClusterVirtualEnv) GetDetails() *EnvDetails {
+func (e *ClusterVirtualEnv) GetDetails() *VirtualEnvDetails {
 	return &e.Details
 }
 
-func (e *ClusterVirtualEnv) GetReleasePolicy() *EnvReleasePolicy {
+func (e *ClusterVirtualEnv) GetReleasePolicy() *VirtualEnvReleasePolicy {
 	return e.Spec.ReleasePolicy
 }
 
-func (e *ClusterVirtualEnv) SetReleasePolicy(p *EnvReleasePolicy) {
+func (e *ClusterVirtualEnv) SetReleasePolicy(p *VirtualEnvReleasePolicy) {
 	e.Spec.ReleasePolicy = p
 }
 

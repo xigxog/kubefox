@@ -152,8 +152,8 @@ func (str *Store) Environment(name string) (v1alpha1.VirtualEnvObject, error) {
 				Name:      env.Name,
 				Namespace: env.Namespace,
 			},
-			Data: v1alpha1.EnvSnapshotData{
-				Source: v1alpha1.EnvSource{
+			Data: v1alpha1.VirtualEnvSnapshotData{
+				Source: v1alpha1.VirtualEnvSource{
 					Kind:            env.Kind,
 					Name:            env.Name,
 					ResourceVersion: env.ResourceVersion,

@@ -193,7 +193,7 @@ func (r *Client) SnapshotVirtualEnv(ctx context.Context, namespace, envName stri
 	envSnapshot.Data.SnapshotTime = metav1.NewTime(now)
 	envSnapshot.Name = fmt.Sprintf("%s-%s-%s", envName, envObj.GetResourceVersion(), now.UTC().Format("20060102-150405"))
 	envSnapshot.Namespace = namespace
-	envSnapshot.Data.Source = v1alpha1.EnvSource{
+	envSnapshot.Data.Source = v1alpha1.VirtualEnvSource{
 		Kind:            kind,
 		Name:            envName,
 		ResourceVersion: envObj.GetResourceVersion(),
