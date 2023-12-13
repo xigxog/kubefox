@@ -38,7 +38,7 @@ more detailed information about the observed status of an object
 |             |        | RoutesUnavailable        | One or more Component Routes of requested Release could not be parsed or VirtualEnv has invalid Route variables.    |
 |             |        | VirtualEnvUnavailable    | VirtualEnv for requested Release is invalid, missing, or its release policy is violated.                            |
 
-### Current/Requested Release
+### Current/Requested States
 
 The following conditions are used to express the current state and requested
 state of a Release. They are located at `status.current.conditions` and
