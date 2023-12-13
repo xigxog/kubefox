@@ -1,4 +1,4 @@
-<mxfile host="Electron" modified="2023-12-06T21:24:04.888Z" agent="Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) draw.io/22.1.2 Chrome/114.0.5735.289 Electron/25.9.4 Safari/537.36" etag="kWTK9suKju7ZdEjpcEj5" version="22.1.2" type="device">
+<mxfile host="Electron" modified="2023-12-13T20:21:19.275Z" agent="Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) draw.io/22.1.2 Chrome/114.0.5735.289 Electron/25.9.4 Safari/537.36" etag="n-UT0BZEOrFNQn6DZGZZ" version="22.1.2" type="device">
   <diagram id="suDNTsbO2CK4yOKxJaUv" name="Page-1">
     <mxGraphModel dx="1674" dy="1233" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="0" pageScale="1" pageWidth="1100" pageHeight="850" background="none" math="0" shadow="0">
       <root>
@@ -18,19 +18,6 @@
         </mxCell>
         <mxCell id="Pc061_s3fGXJPYhwyrSY-49" value="HTTP" style="sketch=0;fillColor=#4D4D4D;strokeColor=none;verticalAlign=bottom;labelPosition=center;verticalLabelPosition=top;align=center;spacingTop=0;fontSize=12;fontStyle=0;fontColor=#000000;shape=mxgraph.gcp2.hexIcon;prIcon=stackdriver;rounded=1;shadow=0;glass=0;fontFamily=Source Code Pro;spacingBottom=-10;labelBackgroundColor=none;fontSource=https%3A%2F%2Ffonts.googleapis.com%2Fcss%3Ffamily%3DSource%2BCode%2BPro;" parent="1" vertex="1">
           <mxGeometry x="725" y="97.5" width="100" height="85" as="geometry" />
-        </mxCell>
-        <mxCell id="orV90MqigAFxg5cfew12-103" style="rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;dashed=1;fontFamily=Source Code Pro;fontSize=12;fontColor=#000000;endArrow=open;endFill=0;strokeColor=#314354;fillColor=#647687;textOpacity=50;labelBackgroundColor=none;fontSource=https%3A%2F%2Ffonts.googleapis.com%2Fcss%3Ffamily%3DSource%2BCode%2BPro;entryX=0.1;entryY=0.5;entryDx=0;entryDy=0;entryPerimeter=0;" parent="1" source="FIGSMdclTSzzZVXMSy71-49" edge="1">
-          <mxGeometry relative="1" as="geometry">
-            <mxPoint x="1250" y="640" as="sourcePoint" />
-            <mxPoint x="1435" y="578" as="targetPoint" />
-          </mxGeometry>
-        </mxCell>
-        <mxCell id="Pc061_s3fGXJPYhwyrSY-75" value="" style="rounded=1;orthogonalLoop=1;jettySize=auto;html=1;dashed=1;fontColor=#000000;endArrow=open;endFill=0;strokeColor=#4D4D4D;fillColor=#B2C9AB;sketch=0;fontFamily=Source Code Pro;fontSize=12;fontStyle=2;exitX=0;exitY=0.5;exitDx=0;exitDy=0;textOpacity=50;labelBackgroundColor=none;fontSource=https%3A%2F%2Ffonts.googleapis.com%2Fcss%3Ffamily%3DSource%2BCode%2BPro;entryX=0.1;entryY=0.5;entryDx=0;entryDy=0;entryPerimeter=0;endSize=6;" parent="1" source="FIGSMdclTSzzZVXMSy71-49" edge="1">
-          <mxGeometry x="0.1347" y="24" relative="1" as="geometry">
-            <mxPoint x="1180" y="640" as="sourcePoint" />
-            <mxPoint x="995" y="578" as="targetPoint" />
-            <mxPoint as="offset" />
-          </mxGeometry>
         </mxCell>
         <mxCell id="orV90MqigAFxg5cfew12-1" value="Pub/Sub - Stores" style="sketch=0;fillColor=#4D4D4D;strokeColor=none;verticalAlign=bottom;labelPosition=center;verticalLabelPosition=top;align=center;spacingTop=0;fontSize=12;fontStyle=0;fontColor=#000000;shape=mxgraph.gcp2.hexIcon;prIcon=cloud_sql;fontFamily=Source Code Pro;spacingBottom=-10;labelBackgroundColor=none;fontSource=https%3A%2F%2Ffonts.googleapis.com%2Fcss%3Ffamily%3DSource%2BCode%2BPro;" parent="1" vertex="1">
           <mxGeometry x="725" y="457.5" width="100" height="85" as="geometry" />
@@ -182,12 +169,6 @@
             <mxPoint x="1420" y="200" as="sourcePoint" />
             <mxPoint x="1340" y="320" as="targetPoint" />
           </mxGeometry>
-        </mxCell>
-        <mxCell id="FIGSMdclTSzzZVXMSy71-49" value="" style="rounded=0;whiteSpace=wrap;html=1;strokeColor=#333333;fillColor=#E6E6E6;verticalAlign=top;fontFamily=Source Code Pro;fontSize=12;labelPosition=center;verticalLabelPosition=bottom;align=center;spacingLeft=4;sketch=0;dashed=1;fontColor=#000000;labelBackgroundColor=none;fontSource=https%3A%2F%2Ffonts.googleapis.com%2Fcss%3Ffamily%3DSource%2BCode%2BPro;dashPattern=8 8;" parent="1" vertex="1">
-          <mxGeometry x="1130" y="600" width="170" height="80" as="geometry" />
-        </mxCell>
-        <mxCell id="FIGSMdclTSzzZVXMSy71-50" value="Autoscaler" style="rounded=0;whiteSpace=wrap;html=1;strokeColor=#333333;fillColor=#e3c800;verticalAlign=middle;fontFamily=Source Code Pro;fontSize=12;fontColor=#000000;spacingLeft=0;spacingTop=0;spacingBottom=0;spacing=2;shadow=1;labelBackgroundColor=none;fontSource=https%3A%2F%2Ffonts.googleapis.com%2Fcss%3Ffamily%3DSource%2BCode%2BPro;fontStyle=2;textOpacity=50;" parent="1" vertex="1">
-          <mxGeometry x="1140" y="610" width="150" height="60" as="geometry" />
         </mxCell>
         <mxCell id="FIGSMdclTSzzZVXMSy71-52" value="Broker" style="rounded=0;whiteSpace=wrap;html=1;strokeColor=#333333;fillColor=#e3c800;verticalAlign=middle;fontFamily=Source Code Pro;fontSize=12;fontColor=#000000;shadow=1;labelBackgroundColor=none;fontSource=https%3A%2F%2Ffonts.googleapis.com%2Fcss%3Ffamily%3DSource%2BCode%2BPro;spacingLeft=0;spacingTop=0;spacingBottom=0;spacing=2;" parent="1" vertex="1">
           <mxGeometry x="1140" y="300" width="150" height="60" as="geometry" />
