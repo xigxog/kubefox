@@ -1,12 +1,11 @@
-name: CI
+name: build
 
 on:
+  workflow_call: {}
   push:
     branches:
       - main
       - "v*.*.x"
-    tags:
-      - "v*.*.*"
 
 jobs:
   setup:
@@ -116,19 +115,3 @@ jobs:
 
       - name: Build and push component
         run: make image COMPONENT=${{ matrix.component }} SKIP_GENERATE=true COMPRESS=true PUSH=true
-
-  release:
-    name: Release
-    runs-on: ubuntu-22.04
-    if: startsWith(github.ref, 'refs/tags/v')
-    needs: publish-component
-
-    permissions:
-      contents: write
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v3
-
-      - name: Create release
-        uses: softprops/action-gh-release@v1
