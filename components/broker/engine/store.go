@@ -239,7 +239,7 @@ func (str *Store) DeploymentMatcher(ctx context.Context, evtCtx *core.EventConte
 		return depM, nil
 	}
 
-	routes, err := str.buildRoutes(ctx, dep.Spec.App.Components, env.Data.Vars, evtCtx)
+	routes, err := str.buildRoutes(ctx, dep.Spec.Components, env.Data.Vars, evtCtx)
 	if err != nil {
 		return nil, err
 	}
@@ -307,7 +307,7 @@ func (str *Store) buildComponentCache(ctx context.Context) (cache.Cache[*api.Com
 	}
 
 	for _, app := range list.Items {
-		for compName, compSpec := range app.Spec.App.Components {
+		for compName, compSpec := range app.Spec.Components {
 			comp := &core.Component{Name: compName, Commit: compSpec.Commit}
 			compCache.Set(comp.GroupKey(), &compSpec.ComponentDefinition)
 		}
@@ -363,7 +363,7 @@ func (str *Store) buildReleaseMatcher(ctx context.Context) (*matcher.EventMatche
 			continue
 		}
 
-		routes, err := str.buildRoutes(ctx, appDep.Spec.App.Components, env.Data.Vars, evtCtx)
+		routes, err := str.buildRoutes(ctx, appDep.Spec.Components, env.Data.Vars, evtCtx)
 		if err != nil {
 			str.log.Warn(err)
 			continue

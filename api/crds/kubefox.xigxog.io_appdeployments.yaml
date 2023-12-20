@@ -27,13 +27,6 @@ spec:
           details:
             description: AppDeploymentDetails defines additional details of AppDeployment
             properties:
-              app:
-                properties:
-                  description:
-                    type: string
-                  title:
-                    type: string
-                type: object
               components:
                 additionalProperties:
                   properties:
@@ -43,6 +36,10 @@ spec:
                       type: string
                   type: object
                 type: object
+              description:
+                type: string
+              title:
+                type: string
             type: object
           kind:
             description: 'Kind is a string value representing the REST resource this
@@ -54,137 +51,132 @@ spec:
           spec:
             description: AppDeploymentSpec defines the desired state of AppDeployment
             properties:
-              app:
-                properties:
-                  branch:
-                    type: string
-                  commit:
-                    pattern: ^[a-z0-9]{40}$
-                    type: string
-                  commitTime:
-                    format: date-time
-                    type: string
-                  components:
-                    additionalProperties:
-                      properties:
-                        commit:
-                          pattern: ^[a-z0-9]{40}$
-                          type: string
-                        defaultHandler:
-                          type: boolean
-                        dependencies:
-                          additionalProperties:
-                            properties:
-                              type:
-                                enum:
-                                - db
-                                - kubefox
-                                - http
-                                type: string
-                            required:
-                            - type
-                            type: object
-                          type: object
-                        image:
-                          type: string
-                        routes:
-                          items:
-                            properties:
-                              id:
-                                type: integer
-                              priority:
-                                type: integer
-                              rule:
-                                type: string
-                              virtualEnvSchema:
-                                additionalProperties:
-                                  properties:
-                                    required:
-                                      type: boolean
-                                    type:
-                                      enum:
-                                      - array
-                                      - boolean
-                                      - number
-                                      - string
-                                      type: string
-                                    unique:
-                                      description: Unique indicates that this environment
-                                        variable must have a unique value across all
-                                        environments. If the value is not unique then
-                                        making a dynamic request or creating a release
-                                        that utilizes this variable will fail.
-                                      type: boolean
-                                  required:
-                                  - required
-                                  - unique
-                                  type: object
-                                type: object
-                            required:
-                            - id
-                            - rule
-                            type: object
-                          type: array
-                        type:
-                          enum:
-                          - db
-                          - genesis
-                          - kubefox
-                          - http
-                          type: string
-                        virtualEnvSchema:
-                          additionalProperties:
-                            properties:
-                              required:
-                                type: boolean
-                              type:
-                                enum:
-                                - array
-                                - boolean
-                                - number
-                                - string
-                                type: string
-                              unique:
-                                description: Unique indicates that this environment
-                                  variable must have a unique value across all environments.
-                                  If the value is not unique then making a dynamic
-                                  request or creating a release that utilizes this
-                                  variable will fail.
-                                type: boolean
-                            required:
-                            - required
-                            - unique
-                            type: object
-                          type: object
-                      required:
-                      - commit
-                      - type
+              appName:
+                type: string
+              branch:
+                type: string
+              commit:
+                pattern: ^[a-z0-9]{40}$
+                type: string
+              commitTime:
+                format: date-time
+                type: string
+              components:
+                additionalProperties:
+                  properties:
+                    commit:
+                      pattern: ^[a-z0-9]{40}$
+                      type: string
+                    defaultHandler:
+                      type: boolean
+                    dependencies:
+                      additionalProperties:
+                        properties:
+                          type:
+                            enum:
+                            - db
+                            - kubefox
+                            - http
+                            type: string
+                        required:
+                        - type
+                        type: object
                       type: object
-                    minProperties: 1
-                    type: object
-                  containerRegistry:
-                    type: string
-                  imagePullSecretName:
-                    type: string
-                  name:
-                    type: string
-                  repoURL:
-                    format: uri
-                    type: string
-                  tag:
-                    type: string
-                required:
-                - commit
-                - commitTime
-                - components
-                - name
+                    image:
+                      type: string
+                    routes:
+                      items:
+                        properties:
+                          id:
+                            type: integer
+                          priority:
+                            type: integer
+                          rule:
+                            type: string
+                          virtualEnvSchema:
+                            additionalProperties:
+                              properties:
+                                required:
+                                  type: boolean
+                                type:
+                                  enum:
+                                  - array
+                                  - boolean
+                                  - number
+                                  - string
+                                  type: string
+                                unique:
+                                  description: Unique indicates that this environment
+                                    variable must have a unique value across all environments.
+                                    If the value is not unique then making a dynamic
+                                    request or creating a release that utilizes this
+                                    variable will fail.
+                                  type: boolean
+                              required:
+                              - required
+                              - unique
+                              type: object
+                            type: object
+                        required:
+                        - id
+                        - rule
+                        type: object
+                      type: array
+                    type:
+                      enum:
+                      - db
+                      - genesis
+                      - kubefox
+                      - http
+                      type: string
+                    virtualEnvSchema:
+                      additionalProperties:
+                        properties:
+                          required:
+                            type: boolean
+                          type:
+                            enum:
+                            - array
+                            - boolean
+                            - number
+                            - string
+                            type: string
+                          unique:
+                            description: Unique indicates that this environment variable
+                              must have a unique value across all environments. If
+                              the value is not unique then making a dynamic request
+                              or creating a release that utilizes this variable will
+                              fail.
+                            type: boolean
+                        required:
+                        - required
+                        - unique
+                        type: object
+                      type: object
+                  required:
+                  - commit
+                  - type
+                  type: object
+                minProperties: 1
                 type: object
+              containerRegistry:
+                type: string
+              imagePullSecretName:
+                type: string
+              repoURL:
+                format: uri
+                type: string
+              tag:
+                type: string
               version:
                 description: Version of the defined App. Use of semantic versioning
                   is recommended. Once set the AppDeployment spec becomes immutable.
                 type: string
             required:
-            - app
+            - appName
+            - commit
+            - commitTime
+            - components
             type: object
           status:
             description: AppDeploymentStatus defines the observed state of AppDeployment

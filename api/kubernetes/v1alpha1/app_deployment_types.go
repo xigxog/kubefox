@@ -15,23 +15,23 @@ import (
 
 // AppDeploymentSpec defines the desired state of AppDeployment
 type AppDeploymentSpec struct {
-	App App `json:"app"`
+	// +kubebuilder:validation:Required
+	AppName string `json:"appName"`
 	// Version of the defined App. Use of semantic versioning is recommended.
 	// Once set the AppDeployment spec becomes immutable.
 	Version string `json:"version,omitempty"`
-}
-
-type App struct {
-	api.App `json:",inline"`
-
+	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:Pattern="^[a-z0-9]{40}$"
-	Commit     string      `json:"commit"`
+	Commit string `json:"commit"`
+	// +kubebuilder:validation:Required
 	CommitTime metav1.Time `json:"commitTime"`
 	Branch     string      `json:"branch,omitempty"`
 	Tag        string      `json:"tag,omitempty"`
 	// +kubebuilder:validation:Format=uri
 	RepoURL             string `json:"repoURL,omitempty"`
+	ContainerRegistry   string `json:"containerRegistry,omitempty"`
 	ImagePullSecretName string `json:"imagePullSecretName,omitempty"`
+	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:MinProperties=1
 	Components map[string]*Component `json:"components"`
 }
@@ -55,7 +55,8 @@ type AppDeploymentStatus struct {
 
 // AppDeploymentDetails defines additional details of AppDeployment
 type AppDeploymentDetails struct {
-	App        api.Details            `json:"app,omitempty"`
+	api.Details `json:",inline"`
+
 	Components map[string]api.Details `json:"components,omitempty"`
 }
 

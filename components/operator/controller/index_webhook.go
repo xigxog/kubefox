@@ -44,10 +44,10 @@ func (r *IndexWebhook) Handle(ctx context.Context, req admission.Request) admiss
 		obj = appDep
 
 		k8s.UpdateLabel(appDep, api.LabelK8sAppVersion, appDep.Spec.Version)
-		k8s.UpdateLabel(appDep, api.LabelK8sAppCommit, appDep.Spec.App.Commit)
-		k8s.UpdateLabel(appDep, api.LabelK8sAppCommitShort, utils.ShortCommit(appDep.Spec.App.Commit))
-		k8s.UpdateLabel(appDep, api.LabelK8sAppTag, appDep.Spec.App.Tag)
-		k8s.UpdateLabel(appDep, api.LabelK8sAppBranch, appDep.Spec.App.Branch)
+		k8s.UpdateLabel(appDep, api.LabelK8sAppCommit, appDep.Spec.Commit)
+		k8s.UpdateLabel(appDep, api.LabelK8sAppCommitShort, utils.ShortCommit(appDep.Spec.Commit))
+		k8s.UpdateLabel(appDep, api.LabelK8sAppTag, appDep.Spec.Tag)
+		k8s.UpdateLabel(appDep, api.LabelK8sAppBranch, appDep.Spec.Branch)
 
 	case "kubefox.xigxog.io/v1alpha1, Kind=VirtualEnv":
 		env := &v1alpha1.VirtualEnv{}

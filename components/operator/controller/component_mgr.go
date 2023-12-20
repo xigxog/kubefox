@@ -160,18 +160,18 @@ func (cm *ComponentManager) ReconcileApps(ctx context.Context, namespace string)
 			},
 		}
 
-		for compName, comp := range appDep.Spec.App.Components {
+		for compName, comp := range appDep.Spec.Components {
 			image := comp.Image
 			if image == "" {
-				image = fmt.Sprintf("%s/%s:%s", appDep.Spec.App.ContainerRegistry, compName, comp.Commit)
+				image = fmt.Sprintf("%s/%s:%s", appDep.Spec.ContainerRegistry, compName, comp.Commit)
 			}
 
 			compTd := td.ForComponent("component", &appsv1.Deployment{}, &ComponentDefaults, templates.Component{
 				Name:            compName,
 				Commit:          comp.Commit,
-				App:             appDep.Spec.App.Name,
+				App:             appDep.Spec.AppName,
 				Image:           image,
-				ImagePullPolicy: appDep.Spec.App.ImagePullSecretName,
+				ImagePullPolicy: appDep.Spec.ImagePullSecretName,
 			})
 			compTd.Values = map[string]any{api.ValKeyMaxEventSize: maxEventSize}
 
@@ -314,8 +314,8 @@ func ProgressingCondition(appDep *v1alpha1.AppDeployment, depMap map[string]*app
 func isAppDeployment(condType appsv1.DeploymentConditionType,
 	spec *v1alpha1.AppDeploymentSpec, depMap map[string]*appsv1.Deployment) (bool, string, *appsv1.DeploymentCondition) {
 
-	var cond *appsv1.DeploymentCondition
-	for name, c := range spec.App.Components {
+	cond := &appsv1.DeploymentCondition{Type: condType, Status: corev1.ConditionUnknown}
+	for name, c := range spec.Components {
 		key := CompDepKey(name, c.Commit)
 		dep, found := depMap[key]
 		if !found || dep == nil {

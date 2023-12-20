@@ -19,16 +19,6 @@ type VirtualEnvVarDefinition struct {
 	Unique bool `json:"unique"`
 }
 
-type App struct {
-	Name              string `json:"name"`
-	ContainerRegistry string `json:"containerRegistry,omitempty"`
-}
-
-type AppDetails struct {
-	App     `json:",inline"`
-	Details `json:",inline"`
-}
-
 type ComponentDefinition struct {
 	// +kubebuilder:validation:Enum=db;genesis;kubefox;http
 	Type             ComponentType                       `json:"type"`
