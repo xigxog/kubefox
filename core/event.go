@@ -113,13 +113,23 @@ func (evt *Event) SetParent(parent *Event) {
 	}
 }
 
+func (evt *Event) HasContext() bool {
+	if evt.Context == nil {
+		return false
+	}
+	return evt.Context.AppDeployment != "" && evt.Context.VirtualEnv != ""
+}
+
 func (evt *Event) SetContext(evtCtx *EventContext) {
 	if evtCtx == nil {
 		return
 	}
-	evt.Context.Deployment = evtCtx.Deployment
-	evt.Context.Environment = evtCtx.Environment
-	evt.Context.Release = evtCtx.Release
+	if evt.Context == nil {
+		evt.Context = &EventContext{}
+	}
+	evt.Context.AppDeployment = evtCtx.AppDeployment
+	evt.Context.VirtualEnv = evtCtx.VirtualEnv
+	evt.Context.VirtualEnvSnapshot = evtCtx.VirtualEnvSnapshot
 }
 
 func (evt *Event) EventType() api.EventType {
@@ -530,11 +540,11 @@ func (evt *Event) SetHTTPRequest(httpReq *http.Request, maxEventSize int64) erro
 	evt.ContentType = httpReq.Header.Get("Content-Type")
 	evt.Category = Category_REQUEST
 
-	if evt.Context.Environment == "" {
-		evt.Context.Environment = GetParamOrHeader(httpReq, api.HeaderEnv, api.HeaderAbbrvEnv, api.HeaderShortEnv)
+	if evt.Context.VirtualEnv == "" {
+		evt.Context.VirtualEnv = GetParamOrHeader(httpReq, api.HeaderEnv, api.HeaderAbbrvEnv, api.HeaderShortEnv)
 	}
-	if evt.Context.Deployment == "" {
-		evt.Context.Deployment = GetParamOrHeader(httpReq, api.HeaderDep, api.HeaderAbbrvDep, api.HeaderShortDep)
+	if evt.Context.AppDeployment == "" {
+		evt.Context.AppDeployment = GetParamOrHeader(httpReq, api.HeaderDep, api.HeaderAbbrvDep, api.HeaderShortDep)
 	}
 
 	if evt.Type == "" || evt.Type == string(api.EventTypeUnknown) {
@@ -599,14 +609,6 @@ func (evt *Event) SetHTTPResponse(httpResp *http.Response, maxEventSize int64) e
 	evt.SetValueMap(api.ValKeyHeader, httpResp.Header)
 
 	return nil
-}
-
-func (ctx *EventContext) IsRelease() bool {
-	return ctx.Release != "" || (ctx.Deployment == "" && ctx.Environment == "")
-}
-
-func (ctx *EventContext) IsDeployment() bool {
-	return ctx.Deployment != "" && ctx.Environment != ""
 }
 
 // GetParamOrHeader looks for query parameters and headers for the provided

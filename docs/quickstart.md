@@ -37,6 +37,8 @@ Here are a few optional but recommended tools:
 
 ## Install KubeFox
 
+TODO add `go install fox` and links to `fox` bins
+
 Let's kick things off by setting up a local Kubernetes cluster using kind. Use
 the following command to create the cluster.
 

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/mitchellh/hashstructure/v2"
 	"github.com/xigxog/kubefox/api/kubernetes/v1alpha1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/scheme"
@@ -124,80 +125,43 @@ func (c *Client) merge(ctx context.Context, modified, original client.Object) (c
 	return client.MergeFrom(original), nil
 }
 
-func (r *Client) GetVirtualEnvObj(ctx context.Context, namespace, envId string, requireSnapshot bool) (v1alpha1.VirtualEnvObject, error) {
-	var (
-		obj v1alpha1.VirtualEnvObject
-		err error
-	)
-
-	obj = &v1alpha1.VirtualEnvSnapshot{}
-	if err = r.Get(ctx, Key(namespace, envId), obj); IgnoreNotFound(err) != nil {
-		return nil, err
-	} else if IsNotFound(err) && requireSnapshot {
-		return nil, err
-	} else if err == nil {
-		return obj, nil
-	}
-
-	obj = &v1alpha1.VirtualEnv{}
-	if err = r.Get(ctx, Key(namespace, envId), obj); IgnoreNotFound(err) != nil {
-		return nil, err
-	} else if err == nil {
-		return obj, nil
-	}
-
-	obj = &v1alpha1.ClusterVirtualEnv{}
-	if err = r.Get(ctx, Key("", envId), obj); IgnoreNotFound(err) != nil {
-		return nil, err
-	} else if err == nil {
-		return obj, nil
-	}
-
-	return nil, err
-}
-
 func (r *Client) SnapshotVirtualEnv(ctx context.Context, namespace, envName string) (*v1alpha1.VirtualEnvSnapshot, error) {
-	envObj, err := r.GetVirtualEnvObj(ctx, namespace, envName, false)
+	env := &v1alpha1.VirtualEnv{}
+	if err := r.Get(ctx, Key(namespace, envName), env); err != nil {
+		return nil, err
+	}
+
+	if env.Spec.Parent != "" {
+		parent := &v1alpha1.ClusterVirtualEnv{}
+		if err := r.Get(ctx, Key("", env.Spec.Parent), parent); err != nil {
+			return nil, err
+		}
+		env.MergeParent(parent)
+	}
+
+	hash, err := hashstructure.Hash(&env.Data, hashstructure.FormatV2, nil)
 	if err != nil {
 		return nil, err
 	}
 
-	envSnapshot := &v1alpha1.VirtualEnvSnapshot{
+	return &v1alpha1.VirtualEnvSnapshot{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: v1alpha1.GroupVersion.Identifier(),
 			Kind:       "VirtualEnvSnapshot",
 		},
-	}
-	if envObj.GetParent() != "" {
-		// Parent must be ClusterVirtualEnv so clear namespace.
-		parent := &v1alpha1.ClusterVirtualEnv{}
-		if err := r.Get(ctx, Key("", envObj.GetParent()), parent); err != nil {
-			return nil, err
-		}
-		v1alpha1.MergeVirtualEnvironment(envSnapshot, parent)
-	}
-
-	v1alpha1.MergeVirtualEnvironment(envSnapshot, envObj)
-
-	var kind string
-	switch envObj.(type) {
-	case *v1alpha1.VirtualEnvSnapshot:
-		kind = "VirtualEnvSnapshot"
-	case *v1alpha1.VirtualEnv:
-		kind = "VirtualEnv"
-	case *v1alpha1.ClusterVirtualEnv:
-		kind = "ClusterVirtualEnv"
-	}
-
-	now := time.Now()
-	envSnapshot.Data.SnapshotTime = metav1.NewTime(now)
-	envSnapshot.Name = fmt.Sprintf("%s-%s-%s", envName, envObj.GetResourceVersion(), now.UTC().Format("20060102-150405"))
-	envSnapshot.Namespace = namespace
-	envSnapshot.Data.Source = v1alpha1.VirtualEnvSource{
-		Kind:            kind,
-		Name:            envName,
-		ResourceVersion: envObj.GetResourceVersion(),
-	}
-
-	return envSnapshot, nil
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: namespace,
+			Name: fmt.Sprintf("%s-%s-%s",
+				envName, env.GetResourceVersion(), time.Now().UTC().Format("20060102-150405")),
+		},
+		Spec: v1alpha1.VirtualEnvSnapshotSpec{
+			Source: v1alpha1.VirtualEnvSource{
+				Name:            envName,
+				ResourceVersion: env.ResourceVersion,
+				DataChecksum:    hash,
+			},
+		},
+		Data:    &env.Data,
+		Details: env.Details,
+	}, nil
 }

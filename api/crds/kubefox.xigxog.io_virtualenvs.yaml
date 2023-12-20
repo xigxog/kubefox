@@ -25,35 +25,8 @@ spec:
             type: string
           data:
             properties:
-              adapters:
+              secrets:
                 additionalProperties:
-                  properties:
-                    followRedirects:
-                      description: Defaults to never.
-                      enum:
-                      - Never
-                      - Always
-                      - SameHost
-                      type: string
-                    headers:
-                      type: object
-                      x-kubernetes-preserve-unknown-fields: true
-                    insecureSkipVerify:
-                      description: InsecureSkipVerify controls whether a client verifies
-                        the server's certificate chain and host name. If InsecureSkipVerify
-                        is true, any certificate presented by the server and any host
-                        name in that certificate is accepted. In this mode, TLS is
-                        susceptible to machine-in-the-middle attacks.
-                      type: boolean
-                    type:
-                      enum:
-                      - db
-                      - http
-                      type: string
-                    url:
-                      x-kubernetes-preserve-unknown-fields: true
-                  required:
-                  - type
                   type: object
                 type: object
               vars:
@@ -62,7 +35,9 @@ spec:
             type: object
           details:
             properties:
-              adapters:
+              description:
+                type: string
+              secrets:
                 additionalProperties:
                   properties:
                     description:
@@ -71,8 +46,6 @@ spec:
                       type: string
                   type: object
                 type: object
-              description:
-                type: string
               title:
                 type: string
               vars:
@@ -95,15 +68,61 @@ spec:
           spec:
             properties:
               parent:
-                description: Parent ClusterVirtualEnv.
+                description: Parent ClusterVirtualEnv. Note, only ClusterVirtualEnvs
+                  can be used as parents.
                 type: string
-              releasePolicy:
+              release:
+                properties:
+                  appDeployment:
+                    properties:
+                      name:
+                        minLength: 1
+                        type: string
+                      version:
+                        description: Version of the App being released. Use of semantic
+                          versioning is recommended. If set the value is compared
+                          to the AppDeployment version. If the two versions do not
+                          match the release will fail.
+                        type: string
+                    required:
+                    - name
+                    type: object
+                  virtualEnvSnapshot:
+                    description: Name of VirtualEnvSnapshot to use for Release. If
+                      set the immutable Data object of the snapshot will be used.
+                      The source VirtualEnv of the snapshot must be the same as the
+                      VirtualEnv of the Release.
+                    type: string
+                required:
+                - appDeployment
+                type: object
+              releasePolicies:
                 properties:
                   appDeploymentPolicy:
                     enum:
                     - VersionOptional
                     - VersionRequired
                     type: string
+                  historyLimits:
+                    properties:
+                      ageDays:
+                        description: Maximum age of the Release to keep in history.
+                          Once the limit is reached the oldest Release in history
+                          will be deleted. Age is based on archiveTime.
+                        type: integer
+                      count:
+                        description: Maximum number of Releases to keep in history.
+                          Once the limit is reached the oldest Release in history
+                          will be deleted. Age is based on archiveTime. Default 10.
+                        type: integer
+                    type: object
+                  pendingDeadlineSeconds:
+                    description: If the pending Request cannot be activated before
+                      the deadline it will be considered failed. If the Release becomes
+                      available for activation after the deadline has been exceeded,
+                      it will not be activated.
+                    minimum: 3
+                    type: integer
                   virtualEnvPolicy:
                     enum:
                     - SnapshotOptional
@@ -111,6 +130,347 @@ spec:
                     type: string
                 type: object
             type: object
+          status:
+            properties:
+              activeRelease:
+                properties:
+                  activationTime:
+                    description: Time at which the Release became active. If not set
+                      the Release was never active.
+                    format: date-time
+                    type: string
+                  appDeployment:
+                    properties:
+                      name:
+                        minLength: 1
+                        type: string
+                      observedGeneration:
+                        description: ObservedGeneration represents the .metadata.generation
+                          of the AppDeployment that the status was set based upon.
+                          For instance, if the AppDeployment .metadata.generation
+                          is currently 12, but the observedGeneration is 9, the status
+                          is out of date with respect to the current state of the
+                          instance.
+                        format: int64
+                        type: integer
+                      version:
+                        description: Version of the App being released. Use of semantic
+                          versioning is recommended. If set the value is compared
+                          to the AppDeployment version. If the two versions do not
+                          match the release will fail.
+                        type: string
+                    required:
+                    - name
+                    type: object
+                  archiveTime:
+                    description: Time at which the Release was archived to history.
+                    format: date-time
+                    type: string
+                  errors:
+                    items:
+                      properties:
+                        message:
+                          type: string
+                        path:
+                          description: JSON path of VirtualEnv attribute causing error.
+                          type: string
+                        source:
+                          description: Source of error.
+                          properties:
+                            kind:
+                              enum:
+                              - AppDeployment
+                              - HTTPAdapter
+                              type: string
+                            name:
+                              type: string
+                            path:
+                              description: JSON path of source object attribute causing
+                                error.
+                              type: string
+                            resourceVersion:
+                              type: string
+                            value:
+                              description: Value causing error.
+                              type: string
+                          required:
+                          - kind
+                          - name
+                          - resourceVersion
+                          type: object
+                        type:
+                          enum:
+                          - ParseError
+                          - VarConflict
+                          - VarNotFound
+                          - VarWrongType
+                          type: string
+                      required:
+                      - type
+                      type: object
+                    type: array
+                  requestTime:
+                    description: Time at which the VirtualEnv was updated to use the
+                      Release.
+                    format: date-time
+                    type: string
+                  virtualEnvSnapshot:
+                    type: string
+                type: object
+              conditions:
+                items:
+                  description: "Condition contains details for one aspect of the current
+                    state of this API Resource. --- This struct is intended for direct
+                    use as an array at the field path .status.conditions.  For example,
+                    \n type FooStatus struct{ // Represents the observations of a
+                    foo's current state. // Known .status.conditions.type are: \"Available\",
+                    \"Progressing\", and \"Degraded\" // +patchMergeKey=type // +patchStrategy=merge
+                    // +listType=map // +listMapKey=type Conditions []metav1.Condition
+                    `json:\"conditions,omitempty\" patchStrategy:\"merge\" patchMergeKey:\"type\"
+                    protobuf:\"bytes,1,rep,name=conditions\"` \n // other fields }"
+                  properties:
+                    lastTransitionTime:
+                      description: lastTransitionTime is the last time the condition
+                        transitioned from one status to another. This should be when
+                        the underlying condition changed.  If that is not known, then
+                        using the time when the API field changed is acceptable.
+                      format: date-time
+                      type: string
+                    message:
+                      description: message is a human readable message indicating
+                        details about the transition. This may be an empty string.
+                      maxLength: 32768
+                      type: string
+                    observedGeneration:
+                      description: observedGeneration represents the .metadata.generation
+                        that the condition was set based upon. For instance, if .metadata.generation
+                        is currently 12, but the .status.conditions[x].observedGeneration
+                        is 9, the condition is out of date with respect to the current
+                        state of the instance.
+                      format: int64
+                      minimum: 0
+                      type: integer
+                    reason:
+                      description: reason contains a programmatic identifier indicating
+                        the reason for the condition's last transition. Producers
+                        of specific condition types may define expected values and
+                        meanings for this field, and whether the values are considered
+                        a guaranteed API. The value should be a CamelCase string.
+                        This field may not be empty.
+                      maxLength: 1024
+                      minLength: 1
+                      pattern: ^[A-Za-z]([A-Za-z0-9_,:]*[A-Za-z0-9_])?$
+                      type: string
+                    status:
+                      description: status of the condition, one of True, False, Unknown.
+                      enum:
+                      - "True"
+                      - "False"
+                      - Unknown
+                      type: string
+                    type:
+                      description: type of condition in CamelCase or in foo.example.com/CamelCase.
+                        --- Many .condition.type values are consistent across resources
+                        like Available, but because arbitrary conditions can be useful
+                        (see .node.status.conditions), the ability to deconflict is
+                        important. The regex it matches is (dns1123SubdomainFmt/)?(qualifiedNameFmt)
+                      maxLength: 316
+                      pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$
+                      type: string
+                  required:
+                  - lastTransitionTime
+                  - message
+                  - reason
+                  - status
+                  - type
+                  type: object
+                type: array
+                x-kubernetes-list-map-keys:
+                - type
+                x-kubernetes-list-type: map
+              dataChecksum:
+                description: DataChecksum is a hash value of the Data object. If the
+                  VirtualEnv has a parent the parent's Data object is merged before
+                  the hash is create. It can be used to check for changes to the Data
+                  object.
+                format: int64
+                type: integer
+              pendingRelease:
+                properties:
+                  activationTime:
+                    description: Time at which the Release became active. If not set
+                      the Release was never active.
+                    format: date-time
+                    type: string
+                  appDeployment:
+                    properties:
+                      name:
+                        minLength: 1
+                        type: string
+                      observedGeneration:
+                        description: ObservedGeneration represents the .metadata.generation
+                          of the AppDeployment that the status was set based upon.
+                          For instance, if the AppDeployment .metadata.generation
+                          is currently 12, but the observedGeneration is 9, the status
+                          is out of date with respect to the current state of the
+                          instance.
+                        format: int64
+                        type: integer
+                      version:
+                        description: Version of the App being released. Use of semantic
+                          versioning is recommended. If set the value is compared
+                          to the AppDeployment version. If the two versions do not
+                          match the release will fail.
+                        type: string
+                    required:
+                    - name
+                    type: object
+                  archiveTime:
+                    description: Time at which the Release was archived to history.
+                    format: date-time
+                    type: string
+                  errors:
+                    items:
+                      properties:
+                        message:
+                          type: string
+                        path:
+                          description: JSON path of VirtualEnv attribute causing error.
+                          type: string
+                        source:
+                          description: Source of error.
+                          properties:
+                            kind:
+                              enum:
+                              - AppDeployment
+                              - HTTPAdapter
+                              type: string
+                            name:
+                              type: string
+                            path:
+                              description: JSON path of source object attribute causing
+                                error.
+                              type: string
+                            resourceVersion:
+                              type: string
+                            value:
+                              description: Value causing error.
+                              type: string
+                          required:
+                          - kind
+                          - name
+                          - resourceVersion
+                          type: object
+                        type:
+                          enum:
+                          - ParseError
+                          - VarConflict
+                          - VarNotFound
+                          - VarWrongType
+                          type: string
+                      required:
+                      - type
+                      type: object
+                    type: array
+                  requestTime:
+                    description: Time at which the VirtualEnv was updated to use the
+                      Release.
+                    format: date-time
+                    type: string
+                  virtualEnvSnapshot:
+                    type: string
+                type: object
+              releaseHistory:
+                items:
+                  properties:
+                    activationTime:
+                      description: Time at which the Release became active. If not
+                        set the Release was never active.
+                      format: date-time
+                      type: string
+                    appDeployment:
+                      properties:
+                        name:
+                          minLength: 1
+                          type: string
+                        observedGeneration:
+                          description: ObservedGeneration represents the .metadata.generation
+                            of the AppDeployment that the status was set based upon.
+                            For instance, if the AppDeployment .metadata.generation
+                            is currently 12, but the observedGeneration is 9, the
+                            status is out of date with respect to the current state
+                            of the instance.
+                          format: int64
+                          type: integer
+                        version:
+                          description: Version of the App being released. Use of semantic
+                            versioning is recommended. If set the value is compared
+                            to the AppDeployment version. If the two versions do not
+                            match the release will fail.
+                          type: string
+                      required:
+                      - name
+                      type: object
+                    archiveTime:
+                      description: Time at which the Release was archived to history.
+                      format: date-time
+                      type: string
+                    errors:
+                      items:
+                        properties:
+                          message:
+                            type: string
+                          path:
+                            description: JSON path of VirtualEnv attribute causing
+                              error.
+                            type: string
+                          source:
+                            description: Source of error.
+                            properties:
+                              kind:
+                                enum:
+                                - AppDeployment
+                                - HTTPAdapter
+                                type: string
+                              name:
+                                type: string
+                              path:
+                                description: JSON path of source object attribute
+                                  causing error.
+                                type: string
+                              resourceVersion:
+                                type: string
+                              value:
+                                description: Value causing error.
+                                type: string
+                            required:
+                            - kind
+                            - name
+                            - resourceVersion
+                            type: object
+                          type:
+                            enum:
+                            - ParseError
+                            - VarConflict
+                            - VarNotFound
+                            - VarWrongType
+                            type: string
+                        required:
+                        - type
+                        type: object
+                      type: array
+                    requestTime:
+                      description: Time at which the VirtualEnv was updated to use
+                        the Release.
+                      format: date-time
+                      type: string
+                    virtualEnvSnapshot:
+                      type: string
+                  type: object
+                type: array
+            type: object
         type: object
     served: true
     storage: true
+    subresources:
+      status: {}

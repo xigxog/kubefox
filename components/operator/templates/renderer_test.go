@@ -5,12 +5,30 @@ import (
 
 	"github.com/xigxog/kubefox/api"
 	common "github.com/xigxog/kubefox/api/kubernetes"
+	"github.com/xigxog/kubefox/build"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
+func TestRenderInstace(t *testing.T) {
+	d := &Data{
+		Instance: Instance{
+			Name:      "kubefox",
+			Namespace: "kubefox-system",
+		},
+		Values: map[string]any{
+			"caBundle": "abcdef",
+		},
+		BuildInfo: build.Info,
+	}
+	if s, err := renderStr("list.tpl", "instance/*", d); err != nil {
+		t.Errorf("%v", err)
+	} else {
+		t.Logf("\n%s", s)
+	}
+}
 func TestRenderPlatform(t *testing.T) {
 	d := &Data{
 		Instance: Instance{
@@ -98,7 +116,7 @@ func TestRenderNATS(t *testing.T) {
 			Level: "debug",
 		},
 		Values: map[string]any{
-			"maxEventSize": api.DefaultMaxEventSizeBytes,
+			api.ValKeyMaxEventSize: api.DefaultMaxEventSizeBytes,
 		},
 	}
 	if s, err := renderStr("list.tpl", "nats/*", d); err != nil {

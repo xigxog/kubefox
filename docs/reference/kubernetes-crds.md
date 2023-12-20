@@ -60,6 +60,24 @@ AppDeployment is the Schema for the AppDeployments API
 
 
 
+### HTTPAdapter
+
+
+
+
+
+| Field | Type | Description | Validation |
+| ----- | ---- | ----------- | ---------- |
+| `apiVersion` | string | `kubefox.xigxog.io/v1alpha1` | |
+| `kind` | string | `HTTPAdapter` | |
+| `metadata` | <div style="white-space:nowrap">[ObjectMeta](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.28/#objectmeta-v1-meta)<div> | <div style="max-width:30rem">Refer to Kubernetes API documentation for fields of `metadata`.</div> | <div style="white-space:nowrap"></div> |
+| `spec` | <div style="white-space:nowrap">[HTTPAdapterSpec](#httpadapterspec)<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
+| `details` | <div style="white-space:nowrap">[Details](#details)<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
+
+
+
+
+
 
 
 
@@ -81,23 +99,6 @@ Platform is the Schema for the Platforms API
 
 
 
-
-
-
-
-### Release
-
-
-
-
-
-| Field | Type | Description | Validation |
-| ----- | ---- | ----------- | ---------- |
-| `apiVersion` | string | `kubefox.xigxog.io/v1alpha1` | |
-| `kind` | string | `Release` | |
-| `metadata` | <div style="white-space:nowrap">[ObjectMeta](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.28/#objectmeta-v1-meta)<div> | <div style="max-width:30rem">Refer to Kubernetes API documentation for fields of `metadata`.</div> | <div style="white-space:nowrap"></div> |
-| `spec` | <div style="white-space:nowrap">[ReleaseSpec](#releasespec)<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
-| `status` | <div style="white-space:nowrap">[ReleaseStatus](#releasestatus)<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
 
 
 
@@ -126,8 +127,7 @@ Platform is the Schema for the Platforms API
 | `spec` | <div style="white-space:nowrap">[VirtualEnvSpec](#virtualenvspec)<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
 | `data` | <div style="white-space:nowrap">[VirtualEnvData](#virtualenvdata)<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
 | `details` | <div style="white-space:nowrap">[VirtualEnvDetails](#virtualenvdetails)<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
-
-
+| `status` | <div style="white-space:nowrap">[VirtualEnvStatus](#virtualenvstatus)<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
 
 
 
@@ -145,9 +145,10 @@ Platform is the Schema for the Platforms API
 | `apiVersion` | string | `kubefox.xigxog.io/v1alpha1` | |
 | `kind` | string | `VirtualEnvSnapshot` | |
 | `metadata` | <div style="white-space:nowrap">[ObjectMeta](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.28/#objectmeta-v1-meta)<div> | <div style="max-width:30rem">Refer to Kubernetes API documentation for fields of `metadata`.</div> | <div style="white-space:nowrap"></div> |
-| `spec` | <div style="white-space:nowrap">[ClusterVirtualEnvSpec](#clustervirtualenvspec)<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
-| `data` | <div style="white-space:nowrap">[VirtualEnvSnapshotData](#virtualenvsnapshotdata)<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
+| `spec` | <div style="white-space:nowrap">[VirtualEnvSnapshotSpec](#virtualenvsnapshotspec)<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
+| `data` | <div style="white-space:nowrap">[VirtualEnvData](#virtualenvdata)<div> | <div style="max-width:30rem">Data is a copy of the source VirtualEnv's data object. If provided at creation time then the source VirtualEnv's resourceVersion and current dataChecksum must also be provided. If set to nil at creation time then the current data object, resourceVersion, and dataChecksum of the source VirtualEnv will automatically be copied.</div> | <div style="white-space:nowrap"></div> |
 | `details` | <div style="white-space:nowrap">[VirtualEnvDetails](#virtualenvdetails)<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
+
 
 
 
@@ -159,24 +160,6 @@ Platform is the Schema for the Platforms API
 ## Types
 
 
-### Adapter
-
-
-
-<p style="font-size:.6rem;">
-Used by:<br>
-
-- <a href=#virtualenvdata>VirtualEnvData</a><br>
-- <a href=#virtualenvsnapshotdata>VirtualEnvSnapshotData</a><br>
-</p>
-
-| Field | Type | Description | Validation |
-| ----- | ---- | ----------- | ---------- |
-| `type` | <div style="white-space:nowrap">enum[`db`, `http`]<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
-| `url` | <div style="white-space:nowrap">[StringOrSecret](#stringorsecret)<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
-| `headers` | <div style="white-space:nowrap">map{string, StringOrSecret}<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
-| `insecureSkipVerify` | <div style="white-space:nowrap">boolean<div> | <div style="max-width:30rem">InsecureSkipVerify controls whether a client verifies the server's certificate chain and host name. If InsecureSkipVerify is true, any certificate presented by the server and any host name in that certificate is accepted. In this mode, TLS is susceptible to machine-in-the-middle attacks.</div> | <div style="white-space:nowrap"></div> |
-| `followRedirects` | <div style="white-space:nowrap">enum[`Never`, `Always`, `SameHost`]<div> | <div style="max-width:30rem">Defaults to never.</div> | <div style="white-space:nowrap"></div> |
 
 
 
@@ -287,12 +270,11 @@ Used by:<br>
 Used by:<br>
 
 - <a href=#clustervirtualenv>ClusterVirtualEnv</a><br>
-- <a href=#virtualenvsnapshot>VirtualEnvSnapshot</a><br>
 </p>
 
 | Field | Type | Description | Validation |
 | ----- | ---- | ----------- | ---------- |
-| `releasePolicy` | <div style="white-space:nowrap">[VirtualEnvReleasePolicy](#virtualenvreleasepolicy)<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
+| `releasePolicies` | <div style="white-space:nowrap">[ReleasePolicies](#releasepolicies)<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
 
 
 
@@ -416,6 +398,7 @@ Used by:<br>
 - <a href=#appdeploymentdetails>AppDeploymentDetails</a><br>
 - <a href=#appdetails>AppDetails</a><br>
 - <a href=#componentdetails>ComponentDetails</a><br>
+- <a href=#httpadapter>HTTPAdapter</a><br>
 - <a href=#platformdetails>PlatformDetails</a><br>
 - <a href=#virtualenvdetails>VirtualEnvDetails</a><br>
 </p>
@@ -427,6 +410,26 @@ Used by:<br>
 
 
 
+
+
+
+### ErrorSource
+
+
+
+<p style="font-size:.6rem;">
+Used by:<br>
+
+- <a href=#releaseerror>ReleaseError</a><br>
+</p>
+
+| Field | Type | Description | Validation |
+| ----- | ---- | ----------- | ---------- |
+| `kind` | <div style="white-space:nowrap">enum[`AppDeployment`, `HTTPAdapter`]<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap">required</div> |
+| `name` | <div style="white-space:nowrap">string<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap">required</div> |
+| `resourceVersion` | <div style="white-space:nowrap">string<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap">required</div> |
+| `path` | <div style="white-space:nowrap">string<div> | <div style="max-width:30rem">JSON path of source object attribute causing error.</div> | <div style="white-space:nowrap"></div> |
+| `value` | <div style="white-space:nowrap">string<div> | <div style="max-width:30rem">Value causing error.</div> | <div style="white-space:nowrap"></div> |
 
 
 
@@ -450,6 +453,26 @@ Used by:<br>
 
 
 
+
+
+
+
+### HTTPAdapterSpec
+
+
+
+<p style="font-size:.6rem;">
+Used by:<br>
+
+- <a href=#httpadapter>HTTPAdapter</a><br>
+</p>
+
+| Field | Type | Description | Validation |
+| ----- | ---- | ----------- | ---------- |
+| `url` | <div style="white-space:nowrap">string<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap">required, format: uri</div> |
+| `headers` | <div style="white-space:nowrap">map{string, string}<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
+| `insecureSkipVerify` | <div style="white-space:nowrap">boolean<div> | <div style="max-width:30rem">InsecureSkipVerify controls whether a client verifies the server's certificate chain and host name. If InsecureSkipVerify is true, any certificate presented by the server and any host name in that certificate is accepted. In this mode, TLS is susceptible to machine-in-the-middle attacks.</div> | <div style="white-space:nowrap"></div> |
+| `followRedirects` | <div style="white-space:nowrap">enum[`Never`, `Always`, `SameHost`]<div> | <div style="max-width:30rem">Defaults to never.</div> | <div style="white-space:nowrap"></div> |
 
 
 
@@ -619,6 +642,22 @@ Used by:<br>
 
 
 
+### Release
+
+
+
+<p style="font-size:.6rem;">
+Used by:<br>
+
+- <a href=#virtualenvspec>VirtualEnvSpec</a><br>
+</p>
+
+| Field | Type | Description | Validation |
+| ----- | ---- | ----------- | ---------- |
+| `appDeployment` | <div style="white-space:nowrap">[ReleaseAppDeployment](#releaseappdeployment)<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap">required</div> |
+| `virtualEnvSnapshot` | <div style="white-space:nowrap">string<div> | <div style="max-width:30rem">Name of VirtualEnvSnapshot to use for Release. If set the immutable Data object of the snapshot will be used. The source VirtualEnv of the snapshot must be the same as the VirtualEnv of the Release.</div> | <div style="white-space:nowrap"></div> |
+
+
 
 ### ReleaseAppDeployment
 
@@ -627,8 +666,8 @@ Used by:<br>
 <p style="font-size:.6rem;">
 Used by:<br>
 
-- <a href=#releasespec>ReleaseSpec</a><br>
-- <a href=#releasestatusentry>ReleaseStatusEntry</a><br>
+- <a href=#release>Release</a><br>
+- <a href=#releaseappdeploymentstatus>ReleaseAppDeploymentStatus</a><br>
 </p>
 
 | Field | Type | Description | Validation |
@@ -638,61 +677,7 @@ Used by:<br>
 
 
 
-### ReleaseHistoryLimit
-
-
-
-<p style="font-size:.6rem;">
-Used by:<br>
-
-- <a href=#releasespec>ReleaseSpec</a><br>
-</p>
-
-| Field | Type | Description | Validation |
-| ----- | ---- | ----------- | ---------- |
-| `count` | <div style="white-space:nowrap">integer<div> | <div style="max-width:30rem">Total number of archived Releases to keep. Once the limit is reach the oldest Release will be removed from history. Default 100.</div> | <div style="white-space:nowrap"></div> |
-| `ageDays` | <div style="white-space:nowrap">integer<div> | <div style="max-width:30rem">Age of the oldest archived Release to keep. Age is based on archiveTime.</div> | <div style="white-space:nowrap"></div> |
-
-
-
-### ReleaseSpec
-
-
-
-<p style="font-size:.6rem;">
-Used by:<br>
-
-- <a href=#release>Release</a><br>
-</p>
-
-| Field | Type | Description | Validation |
-| ----- | ---- | ----------- | ---------- |
-| `appDeployment` | <div style="white-space:nowrap">[ReleaseAppDeployment](#releaseappdeployment)<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap">required</div> |
-| `virtualEnvSnapshot` | <div style="white-space:nowrap">string<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
-| `historyLimit` | <div style="white-space:nowrap">[ReleaseHistoryLimit](#releasehistorylimit)<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
-
-
-
-### ReleaseStatus
-
-
-
-<p style="font-size:.6rem;">
-Used by:<br>
-
-- <a href=#release>Release</a><br>
-</p>
-
-| Field | Type | Description | Validation |
-| ----- | ---- | ----------- | ---------- |
-| `current` | <div style="white-space:nowrap">[ReleaseStatusEntry](#releasestatusentry)<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
-| `requested` | <div style="white-space:nowrap">[ReleaseStatusEntry](#releasestatusentry)<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
-| `history` | <div style="white-space:nowrap">[ReleaseStatusEntry](#releasestatusentry) array<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
-| `conditions` | <div style="white-space:nowrap">[Condition](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.28/#condition-v1-meta) array<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
-
-
-
-### ReleaseStatusEntry
+### ReleaseAppDeploymentStatus
 
 
 
@@ -704,11 +689,86 @@ Used by:<br>
 
 | Field | Type | Description | Validation |
 | ----- | ---- | ----------- | ---------- |
-| `appDeployment` | <div style="white-space:nowrap">[ReleaseAppDeployment](#releaseappdeployment)<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
+| `name` | <div style="white-space:nowrap">string<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap">required, minLength: 1</div> |
+| `version` | <div style="white-space:nowrap">string<div> | <div style="max-width:30rem">Version of the App being released. Use of semantic versioning is recommended. If set the value is compared to the AppDeployment version. If the two versions do not match the release will fail.</div> | <div style="white-space:nowrap"></div> |
+| `observedGeneration` | <div style="white-space:nowrap">integer<div> | <div style="max-width:30rem">ObservedGeneration represents the .metadata.generation of the AppDeployment that the status was set based upon. For instance, if the AppDeployment .metadata.generation is currently 12, but the observedGeneration is 9, the status is out of date with respect to the current state of the instance.</div> | <div style="white-space:nowrap"></div> |
+
+
+
+### ReleaseError
+
+
+
+<p style="font-size:.6rem;">
+Used by:<br>
+
+- <a href=#releasestatus>ReleaseStatus</a><br>
+</p>
+
+| Field | Type | Description | Validation |
+| ----- | ---- | ----------- | ---------- |
+| `type` | <div style="white-space:nowrap">enum[`ParseError`, `VarConflict`, `VarNotFound`, `VarWrongType`]<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap">required</div> |
+| `path` | <div style="white-space:nowrap">string<div> | <div style="max-width:30rem">JSON path of VirtualEnv attribute causing error.</div> | <div style="white-space:nowrap"></div> |
+| `message` | <div style="white-space:nowrap">string<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
+| `source` | <div style="white-space:nowrap">[ErrorSource](#errorsource)<div> | <div style="max-width:30rem">Source of error.</div> | <div style="white-space:nowrap"></div> |
+
+
+
+### ReleaseHistoryLimits
+
+
+
+<p style="font-size:.6rem;">
+Used by:<br>
+
+- <a href=#releasepolicies>ReleasePolicies</a><br>
+</p>
+
+| Field | Type | Description | Validation |
+| ----- | ---- | ----------- | ---------- |
+| `count` | <div style="white-space:nowrap">integer<div> | <div style="max-width:30rem">Maximum number of Releases to keep in history. Once the limit is reached the oldest Release in history will be deleted. Age is based on archiveTime. Default 10.</div> | <div style="white-space:nowrap"></div> |
+| `ageDays` | <div style="white-space:nowrap">integer<div> | <div style="max-width:30rem">Maximum age of the Release to keep in history. Once the limit is reached the oldest Release in history will be deleted. Age is based on archiveTime.</div> | <div style="white-space:nowrap"></div> |
+
+
+
+### ReleasePolicies
+
+
+
+<p style="font-size:.6rem;">
+Used by:<br>
+
+- <a href=#clustervirtualenvspec>ClusterVirtualEnvSpec</a><br>
+- <a href=#virtualenvspec>VirtualEnvSpec</a><br>
+</p>
+
+| Field | Type | Description | Validation |
+| ----- | ---- | ----------- | ---------- |
+| `pendingDeadlineSeconds` | <div style="white-space:nowrap">integer<div> | <div style="max-width:30rem">If the pending Request cannot be activated before the deadline it will be considered failed. If the Release becomes available for activation after the deadline has been exceeded, it will not be activated.</div> | <div style="white-space:nowrap">min: 3</div> |
+| `appDeploymentPolicy` | <div style="white-space:nowrap">enum[`VersionOptional`, `VersionRequired`]<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
+| `virtualEnvPolicy` | <div style="white-space:nowrap">enum[`SnapshotOptional`, `SnapshotRequired`]<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
+| `historyLimits` | <div style="white-space:nowrap">[ReleaseHistoryLimits](#releasehistorylimits)<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
+
+
+
+### ReleaseStatus
+
+
+
+<p style="font-size:.6rem;">
+Used by:<br>
+
+- <a href=#virtualenvstatus>VirtualEnvStatus</a><br>
+</p>
+
+| Field | Type | Description | Validation |
+| ----- | ---- | ----------- | ---------- |
+| `appDeployment` | <div style="white-space:nowrap">[ReleaseAppDeploymentStatus](#releaseappdeploymentstatus)<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
 | `virtualEnvSnapshot` | <div style="white-space:nowrap">string<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
-| `requestTime` | <div style="white-space:nowrap">[Time](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.28/#time-v1-meta)<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
-| `availableTime` | <div style="white-space:nowrap">[Time](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.28/#time-v1-meta)<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
-| `archiveTime` | <div style="white-space:nowrap">[Time](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.28/#time-v1-meta)<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
+| `requestTime` | <div style="white-space:nowrap">[Time](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.28/#time-v1-meta)<div> | <div style="max-width:30rem">Time at which the VirtualEnv was updated to use the Release.</div> | <div style="white-space:nowrap"></div> |
+| `activationTime` | <div style="white-space:nowrap">[Time](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.28/#time-v1-meta)<div> | <div style="max-width:30rem">Time at which the Release became active. If not set the Release was never active.</div> | <div style="white-space:nowrap"></div> |
+| `archiveTime` | <div style="white-space:nowrap">[Time](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.28/#time-v1-meta)<div> | <div style="max-width:30rem">Time at which the Release was archived to history.</div> | <div style="white-space:nowrap"></div> |
+| `errors` | <div style="white-space:nowrap">[ReleaseError](#releaseerror) array<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
 
 
 
@@ -733,25 +793,6 @@ Used by:<br>
 
 
 
-
-
-
-
-
-
-### StringOrSecret
-
-
-
-<p style="font-size:.6rem;">
-Used by:<br>
-
-- <a href=#adapter>Adapter</a><br>
-</p>
-
-
-
-
 ### Val
 
 
@@ -760,7 +801,6 @@ Used by:<br>
 Used by:<br>
 
 - <a href=#virtualenvdata>VirtualEnvData</a><br>
-- <a href=#virtualenvsnapshotdata>VirtualEnvSnapshotData</a><br>
 </p>
 
 
@@ -779,13 +819,13 @@ Used by:<br>
 
 - <a href=#clustervirtualenv>ClusterVirtualEnv</a><br>
 - <a href=#virtualenv>VirtualEnv</a><br>
-- <a href=#virtualenvsnapshotdata>VirtualEnvSnapshotData</a><br>
+- <a href=#virtualenvsnapshot>VirtualEnvSnapshot</a><br>
 </p>
 
 | Field | Type | Description | Validation |
 | ----- | ---- | ----------- | ---------- |
 | `vars` | <div style="white-space:nowrap">map{string, Val}<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
-| `adapters` | <div style="white-space:nowrap">map{string, [Adapter](#adapter)}<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
+| `secrets` | <div style="white-space:nowrap">map{string, Val}<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
 
 
 
@@ -806,7 +846,7 @@ Used by:<br>
 | `title` | <div style="white-space:nowrap">string<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
 | `description` | <div style="white-space:nowrap">string<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
 | `vars` | <div style="white-space:nowrap">map{string, [Details](#details)}<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
-| `adapters` | <div style="white-space:nowrap">map{string, [Details](#details)}<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
+| `secrets` | <div style="white-space:nowrap">map{string, [Details](#details)}<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
 
 
 
@@ -814,28 +854,7 @@ Used by:<br>
 
 
 
-
-
-### VirtualEnvReleasePolicy
-
-
-
-<p style="font-size:.6rem;">
-Used by:<br>
-
-- <a href=#clustervirtualenvspec>ClusterVirtualEnvSpec</a><br>
-- <a href=#virtualenvspec>VirtualEnvSpec</a><br>
-</p>
-
-| Field | Type | Description | Validation |
-| ----- | ---- | ----------- | ---------- |
-| `appDeploymentPolicy` | <div style="white-space:nowrap">enum[`VersionOptional`, `VersionRequired`]<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
-| `virtualEnvPolicy` | <div style="white-space:nowrap">enum[`SnapshotOptional`, `SnapshotRequired`]<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
-
-
-
-
-### VirtualEnvSnapshotData
+### VirtualEnvSnapshotSpec
 
 
 
@@ -847,10 +866,7 @@ Used by:<br>
 
 | Field | Type | Description | Validation |
 | ----- | ---- | ----------- | ---------- |
-| `vars` | <div style="white-space:nowrap">map{string, Val}<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
-| `adapters` | <div style="white-space:nowrap">map{string, [Adapter](#adapter)}<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
-| `source` | <div style="white-space:nowrap">[VirtualEnvSource](#virtualenvsource)<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
-| `snapshotTime` | <div style="white-space:nowrap">[Time](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.28/#time-v1-meta)<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
+| `source` | <div style="white-space:nowrap">[VirtualEnvSource](#virtualenvsource)<div> | <div style="max-width:30rem">VirtualEnv that this snapshot is of. Note, ClusterVirtualEnvs cannot be snapshotted.</div> | <div style="white-space:nowrap">required</div> |
 
 
 
@@ -861,14 +877,14 @@ Used by:<br>
 <p style="font-size:.6rem;">
 Used by:<br>
 
-- <a href=#virtualenvsnapshotdata>VirtualEnvSnapshotData</a><br>
+- <a href=#virtualenvsnapshotspec>VirtualEnvSnapshotSpec</a><br>
 </p>
 
 | Field | Type | Description | Validation |
 | ----- | ---- | ----------- | ---------- |
-| `kind` | <div style="white-space:nowrap">enum[`ClusterVirtualEnv`, `VirtualEnv`]<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
-| `name` | <div style="white-space:nowrap">string<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap">minLength: 1</div> |
-| `resourceVersion` | <div style="white-space:nowrap">string<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap">minLength: 1</div> |
+| `name` | <div style="white-space:nowrap">string<div> | <div style="max-width:30rem">Name of the VirtualEnv this snapshot is of. Note, ClusterVirtualEnvs cannot be snapshotted.</div> | <div style="white-space:nowrap">required, minLength: 1</div> |
+| `resourceVersion` | <div style="white-space:nowrap">string<div> | <div style="max-width:30rem">ResourceVersion of the VirtualEnv this snapshot is of. If data is provided at creation of the VirtualEnvSnapshot then resourceVersion must match the current resourceVersion of the VirtualEnv. If data is not provided at creation time resourceVersion will be populated automatically.</div> | <div style="white-space:nowrap"></div> |
+| `dataChecksum` | <div style="white-space:nowrap">integer<div> | <div style="max-width:30rem">DataChecksum is the hash of the VirtualEnv's data this snapshot is of. If data is provided at creation of the VirtualEnvSnapshot then dataChecksum must match the current dataChecksum of the VirtualEnv. If data is not provided at creation time dataChecksum will be populated automatically.</div> | <div style="white-space:nowrap"></div> |
 
 
 
@@ -884,8 +900,29 @@ Used by:<br>
 
 | Field | Type | Description | Validation |
 | ----- | ---- | ----------- | ---------- |
-| `parent` | <div style="white-space:nowrap">string<div> | <div style="max-width:30rem">Parent ClusterVirtualEnv.</div> | <div style="white-space:nowrap"></div> |
-| `releasePolicy` | <div style="white-space:nowrap">[VirtualEnvReleasePolicy](#virtualenvreleasepolicy)<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
+| `parent` | <div style="white-space:nowrap">string<div> | <div style="max-width:30rem">Parent ClusterVirtualEnv. Note, only ClusterVirtualEnvs can be used as parents.</div> | <div style="white-space:nowrap"></div> |
+| `release` | <div style="white-space:nowrap">[Release](#release)<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
+| `releasePolicies` | <div style="white-space:nowrap">[ReleasePolicies](#releasepolicies)<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
+
+
+
+### VirtualEnvStatus
+
+
+
+<p style="font-size:.6rem;">
+Used by:<br>
+
+- <a href=#virtualenv>VirtualEnv</a><br>
+</p>
+
+| Field | Type | Description | Validation |
+| ----- | ---- | ----------- | ---------- |
+| `dataChecksum` | <div style="white-space:nowrap">integer<div> | <div style="max-width:30rem">DataChecksum is a hash value of the Data object. If the VirtualEnv has a parent the parent's Data object is merged before the hash is create. It can be used to check for changes to the Data object.</div> | <div style="white-space:nowrap"></div> |
+| `activeRelease` | <div style="white-space:nowrap">[ReleaseStatus](#releasestatus)<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
+| `pendingRelease` | <div style="white-space:nowrap">[ReleaseStatus](#releasestatus)<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
+| `releaseHistory` | <div style="white-space:nowrap">[ReleaseStatus](#releasestatus) array<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
+| `conditions` | <div style="white-space:nowrap">[Condition](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.28/#condition-v1-meta) array<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
 
 
 

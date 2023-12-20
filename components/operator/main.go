@@ -142,26 +142,34 @@ func main() {
 	}).SetupWithManager(mgr); err != nil {
 		log.Fatalf("unable to create AppDeployment controller: %v", err)
 	}
-	if err = (&controller.ReleaseReconciler{
+	if err = (&controller.VirtualEnvReconciler{
 		Client: ctrlClient,
 	}).SetupWithManager(mgr); err != nil {
-		log.Fatalf("unable to create Release controller: %v", err)
+		log.Fatalf("unable to create VirtualEnv controller: %v", err)
 	}
 	// TODO  ComponentSpec controller
 
-	mgr.GetWebhookServer().Register("/v1alpha1/platform/validate", &webhook.Admission{
-		Handler: &controller.PlatformWebhook{
-			Client:  ctrlClient,
+	// Validating WebHooks.
+	mgr.GetWebhookServer().Register("/immutable/validate", &webhook.Admission{
+		Handler: &controller.ImmutableWebhook{
 			Decoder: admission.NewDecoder(scheme),
 		},
 	})
+	// Mutating WebHooks.
 	mgr.GetWebhookServer().Register("/index/mutate", &webhook.Admission{
 		Handler: &controller.IndexWebhook{
 			Decoder: admission.NewDecoder(scheme),
 		},
 	})
-	mgr.GetWebhookServer().Register("/immutable/validate", &webhook.Admission{
-		Handler: &controller.ImmutableWebhook{
+	mgr.GetWebhookServer().Register("/v1alpha1/platforms/mutate", &webhook.Admission{
+		Handler: &controller.PlatformWebhook{
+			Client:  ctrlClient,
+			Decoder: admission.NewDecoder(scheme),
+		},
+	})
+	mgr.GetWebhookServer().Register("/v1alpha1/virtualenvsnapshots/mutate", &webhook.Admission{
+		Handler: &controller.SnapshotWebhook{
+			Client:  ctrlClient,
 			Decoder: admission.NewDecoder(scheme),
 		},
 	})

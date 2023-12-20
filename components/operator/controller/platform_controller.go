@@ -99,11 +99,12 @@ func (r *PlatformReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 
 	err := r.reconcile(ctx, platform, log)
 	if err != nil {
-		platform.Status.Conditions, _ = k8s.UpdateCondition(metav1.Now(), platform.Status.Conditions, &metav1.Condition{
+		platform.Status.Conditions = k8s.UpdateConditions(metav1.Now(), platform.Status.Conditions, &metav1.Condition{
 			Type:               api.ConditionTypeAvailable,
 			Status:             metav1.ConditionUnknown,
 			ObservedGeneration: platform.ObjectMeta.Generation,
-			Reason:             api.ConditionReasonReconcileError,
+			Reason:             api.ConditionReasonReconcileFailed,
+			Message:            err.Error(),
 		})
 	}
 
@@ -158,8 +159,8 @@ func (r *PlatformReconciler) reconcile(ctx context.Context, platform *v1alpha1.P
 			BuildInfo: build.Info,
 			Logger:    platform.Spec.Logger,
 			Values: map[string]any{
-				"maxEventSize": maxEventSize,
-				"vaultURL":     r.VaultURL,
+				api.ValKeyMaxEventSize: maxEventSize,
+				api.ValKeyVaultURL:     r.VaultURL,
 			},
 		},
 	}
@@ -185,15 +186,6 @@ func (r *PlatformReconciler) reconcile(ctx context.Context, platform *v1alpha1.P
 		r.setSetup(pKey, true)
 	}
 
-	// TODO move defaults to annotations?
-	// https://book.kubebuilder.io/reference/markers/crd-validation.html
-	// +kubebuilder:default
-	// or move to webhook
-	if r.setDefaults(platform) {
-		log.Debug("Platform defaults set, updating")
-		return r.Apply(ctx, platform)
-	}
-
 	td := baseTD.ForComponent(api.PlatformComponentNATS, &appsv1.StatefulSet{}, &NATSDefaults, templates.Component{
 		Name:                api.PlatformComponentNATS,
 		Image:               NATSImage,
@@ -205,11 +197,12 @@ func (r *PlatformReconciler) reconcile(ctx context.Context, platform *v1alpha1.P
 		return err
 	}
 	if rdy, err := r.CompMgr.SetupComponent(ctx, td); !rdy || err != nil {
-		platform.Status.Conditions, _ = k8s.UpdateCondition(metav1.Now(), platform.Status.Conditions, &metav1.Condition{
+		platform.Status.Conditions = k8s.UpdateConditions(metav1.Now(), platform.Status.Conditions, &metav1.Condition{
 			Type:               api.ConditionTypeAvailable,
 			Status:             metav1.ConditionFalse,
 			ObservedGeneration: platform.ObjectMeta.Generation,
 			Reason:             api.ConditionReasonNATSUnavailable,
+			Message:            fmt.Sprintf(`NATS StatefulSet "%s" is unavailable.`, td.Obj.GetName()),
 		})
 		return chill(err)
 	}
@@ -226,11 +219,12 @@ func (r *PlatformReconciler) reconcile(ctx context.Context, platform *v1alpha1.P
 		return err
 	}
 	if rdy, err := r.CompMgr.SetupComponent(ctx, td); !rdy || err != nil {
-		platform.Status.Conditions, _ = k8s.UpdateCondition(metav1.Now(), platform.Status.Conditions, &metav1.Condition{
+		platform.Status.Conditions = k8s.UpdateConditions(metav1.Now(), platform.Status.Conditions, &metav1.Condition{
 			Type:               api.ConditionTypeAvailable,
 			Status:             metav1.ConditionFalse,
 			ObservedGeneration: platform.ObjectMeta.Generation,
 			Reason:             api.ConditionReasonBrokerUnavailable,
+			Message:            fmt.Sprintf(`Broker DaemonSet "%s" is unavailable.`, td.Obj.GetName()),
 		})
 		return chill(err)
 	}
@@ -252,20 +246,22 @@ func (r *PlatformReconciler) reconcile(ctx context.Context, platform *v1alpha1.P
 		return err
 	}
 	if rdy, err := r.CompMgr.SetupComponent(ctx, td); !rdy || err != nil {
-		platform.Status.Conditions, _ = k8s.UpdateCondition(metav1.Now(), platform.Status.Conditions, &metav1.Condition{
+		platform.Status.Conditions = k8s.UpdateConditions(metav1.Now(), platform.Status.Conditions, &metav1.Condition{
 			Type:               api.ConditionTypeAvailable,
 			Status:             metav1.ConditionFalse,
 			ObservedGeneration: platform.ObjectMeta.Generation,
 			Reason:             api.ConditionReasonHTTPSrvUnavailable,
+			Message:            fmt.Sprintf(`HTTPSrv Deployment "%s" is unavailable.`, td.Obj.GetName()),
 		})
 		return chill(err)
 	}
 
-	platform.Status.Conditions, _ = k8s.UpdateCondition(metav1.Now(), platform.Status.Conditions, &metav1.Condition{
+	platform.Status.Conditions = k8s.UpdateConditions(metav1.Now(), platform.Status.Conditions, &metav1.Condition{
 		Type:               api.ConditionTypeAvailable,
 		Status:             metav1.ConditionTrue,
 		ObservedGeneration: platform.ObjectMeta.Generation,
-		Reason:             api.ConditionReasonComponentsAvailable,
+		Reason:             api.ConditionReasonPlatformComponentsAvailable,
+		Message:            "Platform Components are available.",
 	})
 
 	return nil
@@ -458,41 +454,6 @@ func (r *PlatformReconciler) vaultClient(ctx context.Context, url string, caCert
 	go watcher.Start()
 
 	return vault, nil
-}
-
-func (r *PlatformReconciler) setDefaults(platform *v1alpha1.Platform) bool {
-	spec := &platform.Spec
-	origSpec := spec.DeepCopy()
-
-	if spec.Logger.Format == "" {
-		spec.Logger.Format = api.DefaultLogFormat
-	}
-	if spec.Logger.Level == "" {
-		spec.Logger.Level = api.DefaultLogLevel
-	}
-	if spec.Events.TimeoutSeconds == 0 {
-		spec.Events.TimeoutSeconds = api.DefaultTimeoutSeconds
-	}
-	if spec.Events.MaxSize.IsZero() {
-		spec.Events.MaxSize.Set(api.DefaultMaxEventSizeBytes)
-	}
-
-	svc := &spec.HTTPSrv.Service
-	if svc.Type == "" {
-		svc.Type = "ClusterIP"
-	}
-	if svc.Ports.HTTP == 0 {
-		svc.Ports.HTTP = 80
-	}
-	if svc.Ports.HTTPS == 0 {
-		svc.Ports.HTTPS = 443
-	}
-
-	SetDefaults(&spec.NATS.ContainerSpec, &NATSDefaults)
-	SetDefaults(&spec.Broker.ContainerSpec, &BrokerDefaults)
-	SetDefaults(&spec.HTTPSrv.ContainerSpec, &HTTPSrvDefaults)
-
-	return !k8s.DeepEqual(spec, origSpec)
 }
 
 func (r *PlatformReconciler) setSetup(key string, val bool) {

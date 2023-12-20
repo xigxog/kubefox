@@ -24,11 +24,11 @@ type SendEvent func(*BrokerEvent) error
 type BrokerEvent struct {
 	*core.Event
 
-	EnvVars map[string]*api.Val
+	Data    *v1alpha1.VirtualEnvData
 	RouteId int64
 
-	TargetAdapter *v1alpha1.Adapter
-	Adapters      map[string]*v1alpha1.Adapter
+	TargetAdapter api.Adapter
+	Adapters      map[string]api.Adapter
 
 	Receiver   Receiver
 	ReceivedAt time.Time
@@ -58,9 +58,9 @@ func (evt *BrokerEvent) Done() chan *core.Err {
 
 func (evt *BrokerEvent) MatchedEvent() *core.MatchedEvent {
 	var env map[string]*structpb.Value
-	if evt.EnvVars != nil {
-		env = make(map[string]*structpb.Value, len(evt.EnvVars))
-		for k, v := range evt.EnvVars {
+	if evt.Data != nil && evt.Data.Vars != nil {
+		env = make(map[string]*structpb.Value, len(evt.Data.Vars))
+		for k, v := range evt.Data.Vars {
 			env[k] = v.Proto()
 		}
 	}

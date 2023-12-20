@@ -87,3 +87,10 @@ func IsFailedWebhookErr(err error) bool {
 	}
 	return strings.Contains(err.Error(), "failed calling webhook")
 }
+
+func IgnoreFailedWebhookErr(err error) error {
+	if IsFailedWebhookErr(err) {
+		return nil
+	}
+	return err
+}

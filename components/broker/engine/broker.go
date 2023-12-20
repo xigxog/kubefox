@@ -14,7 +14,6 @@ import (
 	"github.com/go-logr/zapr"
 	"github.com/lestrrat-go/jwx/jwt"
 	"github.com/xigxog/kubefox/api"
-	"github.com/xigxog/kubefox/api/kubernetes/v1alpha1"
 	"github.com/xigxog/kubefox/build"
 	"github.com/xigxog/kubefox/components/broker/config"
 	"github.com/xigxog/kubefox/components/broker/telemetry"
@@ -339,7 +338,7 @@ func (brk *broker) routeEvent(log *logkf.Logger, evt *BrokerEvent) error {
 	switch {
 	case evt.TargetAdapter != nil:
 		// Target is a local adapter.
-		log.Debugf("sending event with adapter of type '%s'", evt.TargetAdapter.Type)
+		log.Debugf("sending event with adapter of type '%s'", evt.TargetAdapter.GetComponentType())
 		return brk.httpClient.SendEvent(evt)
 
 	case sub != nil:
@@ -385,7 +384,10 @@ func (brk *broker) checkEvent(evt *BrokerEvent) error {
 		}
 
 		// If a valid context is not present reject.
-		if evt.Context == nil || (!evt.Context.IsDeployment() && !evt.Context.IsRelease()) {
+		if evt.Context == nil ||
+			(evt.Context.AppDeployment != "" && evt.Context.VirtualEnv == "") ||
+			(evt.Context.AppDeployment == "" && evt.Context.VirtualEnv != "") {
+
 			return core.ErrInvalid(fmt.Errorf("event context is invalid"))
 		}
 	}
@@ -402,15 +404,10 @@ func (brk *broker) findTarget(ctx context.Context, evt *BrokerEvent) error {
 		matcher *matcher.EventMatcher
 		err     error
 	)
-	switch {
-	case evt.Context.IsRelease():
-		matcher, err = brk.store.ReleaseMatcher(ctx)
-
-	case evt.Context.IsDeployment():
+	if evt.HasContext() {
 		matcher, err = brk.store.DeploymentMatcher(ctx, evt.Context)
-
-	default:
-		return core.ErrInvalid(fmt.Errorf("event missing deployment or environment context"))
+	} else {
+		matcher, err = brk.store.ReleaseMatcher(ctx)
 	}
 	if err != nil {
 		if k8s.IsNotFound(err) {
@@ -447,22 +444,16 @@ func (brk *broker) attachEnv(ctx context.Context, evt *BrokerEvent) error {
 	// - check for unique vars; expensive, don't do for releases, cache
 	// - check for var type
 
-	switch {
-	case evt.Context.IsRelease():
-		if env, err := brk.store.ReleaseEnv(evt.Context.Release); err != nil {
-			return core.ErrNotFound(err)
-		} else {
-			evt.EnvVars = env.GetData().Vars
-			evt.Adapters = env.GetData().Adapters
-		}
+	if env, err := brk.store.VirtualEnv(ctx, evt.Context); err != nil {
+		return core.ErrNotFound(err)
+	} else {
+		evt.Data = env.Data
+	}
 
-	case evt.Context.IsDeployment():
-		if env, err := brk.store.Environment(evt.Context.Environment); err != nil {
-			return core.ErrNotFound(err)
-		} else {
-			evt.EnvVars = env.GetData().Vars
-			evt.Adapters = env.GetData().Adapters
-		}
+	if adapters, err := brk.store.Adapters(ctx); err != nil {
+		return core.ErrUnexpected(err)
+	} else {
+		evt.Adapters = adapters
 	}
 
 	return nil
@@ -473,50 +464,37 @@ func (brk *broker) checkComponents(ctx context.Context, evt *BrokerEvent) error 
 		return core.ErrComponentMismatch()
 	}
 
-	var (
-		appDep *v1alpha1.AppDeployment
-		err    error
-	)
-	switch {
-	case evt.Context.IsRelease():
-		appDep, err = brk.store.ReleaseAppDeployment(evt.Context.Release)
-	case evt.Context.IsDeployment():
-		appDep, err = brk.store.AppDeployment(evt.Context.Deployment)
-	default:
-		if k8s.IsNotFound(err) {
-			return core.ErrNotFound(err)
-		}
-		return core.ErrUnexpected()
-	}
+	appDep, err := brk.store.AppDeployment(ctx, evt.Context)
 	if err != nil {
 		return core.ErrNotFound(err)
 	}
 
 	// Check if target is part of deployment spec.
-	var adapter *v1alpha1.Adapter
+	var adapter api.Adapter
 	if evt.Adapters != nil {
 		adapter = evt.Adapters[evt.Target.Name]
 	}
+
 	depComp := appDep.Spec.App.Components[evt.Target.Name]
 	switch {
 	case depComp == nil && adapter == nil:
-		if !brk.store.IsGenesisAdapter(ctx, evt.Target) {
+		if !brk.store.IsGenesisAdapter(evt.Target) {
 			return core.ErrComponentMismatch(fmt.Errorf("target component not part of deployment"))
 		}
 
 	case depComp == nil && adapter != nil:
-		if adapter.Type != api.ComponentTypeHTTP {
-			return core.ErrUnsupportedAdapter(fmt.Errorf("adapter type '%s' is not supported", adapter.Type))
+		if adapter.GetComponentType() != api.ComponentTypeHTTP {
+			return core.ErrUnsupportedAdapter(fmt.Errorf("adapter type '%s' is not supported", adapter.GetComponentType()))
 		}
 		evt.TargetAdapter = adapter
 
 	case evt.Target.Commit == "" && evt.RouteId == api.DefaultRouteId:
 		evt.Target.Commit = depComp.Commit
-		reg, found := brk.store.Component(ctx, evt.Target)
+		compDef, found := brk.store.ComponentDef(evt.Target)
 		if !found {
 			return core.ErrNotFound(fmt.Errorf("target component not found"))
 		}
-		if !reg.DefaultHandler {
+		if !compDef.DefaultHandler {
 			return core.ErrRouteNotFound(fmt.Errorf("target component does not have default handler"))
 		}
 
@@ -531,7 +509,7 @@ func (brk *broker) checkComponents(ctx context.Context, evt *BrokerEvent) error 
 	depComp = appDep.Spec.App.Components[evt.Source.Name]
 	switch {
 	case depComp == nil && adapter == nil:
-		if !brk.store.IsGenesisAdapter(ctx, evt.Source) {
+		if !brk.store.IsGenesisAdapter(evt.Source) {
 			return core.ErrComponentMismatch(fmt.Errorf("source component not part of deployment"))
 		}
 

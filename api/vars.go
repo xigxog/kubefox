@@ -36,9 +36,9 @@ const (
 	LabelK8sPlatformComponent     string = "kubefox.xigxog.io/platform-component"
 	LabelK8sReleaseStatus         string = "kubefox.xigxog.io/release-status"
 	LabelK8sRuntimeVersion        string = "kubefox.xigxog.io/runtime-version"
-	LabelK8sSourceKind            string = "kubefox.xigxog.io/source-kind"
 	LabelK8sSourceResourceVersion string = "kubefox.xigxog.io/source-resource-version"
 	LabelK8sVirtualEnv            string = "kubefox.xigxog.io/virtual-env"
+	LabelK8sVirtualEnvParent      string = "kubefox.xigxog.io/virtual-env-parent"
 	LabelK8sVirtualEnvSnapshot    string = "kubefox.xigxog.io/virtual-env-snapshot"
 )
 
@@ -76,34 +76,43 @@ const (
 )
 
 const (
-	ConditionTypeAppDeploymentAvailable string = "AppDeploymentAvailable"
-	ConditionTypeAvailable              string = "Available"
-	ConditionTypeDeployed               string = "Deployed"
-	ConditionTypeVirtualEnvAvailable    string = "VirtualEnvAvailable"
+	ConditionTypeAvailable        string = "Available"
+	ConditionTypeProgressing      string = "Progressing"
+	ConditionTypeReleaseAvailable string = "ReleaseAvailable"
+	ConditionTypeReleasePending   string = "ReleasePending"
 )
 
 const (
-	ConditionReasonActive                   string = "Active"
-	ConditionReasonAdapterInvalid           string = "AdapterInvalid"
-	ConditionReasonAdapterMissing           string = "AdapterMissing"
-	ConditionReasonAppDeploymentUnavailable string = "AppDeploymentUnavailable"
-	ConditionReasonBrokerUnavailable        string = "BrokerUnavailable"
-	ConditionReasonComponentsAvailable      string = "ComponentsAvailable"
-	ConditionReasonComponentsDeployed       string = "ComponentsDeployed"
-	ConditionReasonComponentsNotReady       string = "ComponentsNotReady"
-	ConditionReasonComponentsReady          string = "ComponentsReady"
-	ConditionReasonHTTPSrvUnavailable       string = "HTTPSrvUnavailable"
-	ConditionReasonNameMismatch             string = "NameMismatch"
-	ConditionReasonNATSUnavailable          string = "NATSUnavailable"
-	ConditionReasonNotFound                 string = "NotFound"
-	ConditionReasonPolicyViolation          string = "PolicyViolation"
-	ConditionReasonReconcileError           string = "ReconcileError"
-	ConditionReasonValid                    string = "Valid"
-	ConditionReasonVarConflict              string = "VarConflict"
-	ConditionReasonVarMissing               string = "VarMissing"
-	ConditionReasonVarWrongType             string = "VarWrongType"
-	ConditionReasonVersionMismatch          string = "VersionMismatch"
-	ConditionReasonVirtualEnvUnavailable    string = "VirtualEnvUnavailable"
+	ConditionReasonAdapterProcessingFailed        string = "AdapterProcessingFailed"
+	ConditionReasonAppDeploymentAvailable         string = "AppDeploymentAvailable"
+	ConditionReasonAppDeploymentFailed            string = "AppDeploymentFailed"
+	ConditionReasonAppDeploymentUnavailable       string = "AppDeploymentUnavailable"
+	ConditionReasonBrokerUnavailable              string = "BrokerUnavailable"
+	ConditionReasonComponentDeploymentFailed      string = "ComponentDeploymentFailed"
+	ConditionReasonComponentDeploymentProgressing string = "ComponentDeploymentProgressing"
+	ConditionReasonComponentsAvailable            string = "ComponentsAvailable"
+	ConditionReasonComponentsDeployed             string = "ComponentsDeployed"
+	ConditionReasonComponentUnavailable           string = "ComponentUnavailable"
+	ConditionReasonHTTPSrvUnavailable             string = "HTTPSrvUnavailable"
+	ConditionReasonNATSUnavailable                string = "NATSUnavailable"
+	ConditionReasonNoRelease                      string = "NoRelease"
+	ConditionReasonPendingDeadlineExceeded        string = "PendingDeadlineExceeded"
+	ConditionReasonPlatformComponentsAvailable    string = "PlatformComponentsAvailable"
+	ConditionReasonPolicyViolation                string = "PolicyViolation"
+	ConditionReasonProgressDeadlineExceeded       string = "ProgressDeadlineExceeded"
+	ConditionReasonReconcileFailed                string = "ReconcileFailed"
+	ConditionReasonReleaseActive                  string = "ReleaseActive"
+	ConditionReasonReleasePending                 string = "ReleasePending"
+	ConditionReasonReleaseUpdated                 string = "ReleaseUpdated"
+	ConditionReasonRouteProcessingFailed          string = "RouteProcessingFailed"
+	ConditionReasonVirtualEnvSnapshotFailed       string = "VirtualEnvSnapshotFailed"
+)
+
+const (
+	ReleaseErrorTypeParseError   string = "ParseError"
+	ReleaseErrorTypeVarConflict  string = "VarConflict"
+	ReleaseErrorTypeVarNotFound  string = "VarNotFound"
+	ReleaseErrorTypeVarWrongType string = "VarWrongType"
 )
 
 type EnvVarType string
@@ -173,17 +182,19 @@ const (
 
 // Keys for well known values.
 const (
-	ValKeyHeader     = "header"
-	ValKeyHost       = "host"
-	ValKeyMethod     = "method"
-	ValKeyPath       = "path"
-	ValKeyQuery      = "queryParam"
-	ValKeySpanId     = "spanId"
-	ValKeyStatus     = "status"
-	ValKeyStatusCode = "statusCode"
-	ValKeyTraceFlags = "traceFlags"
-	ValKeyTraceId    = "traceId"
-	ValKeyURL        = "url"
+	ValKeyHeader       = "header"
+	ValKeyHost         = "host"
+	ValKeyMaxEventSize = "maxEventSize"
+	ValKeyMethod       = "method"
+	ValKeyPath         = "path"
+	ValKeyQuery        = "queryParam"
+	ValKeySpanId       = "spanId"
+	ValKeyStatus       = "status"
+	ValKeyStatusCode   = "statusCode"
+	ValKeyTraceFlags   = "traceFlags"
+	ValKeyTraceId      = "traceId"
+	ValKeyURL          = "url"
+	ValKeyVaultURL     = "vaultURL"
 )
 
 // Headers and query params.

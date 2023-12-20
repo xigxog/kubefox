@@ -17,6 +17,7 @@ import (
 	"github.com/xigxog/kubefox/logkf"
 	"golang.org/x/mod/semver"
 	appsv1 "k8s.io/api/apps/v1"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -130,7 +131,7 @@ func (cm *ComponentManager) ReconcileApps(ctx context.Context, namespace string)
 	compDepList := &appsv1.DeploymentList{}
 	if err := cm.List(ctx, compDepList,
 		client.InNamespace(platform.Namespace),
-		client.HasLabels{api.LabelK8sAppComponent, api.LabelK8sAppName}, // don't want Platform stuff
+		client.HasLabels{api.LabelK8sAppComponent, api.LabelK8sAppName}, // filter out Platform components
 	); err != nil {
 		return false, err
 	}
@@ -139,84 +140,75 @@ func (cm *ComponentManager) ReconcileApps(ctx context.Context, namespace string)
 	if platform.Spec.Events.MaxSize.IsZero() {
 		maxEventSize = api.DefaultMaxEventSizeBytes
 	}
-	compMap := make(map[string]TemplateData)
+	compMap := make(map[string]*TemplateData)
 	for _, appDep := range appDepList.Items {
+		td := TemplateData{
+			Data: templates.Data{
+				Instance: templates.Instance{
+					Name:           cm.instance,
+					BootstrapImage: BootstrapImage,
+				},
+				Platform: templates.Platform{
+					Name:      platform.Name,
+					Namespace: platform.Namespace,
+				},
+				Owner: []*metav1.OwnerReference{
+					metav1.NewControllerRef(platform, platform.GroupVersionKind()),
+				},
+
+				BuildInfo: build.Info,
+			},
+		}
+
 		for compName, comp := range appDep.Spec.App.Components {
 			image := comp.Image
 			if image == "" {
 				image = fmt.Sprintf("%s/%s:%s", appDep.Spec.App.ContainerRegistry, compName, comp.Commit)
 			}
-			td := TemplateData{
-				Data: templates.Data{
-					Instance: templates.Instance{
-						Name:           cm.instance,
-						BootstrapImage: BootstrapImage,
-					},
-					Platform: templates.Platform{
-						Name:      platform.Name,
-						Namespace: platform.Namespace,
-					},
-					Component: templates.Component{
-						Name:            compName,
-						Commit:          comp.Commit,
-						App:             appDep.Spec.App.Name,
-						Image:           image,
-						ImagePullPolicy: appDep.Spec.App.ImagePullSecretName,
-					},
-					Owner: []*metav1.OwnerReference{
-						metav1.NewControllerRef(platform, platform.GroupVersionKind()),
-					},
-					Values: map[string]any{
-						"maxEventSize": maxEventSize,
-					},
-					BuildInfo: build.Info,
-				},
-				Template: "component",
-				Obj:      &appsv1.Deployment{},
-			}
-			compMap[td.ComponentFullName()] = td
+
+			compTd := td.ForComponent("component", &appsv1.Deployment{}, &ComponentDefaults, templates.Component{
+				Name:            compName,
+				Commit:          comp.Commit,
+				App:             appDep.Spec.App.Name,
+				Image:           image,
+				ImagePullPolicy: appDep.Spec.App.ImagePullSecretName,
+			})
+			compTd.Values = map[string]any{api.ValKeyMaxEventSize: maxEventSize}
+
+			compMap[compTd.ComponentFullName()] = compTd
 		}
 	}
 	log.Debugf("found %d unique Components", len(compMap))
 
 	allAvailable := true
-	compReadyMap := make(map[string]bool, len(compMap))
+	depMap := make(map[string]*appsv1.Deployment, len(compMap))
 	for _, compTD := range compMap {
-		SetDefaults(&compTD.Component.ContainerSpec, &ComponentDefaults)
-		available, err := cm.SetupComponent(ctx, &compTD)
+		available, err := cm.SetupComponent(ctx, compTD)
 		if err != nil {
 			return false, err
 		}
-
 		allAvailable = allAvailable && available
-		compReadyMap[CompReadyKey(compTD.Component.Name, compTD.Component.Commit)] = available
+
+		key := CompDepKey(compTD.Component.Name, compTD.Component.Commit)
+		depMap[key] = compTD.Obj.(*appsv1.Deployment)
 	}
 
 	now := metav1.Now()
-	for _, d := range appDepList.Items {
-		available := IsAppDeploymentAvailable(&d.Spec, compReadyMap)
-		if k8s.IsAvailable(d.Status.Conditions) != available {
-			status := metav1.ConditionFalse
-			reason := api.ConditionReasonComponentsNotReady
-			if available {
-				status = metav1.ConditionTrue
-				reason = api.ConditionReasonComponentsReady
-			}
+	for _, appDep := range appDepList.Items {
+		curStatus := appDep.Status.DeepCopy()
 
-			d.Status.Conditions, _ = k8s.UpdateCondition(now, d.Status.Conditions, &metav1.Condition{
-				Type:               api.ConditionTypeAvailable,
-				Status:             status,
-				ObservedGeneration: d.Generation,
-				Reason:             reason,
-				// TODO Message:            "",
-			})
+		available := AvailableCondition(&appDep, depMap)
+		progressing := ProgressingCondition(&appDep, depMap)
+		appDep.Status.Conditions = k8s.UpdateConditions(now, appDep.Status.Conditions, available, progressing)
 
-			if err := cm.ApplyStatus(ctx, &d); err != nil {
+		if !k8s.DeepEqual(&appDep.Status, curStatus) {
+			if err := cm.ApplyStatus(ctx, &appDep); err != nil {
 				log.Error(err)
 			}
 		}
 
-		log.Debugf("AppDeployment '%s/%s'; available: %t", d.Namespace, d.Name, available)
+		log.Debugf("AppDeployment '%s/%s'; available: %s, progressing: %s",
+			appDep.Namespace, appDep.Name, available.Status, progressing.Status)
 	}
 
 	for _, d := range compDepList.Items {
@@ -273,16 +265,76 @@ func (td *TemplateData) ForComponent(template string, obj client.Object, defs *c
 	return newTD
 }
 
-func CompReadyKey(name, commit string) string {
+func CompDepKey(name, commit string) string {
 	return fmt.Sprintf("%s-%s", name, commit)
 }
 
-func IsAppDeploymentAvailable(spec *v1alpha1.AppDeploymentSpec, compReadyMap map[string]bool) bool {
+func AvailableCondition(appDep *v1alpha1.AppDeployment, depMap map[string]*appsv1.Deployment) *metav1.Condition {
+	available, depName, depCond := isAppDeployment(appsv1.DeploymentAvailable, &appDep.Spec, depMap)
+	cond := &metav1.Condition{
+		Type:               api.ConditionTypeAvailable,
+		Status:             metav1.ConditionTrue,
+		ObservedGeneration: appDep.Generation,
+		Reason:             api.ConditionReasonComponentsAvailable,
+		Message:            "Component Deployments have minimum availability.",
+	}
+	if !available {
+		cond.Status = metav1.ConditionFalse
+		cond.Reason = api.ConditionReasonComponentUnavailable
+		cond.Message = fmt.Sprintf(`Component Deployment "%s" unavailable; %s`, depName, depCond.Message)
+	}
+
+	return cond
+}
+
+func ProgressingCondition(appDep *v1alpha1.AppDeployment, depMap map[string]*appsv1.Deployment) *metav1.Condition {
+	progressing, _, depCond := isAppDeployment(appsv1.DeploymentProgressing, &appDep.Spec, depMap)
+	cond := &metav1.Condition{
+		Type:               api.ConditionTypeProgressing,
+		Status:             metav1.ConditionTrue,
+		ObservedGeneration: appDep.Generation,
+		Reason:             api.ConditionReasonComponentDeploymentProgressing,
+		Message:            depCond.Message,
+	}
+
+	switch {
+	case progressing && depCond.Reason == "NewReplicaSetAvailable":
+		cond.Status = metav1.ConditionFalse
+		cond.Reason = api.ConditionReasonComponentsDeployed
+		cond.Message = "Component Deployments have successfully progressed."
+
+	case !progressing:
+		cond.Status = metav1.ConditionTrue
+		cond.Reason = api.ConditionReasonComponentDeploymentFailed
+	}
+
+	return cond
+}
+
+func isAppDeployment(condType appsv1.DeploymentConditionType,
+	spec *v1alpha1.AppDeploymentSpec, depMap map[string]*appsv1.Deployment) (bool, string, *appsv1.DeploymentCondition) {
+
+	var cond *appsv1.DeploymentCondition
 	for name, c := range spec.App.Components {
-		key := CompReadyKey(name, c.Commit)
-		if found, available := compReadyMap[key]; !found || !available {
-			return false
+		key := CompDepKey(name, c.Commit)
+		dep, found := depMap[key]
+		if !found || dep == nil {
+			return false, "", &appsv1.DeploymentCondition{Type: condType, Status: corev1.ConditionUnknown}
+		}
+		if cond = condition(dep.Status, condType); cond.Status == corev1.ConditionFalse {
+			return false, dep.Name, cond
 		}
 	}
-	return true
+
+	return true, "", cond
+}
+
+func condition(status appsv1.DeploymentStatus, condType appsv1.DeploymentConditionType) *appsv1.DeploymentCondition {
+	for _, c := range status.Conditions {
+		if c.Type == condType {
+			return &c
+		}
+	}
+
+	return &appsv1.DeploymentCondition{Type: condType, Status: corev1.ConditionUnknown}
 }

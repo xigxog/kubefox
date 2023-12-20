@@ -140,21 +140,29 @@ func PodCondition(pod *v1.Pod, typ v1.PodConditionType) v1.PodCondition {
 	}
 }
 
-func UpdateCondition(now metav1.Time, conds []metav1.Condition, cond *metav1.Condition) ([]metav1.Condition, bool) {
-	for i, c := range conds {
-		if c.Type == cond.Type {
-			if c.Status != cond.Status {
-				cond.LastTransitionTime = now
+func UpdateConditions(now metav1.Time, current []metav1.Condition, toUpdate ...*metav1.Condition) []metav1.Condition {
+	for _, c := range toUpdate {
+		current = updateCondition(now, current, c)
+	}
+
+	return current
+}
+
+func updateCondition(now metav1.Time, current []metav1.Condition, toUpdate *metav1.Condition) []metav1.Condition {
+	for i, c := range current {
+		if c.Type == toUpdate.Type {
+			if c.Status != toUpdate.Status {
+				toUpdate.LastTransitionTime = now
 			} else {
-				cond.LastTransitionTime = c.LastTransitionTime
+				toUpdate.LastTransitionTime = c.LastTransitionTime
 			}
-			conds[i] = *cond
-			return conds, true
+			current[i] = *toUpdate
+			return current
 		}
 	}
 
-	cond.LastTransitionTime = now
-	return append(conds, *cond), true
+	toUpdate.LastTransitionTime = now
+	return append(current, *toUpdate)
 }
 
 func Condition(conds []metav1.Condition, typ string) *metav1.Condition {

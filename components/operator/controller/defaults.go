@@ -105,16 +105,10 @@ var (
 	}
 
 	ComponentDefaults = common.ContainerSpec{
-		// Resources: &v1.ResourceRequirements{
-		// 	Requests: v1.ResourceList{
-		// 		"memory": resource.MustParse("144Mi"),
-		// 		"cpu":    resource.MustParse("250m"),
-		// 	},
-		// 	Limits: v1.ResourceList{
-		// 		"memory": resource.MustParse("160Mi"),
-		// 		"cpu":    resource.MustParse("2"),
-		// 	},
-		// },
+		Resources: &v1.ResourceRequirements{
+			Requests: v1.ResourceList{},
+			Limits:   v1.ResourceList{},
+		},
 		LivenessProbe: &v1.Probe{
 			ProbeHandler: v1.ProbeHandler{
 				HTTPGet: &v1.HTTPGetAction{

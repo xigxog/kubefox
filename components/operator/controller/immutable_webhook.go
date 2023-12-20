@@ -66,12 +66,11 @@ func (r *ImmutableWebhook) Handle(ctx context.Context, req admission.Request) ad
 		}
 		lhs = &obj.Data
 		rhs = &oldObj.Data
-
 	}
 
 	if !k8s.DeepEqual(lhs, rhs) {
 		return admission.Denied(fmt.Sprintf(
-			"update operation not allowed: %s spec is immutable", req.Kind.Kind))
+			"update operation not allowed: %s is immutable", req.Kind.Kind))
 	}
 
 	return admission.Allowed("🦊")

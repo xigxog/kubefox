@@ -88,9 +88,9 @@
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
-| deployment | [string](#string) |  |  |
-| environment | [string](#string) |  |  |
-| release | [string](#string) |  |  |
+| app_deployment | [string](#string) |  |  |
+| virtual_env | [string](#string) |  |  |
+| virtual_env_snapshot | [string](#string) |  |  |
 
 
 

@@ -1,0 +1,68 @@
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.13.0
+  name: httpadapters.kubefox.xigxog.io
+spec:
+  group: kubefox.xigxog.io
+  names:
+    kind: HTTPAdapter
+    listKind: HTTPAdapterList
+    plural: httpadapters
+    singular: httpadapter
+  scope: Namespaced
+  versions:
+  - name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        properties:
+          apiVersion:
+            description: 'APIVersion defines the versioned schema of this representation
+              of an object. Servers should convert recognized schemas to the latest
+              internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+            type: string
+          details:
+            properties:
+              description:
+                type: string
+              title:
+                type: string
+            type: object
+          kind:
+            description: 'Kind is a string value representing the REST resource this
+              object represents. Servers may infer this from the endpoint the client
+              submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+            type: string
+          metadata:
+            type: object
+          spec:
+            properties:
+              followRedirects:
+                description: Defaults to never.
+                enum:
+                - Never
+                - Always
+                - SameHost
+                type: string
+              headers:
+                additionalProperties:
+                  type: string
+                type: object
+              insecureSkipVerify:
+                description: InsecureSkipVerify controls whether a client verifies
+                  the server's certificate chain and host name. If InsecureSkipVerify
+                  is true, any certificate presented by the server and any host name
+                  in that certificate is accepted. In this mode, TLS is susceptible
+                  to machine-in-the-middle attacks.
+                type: boolean
+              url:
+                format: uri
+                type: string
+            required:
+            - url
+            type: object
+        type: object
+    served: true
+    storage: true

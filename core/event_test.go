@@ -7,7 +7,7 @@ import (
 func Test_clone(t *testing.T) {
 	parent := NewEvent()
 	parent.Context = &EventContext{
-		Release: "blah",
+		AppDeployment: "blah",
 	}
 
 	evt := NewErr(ErrNotFound(), EventOpts{})
@@ -19,7 +19,7 @@ func Test_clone(t *testing.T) {
 	if clone.ParentId != parent.Id {
 		t.Fail()
 	}
-	if clone.Context.Release != "blah" {
+	if clone.Context.AppDeployment != "blah" {
 		t.Fail()
 	}
 	if clone.ContentType != evt.ContentType {

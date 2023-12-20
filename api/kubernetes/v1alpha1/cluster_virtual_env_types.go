@@ -13,7 +13,7 @@ import (
 )
 
 type ClusterVirtualEnvSpec struct {
-	ReleasePolicy *VirtualEnvReleasePolicy `json:"releasePolicy,omitempty"`
+	ReleasePolicies *ReleasePolicies `json:"releasePolicies,omitempty"`
 }
 
 // +kubebuilder:object:root=true
@@ -33,30 +33,6 @@ type ClusterVirtualEnvList struct {
 	metav1.ListMeta `json:"metadata,omitempty"`
 
 	Items []ClusterVirtualEnv `json:"items"`
-}
-
-func (e *ClusterVirtualEnv) GetData() *VirtualEnvData {
-	return &e.Data
-}
-
-func (e *ClusterVirtualEnv) GetDetails() *VirtualEnvDetails {
-	return &e.Details
-}
-
-func (e *ClusterVirtualEnv) GetReleasePolicy() *VirtualEnvReleasePolicy {
-	return e.Spec.ReleasePolicy
-}
-
-func (e *ClusterVirtualEnv) SetReleasePolicy(p *VirtualEnvReleasePolicy) {
-	e.Spec.ReleasePolicy = p
-}
-
-func (e *ClusterVirtualEnv) GetParent() string {
-	return ""
-}
-
-func (e *ClusterVirtualEnv) GetEnvName() string {
-	return e.Name
 }
 
 func init() {

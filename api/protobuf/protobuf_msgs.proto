@@ -21,9 +21,9 @@ message Component {
 }
 
 message EventContext {
-  string deployment = 1;
-  string environment = 2;
-  string release = 3;
+  string app_deployment = 1;
+  string virtual_env = 2;
+  string virtual_env_snapshot = 3;
 }
 
 message Event {

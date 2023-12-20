@@ -59,3 +59,9 @@ type Details struct {
 	Title       string `json:"title,omitempty"`
 	Description string `json:"description,omitempty"`
 }
+
+// +kubebuilder:object:generate=false
+type Adapter interface {
+	GetName() string
+	GetComponentType() ComponentType
+}

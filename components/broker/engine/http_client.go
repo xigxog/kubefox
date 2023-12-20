@@ -86,9 +86,12 @@ func NewHTTPClient(brk Broker) *HTTPClient {
 }
 
 func (c *HTTPClient) SendEvent(req *BrokerEvent) error {
-	adapter := req.TargetAdapter
-	if adapter == nil {
+	if req.TargetAdapter == nil {
 		return core.ErrInvalid(fmt.Errorf("adapter is missing"))
+	}
+	adapter, ok := req.TargetAdapter.(*v1alpha1.HTTPAdapter)
+	if !ok {
+		return core.ErrInvalid(fmt.Errorf("adapter is not HTTPAdapter"))
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), req.TTL())
@@ -99,7 +102,7 @@ func (c *HTTPClient) SendEvent(req *BrokerEvent) error {
 		cancel()
 		return core.ErrInvalid(err)
 	}
-	if adapterURL, err := url.Parse(adapter.URL.StringVal); err != nil { // success
+	if adapterURL, err := url.Parse(adapter.Spec.URL); err != nil { // success
 		cancel()
 		return core.ErrInvalid(fmt.Errorf("error parsing adapter url: %v", err))
 
@@ -125,11 +128,11 @@ func (c *HTTPClient) SendEvent(req *BrokerEvent) error {
 		httpReq.URL.RawQuery = httpQuery.Encode()
 	}
 
-	for k, v := range adapter.Headers {
+	for k, v := range adapter.Spec.Headers {
 		if strings.EqualFold(k, api.HeaderHost) {
-			httpReq.Host = v.StringVal
+			httpReq.Host = v
 		}
-		httpReq.Header.Set(k, v.StringVal)
+		httpReq.Header.Set(k, v)
 	}
 
 	resp := core.NewResp(core.EventOpts{
@@ -168,8 +171,8 @@ func (c *HTTPClient) SendEvent(req *BrokerEvent) error {
 	return nil
 }
 
-func (c *HTTPClient) adapterClient(a *v1alpha1.Adapter) *http.Client {
-	key := key(a.FollowRedirects, a.InsecureSkipVerify)
+func (c *HTTPClient) adapterClient(a *v1alpha1.HTTPAdapter) *http.Client {
+	key := key(a.Spec.FollowRedirects, a.Spec.InsecureSkipVerify)
 	client := c.clients[key]
 	if client == nil {
 		client = c.clients["default"]

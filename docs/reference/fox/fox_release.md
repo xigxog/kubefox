@@ -1,6 +1,6 @@
 ## fox release
 
-Release specified AppDeployment and VirtualEnvironment
+Release specified AppDeployment and VirtualEnv
 
 ### Synopsis
 
@@ -25,7 +25,7 @@ fox release (NAME | COMMIT | SHORT COMMIT | VERSION | TAG | BRANCH) [flags]
 fox release main --virtual-env dev
 
 # Release the AppDeployment with version 'v1.2.3' using the 'prod' 
-# VirtualEnvironment, creating an VirtualEnvironmentSnapshot if needed.
+# VirtualEnv, creating an VirtualEnvSnapshot if needed.
 fox release v1.2.3 --virtual-env prod --create-snapshot
 ```
 
@@ -37,7 +37,7 @@ fox release v1.2.3 --virtual-env prod --create-snapshot
   -h, --help                 help for release
   -n, --namespace string     namespace of KubeFox Platform
   -p, --platform string      name of KubeFox Platform to utilize
-  -e, --virtual-env string   name of ClusterVirtualEnvironment, VirtualEnvironment, or VirtualEnvironmentSnapshot to use
+  -e, --virtual-env string   name of VirtualEnv or VirtualEnvSnapshot to use
       --wait duration        wait up the specified time for components to be ready
 ```
 

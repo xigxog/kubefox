@@ -6,6 +6,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/mitchellh/hashstructure/v2"
 	"github.com/xigxog/kubefox/api"
 	"github.com/xigxog/kubefox/api/kubernetes/v1alpha1"
 	"github.com/xigxog/kubefox/cache"
@@ -91,8 +92,8 @@ func (str *Store) init(ctx context.Context) error {
 		&v1alpha1.ClusterVirtualEnv{},
 		&v1alpha1.VirtualEnv{},
 		&v1alpha1.VirtualEnvSnapshot{},
+		&v1alpha1.HTTPAdapter{},
 		&v1alpha1.AppDeployment{},
-		&v1alpha1.Release{},
 		&v1alpha1.Platform{},
 	)
 	if err != nil {
@@ -125,88 +126,88 @@ func (str *Store) Close() {
 	str.cancel()
 }
 
-func (str *Store) Component(ctx context.Context, comp *core.Component) (*api.ComponentDefinition, bool) {
+func (str *Store) ComponentDef(comp *core.Component) (*api.ComponentDefinition, bool) {
 	return str.compCache.Get(comp.GroupKey())
 }
 
-func (str *Store) IsGenesisAdapter(ctx context.Context, comp *core.Component) bool {
-	r, found := str.Component(ctx, comp)
+func (str *Store) IsGenesisAdapter(comp *core.Component) bool {
+	r, found := str.ComponentDef(comp)
 	if !found {
 		return false
 	}
 	return r.Type == api.ComponentTypeGenesis
 }
 
-func (str *Store) AppDeployment(name string) (*v1alpha1.AppDeployment, error) {
+func (str *Store) AppDeployment(ctx context.Context, evt *core.EventContext) (*v1alpha1.AppDeployment, error) {
 	obj := new(v1alpha1.AppDeployment)
-	return obj, str.get(name, obj, true)
+	return obj, str.get(evt.AppDeployment, obj, true)
 }
 
-func (str *Store) Environment(name string) (v1alpha1.VirtualEnvObject, error) {
+func (str *Store) VirtualEnv(ctx context.Context, evt *core.EventContext) (*v1alpha1.VirtualEnvSnapshot, error) {
+	if evt.VirtualEnv == "" {
+		return nil, core.ErrNotFound()
+	}
+
+	if evt.VirtualEnvSnapshot != "" {
+		snapshot := &v1alpha1.VirtualEnvSnapshot{}
+		if err := str.get(evt.VirtualEnvSnapshot, snapshot, true); err != nil {
+			return nil, err
+		}
+		return snapshot, nil
+	}
+
 	env := &v1alpha1.VirtualEnv{}
-	err := str.get(name, env, true)
-	switch {
-	case err == nil:
-		envSnap := &v1alpha1.VirtualEnvSnapshot{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      env.Name,
-				Namespace: env.Namespace,
-			},
-			Data: v1alpha1.VirtualEnvSnapshotData{
-				Source: v1alpha1.VirtualEnvSource{
-					Kind:            env.Kind,
-					Name:            env.Name,
-					ResourceVersion: env.ResourceVersion,
-				},
-				SnapshotTime: metav1.Now(),
-			},
-		}
+	if err := str.get(evt.VirtualEnv, env, true); err != nil {
+		return nil, err
+	}
 
-		if env.Spec.Parent != "" {
-			clusterEnv := &v1alpha1.ClusterVirtualEnv{}
-			if err := str.get(env.Spec.Parent, clusterEnv, false); err != nil {
-				return nil, err
-			}
-			v1alpha1.MergeVirtualEnvironment(envSnap, clusterEnv)
-		}
-		v1alpha1.MergeVirtualEnvironment(envSnap, env)
-
-		return envSnap, nil
-
-	case k8s.IsNotFound(err):
+	if env.Spec.Parent != "" {
 		clusterEnv := &v1alpha1.ClusterVirtualEnv{}
-		return clusterEnv, str.get(name, clusterEnv, false)
-
-	default:
-		return nil, err
+		if err := str.get(env.Spec.Parent, clusterEnv, false); err != nil {
+			return nil, err
+		}
+		env.MergeParent(clusterEnv)
 	}
-}
 
-func (str *Store) Release(name string) (*v1alpha1.Release, error) {
-	obj := new(v1alpha1.Release)
-	return obj, str.get(name, obj, true)
-}
-
-func (str *Store) ReleaseAppDeployment(name string) (*v1alpha1.AppDeployment, error) {
-	rel := new(v1alpha1.Release)
-	if err := str.get(name, rel, true); err != nil {
-		return nil, err
-	}
-	return str.AppDeployment(rel.Spec.AppDeployment.Name)
-}
-
-func (str *Store) ReleaseEnv(name string) (v1alpha1.VirtualEnvObject, error) {
-	rel := new(v1alpha1.Release)
-	if err := str.get(name, rel, true); err != nil {
+	hash, err := hashstructure.Hash(&env.Data, hashstructure.FormatV2, nil)
+	if err != nil {
 		return nil, err
 	}
 
-	if rel.Spec.VirtualEnvSnapshot != "" {
-		env := &v1alpha1.VirtualEnvSnapshot{}
-		return env, str.get(rel.Spec.VirtualEnvSnapshot, env, true)
+	return &v1alpha1.VirtualEnvSnapshot{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: v1alpha1.GroupVersion.Identifier(),
+			Kind:       "VirtualEnvSnapshot",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: env.Namespace,
+			Name: fmt.Sprintf("%s-%s-%s",
+				env.Name, env.GetResourceVersion(), time.Now().UTC().Format("20060102-150405")),
+		},
+		Spec: v1alpha1.VirtualEnvSnapshotSpec{
+			Source: v1alpha1.VirtualEnvSource{
+				Name:            env.Name,
+				ResourceVersion: env.ResourceVersion,
+				DataChecksum:    hash,
+			},
+		},
+		Data:    &env.Data,
+		Details: env.Details,
+	}, nil
+}
+
+func (str *Store) Adapters(ctx context.Context) (map[string]api.Adapter, error) {
+	list := &v1alpha1.HTTPAdapterList{}
+	if err := str.resCache.List(ctx, list); err != nil {
+		return nil, err
 	}
 
-	return str.Environment(rel.Name)
+	adapters := map[string]api.Adapter{}
+	for _, a := range list.Items {
+		adapters[a.Name] = &a
+	}
+
+	return adapters, nil
 }
 
 func (str *Store) ReleaseMatcher(ctx context.Context) (*matcher.EventMatcher, error) {
@@ -224,11 +225,11 @@ func (str *Store) ReleaseMatcher(ctx context.Context) (*matcher.EventMatcher, er
 }
 
 func (str *Store) DeploymentMatcher(ctx context.Context, evtCtx *core.EventContext) (*matcher.EventMatcher, error) {
-	dep, err := str.AppDeployment(evtCtx.Deployment)
+	dep, err := str.AppDeployment(ctx, evtCtx)
 	if err != nil {
 		return nil, err
 	}
-	env, err := str.Environment(evtCtx.Environment)
+	env, err := str.VirtualEnv(ctx, evtCtx)
 	if err != nil {
 		return nil, err
 	}
@@ -238,7 +239,7 @@ func (str *Store) DeploymentMatcher(ctx context.Context, evtCtx *core.EventConte
 		return depM, nil
 	}
 
-	routes, err := str.buildRoutes(ctx, dep.Spec.App.Components, env.GetData().Vars, evtCtx)
+	routes, err := str.buildRoutes(ctx, dep.Spec.App.Components, env.Data.Vars, evtCtx)
 	if err != nil {
 		return nil, err
 	}
@@ -333,43 +334,36 @@ func (str *Store) buildReleaseMatcher(ctx context.Context) (*matcher.EventMatche
 	ctx, cancel := context.WithTimeout(ctx, time.Minute)
 	defer cancel()
 
-	relList := &v1alpha1.ReleaseList{}
-	if err := str.resCache.List(ctx, relList); err != nil {
+	envList := &v1alpha1.VirtualEnvList{}
+	if err := str.resCache.List(ctx, envList); err != nil {
 		return nil, err
 	}
 
 	relM := matcher.New()
-	for _, rel := range relList.Items {
-		var (
-			comps map[string]*v1alpha1.Component
-			vars  map[string]*api.Val
-		)
-
-		var appDepName string
-		if rel.Status.Current != nil {
-			appDepName = rel.Status.Current.AppDeployment.Name
-		}
-		if appDepName == "" {
-			str.log.Debugf("Release '%s/%s' does not have a current AppDeployment", rel.Namespace, rel.Name)
+	for _, env := range envList.Items {
+		release := env.Status.ActiveRelease
+		if release == nil {
+			str.log.Debugf("VirtualEnv '%s/%s' does not have an active Release", env.Namespace, env.Name)
 			continue
 		}
 
-		if appDep, err := str.AppDeployment(appDepName); err != nil {
+		evtCtx := &core.EventContext{
+			AppDeployment:      release.AppDeployment.Name,
+			VirtualEnv:         env.Name,
+			VirtualEnvSnapshot: release.VirtualEnvSnapshot,
+		}
+		appDep, err := str.AppDeployment(ctx, evtCtx)
+		if err != nil {
 			str.log.Warn(err)
 			continue
-		} else {
-			comps = appDep.Spec.App.Components
 		}
-		if env, err := str.ReleaseEnv(rel.Name); err != nil {
+		env, err := str.VirtualEnv(ctx, evtCtx)
+		if err != nil {
 			str.log.Warn(err)
 			continue
-		} else {
-			vars = env.GetData().Vars
 		}
 
-		evtCtx := &core.EventContext{Release: rel.Name}
-
-		routes, err := str.buildRoutes(ctx, comps, vars, evtCtx)
+		routes, err := str.buildRoutes(ctx, appDep.Spec.App.Components, env.Data.Vars, evtCtx)
 		if err != nil {
 			str.log.Warn(err)
 			continue

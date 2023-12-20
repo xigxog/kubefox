@@ -12,21 +12,19 @@ import (
 )
 
 const (
+	KeyAppDeployment     = "appDeployment"
 	KeyBrokerId          = "brokerId"
 	KeyBrokerName        = "brokerName"
 	KeyComponentCommit   = "componentCommit"
 	KeyComponentId       = "componentId"
 	KeyComponentName     = "componentName"
 	KeyController        = "controller"
-	KeyDeployment        = "deployment"
-	KeyEnvironment       = "environment"
 	KeyEventCategory     = "eventCategory"
 	KeyEventId           = "eventId"
 	KeyEventType         = "eventType"
 	KeyInstance          = "instance"
 	KeyPlatform          = "platform"
 	KeyPlatformComponent = "platformComponent"
-	KeyRelease           = "release"
 	KeySourceBrokerId    = "sourceBrokerId"
 	KeySourceCommit      = "sourceCommit"
 	KeySourceId          = "sourceId"
@@ -37,6 +35,7 @@ const (
 	KeyTargetId          = "targetId"
 	KeyTargetName        = "targetName"
 	KeyTraceId           = "traceId"
+	KeyVirtualEnv        = "virtualEnv"
 	KeyWorker            = "worker"
 )
 
@@ -205,6 +204,11 @@ func (log *Logger) WithEvent(evt *core.Event) *Logger {
 		return log
 	}
 
+	evtCtx := evt.Context
+	if evtCtx == nil {
+		evtCtx = &core.EventContext{}
+	}
+
 	return log.
 		WithSource(evt.Source).
 		WithTarget(evt.Target).
@@ -212,9 +216,8 @@ func (log *Logger) WithEvent(evt *core.Event) *Logger {
 			KeyEventId, evt.Id,
 			KeyEventType, evt.Type,
 			KeyEventCategory, evt.Category.String(),
-			KeyRelease, evt.Context.Release,
-			KeyDeployment, evt.Context.Deployment,
-			KeyEnvironment, evt.Context.Environment,
+			KeyAppDeployment, evtCtx.AppDeployment,
+			KeyVirtualEnv, evtCtx.VirtualEnv,
 			KeyTraceId, evt.TraceId(),
 			KeySpanId, evt.SpanId(),
 		)

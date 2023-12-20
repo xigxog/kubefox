@@ -3,7 +3,7 @@ kind: VirtualEnv
 metadata:
   name: prod
 spec:
-  releasePolicy:
+  releasePolicies:
     appDeploymentPolicy: VersionRequired
     virtualEnvPolicy: SnapshotRequired
 data:
