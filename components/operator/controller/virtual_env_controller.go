@@ -93,13 +93,13 @@ func (r *VirtualEnvReconciler) reconcile(ctx context.Context, env *v1alpha1.Virt
 			Type:               api.ConditionTypeReleaseAvailable,
 			Status:             metav1.ConditionFalse,
 			ObservedGeneration: env.ObjectMeta.Generation,
-			Reason:             api.ConditionReasonNoRelease,
+			Reason:             api.ConditionReasonReleaseEmpty,
 			Message:            "No Release set for VirtualEnv.",
 		}, &metav1.Condition{
 			Type:               api.ConditionTypeReleasePending,
 			Status:             metav1.ConditionFalse,
 			ObservedGeneration: env.ObjectMeta.Generation,
-			Reason:             api.ConditionReasonNoRelease,
+			Reason:             api.ConditionReasonReleaseEmpty,
 			Message:            "No Release set for VirtualEnv.",
 		})
 		if env.Status.ActiveRelease != nil {

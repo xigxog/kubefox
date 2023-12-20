@@ -59,11 +59,11 @@ func (cm *ComponentManager) SetupComponent(ctx context.Context, td *TemplateData
 	}
 	td.Data.Hash = strconv.Itoa(int(hash))
 
-	log.Debugf("setting up component '%s'", td.ComponentFullName())
+	log.Debugf("setting up Component '%s'", td.ComponentFullName())
 
 	name := k8s.Key(td.Namespace(), td.ComponentFullName())
 	if err := cm.Get(ctx, name, td.Obj); client.IgnoreNotFound(err) != nil {
-		return false, log.ErrorN("unable to fetch component workload: %w", err)
+		return false, log.ErrorN("unable to fetch Component workload: %w", err)
 	}
 
 	curHash := td.Obj.GetAnnotations()[api.AnnotationTemplateDataHash]
@@ -96,11 +96,11 @@ func (cm *ComponentManager) SetupComponent(ctx context.Context, td *TemplateData
 		}
 	}
 	if available <= 0 {
-		log.Debug("component is not available, applying template to ensure correct state")
+		log.Debug("Component is not available, applying template to ensure correct state")
 		return false, cm.ApplyTemplate(ctx, td.Template, &td.Data, log)
 	}
 
-	log.Debugf("component '%s' available", td.ComponentFullName())
+	log.Debugf("Component '%s' available", td.ComponentFullName())
 	return true, nil
 }
 
@@ -131,7 +131,7 @@ func (cm *ComponentManager) ReconcileApps(ctx context.Context, namespace string)
 	compDepList := &appsv1.DeploymentList{}
 	if err := cm.List(ctx, compDepList,
 		client.InNamespace(platform.Namespace),
-		client.HasLabels{api.LabelK8sAppComponent, api.LabelK8sAppName}, // filter out Platform components
+		client.HasLabels{api.LabelK8sAppComponent, api.LabelK8sAppName}, // filter out Platform Components
 	); err != nil {
 		return false, err
 	}
@@ -213,7 +213,7 @@ func (cm *ComponentManager) ReconcileApps(ctx context.Context, namespace string)
 
 	for _, d := range compDepList.Items {
 		if _, found := compMap[d.Name]; !found {
-			log.Debugf("deleting Component '%s'", d.Name)
+			log.Debugf("deleting Component Deployment '%s'", d.Name)
 
 			// TODO turn annotation into list of resources created to avoid
 			// leaking data.
@@ -304,7 +304,7 @@ func ProgressingCondition(appDep *v1alpha1.AppDeployment, depMap map[string]*app
 		cond.Message = "Component Deployments have successfully progressed."
 
 	case !progressing:
-		cond.Status = metav1.ConditionTrue
+		cond.Status = metav1.ConditionFalse
 		cond.Reason = api.ConditionReasonComponentDeploymentFailed
 	}
 

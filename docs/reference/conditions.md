@@ -20,16 +20,17 @@ more detailed information about the observed status of an object.
 | ----------- | ------ | ------------------------------ | -------------------------------------------------------------------------------- |
 | Available   | True   | ComponentsAvailable            | Components have minimum required Pods available.                                 |
 |             | False  | ComponentUnavailable           | One or more Components do not have minimum required Pods available.              |
+|             |        | DependencyNotFound             | One or more Component dependencies are missing.                                  |
 | Progressing | False  | ComponentsDeployed             | Component Deployments are complete.                                              |
-|             | True   | ComponentDeploymentProgressing | One or more Component Deployments are starting, scaling, or rolling out updates. |
 |             |        | ComponentDeploymentFailed      | One or more Component Deployments failed.                                        |
+|             | True   | ComponentDeploymentProgressing | One or more Component Deployments are starting, scaling, or rolling out updates. |
 
 ## VirtualEnv
 
 | Type             | Status | Reason                   | Description                                                                                                                                            |
 | ---------------- | ------ | ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | ReleaseAvailable | True   | AppDeploymentAvailable   | Release AppDeployment is available, Routes and Adapters are valid and compatible with the VirtualEnv.                                                  |
-|                  | False  | NoRelease                | Release for the VirtualEnv is not set.                                                                                                                 |
+|                  | False  | ReleaseEmpty             | Release for the VirtualEnv is not set.                                                                                                                 |
 |                  |        | ReleasePending           | Release for the VirtualEnv is pending activation.                                                                                                      |
 |                  |        | AppDeploymentUnavailable | AppDeployment has one or more Components that do not have minimum required Pods available.                                                             |
 |                  |        | AppDeploymentFailed      | AppDeployment does not exist, is incompatible with the VirtualEnv, or is unavailable and failed to update or to show any progress within its deadline. |
@@ -38,7 +39,7 @@ more detailed information about the observed status of an object.
 |                  |        | AdapterProcessingFailed  | One or more Adapters could not be parsed or are incompatible with VirtualEnv.                                                                          |
 |                  |        | PolicyViolation          | Release violates VirtualEnv release policy.                                                                                                            |
 | ReleasePending   | False  | ReleaseActive            | Release is active.                                                                                                                                     |
-|                  |        | NoRelease                | Release for the VirtualEnv is not set.                                                                                                                 |
+|                  |        | ReleaseEmpty             | Release for the VirtualEnv is not set.                                                                                                                 |
 |                  | True   | ReleaseUpdated           | Release updated but is pending activation.                                                                                                             |
 |                  |        | AppDeploymentUnavailable | AppDeployment has one or more Components that do not have minimum required Pods available.                                                             |
 |                  |        | AppDeploymentFailed      | AppDeployment does not exist, is incompatible with the VirtualEnv, or is unavailable and failed to update or to show any progress within its deadline. |
