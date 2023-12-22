@@ -9,6 +9,11 @@ one at https://mozilla.org/MPL/2.0/.
 // +kubebuilder:object:generate=true
 package api
 
+import (
+	"k8s.io/apimachinery/pkg/api/equality"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+)
+
 type VirtualEnvVarDefinition struct {
 	// +kubebuilder:validation:Enum=array;boolean;number;string
 	Type     EnvVarType `json:"type,omitempty"`
@@ -54,4 +59,24 @@ type Details struct {
 type Adapter interface {
 	GetName() string
 	GetComponentType() ComponentType
+}
+
+// +kubebuilder:object:generate=false
+
+// UncomparableTime is a Kubernetes v1.Time object that will also be equal to
+// another UncomparableTime object when using equality.Semantic, even if the
+// times are different.
+type UncomparableTime metav1.Time
+
+// DeepCopyInto creates a deep-copy of the UncomparableTime value.  The
+// underlying time.Time type is effectively immutable in the time API, so it is
+// safe to copy-by-assign, despite the presence of (unexported) Pointer fields.
+func (t *UncomparableTime) DeepCopyInto(out *UncomparableTime) {
+	*out = *t
+}
+
+func init() {
+	equality.Semantic.AddFunc(func(a, b UncomparableTime) bool {
+		return true
+	})
 }

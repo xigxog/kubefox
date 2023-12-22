@@ -13,7 +13,7 @@ import (
 )
 
 type ClusterVirtualEnvSpec struct {
-	ReleasePolicies *ReleasePolicies `json:"releasePolicies,omitempty"`
+	ReleasePolicies *ReleasePolicy `json:"releasePolicies,omitempty"`
 }
 
 // +kubebuilder:object:root=true

@@ -479,7 +479,7 @@ func (brk *broker) checkComponents(ctx context.Context, evt *BrokerEvent) error 
 	switch {
 	case depComp == nil && adapter == nil:
 		if !brk.store.IsGenesisAdapter(evt.Target) {
-			return core.ErrComponentMismatch(fmt.Errorf("target component not part of deployment"))
+			return core.ErrComponentMismatch(fmt.Errorf("target component not part of app"))
 		}
 
 	case depComp == nil && adapter != nil:
@@ -499,7 +499,7 @@ func (brk *broker) checkComponents(ctx context.Context, evt *BrokerEvent) error 
 		}
 
 	case evt.Target.Commit != depComp.Commit:
-		return core.ErrComponentMismatch(fmt.Errorf("target component commit does not match deployment"))
+		return core.ErrComponentMismatch(fmt.Errorf("target component commit does not match app"))
 	}
 
 	// Check if source is part of deployment spec.
@@ -510,7 +510,7 @@ func (brk *broker) checkComponents(ctx context.Context, evt *BrokerEvent) error 
 	switch {
 	case depComp == nil && adapter == nil:
 		if !brk.store.IsGenesisAdapter(evt.Source) {
-			return core.ErrComponentMismatch(fmt.Errorf("source component not part of deployment"))
+			return core.ErrComponentMismatch(fmt.Errorf("source component not part of app"))
 		}
 
 	case depComp == nil && adapter != nil:
@@ -519,7 +519,7 @@ func (brk *broker) checkComponents(ctx context.Context, evt *BrokerEvent) error 
 		}
 
 	case evt.Source.Commit != depComp.Commit:
-		return core.ErrComponentMismatch(fmt.Errorf("source component commit does not match deployment"))
+		return core.ErrComponentMismatch(fmt.Errorf("source component commit does not match app"))
 	}
 
 	return nil

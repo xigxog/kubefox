@@ -16,16 +16,22 @@ import (
 type HTTPAdapterSpec struct {
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:Format=uri
+
 	URL     string            `json:"url"`
 	Headers map[string]string `json:"headers,omitempty"`
-	// InsecureSkipVerify controls whether a client verifies the server's
+
+	// +kubebuilder:default=false
+
+	// InsecureSkipVerify controls whether the Adapter verifies the server's
 	// certificate chain and host name. If InsecureSkipVerify is true, any
 	// certificate presented by the server and any host name in that certificate
 	// is accepted. In this mode, TLS is susceptible to machine-in-the-middle
 	// attacks.
 	InsecureSkipVerify bool `json:"insecureSkipVerify,omitempty"`
-	// Defaults to never.
+
+	// +kubebuilder:default=Never
 	// +kubebuilder:validation:Enum=Never;Always;SameHost
+
 	FollowRedirects api.FollowRedirects `json:"followRedirects,omitempty"`
 }
 

@@ -26,9 +26,11 @@ type PlatformSpec struct {
 
 type EventsSpec struct {
 	// +kubebuilder:validation:Minimum=3
+	// +kubebuilder:default=30
 	TimeoutSeconds uint `json:"timeoutSeconds,omitempty"`
-	// Large events reduce performance and increase memory usage. Default 5MiB.
-	// Maximum 16 MiB.
+
+	// Large events reduce performance and increase memory usage. Default 5Mi.
+	// Maximum 16Mi.
 	MaxSize resource.Quantity `json:"maxSize,omitempty"`
 }
 
@@ -50,6 +52,7 @@ type BrokerSpec struct {
 
 type HTTPSrvService struct {
 	// +kubebuilder:validation:Enum=ClusterIP;NodePort;LoadBalancer
+	// +kubebuilder:default=ClusterIP
 	Type  string       `json:"type,omitempty"`
 	Ports HTTPSrvPorts `json:"ports,omitempty"`
 
@@ -69,9 +72,11 @@ type HTTPSrvService struct {
 type HTTPSrvPorts struct {
 	// +kubebuilder:validation:Maximum=65535
 	// +kubebuilder:validation:Minimum=1
+	// +kubebuilder:default=80
 	HTTP uint `json:"http,omitempty"`
 	// +kubebuilder:validation:Maximum=65535
 	// +kubebuilder:validation:Minimum=1
+	// +kubebuilder:default=443
 	HTTPS uint `json:"https,omitempty"`
 }
 

@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"strconv"
 
-	"github.com/xigxog/kubefox/utils"
 	"google.golang.org/protobuf/types/known/structpb"
 )
 
@@ -234,9 +233,9 @@ func (val *Val) FloatDef(def float64) float64 {
 func (val *Val) String() string {
 	switch val.Type {
 	case Bool:
-		return utils.DefString(val.boolVal)
+		return fmt.Sprint(val.boolVal)
 	case Number:
-		return utils.DefString(val.numVal)
+		return fmt.Sprint(val.numVal)
 	case String:
 		return val.strVal
 	case ArrayNumber:
@@ -290,7 +289,7 @@ func (val *Val) ArrayString() []string {
 	if val.Type == ArrayNumber {
 		a := make([]string, len(val.arrayNumVal))
 		for i, v := range val.arrayNumVal {
-			a[i] = utils.DefString(v)
+			a[i] = fmt.Sprint(v)
 		}
 		return a
 	}

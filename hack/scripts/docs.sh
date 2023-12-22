@@ -4,7 +4,7 @@ source "$(dirname "${BASH_SOURCE[0]}")/setup.sh"
 
 PROTOC_GEN_DOC_VERSION="v1.5.1"
 GOMARKDOC_VERSION="v1.1.0"
-CRD_REF_DOCS_VERSION="v0.1.4"
+CRD_REF_DOCS_VERSION="v0.1.5"
 
 FOX_ROOT="${REPO_ROOT}/../fox"
 
@@ -42,7 +42,7 @@ fi
 rm -f "${CRD_DOCS}"
 mkdir -p $(dirname "${CRD_DOCS}")
 
-crd-ref-docs \
+${TOOLS_DIR}/crd-ref-docs \
     --config ${DOCS_SRC}/crd-ref-docs.yaml \
     --source-path ${REPO_ROOT}/api/ \
     --output-path ${CRD_DOCS} \
@@ -54,8 +54,9 @@ rm -rf "${KIT_DOCS_GO}"
 mkdir -p "${KIT_DOCS_GO}"
 
 find "${REPO_ROOT}/kit" -type d -exec bash -c '
-gomarkdoc --output "${0}/$(basename "${1}").md" "${1}"
-' "${KIT_DOCS_GO}" {} \;
+echo "generating go docs for ${2}" && \
+    ${0}/gomarkdoc --output "${1}/$(basename "${2}").md" "${2}"
+' "${TOOLS_DIR}" "${KIT_DOCS_GO}" {} \;
 
 pipenv install
 pipenv run mkdocs build

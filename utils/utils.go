@@ -129,10 +129,3 @@ func CleanLabel(value string) string {
 	cleaned = RegexpLabelSuffix.ReplaceAllLiteralString(cleaned, "")
 	return cleaned
 }
-
-// DefString return default string format of its operands.
-func DefString(a any) string {
-	var buf strings.Builder
-	fmt.Fprint(&buf, a)
-	return buf.String()
-}

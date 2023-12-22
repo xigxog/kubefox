@@ -1726,10 +1726,11 @@ spec:
                     - type: integer
                     - type: string
                     description: Large events reduce performance and increase memory
-                      usage. Default 5MiB. Maximum 16 MiB.
+                      usage. Default 5Mi. Maximum 16Mi.
                     pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                     x-kubernetes-int-or-string: true
                   timeoutSeconds:
+                    default: 30
                     minimum: 3
                     type: integer
                 type: object
@@ -3430,15 +3431,18 @@ spec:
                       ports:
                         properties:
                           http:
+                            default: 80
                             maximum: 65535
                             minimum: 1
                             type: integer
                           https:
+                            default: 443
                             maximum: 65535
                             minimum: 1
                             type: integer
                         type: object
                       type:
+                        default: ClusterIP
                         enum:
                         - ClusterIP
                         - NodePort

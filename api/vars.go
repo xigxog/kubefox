@@ -8,12 +8,12 @@ import (
 )
 
 const (
-	DefaultLogFormat             = "json"
-	DefaultLogLevel              = "info"
-	DefaultMaxEventSizeBytes     = 5242880 // 5 MiB
-	DefaultReleaseLimitCount     = 100
-	DefaultReleaseTimeoutSeconds = 300 // 5 mins
-	DefaultTimeoutSeconds        = 30
+	DefaultLogFormat                     = "json"
+	DefaultLogLevel                      = "info"
+	DefaultMaxEventSizeBytes             = 5242880 // 5 MiB
+	DefaultReleaseHistoryLimitCount      = 10
+	DefaultReleasePendingDeadlineSeconds = 300 // 5 mins
+	DefaultTimeoutSeconds                = 30
 
 	MaximumMaxEventSizeBytes = 16777216 // 16 MiB
 )
@@ -96,24 +96,49 @@ const (
 	ConditionReasonDependencyNotFound             string = "DependencyNotFound"
 	ConditionReasonHTTPSrvUnavailable             string = "HTTPSrvUnavailable"
 	ConditionReasonNATSUnavailable                string = "NATSUnavailable"
+	ConditionReasonNoRelease                      string = "NoRelease"
 	ConditionReasonPendingDeadlineExceeded        string = "PendingDeadlineExceeded"
 	ConditionReasonPlatformComponentsAvailable    string = "PlatformComponentsAvailable"
 	ConditionReasonPolicyViolation                string = "PolicyViolation"
-	ConditionReasonProgressDeadlineExceeded       string = "ProgressDeadlineExceeded"
 	ConditionReasonReconcileFailed                string = "ReconcileFailed"
 	ConditionReasonReleaseActive                  string = "ReleaseActive"
-	ConditionReasonReleaseEmpty                   string = "ReleaseEmpty"
 	ConditionReasonReleasePending                 string = "ReleasePending"
 	ConditionReasonReleaseUpdated                 string = "ReleaseUpdated"
 	ConditionReasonRouteProcessingFailed          string = "RouteProcessingFailed"
 	ConditionReasonVirtualEnvSnapshotFailed       string = "VirtualEnvSnapshotFailed"
 )
 
+type ArchiveReason string
+
 const (
-	ReleaseErrorTypeParseError   string = "ParseError"
-	ReleaseErrorTypeVarConflict  string = "VarConflict"
-	ReleaseErrorTypeVarNotFound  string = "VarNotFound"
-	ReleaseErrorTypeVarWrongType string = "VarWrongType"
+	ArchiveReasonPendingDeadlineExceeded ArchiveReason = "PendingDeadlineExceeded"
+	ArchiveReasonRolledBack              ArchiveReason = "RolledBack"
+	ArchiveReasonSuperseded              ArchiveReason = "Superseded"
+)
+
+type ProblemType string
+
+const (
+	ProblemTypeAppDeploymentFailed      ProblemType = "AppDeploymentFailed"
+	ProblemTypeAppDeploymentUnavailable ProblemType = "AppDeploymentUnavailable"
+	ProblemTypeParseError               ProblemType = "ParseError"
+	ProblemTypePolicyViolation          ProblemType = "PolicyViolation"
+	ProblemTypeRouteConflict            ProblemType = "RouteConflict"
+	ProblemTypeSecretNotFound           ProblemType = "SecretNotFound"
+	ProblemTypeVarNotFound              ProblemType = "VarNotFound"
+	ProblemTypeVarWrongType             ProblemType = "VarWrongType"
+	ProblemTypeVirtualEnvSnapshotFailed ProblemType = "VirtualEnvSnapshotFailed"
+)
+
+type ProblemSourceKind string
+
+const (
+	ProblemSourceKindAppDeployment      ProblemSourceKind = "AppDeployment"
+	ProblemSourceKindComponent          ProblemSourceKind = "Component"
+	ProblemSourceKindHTTPAdapter        ProblemSourceKind = "HTTPAdapter"
+	ProblemSourceKindRelease            ProblemSourceKind = "Release"
+	ProblemSourceKindVirtualEnv         ProblemSourceKind = "VirtualEnv"
+	ProblemSourceKindVirtualEnvSnapshot ProblemSourceKind = "VirtualEnvSnapshot"
 )
 
 type EnvVarType string

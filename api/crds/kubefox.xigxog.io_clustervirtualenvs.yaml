@@ -70,24 +70,23 @@ spec:
               releasePolicies:
                 properties:
                   appDeploymentPolicy:
+                    default: VersionRequired
                     enum:
                     - VersionOptional
                     - VersionRequired
                     type: string
                   historyLimits:
                     properties:
-                      ageDays:
-                        description: Maximum age of the Release to keep in history.
-                          Once the limit is reached the oldest Release in history
-                          will be deleted. Age is based on archiveTime.
-                        type: integer
                       count:
+                        default: 10
                         description: Maximum number of Releases to keep in history.
                           Once the limit is reached the oldest Release in history
-                          will be deleted. Age is based on archiveTime. Default 10.
+                          will be deleted. Age is based on archiveTime.
+                        minimum: 0
                         type: integer
                     type: object
                   pendingDeadlineSeconds:
+                    default: 300
                     description: If the pending Request cannot be activated before
                       the deadline it will be considered failed. If the Release becomes
                       available for activation after the deadline has been exceeded,
@@ -95,6 +94,7 @@ spec:
                     minimum: 3
                     type: integer
                   virtualEnvPolicy:
+                    default: SnapshotRequired
                     enum:
                     - SnapshotOptional
                     - SnapshotRequired

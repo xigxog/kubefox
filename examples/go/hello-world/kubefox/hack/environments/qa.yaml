@@ -3,7 +3,7 @@ kind: VirtualEnv
 metadata:
   name: qa
 spec:
-  releasePolicies:
+  releasePolicy:
     appDeploymentPolicy: VersionOptional
     virtualEnvPolicy: SnapshotOptional
 data:

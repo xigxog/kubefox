@@ -27,6 +27,7 @@ AppDeployment is the Schema for the AppDeployments API
 
 
 
+
 ### ClusterVirtualEnv
 
 
@@ -41,7 +42,6 @@ AppDeployment is the Schema for the AppDeployments API
 | `spec` | <div style="white-space:nowrap">[ClusterVirtualEnvSpec](#clustervirtualenvspec)<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
 | `data` | <div style="white-space:nowrap">[VirtualEnvData](#virtualenvdata)<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
 | `details` | <div style="white-space:nowrap">[VirtualEnvDetails](#virtualenvdetails)<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
-
 
 
 
@@ -94,6 +94,10 @@ Platform is the Schema for the Platforms API
 | `spec` | <div style="white-space:nowrap">[PlatformSpec](#platformspec)<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
 | `status` | <div style="white-space:nowrap">[PlatformStatus](#platformstatus)<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
 | `details` | <div style="white-space:nowrap">[PlatformDetails](#platformdetails)<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
+
+
+
+
 
 
 
@@ -224,6 +228,9 @@ Used by:<br>
 
 
 
+
+
+
 ### BrokerSpec
 
 
@@ -254,7 +261,7 @@ Used by:<br>
 
 | Field | Type | Description | Validation |
 | ----- | ---- | ----------- | ---------- |
-| `releasePolicies` | <div style="white-space:nowrap">[ReleasePolicies](#releasepolicies)<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
+| `releasePolicies` | <div style="white-space:nowrap">[ReleasePolicy](#releasepolicy)<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
 
 
 
@@ -392,26 +399,6 @@ Used by:<br>
 
 
 
-### ErrorSource
-
-
-
-<p style="font-size:.6rem;">
-Used by:<br>
-
-- <a href=#releaseerror>ReleaseError</a><br>
-</p>
-
-| Field | Type | Description | Validation |
-| ----- | ---- | ----------- | ---------- |
-| `kind` | <div style="white-space:nowrap">enum[`AppDeployment`, `HTTPAdapter`]<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap">required</div> |
-| `name` | <div style="white-space:nowrap">string<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap">required</div> |
-| `resourceVersion` | <div style="white-space:nowrap">string<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap">required</div> |
-| `path` | <div style="white-space:nowrap">string<div> | <div style="max-width:30rem">JSON path of source object attribute causing error.</div> | <div style="white-space:nowrap"></div> |
-| `value` | <div style="white-space:nowrap">string<div> | <div style="max-width:30rem">Value causing error.</div> | <div style="white-space:nowrap"></div> |
-
-
-
 
 
 
@@ -427,8 +414,8 @@ Used by:<br>
 
 | Field | Type | Description | Validation |
 | ----- | ---- | ----------- | ---------- |
-| `timeoutSeconds` | <div style="white-space:nowrap">integer<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap">min: 3</div> |
-| `maxSize` | <div style="white-space:nowrap">[Quantity](https://kubernetes.io/docs/reference/kubernetes-api/common-definitions/quantity/)<div> | <div style="max-width:30rem">Large events reduce performance and increase memory usage. Default 5MiB. Maximum 16 MiB.</div> | <div style="white-space:nowrap"></div> |
+| `timeoutSeconds` | <div style="white-space:nowrap">integer<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap">min: 3, default: 30</div> |
+| `maxSize` | <div style="white-space:nowrap">[Quantity](https://kubernetes.io/docs/reference/kubernetes-api/common-definitions/quantity/)<div> | <div style="max-width:30rem">Large events reduce performance and increase memory usage. Default 5Mi. Maximum 16Mi.</div> | <div style="white-space:nowrap"></div> |
 
 
 
@@ -450,8 +437,8 @@ Used by:<br>
 | ----- | ---- | ----------- | ---------- |
 | `url` | <div style="white-space:nowrap">string<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap">required, format: uri</div> |
 | `headers` | <div style="white-space:nowrap">map{string, string}<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
-| `insecureSkipVerify` | <div style="white-space:nowrap">boolean<div> | <div style="max-width:30rem">InsecureSkipVerify controls whether a client verifies the server's certificate chain and host name. If InsecureSkipVerify is true, any certificate presented by the server and any host name in that certificate is accepted. In this mode, TLS is susceptible to machine-in-the-middle attacks.</div> | <div style="white-space:nowrap"></div> |
-| `followRedirects` | <div style="white-space:nowrap">enum[`Never`, `Always`, `SameHost`]<div> | <div style="max-width:30rem">Defaults to never.</div> | <div style="white-space:nowrap"></div> |
+| `insecureSkipVerify` | <div style="white-space:nowrap">boolean<div> | <div style="max-width:30rem">InsecureSkipVerify controls whether the Adapter verifies the server's certificate chain and host name. If InsecureSkipVerify is true, any certificate presented by the server and any host name in that certificate is accepted. In this mode, TLS is susceptible to machine-in-the-middle attacks.</div> | <div style="white-space:nowrap">default: false</div> |
+| `followRedirects` | <div style="white-space:nowrap">enum[`Never`, `Always`, `SameHost`]<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap">default: Never</div> |
 
 
 
@@ -467,8 +454,8 @@ Used by:<br>
 
 | Field | Type | Description | Validation |
 | ----- | ---- | ----------- | ---------- |
-| `http` | <div style="white-space:nowrap">integer<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap">min: 1, max: 65535</div> |
-| `https` | <div style="white-space:nowrap">integer<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap">min: 1, max: 65535</div> |
+| `http` | <div style="white-space:nowrap">integer<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap">min: 1, max: 65535, default: 80</div> |
+| `https` | <div style="white-space:nowrap">integer<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap">min: 1, max: 65535, default: 443</div> |
 
 
 
@@ -484,7 +471,7 @@ Used by:<br>
 
 | Field | Type | Description | Validation |
 | ----- | ---- | ----------- | ---------- |
-| `type` | <div style="white-space:nowrap">enum[`ClusterIP`, `NodePort`, `LoadBalancer`]<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
+| `type` | <div style="white-space:nowrap">enum[`ClusterIP`, `NodePort`, `LoadBalancer`]<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap">default: ClusterIP</div> |
 | `ports` | <div style="white-space:nowrap">[HTTPSrvPorts](#httpsrvports)<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
 | `labels` | <div style="white-space:nowrap">map{string, string}<div> | <div style="max-width:30rem">Map of string keys and values that can be used to organize and categorize (scope and select) objects. May match selectors of replication controllers and services. [More info](https://kubernetes.io/docs/concepts/overview/working-with-objects/labels).</div> | <div style="white-space:nowrap"></div> |
 | `annotations` | <div style="white-space:nowrap">map{string, string}<div> | <div style="max-width:30rem">Annotations is an unstructured key value map stored with a resource that may be set by external tools to store and retrieve arbitrary metadata. They are not queryable and should be preserved when modifying objects. [More info](https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations).</div> | <div style="white-space:nowrap"></div> |
@@ -621,6 +608,51 @@ Used by:<br>
 
 
 
+### Problem
+
+
+
+<p style="font-size:.6rem;">
+Used by:<br>
+
+- <a href=#releasestatus>ReleaseStatus</a><br>
+</p>
+
+| Field | Type | Description | Validation |
+| ----- | ---- | ----------- | ---------- |
+| `type` | <div style="white-space:nowrap">enum[`AppDeploymentFailed`, `AppDeploymentUnavailable`, `ParseError`, `PolicyViolation`, `RouteConflict`, `SecretNotFound`, `VarNotFound`, `VarWrongType`, `VirtualEnvSnapshotFailed`]<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap">required</div> |
+| `observedTime` | <div style="white-space:nowrap">[UncomparableTime](#uncomparabletime)<div> | <div style="max-width:30rem">ObservedTime at which the problem was recorded.</div> | <div style="white-space:nowrap">required</div> |
+| `message` | <div style="white-space:nowrap">string<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
+| `causes` | <div style="white-space:nowrap">[ProblemSource](#problemsource) array<div> | <div style="max-width:30rem">Resources and attributes causing problem.</div> | <div style="white-space:nowrap"></div> |
+
+
+
+### ProblemSource
+
+
+
+<p style="font-size:.6rem;">
+Used by:<br>
+
+- <a href=#problem>Problem</a><br>
+</p>
+
+| Field | Type | Description | Validation |
+| ----- | ---- | ----------- | ---------- |
+| `kind` | <div style="white-space:nowrap">enum[`AppDeployment`, `Component`, `HTTPAdapter`, `Release`, `VirtualEnv`, `VirtualEnvSnapshot`]<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap">required</div> |
+| `name` | <div style="white-space:nowrap">string<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
+| `observedGeneration` | <div style="white-space:nowrap">integer<div> | <div style="max-width:30rem">ObservedGeneration represents the .metadata.generation of the ProblemSource that the problem was generated from. For instance, if the ProblemSource .metadata.generation is currently 12, but the observedGeneration is 9, the problem is out of date with respect to the current state of the instance.</div> | <div style="white-space:nowrap"></div> |
+| `path` | <div style="white-space:nowrap">string<div> | <div style="max-width:30rem">Path of source object attribute causing problem.</div> | <div style="white-space:nowrap"></div> |
+| `value` | <div style="white-space:nowrap">string<div> | <div style="max-width:30rem">Value causing problem. Pointer is used to distinguish between not set and empty string.</div> | <div style="white-space:nowrap"></div> |
+
+
+
+
+
+
+
+
+
 ### Release
 
 
@@ -674,25 +706,6 @@ Used by:<br>
 
 
 
-### ReleaseError
-
-
-
-<p style="font-size:.6rem;">
-Used by:<br>
-
-- <a href=#releasestatus>ReleaseStatus</a><br>
-</p>
-
-| Field | Type | Description | Validation |
-| ----- | ---- | ----------- | ---------- |
-| `type` | <div style="white-space:nowrap">enum[`ParseError`, `VarConflict`, `VarNotFound`, `VarWrongType`]<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap">required</div> |
-| `path` | <div style="white-space:nowrap">string<div> | <div style="max-width:30rem">JSON path of VirtualEnv attribute causing error.</div> | <div style="white-space:nowrap"></div> |
-| `message` | <div style="white-space:nowrap">string<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
-| `source` | <div style="white-space:nowrap">[ErrorSource](#errorsource)<div> | <div style="max-width:30rem">Source of error.</div> | <div style="white-space:nowrap"></div> |
-
-
-
 ### ReleaseHistoryLimits
 
 
@@ -700,17 +713,16 @@ Used by:<br>
 <p style="font-size:.6rem;">
 Used by:<br>
 
-- <a href=#releasepolicies>ReleasePolicies</a><br>
+- <a href=#releasepolicy>ReleasePolicy</a><br>
 </p>
 
 | Field | Type | Description | Validation |
 | ----- | ---- | ----------- | ---------- |
-| `count` | <div style="white-space:nowrap">integer<div> | <div style="max-width:30rem">Maximum number of Releases to keep in history. Once the limit is reached the oldest Release in history will be deleted. Age is based on archiveTime. Default 10.</div> | <div style="white-space:nowrap"></div> |
-| `ageDays` | <div style="white-space:nowrap">integer<div> | <div style="max-width:30rem">Maximum age of the Release to keep in history. Once the limit is reached the oldest Release in history will be deleted. Age is based on archiveTime.</div> | <div style="white-space:nowrap"></div> |
+| `count` | <div style="white-space:nowrap">integer<div> | <div style="max-width:30rem">Maximum number of Releases to keep in history. Once the limit is reached the oldest Release in history will be deleted. Age is based on archiveTime.</div> | <div style="white-space:nowrap">min: 0, default: 10</div> |
 
 
 
-### ReleasePolicies
+### ReleasePolicy
 
 
 
@@ -723,9 +735,9 @@ Used by:<br>
 
 | Field | Type | Description | Validation |
 | ----- | ---- | ----------- | ---------- |
-| `pendingDeadlineSeconds` | <div style="white-space:nowrap">integer<div> | <div style="max-width:30rem">If the pending Request cannot be activated before the deadline it will be considered failed. If the Release becomes available for activation after the deadline has been exceeded, it will not be activated.</div> | <div style="white-space:nowrap">min: 3</div> |
-| `appDeploymentPolicy` | <div style="white-space:nowrap">enum[`VersionOptional`, `VersionRequired`]<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
-| `virtualEnvPolicy` | <div style="white-space:nowrap">enum[`SnapshotOptional`, `SnapshotRequired`]<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
+| `pendingDeadlineSeconds` | <div style="white-space:nowrap">integer<div> | <div style="max-width:30rem">If the pending Request cannot be activated before the deadline it will be considered failed. If the Release becomes available for activation after the deadline has been exceeded, it will not be activated.</div> | <div style="white-space:nowrap">min: 3, default: 300</div> |
+| `appDeploymentPolicy` | <div style="white-space:nowrap">enum[`VersionOptional`, `VersionRequired`]<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap">default: VersionRequired</div> |
+| `virtualEnvPolicy` | <div style="white-space:nowrap">enum[`SnapshotOptional`, `SnapshotRequired`]<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap">default: SnapshotRequired</div> |
 | `historyLimits` | <div style="white-space:nowrap">[ReleaseHistoryLimits](#releasehistorylimits)<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
 
 
@@ -747,7 +759,8 @@ Used by:<br>
 | `requestTime` | <div style="white-space:nowrap">[Time](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.28/#time-v1-meta)<div> | <div style="max-width:30rem">Time at which the VirtualEnv was updated to use the Release.</div> | <div style="white-space:nowrap"></div> |
 | `activationTime` | <div style="white-space:nowrap">[Time](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.28/#time-v1-meta)<div> | <div style="max-width:30rem">Time at which the Release became active. If not set the Release was never active.</div> | <div style="white-space:nowrap"></div> |
 | `archiveTime` | <div style="white-space:nowrap">[Time](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.28/#time-v1-meta)<div> | <div style="max-width:30rem">Time at which the Release was archived to history.</div> | <div style="white-space:nowrap"></div> |
-| `errors` | <div style="white-space:nowrap">[ReleaseError](#releaseerror) array<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
+| `archiveReason` | <div style="white-space:nowrap">enum[`PendingDeadlineExceeded`, `RolledBack`, `Superseded`]<div> | <div style="max-width:30rem">Reason Release was archived.</div> | <div style="white-space:nowrap"></div> |
+| `problems` | <div style="white-space:nowrap">[Problem](#problem) array<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
 
 
 
@@ -769,6 +782,9 @@ Used by:<br>
 | `rule` | <div style="white-space:nowrap">string<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
 | `priority` | <div style="white-space:nowrap">integer<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
 | `virtualEnvSchema` | <div style="white-space:nowrap">map{string, [VirtualEnvVarDefinition](#virtualenvvardefinition)}<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
+
+
+
 
 
 
@@ -881,7 +897,7 @@ Used by:<br>
 | ----- | ---- | ----------- | ---------- |
 | `parent` | <div style="white-space:nowrap">string<div> | <div style="max-width:30rem">Parent ClusterVirtualEnv. Note, only ClusterVirtualEnvs can be used as parents.</div> | <div style="white-space:nowrap"></div> |
 | `release` | <div style="white-space:nowrap">[Release](#release)<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
-| `releasePolicies` | <div style="white-space:nowrap">[ReleasePolicies](#releasepolicies)<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
+| `releasePolicy` | <div style="white-space:nowrap">[ReleasePolicy](#releasepolicy)<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
 
 
 
@@ -898,6 +914,7 @@ Used by:<br>
 | Field | Type | Description | Validation |
 | ----- | ---- | ----------- | ---------- |
 | `dataChecksum` | <div style="white-space:nowrap">integer<div> | <div style="max-width:30rem">DataChecksum is a hash value of the Data object. If the VirtualEnv has a parent the parent's Data object is merged before the hash is create. It can be used to check for changes to the Data object.</div> | <div style="white-space:nowrap"></div> |
+| `pendingReleaseFailed` | <div style="white-space:nowrap">boolean<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
 | `activeRelease` | <div style="white-space:nowrap">[ReleaseStatus](#releasestatus)<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
 | `pendingRelease` | <div style="white-space:nowrap">[ReleaseStatus](#releasestatus)<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
 | `releaseHistory` | <div style="white-space:nowrap">[ReleaseStatus](#releasestatus) array<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |

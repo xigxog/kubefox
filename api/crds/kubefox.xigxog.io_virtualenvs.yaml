@@ -96,27 +96,26 @@ spec:
                 required:
                 - appDeployment
                 type: object
-              releasePolicies:
+              releasePolicy:
                 properties:
                   appDeploymentPolicy:
+                    default: VersionRequired
                     enum:
                     - VersionOptional
                     - VersionRequired
                     type: string
                   historyLimits:
                     properties:
-                      ageDays:
-                        description: Maximum age of the Release to keep in history.
-                          Once the limit is reached the oldest Release in history
-                          will be deleted. Age is based on archiveTime.
-                        type: integer
                       count:
+                        default: 10
                         description: Maximum number of Releases to keep in history.
                           Once the limit is reached the oldest Release in history
-                          will be deleted. Age is based on archiveTime. Default 10.
+                          will be deleted. Age is based on archiveTime.
+                        minimum: 0
                         type: integer
                     type: object
                   pendingDeadlineSeconds:
+                    default: 300
                     description: If the pending Request cannot be activated before
                       the deadline it will be considered failed. If the Release becomes
                       available for activation after the deadline has been exceeded,
@@ -124,6 +123,7 @@ spec:
                     minimum: 3
                     type: integer
                   virtualEnvPolicy:
+                    default: SnapshotRequired
                     enum:
                     - SnapshotOptional
                     - SnapshotRequired
@@ -162,50 +162,76 @@ spec:
                     required:
                     - name
                     type: object
+                  archiveReason:
+                    description: Reason Release was archived.
+                    enum:
+                    - PendingDeadlineExceeded
+                    - RolledBack
+                    - Superseded
+                    type: string
                   archiveTime:
                     description: Time at which the Release was archived to history.
                     format: date-time
                     type: string
-                  errors:
+                  problems:
                     items:
                       properties:
+                        causes:
+                          description: Resources and attributes causing problem.
+                          items:
+                            properties:
+                              kind:
+                                enum:
+                                - AppDeployment
+                                - Component
+                                - HTTPAdapter
+                                - Release
+                                - VirtualEnv
+                                - VirtualEnvSnapshot
+                                type: string
+                              name:
+                                type: string
+                              observedGeneration:
+                                description: ObservedGeneration represents the .metadata.generation
+                                  of the ProblemSource that the problem was generated
+                                  from. For instance, if the ProblemSource .metadata.generation
+                                  is currently 12, but the observedGeneration is 9,
+                                  the problem is out of date with respect to the current
+                                  state of the instance.
+                                format: int64
+                                type: integer
+                              path:
+                                description: Path of source object attribute causing
+                                  problem.
+                                type: string
+                              value:
+                                description: Value causing problem. Pointer is used
+                                  to distinguish between not set and empty string.
+                                type: string
+                            required:
+                            - kind
+                            type: object
+                          type: array
                         message:
                           type: string
-                        path:
-                          description: JSON path of VirtualEnv attribute causing error.
+                        observedTime:
+                          description: ObservedTime at which the problem was recorded.
+                          format: date-time
                           type: string
-                        source:
-                          description: Source of error.
-                          properties:
-                            kind:
-                              enum:
-                              - AppDeployment
-                              - HTTPAdapter
-                              type: string
-                            name:
-                              type: string
-                            path:
-                              description: JSON path of source object attribute causing
-                                error.
-                              type: string
-                            resourceVersion:
-                              type: string
-                            value:
-                              description: Value causing error.
-                              type: string
-                          required:
-                          - kind
-                          - name
-                          - resourceVersion
-                          type: object
                         type:
                           enum:
+                          - AppDeploymentFailed
+                          - AppDeploymentUnavailable
                           - ParseError
-                          - VarConflict
+                          - PolicyViolation
+                          - RouteConflict
+                          - SecretNotFound
                           - VarNotFound
                           - VarWrongType
+                          - VirtualEnvSnapshotFailed
                           type: string
                       required:
+                      - observedTime
                       - type
                       type: object
                     type: array
@@ -325,50 +351,76 @@ spec:
                     required:
                     - name
                     type: object
+                  archiveReason:
+                    description: Reason Release was archived.
+                    enum:
+                    - PendingDeadlineExceeded
+                    - RolledBack
+                    - Superseded
+                    type: string
                   archiveTime:
                     description: Time at which the Release was archived to history.
                     format: date-time
                     type: string
-                  errors:
+                  problems:
                     items:
                       properties:
+                        causes:
+                          description: Resources and attributes causing problem.
+                          items:
+                            properties:
+                              kind:
+                                enum:
+                                - AppDeployment
+                                - Component
+                                - HTTPAdapter
+                                - Release
+                                - VirtualEnv
+                                - VirtualEnvSnapshot
+                                type: string
+                              name:
+                                type: string
+                              observedGeneration:
+                                description: ObservedGeneration represents the .metadata.generation
+                                  of the ProblemSource that the problem was generated
+                                  from. For instance, if the ProblemSource .metadata.generation
+                                  is currently 12, but the observedGeneration is 9,
+                                  the problem is out of date with respect to the current
+                                  state of the instance.
+                                format: int64
+                                type: integer
+                              path:
+                                description: Path of source object attribute causing
+                                  problem.
+                                type: string
+                              value:
+                                description: Value causing problem. Pointer is used
+                                  to distinguish between not set and empty string.
+                                type: string
+                            required:
+                            - kind
+                            type: object
+                          type: array
                         message:
                           type: string
-                        path:
-                          description: JSON path of VirtualEnv attribute causing error.
+                        observedTime:
+                          description: ObservedTime at which the problem was recorded.
+                          format: date-time
                           type: string
-                        source:
-                          description: Source of error.
-                          properties:
-                            kind:
-                              enum:
-                              - AppDeployment
-                              - HTTPAdapter
-                              type: string
-                            name:
-                              type: string
-                            path:
-                              description: JSON path of source object attribute causing
-                                error.
-                              type: string
-                            resourceVersion:
-                              type: string
-                            value:
-                              description: Value causing error.
-                              type: string
-                          required:
-                          - kind
-                          - name
-                          - resourceVersion
-                          type: object
                         type:
                           enum:
+                          - AppDeploymentFailed
+                          - AppDeploymentUnavailable
                           - ParseError
-                          - VarConflict
+                          - PolicyViolation
+                          - RouteConflict
+                          - SecretNotFound
                           - VarNotFound
                           - VarWrongType
+                          - VirtualEnvSnapshotFailed
                           type: string
                       required:
+                      - observedTime
                       - type
                       type: object
                     type: array
@@ -380,6 +432,8 @@ spec:
                   virtualEnvSnapshot:
                     type: string
                 type: object
+              pendingReleaseFailed:
+                type: boolean
               releaseHistory:
                 items:
                   properties:
@@ -411,51 +465,76 @@ spec:
                       required:
                       - name
                       type: object
+                    archiveReason:
+                      description: Reason Release was archived.
+                      enum:
+                      - PendingDeadlineExceeded
+                      - RolledBack
+                      - Superseded
+                      type: string
                     archiveTime:
                       description: Time at which the Release was archived to history.
                       format: date-time
                       type: string
-                    errors:
+                    problems:
                       items:
                         properties:
+                          causes:
+                            description: Resources and attributes causing problem.
+                            items:
+                              properties:
+                                kind:
+                                  enum:
+                                  - AppDeployment
+                                  - Component
+                                  - HTTPAdapter
+                                  - Release
+                                  - VirtualEnv
+                                  - VirtualEnvSnapshot
+                                  type: string
+                                name:
+                                  type: string
+                                observedGeneration:
+                                  description: ObservedGeneration represents the .metadata.generation
+                                    of the ProblemSource that the problem was generated
+                                    from. For instance, if the ProblemSource .metadata.generation
+                                    is currently 12, but the observedGeneration is
+                                    9, the problem is out of date with respect to
+                                    the current state of the instance.
+                                  format: int64
+                                  type: integer
+                                path:
+                                  description: Path of source object attribute causing
+                                    problem.
+                                  type: string
+                                value:
+                                  description: Value causing problem. Pointer is used
+                                    to distinguish between not set and empty string.
+                                  type: string
+                              required:
+                              - kind
+                              type: object
+                            type: array
                           message:
                             type: string
-                          path:
-                            description: JSON path of VirtualEnv attribute causing
-                              error.
+                          observedTime:
+                            description: ObservedTime at which the problem was recorded.
+                            format: date-time
                             type: string
-                          source:
-                            description: Source of error.
-                            properties:
-                              kind:
-                                enum:
-                                - AppDeployment
-                                - HTTPAdapter
-                                type: string
-                              name:
-                                type: string
-                              path:
-                                description: JSON path of source object attribute
-                                  causing error.
-                                type: string
-                              resourceVersion:
-                                type: string
-                              value:
-                                description: Value causing error.
-                                type: string
-                            required:
-                            - kind
-                            - name
-                            - resourceVersion
-                            type: object
                           type:
                             enum:
+                            - AppDeploymentFailed
+                            - AppDeploymentUnavailable
                             - ParseError
-                            - VarConflict
+                            - PolicyViolation
+                            - RouteConflict
+                            - SecretNotFound
                             - VarNotFound
                             - VarWrongType
+                            - VirtualEnvSnapshotFailed
                             type: string
                         required:
+                        - observedTime
                         - type
                         type: object
                       type: array

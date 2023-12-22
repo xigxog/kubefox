@@ -67,7 +67,8 @@ func (r *VirtualEnvReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 	}
 	origEnv := env.DeepCopy()
 
-	if err := r.reconcile(ctx, env, log); IgnoreFailedWebhookErr(err) != nil {
+	requeueAfter, err := r.reconcile(ctx, env, log)
+	if IgnoreFailedWebhookErr(err) != nil {
 		return ctrl.Result{}, err
 
 	} else if IsFailedWebhookErr(err) {
@@ -75,59 +76,109 @@ func (r *VirtualEnvReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 		return ctrl.Result{RequeueAfter: time.Second * 15}, nil
 	}
 
+	// Prune history if limit is exceeded.
+	count := int(env.Spec.ReleasePolicy.HistoryLimits.Count)
+	if count <= 0 {
+		count = api.DefaultReleaseHistoryLimitCount
+	}
+	if len(env.Status.ReleaseHistory) > count {
+		env.Status.ReleaseHistory = env.Status.ReleaseHistory[:count]
+	}
+
+	// Update status if changed.
 	if !k8s.DeepEqual(&env.Status, &origEnv.Status) {
 		log.Debug("VirtualEnv status modified, updating")
-		if err := r.MergeStatus(ctx, env, origEnv); err != nil {
+		if err := r.MergeStatus(ctx, env, origEnv); k8s.IgnoreNotFound(err) != nil {
 			return ctrl.Result{}, err
 		}
 	}
 
-	return ctrl.Result{}, nil
+	// Update spec if Release was "rolled back".
+	if !k8s.DeepEqual(&env.Spec, &origEnv.Spec) {
+		log.Debug("VirtualEnv spec modified, updating")
+		if err := r.Merge(ctx, env, origEnv); k8s.IgnoreNotFound(err) != nil {
+			return ctrl.Result{}, err
+		}
+	}
+
+	if requeueAfter > 0 {
+		log.Debugf("Release pending, requeuing after %s to check deadline", requeueAfter)
+	}
+
+	return ctrl.Result{RequeueAfter: requeueAfter}, nil
 }
 
-func (r *VirtualEnvReconciler) reconcile(ctx context.Context, env *v1alpha1.VirtualEnv, log *logkf.Logger) error {
+func (r *VirtualEnvReconciler) reconcile(ctx context.Context, env *v1alpha1.VirtualEnv, log *logkf.Logger) (time.Duration, error) {
 	now := metav1.Now()
+	pending := k8s.Condition(env.Status.Conditions, api.ConditionTypeReleasePending)
+
+	if pending.Status == metav1.ConditionFalse &&
+		pending.Reason == api.ConditionReasonPendingDeadlineExceeded &&
+		env.Status.PendingReleaseFailed && !env.Status.ActiveRelease.Equals(env.Spec.Release) {
+
+		// The pending Release failed to activate before deadline was exceeded.
+		// Rollback to active Release.
+		origEnv := env.DeepCopy()
+		if active := env.Status.ActiveRelease; active != nil {
+			env.Spec.Release = &v1alpha1.Release{
+				AppDeployment:      active.AppDeployment.ReleaseAppDeployment,
+				VirtualEnvSnapshot: active.VirtualEnvSnapshot,
+			}
+		} else {
+			env.Spec.Release = nil
+		}
+
+		return 0, r.Merge(ctx, env, origEnv)
+	}
+
+	// Reset flag to default so rollback does not occur again.
+	env.Status.PendingReleaseFailed = false
 
 	if env.Spec.Release == nil {
+		pendingReason, pendingMsg := api.ConditionReasonNoRelease, "No Release set for VirtualEnv."
+		if pending.Reason == api.ConditionReasonPendingDeadlineExceeded {
+			// Retain reason and message if the deadline was exceeded previously.
+			pendingReason = pending.Reason
+			pendingMsg = pending.Message
+		}
+
 		env.Status.Conditions = k8s.UpdateConditions(now, env.Status.Conditions, &metav1.Condition{
 			Type:               api.ConditionTypeReleaseAvailable,
 			Status:             metav1.ConditionFalse,
 			ObservedGeneration: env.ObjectMeta.Generation,
-			Reason:             api.ConditionReasonReleaseEmpty,
+			Reason:             api.ConditionReasonNoRelease,
 			Message:            "No Release set for VirtualEnv.",
 		}, &metav1.Condition{
 			Type:               api.ConditionTypeReleasePending,
 			Status:             metav1.ConditionFalse,
 			ObservedGeneration: env.ObjectMeta.Generation,
-			Reason:             api.ConditionReasonReleaseEmpty,
-			Message:            "No Release set for VirtualEnv.",
+			Reason:             pendingReason,
+			Message:            pendingMsg,
 		})
 		if env.Status.ActiveRelease != nil {
 			env.Status.ActiveRelease.ArchiveTime = &now
+			env.Status.ActiveRelease.ArchiveReason = api.ArchiveReasonSuperseded
 			env.Status.ReleaseHistory = append([]v1alpha1.ReleaseStatus{*env.Status.ActiveRelease}, env.Status.ReleaseHistory...)
 			env.Status.ActiveRelease = nil
 		}
 		if env.Status.PendingRelease != nil {
 			env.Status.PendingRelease.ArchiveTime = &now
+			env.Status.PendingRelease.ArchiveReason = api.ArchiveReasonSuperseded
 			env.Status.ReleaseHistory = append([]v1alpha1.ReleaseStatus{*env.Status.PendingRelease}, env.Status.ReleaseHistory...)
 			env.Status.PendingRelease = nil
 		}
 
-		// TODO enforce history limits
-
-		return nil
+		return 0, nil
 	}
 
+	var remainingDeadline time.Duration
 	isActive := env.Status.ActiveRelease != nil &&
 		env.Status.ActiveRelease.AppDeployment.ReleaseAppDeployment == env.Spec.Release.AppDeployment
-	isPending := env.Status.PendingRelease != nil &&
-		env.Status.PendingRelease.AppDeployment.ReleaseAppDeployment == env.Spec.Release.AppDeployment
 
 	if isActive {
 		env.Status.PendingRelease = nil
-	}
-	if !isActive && !isPending {
-		isPending = true
+
+	} else if !env.Status.PendingRelease.Equals(env.Spec.Release) {
 		env.Status.PendingRelease = &v1alpha1.ReleaseStatus{
 			AppDeployment: v1alpha1.ReleaseAppDeploymentStatus{
 				ReleaseAppDeployment: env.Spec.Release.AppDeployment,
@@ -145,25 +196,43 @@ func (r *VirtualEnvReconciler) reconcile(ctx context.Context, env *v1alpha1.Virt
 			msg    = "Release is active."
 			err    error
 		)
+		if pending.Reason == api.ConditionReasonPendingDeadlineExceeded {
+			// Retain reason and message if the deadline was exceeded previously.
+			reason = pending.Reason
+			msg = pending.Message
+		}
 		if env.Status.PendingRelease != nil {
 			status = metav1.ConditionTrue
-			reason, msg, err = r.conditionReason(ctx, env, env.Status.PendingRelease)
-			if err != nil {
-				return err
+			remainingDeadline = env.ReleasePendingDeadline() - env.ReleasePendingDuration()
+			if reason, msg, err = r.updateProblems(ctx, now, env, env.Status.PendingRelease); err != nil {
+				return 0, err
 			}
 
-			if reason == "" {
-				reason = api.ConditionReasonReleaseActive
+			switch {
+			case reason == "":
 				status = metav1.ConditionFalse
+				reason = api.ConditionReasonReleaseActive
+				remainingDeadline = 0
 
 				if env.Status.ActiveRelease != nil {
 					env.Status.ActiveRelease.ArchiveTime = &now
+					env.Status.ActiveRelease.ArchiveReason = api.ArchiveReasonSuperseded
 					env.Status.ReleaseHistory = append([]v1alpha1.ReleaseStatus{*env.Status.ActiveRelease}, env.Status.ReleaseHistory...)
-					// TODO enforce history limits
 				}
 				env.Status.ActiveRelease = env.Status.PendingRelease
 				env.Status.ActiveRelease.ActivationTime = &now
 				env.Status.PendingRelease = nil
+
+			case remainingDeadline <= 0:
+				status = metav1.ConditionFalse
+				reason = api.ConditionReasonPendingDeadlineExceeded
+				msg = "Deadline exceeded before pending Release could be activated."
+
+				env.Status.PendingRelease.ArchiveTime = &now
+				env.Status.PendingRelease.ArchiveReason = api.ArchiveReasonPendingDeadlineExceeded
+				env.Status.ReleaseHistory = append([]v1alpha1.ReleaseStatus{*env.Status.PendingRelease}, env.Status.ReleaseHistory...)
+				env.Status.PendingRelease = nil
+				env.Status.PendingReleaseFailed = true
 			}
 		}
 		env.Status.Conditions = k8s.UpdateConditions(now, env.Status.Conditions, &metav1.Condition{
@@ -184,9 +253,8 @@ func (r *VirtualEnvReconciler) reconcile(ctx context.Context, env *v1alpha1.Virt
 			err    error
 		)
 		if env.Status.ActiveRelease != nil {
-			reason, msg, err = r.conditionReason(ctx, env, env.Status.ActiveRelease)
-			if err != nil {
-				return err
+			if reason, msg, err = r.updateProblems(ctx, now, env, env.Status.ActiveRelease); err != nil {
+				return 0, err
 			}
 			if reason == "" {
 				status = metav1.ConditionTrue
@@ -203,83 +271,221 @@ func (r *VirtualEnvReconciler) reconcile(ctx context.Context, env *v1alpha1.Virt
 		})
 	}
 
-	return nil
+	return remainingDeadline, nil
 }
 
-func (r *VirtualEnvReconciler) conditionReason(ctx context.Context, env *v1alpha1.VirtualEnv, rel *v1alpha1.ReleaseStatus) (string, string, error) {
-	relPolicies := env.Spec.ReleasePolicies
-	if relPolicies == nil {
-		relPolicies = &v1alpha1.ReleasePolicies{
-			AppDeploymentPolicy: api.AppDeploymentPolicyVersionRequired,
-			VirtualEnvPolicy:    api.VirtualEnvPolicySnapshotRequired,
-		}
-	}
-	if relPolicies.AppDeploymentPolicy == api.AppDeploymentPolicyVersionRequired && rel.AppDeployment.Version == "" {
-		return api.ConditionReasonPolicyViolation, "AppDeployment version is required but not set.", nil
-	}
-	if relPolicies.VirtualEnvPolicy == api.VirtualEnvPolicySnapshotRequired && rel.VirtualEnvSnapshot == "" {
-		return api.ConditionReasonPolicyViolation, "VirtualEnvSnapshot is required but not set.", nil
-	}
+func (r *VirtualEnvReconciler) updateProblems(ctx context.Context, now metav1.Time,
+	env *v1alpha1.VirtualEnv, rel *v1alpha1.ReleaseStatus) (reason string, msg string, err error) {
 
 	rel.AppDeployment.ObservedGeneration = 0
+	rel.Problems = nil
 
 	appDep := &v1alpha1.AppDeployment{}
-	err := r.Get(ctx, k8s.Key(env.Namespace, rel.AppDeployment.Name), appDep)
+	err = r.Get(ctx, k8s.Key(env.Namespace, rel.AppDeployment.Name), appDep)
 	switch {
 	case err == nil:
 		rel.AppDeployment.ObservedGeneration = appDep.Generation
 		progressing := k8s.Condition(appDep.Status.Conditions, api.ConditionTypeProgressing)
 
-		switch {
-		case rel.AppDeployment.Version != "" && rel.AppDeployment.Version != appDep.Spec.Version:
-			return api.ConditionReasonAppDeploymentFailed,
+		if !k8s.IsAvailable(appDep.Status.Conditions) {
+			reason, msg = api.ConditionReasonAppDeploymentUnavailable,
+				k8s.Condition(appDep.Status.Conditions, api.ConditionTypeAvailable).Message
+
+			value := string(metav1.ConditionFalse)
+			rel.Problems = append(rel.Problems, v1alpha1.Problem{
+				Type:         api.ProblemTypeAppDeploymentUnavailable,
+				ObservedTime: api.UncomparableTime(now),
+				Message:      msg,
+				Causes: []v1alpha1.ProblemSource{
+					{
+						Kind:               api.ProblemSourceKindAppDeployment,
+						Name:               appDep.Name,
+						ObservedGeneration: appDep.Generation,
+						Path:               "$.status.conditions[?(@.type=='Available')].status",
+						Value:              &value,
+					},
+				},
+			})
+		}
+
+		if progressing.Status == metav1.ConditionFalse &&
+			progressing.Reason == api.ConditionReasonComponentDeploymentFailed {
+			reason, msg = api.ConditionReasonAppDeploymentFailed,
+				fmt.Sprintf(`One or more Component Deployments of AppDeployment "%s" failed.`, appDep.Name)
+
+			value := fmt.Sprintf("%s, %s", metav1.ConditionFalse, api.ConditionReasonComponentDeploymentFailed)
+			rel.Problems = append(rel.Problems, v1alpha1.Problem{
+				Type:         api.ProblemTypeAppDeploymentFailed,
+				ObservedTime: api.UncomparableTime(now),
+				Message:      msg,
+				Causes: []v1alpha1.ProblemSource{
+					{
+						Kind:               api.ProblemSourceKindAppDeployment,
+						Name:               appDep.Name,
+						ObservedGeneration: appDep.Generation,
+						Path:               "$.status.conditions[?(@.type=='Progressing')].status,reason",
+						Value:              &value,
+					},
+				},
+			})
+		}
+
+		if rel.AppDeployment.Version != "" && rel.AppDeployment.Version != appDep.Spec.Version {
+			reason, msg = api.ConditionReasonAppDeploymentFailed,
 				fmt.Sprintf(`AppDeployment "%s" version "%s" does not match Release version "%s".`,
-					appDep.Name, appDep.Spec.Version, rel.AppDeployment.Version), nil
+					appDep.Name, appDep.Spec.Version, rel.AppDeployment.Version)
 
-		case progressing.Status == metav1.ConditionFalse &&
-			progressing.Reason == api.ConditionReasonProgressDeadlineExceeded:
-			return api.ConditionReasonAppDeploymentFailed,
-				fmt.Sprintf(`One or more Component Deployments of AppDeployment "%s" failed.`, appDep.Name), nil
-
-		case !k8s.IsAvailable(appDep.Status.Conditions):
-			return api.ConditionReasonAppDeploymentUnavailable,
-				k8s.Condition(appDep.Status.Conditions, api.ConditionTypeAvailable).Message, nil
+			rel.Problems = append(rel.Problems, v1alpha1.Problem{
+				Type:         api.ProblemTypeAppDeploymentFailed,
+				ObservedTime: api.UncomparableTime(now),
+				Message:      msg,
+				Causes: []v1alpha1.ProblemSource{
+					{
+						Kind:               api.ProblemSourceKindRelease,
+						ObservedGeneration: env.Generation,
+						Path:               "$.appDeployment.version",
+						Value:              &rel.AppDeployment.Version,
+					},
+					{
+						Kind:               api.ProblemSourceKindAppDeployment,
+						Name:               appDep.Name,
+						ObservedGeneration: appDep.Generation,
+						Path:               "$.spec.version",
+						Value:              &appDep.Spec.Version,
+					},
+				},
+			})
 		}
 
 	case k8s.IsNotFound(err):
-		return api.ConditionReasonAppDeploymentFailed,
-			fmt.Sprintf(`AppDeployment "%s" not found.`, rel.AppDeployment.Name), nil
+		reason, msg = api.ConditionReasonAppDeploymentFailed,
+			fmt.Sprintf(`AppDeployment "%s" not found.`, rel.AppDeployment.Name)
 
-	case err != nil:
-		return "", "", err
+		rel.Problems = append(rel.Problems, v1alpha1.Problem{
+			Type:         api.ProblemTypeAppDeploymentFailed,
+			ObservedTime: api.UncomparableTime(now),
+			Message:      msg,
+			Causes: []v1alpha1.ProblemSource{
+				{
+					Kind: api.ProblemSourceKindAppDeployment,
+					Name: rel.AppDeployment.Name,
+				},
+			},
+		})
+
+	case k8s.IgnoreNotFound(err) != nil:
+		return
 	}
 
-	if rel.VirtualEnvSnapshot == "" {
-		return "", "", nil
-	}
-
-	snap := &v1alpha1.VirtualEnvSnapshot{}
-	err = r.Get(ctx, k8s.Key(env.Namespace, rel.VirtualEnvSnapshot), snap)
-	switch {
-	case err == nil:
+	if rel.VirtualEnvSnapshot != "" {
+		snap := &v1alpha1.VirtualEnvSnapshot{}
+		err = r.Get(ctx, k8s.Key(env.Namespace, rel.VirtualEnvSnapshot), snap)
 		switch {
-		case snap.Spec.Source.Name != env.Name:
-			return api.ConditionReasonVirtualEnvSnapshotFailed,
-				fmt.Sprintf(`VirtualEnvSnapshot "%s" source "%s" is not VirtualEnv "%s".`,
-					snap.Name, snap.Spec.Source.Name, env.Name), nil
+		case err == nil:
+			if snap.Spec.Source.Name != env.Name {
+				reason, msg = api.ConditionReasonVirtualEnvSnapshotFailed,
+					fmt.Sprintf(`VirtualEnvSnapshot "%s" source "%s" is not VirtualEnv "%s".`,
+						snap.Name, snap.Spec.Source.Name, env.Name)
 
+				rel.Problems = append(rel.Problems, v1alpha1.Problem{
+					Type:         api.ProblemTypeVirtualEnvSnapshotFailed,
+					ObservedTime: api.UncomparableTime(now),
+					Message:      msg,
+					Causes: []v1alpha1.ProblemSource{
+						{
+							Kind:               api.ProblemSourceKindVirtualEnvSnapshot,
+							Name:               snap.Name,
+							ObservedGeneration: snap.Generation,
+							Path:               "$.spec.source.name",
+							Value:              &snap.Spec.Source.Name,
+						},
+					},
+				})
+			}
 			// TODO validate env
+
+		case k8s.IsNotFound(err):
+			reason, msg = api.ConditionReasonVirtualEnvSnapshotFailed,
+				fmt.Sprintf(`VirtualEnvSnapshot "%s" not found.`, rel.VirtualEnvSnapshot)
+
+			rel.Problems = append(rel.Problems, v1alpha1.Problem{
+				Type:         api.ProblemTypeVirtualEnvSnapshotFailed,
+				ObservedTime: api.UncomparableTime(now),
+				Message:      msg,
+				Causes: []v1alpha1.ProblemSource{
+					{
+						Kind: api.ProblemSourceKindVirtualEnvSnapshot,
+						Name: rel.VirtualEnvSnapshot,
+					},
+				},
+			})
+
+		case k8s.IgnoreNotFound(err) != nil:
+			return
 		}
-
-	case k8s.IsNotFound(err):
-		return api.ConditionReasonVirtualEnvSnapshotFailed,
-			fmt.Sprintf(`VirtualEnvSnapshot "%s" not found.`, rel.VirtualEnvSnapshot), nil
-
-	case err != nil:
-		return "", "", err
 	}
 
-	return "", "", nil
+	policy := env.Spec.ReleasePolicy
+	if policy.AppDeploymentPolicy == "" {
+		policy.AppDeploymentPolicy = api.AppDeploymentPolicyVersionRequired
+	}
+	if policy.VirtualEnvPolicy == "" {
+		policy.VirtualEnvPolicy = api.VirtualEnvPolicySnapshotRequired
+	}
+
+	if policy.VirtualEnvPolicy == api.VirtualEnvPolicySnapshotRequired && rel.VirtualEnvSnapshot == "" {
+		reason, msg = api.ConditionReasonPolicyViolation, "VirtualEnvSnapshot is required but not set."
+		value := string(policy.VirtualEnvPolicy)
+		rel.Problems = append(rel.Problems, v1alpha1.Problem{
+			Type:         api.ProblemTypePolicyViolation,
+			ObservedTime: api.UncomparableTime(now),
+			Message:      msg,
+			Causes: []v1alpha1.ProblemSource{
+				{
+					Kind:               api.ProblemSourceKindVirtualEnv,
+					Name:               env.Name,
+					ObservedGeneration: env.Generation,
+					Path:               "$.spec.releasePolicy.virtualEnvPolicy",
+					Value:              &value,
+				},
+				{
+					Kind:               api.ProblemSourceKindRelease,
+					ObservedGeneration: env.Generation,
+					Path:               "$.virtualEnvSnapshot",
+					Value:              &rel.VirtualEnvSnapshot,
+				},
+			},
+		})
+	}
+	if policy.AppDeploymentPolicy == api.AppDeploymentPolicyVersionRequired && rel.AppDeployment.Version == "" {
+		reason, msg = api.ConditionReasonPolicyViolation, "AppDeployment version is required but not set."
+		value := string(policy.AppDeploymentPolicy)
+		rel.Problems = append(rel.Problems, v1alpha1.Problem{
+			Type:         api.ProblemTypePolicyViolation,
+			ObservedTime: api.UncomparableTime(now),
+			Message:      msg,
+			Causes: []v1alpha1.ProblemSource{
+				{
+					Kind:               api.ProblemSourceKindVirtualEnv,
+					Name:               env.Name,
+					ObservedGeneration: env.Generation,
+					Path:               "$.spec.releasePolicy.appDeploymentPolicy",
+					Value:              &value,
+				},
+				{
+					Kind:               api.ProblemSourceKindRelease,
+					ObservedGeneration: env.Generation,
+					Path:               "$.appDeployment.version",
+					Value:              &rel.AppDeployment.Version,
+				},
+			},
+		})
+	}
+
+	// Clear error if it is NotFound.
+	err = k8s.IgnoreNotFound(err)
+
+	return
 }
 
 func (r *VirtualEnvReconciler) watchAppDeployment(ctx context.Context, appDep client.Object) []reconcile.Request {

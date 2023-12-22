@@ -9,6 +9,8 @@ one at https://mozilla.org/MPL/2.0/.
 package v1alpha1
 
 import (
+	"time"
+
 	"github.com/xigxog/kubefox/api"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -20,7 +22,7 @@ type VirtualEnvSpec struct {
 
 	Release *Release `json:"release,omitempty"`
 
-	ReleasePolicies *ReleasePolicies `json:"releasePolicies,omitempty"`
+	ReleasePolicy ReleasePolicy `json:"releasePolicy,omitempty"`
 }
 
 type Release struct {
@@ -45,8 +47,9 @@ type ReleaseAppDeployment struct {
 	Version string `json:"version,omitempty"`
 }
 
-type ReleasePolicies struct {
+type ReleasePolicy struct {
 	// +kubebuilder:validation:Minimum=3
+	// +kubebuilder:default=300
 
 	// If the pending Request cannot be activated before the deadline it will be
 	// considered failed. If the Release becomes available for activation after
@@ -54,26 +57,30 @@ type ReleasePolicies struct {
 	PendingDeadlineSeconds uint `json:"pendingDeadlineSeconds,omitempty"`
 
 	// +kubebuilder:validation:Enum=VersionOptional;VersionRequired
-
+	// +kubebuilder:default=VersionRequired
 	AppDeploymentPolicy api.AppDeploymentPolicy `json:"appDeploymentPolicy,omitempty"`
 
 	// +kubebuilder:validation:Enum=SnapshotOptional;SnapshotRequired
-
+	// +kubebuilder:default=SnapshotRequired
 	VirtualEnvPolicy api.VirtualEnvPolicy `json:"virtualEnvPolicy,omitempty"`
 
-	HistoryLimits *ReleaseHistoryLimits `json:"historyLimits,omitempty"`
+	HistoryLimits ReleaseHistoryLimits `json:"historyLimits,omitempty"`
 }
 
 type ReleaseHistoryLimits struct {
+	// +kubebuilder:validation:Minimum=0
+	// +kubebuilder:default=10
+
 	// Maximum number of Releases to keep in history. Once the limit is reached
 	// the oldest Release in history will be deleted. Age is based on
-	// archiveTime. Default 10.
+	// archiveTime.
 	Count uint `json:"count,omitempty"`
 
+	// TODO
 	// Maximum age of the Release to keep in history. Once the limit is reached
 	// the oldest Release in history will be deleted. Age is based on
 	// archiveTime.
-	AgeDays uint `json:"ageDays,omitempty"`
+	// AgeDays uint `json:"ageDays,omitempty"`
 }
 
 type ReleaseStatus struct {
@@ -86,8 +93,14 @@ type ReleaseStatus struct {
 	// active.
 	ActivationTime *metav1.Time `json:"activationTime,omitempty"`
 	// Time at which the Release was archived to history.
-	ArchiveTime *metav1.Time   `json:"archiveTime,omitempty"`
-	Errors      []ReleaseError `json:"errors,omitempty"`
+	ArchiveTime *metav1.Time `json:"archiveTime,omitempty"`
+
+	// +kubebuilder:validation:Enum=PendingDeadlineExceeded;RolledBack;Superseded
+
+	// Reason Release was archived.
+	ArchiveReason api.ArchiveReason `json:"archiveReason,omitempty"`
+
+	Problems []Problem `json:"problems,omitempty"`
 }
 
 type ReleaseAppDeploymentStatus struct {
@@ -101,34 +114,38 @@ type ReleaseAppDeploymentStatus struct {
 	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
 }
 
-type ReleaseError struct {
+type Problem struct {
 	// +kubebuilder:validation:Required
-	// +kubebuilder:validation:Enum=ParseError;VarConflict;VarNotFound;VarWrongType
+	// +kubebuilder:validation:Enum=AppDeploymentFailed;AppDeploymentUnavailable;ParseError;PolicyViolation;RouteConflict;SecretNotFound;VarNotFound;VarWrongType;VirtualEnvSnapshotFailed
 
-	Type string `json:"type"`
-	// JSON path of VirtualEnv attribute causing error.
-	Path    string `json:"path,omitempty"`
+	Type api.ProblemType `json:"type"`
+
+	// +kubebuilder:validation:Required
+
+	// ObservedTime at which the problem was recorded.
+	ObservedTime api.UncomparableTime `json:"observedTime"`
+
 	Message string `json:"message,omitempty"`
-	// Source of error.
-	Source *ErrorSource `json:"source,omitempty"`
+	// Resources and attributes causing problem.
+	Causes []ProblemSource `json:"causes,omitempty"`
 }
 
-type ErrorSource struct {
+type ProblemSource struct {
 	// +kubebuilder:validation:Required
-	// +kubebuilder:validation:Enum=AppDeployment;HTTPAdapter
-	Kind string `json:"kind"`
-
-	// +kubebuilder:validation:Required
-
-	Name string `json:"name"`
-
-	// +kubebuilder:validation:Required
-
-	ResourceVersion string `json:"resourceVersion"`
-	// JSON path of source object attribute causing error.
+	// +kubebuilder:validation:Enum=AppDeployment;Component;HTTPAdapter;Release;VirtualEnv;VirtualEnvSnapshot
+	Kind api.ProblemSourceKind `json:"kind"`
+	Name string                `json:"name,omitempty"`
+	// ObservedGeneration represents the .metadata.generation of the
+	// ProblemSource that the problem was generated from. For instance, if the
+	// ProblemSource .metadata.generation is currently 12, but the
+	// observedGeneration is 9, the problem is out of date with respect to the
+	// current state of the instance.
+	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
+	// Path of source object attribute causing problem.
 	Path string `json:"path,omitempty"`
-	// Value causing error.
-	Value string `json:"value,omitempty"`
+	// Value causing problem. Pointer is used to distinguish between not set and
+	// empty string.
+	Value *string `json:"value,omitempty"`
 }
 
 type VirtualEnvData struct {
@@ -152,6 +169,8 @@ type VirtualEnvStatus struct {
 	// parent the parent's Data object is merged before the hash is create. It
 	// can be used to check for changes to the Data object.
 	DataChecksum uint64 `json:"dataChecksum,omitempty"`
+
+	PendingReleaseFailed bool `json:"pendingReleaseFailed,omitempty"`
 
 	// +kubebuilder:validation:Optional
 
@@ -191,6 +210,38 @@ type VirtualEnvList struct {
 	Items []VirtualEnv `json:"items"`
 }
 
+func (r *ReleaseStatus) Equals(other *Release) bool {
+	switch {
+	case r == nil && other == nil:
+		return true
+	case r == nil && other != nil:
+		return false
+	case r != nil && other == nil:
+		return false
+	}
+
+	return r.AppDeployment.ReleaseAppDeployment == other.AppDeployment &&
+		r.VirtualEnvSnapshot == other.VirtualEnvSnapshot
+}
+
+func (env *VirtualEnv) ReleasePendingDeadline() time.Duration {
+	if env.Spec.ReleasePolicy.PendingDeadlineSeconds == 0 {
+		return api.DefaultReleasePendingDeadlineSeconds * time.Second
+	}
+
+	return time.Duration(env.Spec.ReleasePolicy.PendingDeadlineSeconds * uint(time.Second))
+}
+
+// ReleasePendingDuration returns the current duration that the Release has been
+// pending. If there is no Release pending 0 is returned.
+func (env *VirtualEnv) ReleasePendingDuration() time.Duration {
+	if env.Status.PendingRelease == nil {
+		return 0
+	}
+
+	return time.Since(env.Status.PendingRelease.RequestTime.Time)
+}
+
 func (env *VirtualEnv) MergeParent(parent *ClusterVirtualEnv) {
 	if env.Data.Vars == nil {
 		env.Data.Vars = parent.Data.Vars
@@ -210,21 +261,17 @@ func (env *VirtualEnv) MergeParent(parent *ClusterVirtualEnv) {
 			parent.Data.Secrets, parent.Details.Secrets)
 	}
 
-	if env.Spec.ReleasePolicies == nil {
-		env.Spec.ReleasePolicies = parent.Spec.ReleasePolicies
-	} else {
-		if env.Spec.ReleasePolicies.AppDeploymentPolicy == "" {
-			env.Spec.ReleasePolicies.AppDeploymentPolicy =
-				parent.Spec.ReleasePolicies.AppDeploymentPolicy
-		}
-		if env.Spec.ReleasePolicies.VirtualEnvPolicy == "" {
-			env.Spec.ReleasePolicies.VirtualEnvPolicy =
-				parent.Spec.ReleasePolicies.VirtualEnvPolicy
-		}
-		if env.Spec.ReleasePolicies.HistoryLimits == nil {
-			env.Spec.ReleasePolicies.HistoryLimits =
-				parent.Spec.ReleasePolicies.HistoryLimits
-		}
+	if env.Spec.ReleasePolicy.AppDeploymentPolicy == "" {
+		env.Spec.ReleasePolicy.AppDeploymentPolicy =
+			parent.Spec.ReleasePolicies.AppDeploymentPolicy
+	}
+	if env.Spec.ReleasePolicy.VirtualEnvPolicy == "" {
+		env.Spec.ReleasePolicy.VirtualEnvPolicy =
+			parent.Spec.ReleasePolicies.VirtualEnvPolicy
+	}
+	if env.Spec.ReleasePolicy.HistoryLimits.Count == 0 {
+		env.Spec.ReleasePolicy.HistoryLimits.Count =
+			parent.Spec.ReleasePolicies.HistoryLimits.Count
 	}
 
 	if env.Details.Title == "" {

@@ -40,7 +40,7 @@ spec:
           spec:
             properties:
               followRedirects:
-                description: Defaults to never.
+                default: Never
                 enum:
                 - Never
                 - Always
@@ -51,7 +51,8 @@ spec:
                   type: string
                 type: object
               insecureSkipVerify:
-                description: InsecureSkipVerify controls whether a client verifies
+                default: false
+                description: InsecureSkipVerify controls whether the Adapter verifies
                   the server's certificate chain and host name. If InsecureSkipVerify
                   is true, any certificate presented by the server and any host name
                   in that certificate is accepted. In this mode, TLS is susceptible
