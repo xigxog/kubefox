@@ -12,6 +12,7 @@ var (
 		Resources: &v1.ResourceRequirements{
 			Requests: v1.ResourceList{
 				"memory": resource.MustParse("64Mi"),
+				"cpu":    resource.MustParse("100m"),
 			},
 			Limits: v1.ResourceList{
 				"memory": resource.MustParse("128Mi"),
@@ -56,6 +57,7 @@ var (
 		Resources: &v1.ResourceRequirements{
 			Requests: v1.ResourceList{
 				"memory": resource.MustParse("64Mi"), // 90% of limit, used to set GOMEMLIMIT
+				"cpu":    resource.MustParse("100m"),
 			},
 			Limits: v1.ResourceList{
 				"memory": resource.MustParse("160Mi"),
@@ -82,6 +84,7 @@ var (
 		Resources: &v1.ResourceRequirements{
 			Requests: v1.ResourceList{
 				"memory": resource.MustParse("64Mi"),
+				"cpu":    resource.MustParse("100m"),
 			},
 			Limits: v1.ResourceList{
 				"memory": resource.MustParse("160Mi"),
