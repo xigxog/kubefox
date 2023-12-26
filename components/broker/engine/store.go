@@ -14,6 +14,7 @@ import (
 	"github.com/xigxog/kubefox/core"
 	"github.com/xigxog/kubefox/k8s"
 	"github.com/xigxog/kubefox/logkf"
+	"github.com/xigxog/kubefox/matcher"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -29,8 +30,8 @@ type Store struct {
 	resCache  ctrlcache.Cache
 	compCache cache.Cache[*api.ComponentDefinition]
 
-	depMatchers cache.Cache[*core.EventMatcher]
-	relMatcher  *core.EventMatcher
+	depMatchers cache.Cache[*matcher.EventMatcher]
+	relMatcher  *matcher.EventMatcher
 
 	ctx    context.Context
 	cancel context.CancelFunc
@@ -44,7 +45,7 @@ func NewStore(namespace string) *Store {
 	ctx, cancel := context.WithCancel(context.Background())
 	return &Store{
 		namespace:   namespace,
-		depMatchers: cache.New[*core.EventMatcher](time.Minute * 15),
+		depMatchers: cache.New[*matcher.EventMatcher](time.Minute * 15),
 		ctx:         ctx,
 		cancel:      cancel,
 		log:         logkf.Global,
@@ -211,7 +212,7 @@ func (str *Store) Adapters(ctx context.Context) (map[string]api.Adapter, error) 
 	return adapters, nil
 }
 
-func (str *Store) ReleaseMatcher(ctx context.Context) (*core.EventMatcher, error) {
+func (str *Store) ReleaseMatcher(ctx context.Context) (*matcher.EventMatcher, error) {
 	str.mutex.RLock()
 	if str.relMatcher != nil {
 		str.mutex.RUnlock()
@@ -225,7 +226,7 @@ func (str *Store) ReleaseMatcher(ctx context.Context) (*core.EventMatcher, error
 	return str.relMatcher, nil
 }
 
-func (str *Store) DeploymentMatcher(ctx context.Context, evtCtx *core.EventContext) (*core.EventMatcher, error) {
+func (str *Store) DeploymentMatcher(ctx context.Context, evtCtx *core.EventContext) (*matcher.EventMatcher, error) {
 	dep, err := str.AppDeployment(ctx, evtCtx)
 	if err != nil {
 		return nil, err
@@ -245,7 +246,7 @@ func (str *Store) DeploymentMatcher(ctx context.Context, evtCtx *core.EventConte
 		return nil, err
 	}
 
-	depM := core.NewEventMatcher()
+	depM := matcher.New()
 	if err := depM.AddRoutes(routes...); err != nil {
 		return nil, err
 	}
@@ -333,7 +334,7 @@ func (str *Store) buildComponentCache(ctx context.Context) (cache.Cache[*api.Com
 	return compCache, nil
 }
 
-func (str *Store) buildReleaseMatcher(ctx context.Context) (*core.EventMatcher, error) {
+func (str *Store) buildReleaseMatcher(ctx context.Context) (*matcher.EventMatcher, error) {
 	ctx, cancel := context.WithTimeout(ctx, time.Minute)
 	defer cancel()
 
@@ -342,7 +343,7 @@ func (str *Store) buildReleaseMatcher(ctx context.Context) (*core.EventMatcher, 
 		return nil, err
 	}
 
-	relM := core.NewEventMatcher()
+	relM := matcher.New()
 	for _, env := range envList.Items {
 		release := env.Status.ActiveRelease
 		if release == nil {

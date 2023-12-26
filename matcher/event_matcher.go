@@ -1,4 +1,4 @@
-package core
+package matcher
 
 import (
 	"fmt"
@@ -9,10 +9,11 @@ import (
 
 	"github.com/vulcand/predicate"
 	"github.com/xigxog/kubefox/api"
+	"github.com/xigxog/kubefox/core"
 )
 
 // Takes an Event and returns true or false if rule matches.
-type EventPredicate func(e *Event) bool
+type EventPredicate func(e *core.Event) bool
 
 type param struct {
 	name  string
@@ -20,7 +21,7 @@ type param struct {
 }
 
 type parsedRoute struct {
-	*Route
+	*core.Route
 
 	predicate EventPredicate
 }
@@ -30,7 +31,7 @@ type EventMatcher struct {
 	parser predicate.Parser
 }
 
-func NewEventMatcher() *EventMatcher {
+func New() *EventMatcher {
 	m := &EventMatcher{}
 
 	// TODO add various event criteria for route predicates:
@@ -61,7 +62,7 @@ func NewEventMatcher() *EventMatcher {
 	return m
 }
 
-func (m *EventMatcher) AddRoutes(routes ...*Route) error {
+func (m *EventMatcher) AddRoutes(routes ...*core.Route) error {
 	for _, r := range routes {
 		if r.ResolvedRule == "" {
 			return fmt.Errorf("rule '%d' has not been resolved", r.Id())
@@ -86,7 +87,7 @@ func (m *EventMatcher) AddRoutes(routes ...*Route) error {
 	return nil
 }
 
-func (m *EventMatcher) Match(evt *Event) (*Route, bool) {
+func (m *EventMatcher) Match(evt *core.Event) (*core.Route, bool) {
 	for _, r := range m.rules {
 		if r.predicate(evt) {
 			return r.Route, true
@@ -97,7 +98,7 @@ func (m *EventMatcher) Match(evt *Event) (*Route, bool) {
 }
 
 func (m *EventMatcher) all() EventPredicate {
-	return func(e *Event) bool {
+	return func(e *core.Event) bool {
 		return true
 	}
 }
@@ -113,7 +114,7 @@ func (m *EventMatcher) header(key, val string) (EventPredicate, error) {
 		return nil, fmt.Errorf("invalid regex of header predicate %s: %w", val, err)
 	}
 
-	return func(e *Event) bool {
+	return func(e *core.Event) bool {
 		return matchMap(key, val, regex, e.ValueMap(api.ValKeyHeader))
 	}, nil
 }
@@ -124,13 +125,13 @@ func (m *EventMatcher) host(s string) (EventPredicate, error) {
 		return nil, err
 	}
 
-	return func(e *Event) bool {
+	return func(e *core.Event) bool {
 		return matchParts(api.ValKeyHost, ".", parts, params, e, false)
 	}, nil
 }
 
 func (m *EventMatcher) method(s ...string) EventPredicate {
-	return func(e *Event) bool {
+	return func(e *core.Event) bool {
 		m := e.Value(api.ValKeyMethod)
 		for _, v := range s {
 			if strings.EqualFold(m, v) {
@@ -147,7 +148,7 @@ func (m *EventMatcher) path(s string) (EventPredicate, error) {
 		return nil, err
 	}
 
-	return func(e *Event) bool {
+	return func(e *core.Event) bool {
 		return matchParts(api.ValKeyPath, "/", parts, params, e, false)
 	}, nil
 }
@@ -158,7 +159,7 @@ func (m *EventMatcher) pathPrefix(s string) (EventPredicate, error) {
 		return nil, err
 	}
 
-	return func(e *Event) bool {
+	return func(e *core.Event) bool {
 		return matchParts(api.ValKeyPath, "/", parts, params, e, true)
 	}, nil
 }
@@ -173,13 +174,13 @@ func (m *EventMatcher) query(key, val string) (EventPredicate, error) {
 		return nil, fmt.Errorf("invalid regex of query predicate %s: %w", val, err)
 	}
 
-	return func(e *Event) bool {
+	return func(e *core.Event) bool {
 		return matchMap(key, val, regex, e.ValueMap(api.ValKeyQuery))
 	}, nil
 }
 
 func (m *EventMatcher) eventType(s string) EventPredicate {
-	return func(e *Event) bool {
+	return func(e *core.Event) bool {
 		return e.GetType() == s ||
 			strings.HasSuffix(strings.ToLower(e.GetType()), strings.ToLower(s))
 	}
@@ -187,21 +188,21 @@ func (m *EventMatcher) eventType(s string) EventPredicate {
 
 // Logical operator AND that combines predicates
 func and(a, b EventPredicate) EventPredicate {
-	return func(e *Event) bool {
+	return func(e *core.Event) bool {
 		return a(e) && b(e)
 	}
 }
 
 // Logical operator OR that combines predicates
 func or(a, b EventPredicate) EventPredicate {
-	return func(e *Event) bool {
+	return func(e *core.Event) bool {
 		return a(e) || b(e)
 	}
 }
 
 // Logical operator NOT that negates predicates
 func not(a EventPredicate) EventPredicate {
-	return func(e *Event) bool {
+	return func(e *core.Event) bool {
 		return !a(e)
 	}
 }
@@ -236,7 +237,7 @@ func matchMap(key, val string, regex *regexp.Regexp, m map[string][]string) bool
 	return false
 }
 
-func matchParts(val string, sep string, parts []string, params map[int]*param, e *Event, prefix bool) bool {
+func matchParts(val string, sep string, parts []string, params map[int]*param, e *core.Event, prefix bool) bool {
 	evtParts := strings.Split(strings.Trim(e.Value(val), sep), sep)
 
 	if len(parts) > len(evtParts) {

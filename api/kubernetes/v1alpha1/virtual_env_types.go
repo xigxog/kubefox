@@ -123,7 +123,7 @@ type Problem struct {
 	// +kubebuilder:validation:Required
 
 	// ObservedTime at which the problem was recorded.
-	ObservedTime api.UncomparableTime `json:"observedTime"`
+	ObservedTime metav1.Time `json:"observedTime"`
 
 	Message string `json:"message,omitempty"`
 	// Resources and attributes causing problem.

@@ -1,9 +1,10 @@
-package core
+package matcher
 
 import (
 	"testing"
 
 	"github.com/xigxog/kubefox/api"
+	"github.com/xigxog/kubefox/core"
 )
 
 func TestPath(t *testing.T) {
@@ -15,15 +16,15 @@ func TestPath(t *testing.T) {
 		},
 	}
 
-	rule1, _ := NewRule(1, "PathPrefix(`/customize/{{.Vars.b}}`)")
-	route1 := &Route{Rule: rule1}
+	rule1, _ := core.NewRule(1, "PathPrefix(`/customize/{{.Vars.b}}`)")
+	route1 := &core.Route{Rule: rule1}
 	route1.Resolve(data)
 
-	rule2, _ := NewRule(2, "Type(`http`) && Method(`PUT`,`GET`,`POST`) && (Query(`q1`, `{q[1-2]}`) && Header(`header-one`,`{[a-z0-9]+}`)) && Host(`{{.Env.a}}.0.0.{i}`) && Path(`/customize/{{.Vars.b}}/{j:[a-z]+}`)")
-	route2 := &Route{Rule: rule2}
+	rule2, _ := core.NewRule(2, "Type(`http`) && Method(`PUT`,`GET`,`POST`) && (Query(`q1`, `{q[1-2]}`) && Header(`header-one`,`{[a-z0-9]+}`)) && Host(`{{.Env.a}}.0.0.{i}`) && Path(`/customize/{{.Vars.b}}/{j:[a-z]+}`)")
+	route2 := &core.Route{Rule: rule2}
 	route2.Resolve(data)
 
-	m := NewEventMatcher()
+	m := New()
 	m.AddRoutes(route1, route2)
 
 	e := evt(api.EventTypeHTTP)
@@ -41,8 +42,8 @@ func TestPath(t *testing.T) {
 	t.Logf("matched route %d; i=%s, j=%s", r.Id(), e.Param("i"), e.Param("j"))
 }
 
-func evt(evtType api.EventType) *Event {
-	evt := NewEvent()
+func evt(evtType api.EventType) *core.Event {
+	evt := core.NewEvent()
 	evt.Type = string(evtType)
 	evt.SetValue(api.ValKeyURL, "http://127.0.0.1/customize/1/a?q1=q1&q2=q2")
 	evt.SetValue(api.ValKeyHost, "127.0.0.1")

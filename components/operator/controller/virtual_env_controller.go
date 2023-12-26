@@ -294,7 +294,7 @@ func (r *VirtualEnvReconciler) updateProblems(ctx context.Context, now metav1.Ti
 			value := string(metav1.ConditionFalse)
 			rel.Problems = append(rel.Problems, v1alpha1.Problem{
 				Type:         api.ProblemTypeAppDeploymentUnavailable,
-				ObservedTime: api.UncomparableTime(now),
+				ObservedTime: now,
 				Message:      msg,
 				Causes: []v1alpha1.ProblemSource{
 					{
@@ -316,7 +316,7 @@ func (r *VirtualEnvReconciler) updateProblems(ctx context.Context, now metav1.Ti
 			value := fmt.Sprintf("%s, %s", metav1.ConditionFalse, api.ConditionReasonComponentDeploymentFailed)
 			rel.Problems = append(rel.Problems, v1alpha1.Problem{
 				Type:         api.ProblemTypeAppDeploymentFailed,
-				ObservedTime: api.UncomparableTime(now),
+				ObservedTime: now,
 				Message:      msg,
 				Causes: []v1alpha1.ProblemSource{
 					{
@@ -337,7 +337,7 @@ func (r *VirtualEnvReconciler) updateProblems(ctx context.Context, now metav1.Ti
 
 			rel.Problems = append(rel.Problems, v1alpha1.Problem{
 				Type:         api.ProblemTypeAppDeploymentFailed,
-				ObservedTime: api.UncomparableTime(now),
+				ObservedTime: now,
 				Message:      msg,
 				Causes: []v1alpha1.ProblemSource{
 					{
@@ -363,7 +363,7 @@ func (r *VirtualEnvReconciler) updateProblems(ctx context.Context, now metav1.Ti
 
 		rel.Problems = append(rel.Problems, v1alpha1.Problem{
 			Type:         api.ProblemTypeAppDeploymentFailed,
-			ObservedTime: api.UncomparableTime(now),
+			ObservedTime: now,
 			Message:      msg,
 			Causes: []v1alpha1.ProblemSource{
 				{
@@ -389,7 +389,7 @@ func (r *VirtualEnvReconciler) updateProblems(ctx context.Context, now metav1.Ti
 
 				rel.Problems = append(rel.Problems, v1alpha1.Problem{
 					Type:         api.ProblemTypeVirtualEnvSnapshotFailed,
-					ObservedTime: api.UncomparableTime(now),
+					ObservedTime: now,
 					Message:      msg,
 					Causes: []v1alpha1.ProblemSource{
 						{
@@ -410,7 +410,7 @@ func (r *VirtualEnvReconciler) updateProblems(ctx context.Context, now metav1.Ti
 
 			rel.Problems = append(rel.Problems, v1alpha1.Problem{
 				Type:         api.ProblemTypeVirtualEnvSnapshotFailed,
-				ObservedTime: api.UncomparableTime(now),
+				ObservedTime: now,
 				Message:      msg,
 				Causes: []v1alpha1.ProblemSource{
 					{
@@ -438,7 +438,7 @@ func (r *VirtualEnvReconciler) updateProblems(ctx context.Context, now metav1.Ti
 		value := string(policy.VirtualEnvPolicy)
 		rel.Problems = append(rel.Problems, v1alpha1.Problem{
 			Type:         api.ProblemTypePolicyViolation,
-			ObservedTime: api.UncomparableTime(now),
+			ObservedTime: now,
 			Message:      msg,
 			Causes: []v1alpha1.ProblemSource{
 				{
@@ -462,7 +462,7 @@ func (r *VirtualEnvReconciler) updateProblems(ctx context.Context, now metav1.Ti
 		value := string(policy.AppDeploymentPolicy)
 		rel.Problems = append(rel.Problems, v1alpha1.Problem{
 			Type:         api.ProblemTypePolicyViolation,
-			ObservedTime: api.UncomparableTime(now),
+			ObservedTime: now,
 			Message:      msg,
 			Causes: []v1alpha1.ProblemSource{
 				{

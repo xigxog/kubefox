@@ -115,7 +115,6 @@ Platform is the Schema for the Platforms API
 
 
 
-
 ### VirtualEnv
 
 
@@ -641,7 +640,7 @@ Used by:<br>
 | Field | Type | Description | Validation |
 | ----- | ---- | ----------- | ---------- |
 | `type` | <div style="white-space:nowrap">enum[`AppDeploymentFailed`, `AppDeploymentUnavailable`, `ParseError`, `PolicyViolation`, `RouteConflict`, `SecretNotFound`, `VarNotFound`, `VarWrongType`, `VirtualEnvSnapshotFailed`]<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap">required</div> |
-| `observedTime` | <div style="white-space:nowrap">[UncomparableTime](#uncomparabletime)<div> | <div style="max-width:30rem">ObservedTime at which the problem was recorded.</div> | <div style="white-space:nowrap">required</div> |
+| `observedTime` | <div style="white-space:nowrap">[Time](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.28/#time-v1-meta)<div> | <div style="max-width:30rem">ObservedTime at which the problem was recorded.</div> | <div style="white-space:nowrap">required</div> |
 | `message` | <div style="white-space:nowrap">string<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
 | `causes` | <div style="white-space:nowrap">[ProblemSource](#problemsource) array<div> | <div style="max-width:30rem">Resources and attributes causing problem.</div> | <div style="white-space:nowrap"></div> |
 
@@ -802,9 +801,6 @@ Used by:<br>
 | `rule` | <div style="white-space:nowrap">string<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap">required</div> |
 | `priority` | <div style="white-space:nowrap">integer<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
 | `envVarSchema` | <div style="white-space:nowrap">map{string, [EnvVarDefinition](#envvardefinition)}<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
-
-
-
 
 
 
