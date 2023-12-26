@@ -319,8 +319,7 @@ spec:
                   VirtualEnv has a parent the parent's Data object is merged before
                   the hash is create. It can be used to check for changes to the Data
                   object.
-                format: int64
-                type: integer
+                type: string
               pendingRelease:
                 properties:
                   activationTime:

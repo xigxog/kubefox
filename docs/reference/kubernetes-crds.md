@@ -58,6 +58,7 @@ AppDeployment is the Schema for the AppDeployments API
 
 
 
+
 ### HTTPAdapter
 
 
@@ -150,7 +151,6 @@ Platform is the Schema for the Platforms API
 | `spec` | <div style="white-space:nowrap">[VirtualEnvSnapshotSpec](#virtualenvsnapshotspec)<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
 | `data` | <div style="white-space:nowrap">[VirtualEnvData](#virtualenvdata)<div> | <div style="max-width:30rem">Data is a copy of the source VirtualEnv's data object. If provided at creation time then the source VirtualEnv's resourceVersion and current dataChecksum must also be provided. If set to nil at creation time then the current data object, resourceVersion, and dataChecksum of the source VirtualEnv will automatically be copied.</div> | <div style="white-space:nowrap"></div> |
 | `details` | <div style="white-space:nowrap">[VirtualEnvDetails](#virtualenvdetails)<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
-
 
 
 
@@ -277,12 +277,12 @@ Used by:<br>
 
 | Field | Type | Description | Validation |
 | ----- | ---- | ----------- | ---------- |
-| `type` | <div style="white-space:nowrap">enum[`db`, `genesis`, `kubefox`, `http`]<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
+| `type` | <div style="white-space:nowrap">enum[`db`, `genesis`, `kubefox`, `http`]<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap">required</div> |
 | `routes` | <div style="white-space:nowrap">[RouteSpec](#routespec) array<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
 | `defaultHandler` | <div style="white-space:nowrap">boolean<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
-| `virtualEnvSchema` | <div style="white-space:nowrap">map{string, [VirtualEnvVarDefinition](#virtualenvvardefinition)}<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
+| `envVarSchema` | <div style="white-space:nowrap">map{string, [EnvVarDefinition](#envvardefinition)}<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
 | `dependencies` | <div style="white-space:nowrap">map{string, [Dependency](#dependency)}<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
-| `commit` | <div style="white-space:nowrap">string<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap">pattern: ^[a-z0-9]{40}$</div> |
+| `commit` | <div style="white-space:nowrap">string<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap">required, pattern: ^[a-z0-9]{40}$</div> |
 | `image` | <div style="white-space:nowrap">string<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
 
 
@@ -300,10 +300,10 @@ Used by:<br>
 
 | Field | Type | Description | Validation |
 | ----- | ---- | ----------- | ---------- |
-| `type` | <div style="white-space:nowrap">enum[`db`, `genesis`, `kubefox`, `http`]<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
+| `type` | <div style="white-space:nowrap">enum[`db`, `genesis`, `kubefox`, `http`]<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap">required</div> |
 | `routes` | <div style="white-space:nowrap">[RouteSpec](#routespec) array<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
 | `defaultHandler` | <div style="white-space:nowrap">boolean<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
-| `virtualEnvSchema` | <div style="white-space:nowrap">map{string, [VirtualEnvVarDefinition](#virtualenvvardefinition)}<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
+| `envVarSchema` | <div style="white-space:nowrap">map{string, [EnvVarDefinition](#envvardefinition)}<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
 | `dependencies` | <div style="white-space:nowrap">map{string, [Dependency](#dependency)}<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
 
 
@@ -371,7 +371,7 @@ Used by:<br>
 
 | Field | Type | Description | Validation |
 | ----- | ---- | ----------- | ---------- |
-| `type` | <div style="white-space:nowrap">enum[`db`, `kubefox`, `http`]<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
+| `type` | <div style="white-space:nowrap">enum[`db`, `kubefox`, `http`]<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap">required</div> |
 
 
 
@@ -393,6 +393,26 @@ Used by:<br>
 | ----- | ---- | ----------- | ---------- |
 | `title` | <div style="white-space:nowrap">string<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
 | `description` | <div style="white-space:nowrap">string<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
+
+
+
+### EnvVarDefinition
+
+
+
+<p style="font-size:.6rem;">
+Used by:<br>
+
+- <a href=#component>Component</a><br>
+- <a href=#componentdefinition>ComponentDefinition</a><br>
+- <a href=#componentdetails>ComponentDetails</a><br>
+- <a href=#routespec>RouteSpec</a><br>
+</p>
+
+| Field | Type | Description | Validation |
+| ----- | ---- | ----------- | ---------- |
+| `type` | <div style="white-space:nowrap">enum[`array`, `boolean`, `number`, `string`]<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
+| `required` | <div style="white-space:nowrap">boolean<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap">default: false</div> |
 
 
 
@@ -778,10 +798,10 @@ Used by:<br>
 
 | Field | Type | Description | Validation |
 | ----- | ---- | ----------- | ---------- |
-| `id` | <div style="white-space:nowrap">integer<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
-| `rule` | <div style="white-space:nowrap">string<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
+| `id` | <div style="white-space:nowrap">integer<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap">required</div> |
+| `rule` | <div style="white-space:nowrap">string<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap">required</div> |
 | `priority` | <div style="white-space:nowrap">integer<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
-| `virtualEnvSchema` | <div style="white-space:nowrap">map{string, [VirtualEnvVarDefinition](#virtualenvvardefinition)}<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
+| `envVarSchema` | <div style="white-space:nowrap">map{string, [EnvVarDefinition](#envvardefinition)}<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
 
 
 
@@ -819,8 +839,8 @@ Used by:<br>
 
 | Field | Type | Description | Validation |
 | ----- | ---- | ----------- | ---------- |
-| `vars` | <div style="white-space:nowrap">map{string, Val}<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
-| `secrets` | <div style="white-space:nowrap">map{string, Val}<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
+| `vars` | <div style="white-space:nowrap">map{string, [Val](#val)}<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
+| `secrets` | <div style="white-space:nowrap">map{string, [Val](#val)}<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
 
 
 
@@ -879,7 +899,7 @@ Used by:<br>
 | ----- | ---- | ----------- | ---------- |
 | `name` | <div style="white-space:nowrap">string<div> | <div style="max-width:30rem">Name of the VirtualEnv this snapshot is of. Note, ClusterVirtualEnvs cannot be snapshotted.</div> | <div style="white-space:nowrap">required, minLength: 1</div> |
 | `resourceVersion` | <div style="white-space:nowrap">string<div> | <div style="max-width:30rem">ResourceVersion of the VirtualEnv this snapshot is of. If data is provided at creation of the VirtualEnvSnapshot then resourceVersion must match the current resourceVersion of the VirtualEnv. If data is not provided at creation time resourceVersion will be populated automatically.</div> | <div style="white-space:nowrap"></div> |
-| `dataChecksum` | <div style="white-space:nowrap">integer<div> | <div style="max-width:30rem">DataChecksum is the hash of the VirtualEnv's data this snapshot is of. If data is provided at creation of the VirtualEnvSnapshot then dataChecksum must match the current dataChecksum of the VirtualEnv. If data is not provided at creation time dataChecksum will be populated automatically.</div> | <div style="white-space:nowrap"></div> |
+| `dataChecksum` | <div style="white-space:nowrap">string<div> | <div style="max-width:30rem">DataChecksum is the hash of the VirtualEnv's data this snapshot is of. If data is provided at creation of the VirtualEnvSnapshot then dataChecksum must match the current dataChecksum of the VirtualEnv. If data is not provided at creation time dataChecksum will be populated automatically.</div> | <div style="white-space:nowrap"></div> |
 
 
 
@@ -913,32 +933,11 @@ Used by:<br>
 
 | Field | Type | Description | Validation |
 | ----- | ---- | ----------- | ---------- |
-| `dataChecksum` | <div style="white-space:nowrap">integer<div> | <div style="max-width:30rem">DataChecksum is a hash value of the Data object. If the VirtualEnv has a parent the parent's Data object is merged before the hash is create. It can be used to check for changes to the Data object.</div> | <div style="white-space:nowrap"></div> |
+| `dataChecksum` | <div style="white-space:nowrap">string<div> | <div style="max-width:30rem">DataChecksum is a hash value of the Data object. If the VirtualEnv has a parent the parent's Data object is merged before the hash is create. It can be used to check for changes to the Data object.</div> | <div style="white-space:nowrap"></div> |
 | `pendingReleaseFailed` | <div style="white-space:nowrap">boolean<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
 | `activeRelease` | <div style="white-space:nowrap">[ReleaseStatus](#releasestatus)<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
 | `pendingRelease` | <div style="white-space:nowrap">[ReleaseStatus](#releasestatus)<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
 | `releaseHistory` | <div style="white-space:nowrap">[ReleaseStatus](#releasestatus) array<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
 | `conditions` | <div style="white-space:nowrap">[Condition](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.28/#condition-v1-meta) array<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
-
-
-
-### VirtualEnvVarDefinition
-
-
-
-<p style="font-size:.6rem;">
-Used by:<br>
-
-- <a href=#component>Component</a><br>
-- <a href=#componentdefinition>ComponentDefinition</a><br>
-- <a href=#componentdetails>ComponentDetails</a><br>
-- <a href=#routespec>RouteSpec</a><br>
-</p>
-
-| Field | Type | Description | Validation |
-| ----- | ---- | ----------- | ---------- |
-| `type` | <div style="white-space:nowrap">enum[`array`, `boolean`, `number`, `string`]<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
-| `required` | <div style="white-space:nowrap">boolean<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
-| `unique` | <div style="white-space:nowrap">boolean<div> | <div style="max-width:30rem">Unique indicates that this environment variable must have a unique value across all environments. If the value is not unique then making a dynamic request or creating a release that utilizes this variable will fail.</div> | <div style="white-space:nowrap"></div> |
 
 

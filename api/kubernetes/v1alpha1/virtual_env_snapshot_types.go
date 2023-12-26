@@ -9,6 +9,7 @@ one at https://mozilla.org/MPL/2.0/.
 package v1alpha1
 
 import (
+	"github.com/xigxog/kubefox/api"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -39,7 +40,7 @@ type VirtualEnvSource struct {
 	// data is provided at creation of the VirtualEnvSnapshot then dataChecksum
 	// must match the current dataChecksum of the VirtualEnv. If data is not
 	// provided at creation time dataChecksum will be populated automatically.
-	DataChecksum uint64 `json:"dataChecksum,omitempty"`
+	DataChecksum string `json:"dataChecksum,omitempty"`
 }
 
 // +kubebuilder:object:root=true
@@ -53,8 +54,8 @@ type VirtualEnvSnapshot struct {
 	// dataChecksum must also be provided. If set to nil at creation time then
 	// the current data object, resourceVersion, and dataChecksum of the source
 	// VirtualEnv will automatically be copied.
-	Data    *VirtualEnvData   `json:"data,omitempty"`
-	Details VirtualEnvDetails `json:"details,omitempty"`
+	Data    *api.VirtualEnvData `json:"data,omitempty"`
+	Details VirtualEnvDetails   `json:"details,omitempty"`
 }
 
 // +kubebuilder:object:root=true

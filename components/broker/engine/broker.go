@@ -20,7 +20,6 @@ import (
 	"github.com/xigxog/kubefox/core"
 	"github.com/xigxog/kubefox/k8s"
 	"github.com/xigxog/kubefox/logkf"
-	"github.com/xigxog/kubefox/matcher"
 	authv1 "k8s.io/api/authentication/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -401,7 +400,7 @@ func (brk *broker) findTarget(ctx context.Context, evt *BrokerEvent) error {
 	}
 
 	var (
-		matcher *matcher.EventMatcher
+		matcher *core.EventMatcher
 		err     error
 	)
 	if evt.HasContext() {
@@ -419,7 +418,7 @@ func (brk *broker) findTarget(ctx context.Context, evt *BrokerEvent) error {
 	route, matched := matcher.Match(evt.Event)
 	switch {
 	case matched:
-		evt.RouteId = int64(route.Id)
+		evt.RouteId = int64(route.Id())
 		if evt.Target == nil {
 			evt.Target = &core.Component{}
 		}

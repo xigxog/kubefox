@@ -14,7 +14,7 @@ import (
 	"github.com/xigxog/kubefox/core"
 	"github.com/xigxog/kubefox/k8s"
 	"github.com/xigxog/kubefox/logkf"
-	"github.com/xigxog/kubefox/matcher"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes/scheme"
@@ -29,8 +29,8 @@ type Store struct {
 	resCache  ctrlcache.Cache
 	compCache cache.Cache[*api.ComponentDefinition]
 
-	depMatchers cache.Cache[*matcher.EventMatcher]
-	relMatcher  *matcher.EventMatcher
+	depMatchers cache.Cache[*core.EventMatcher]
+	relMatcher  *core.EventMatcher
 
 	ctx    context.Context
 	cancel context.CancelFunc
@@ -44,7 +44,7 @@ func NewStore(namespace string) *Store {
 	ctx, cancel := context.WithCancel(context.Background())
 	return &Store{
 		namespace:   namespace,
-		depMatchers: cache.New[*matcher.EventMatcher](time.Minute * 15),
+		depMatchers: cache.New[*core.EventMatcher](time.Minute * 15),
 		ctx:         ctx,
 		cancel:      cancel,
 		log:         logkf.Global,
@@ -188,7 +188,7 @@ func (str *Store) VirtualEnv(ctx context.Context, evt *core.EventContext) (*v1al
 			Source: v1alpha1.VirtualEnvSource{
 				Name:            env.Name,
 				ResourceVersion: env.ResourceVersion,
-				DataChecksum:    hash,
+				DataChecksum:    fmt.Sprint(hash),
 			},
 		},
 		Data:    &env.Data,
@@ -196,6 +196,7 @@ func (str *Store) VirtualEnv(ctx context.Context, evt *core.EventContext) (*v1al
 	}, nil
 }
 
+// TODO cache
 func (str *Store) Adapters(ctx context.Context) (map[string]api.Adapter, error) {
 	list := &v1alpha1.HTTPAdapterList{}
 	if err := str.resCache.List(ctx, list); err != nil {
@@ -210,9 +211,9 @@ func (str *Store) Adapters(ctx context.Context) (map[string]api.Adapter, error) 
 	return adapters, nil
 }
 
-func (str *Store) ReleaseMatcher(ctx context.Context) (*matcher.EventMatcher, error) {
+func (str *Store) ReleaseMatcher(ctx context.Context) (*core.EventMatcher, error) {
 	str.mutex.RLock()
-	if str.relMatcher != nil && !str.relMatcher.IsEmpty() {
+	if str.relMatcher != nil {
 		str.mutex.RUnlock()
 		return str.relMatcher, nil
 	}
@@ -224,7 +225,7 @@ func (str *Store) ReleaseMatcher(ctx context.Context) (*matcher.EventMatcher, er
 	return str.relMatcher, nil
 }
 
-func (str *Store) DeploymentMatcher(ctx context.Context, evtCtx *core.EventContext) (*matcher.EventMatcher, error) {
+func (str *Store) DeploymentMatcher(ctx context.Context, evtCtx *core.EventContext) (*core.EventMatcher, error) {
 	dep, err := str.AppDeployment(ctx, evtCtx)
 	if err != nil {
 		return nil, err
@@ -239,13 +240,15 @@ func (str *Store) DeploymentMatcher(ctx context.Context, evtCtx *core.EventConte
 		return depM, nil
 	}
 
-	routes, err := str.buildRoutes(ctx, dep.Spec.Components, env.Data.Vars, evtCtx)
+	routes, err := str.buildRoutes(ctx, dep.Spec.Components, env.Data, evtCtx)
 	if err != nil {
 		return nil, err
 	}
 
-	depM := matcher.New()
-	depM.AddRoutes(routes)
+	depM := core.NewEventMatcher()
+	if err := depM.AddRoutes(routes...); err != nil {
+		return nil, err
+	}
 	str.depMatchers.Set(id, depM)
 
 	return depM, nil
@@ -287,7 +290,7 @@ func (str *Store) updateCaches(ctx context.Context, updateComps bool) error {
 
 	if relM, err := str.buildReleaseMatcher(ctx); err != nil {
 		// Clear releaseMatcher so it is updated again on next access.
-		str.relMatcher = matcher.New()
+		str.relMatcher = nil
 		str.log.Error(err)
 		return err
 
@@ -330,7 +333,7 @@ func (str *Store) buildComponentCache(ctx context.Context) (cache.Cache[*api.Com
 	return compCache, nil
 }
 
-func (str *Store) buildReleaseMatcher(ctx context.Context) (*matcher.EventMatcher, error) {
+func (str *Store) buildReleaseMatcher(ctx context.Context) (*core.EventMatcher, error) {
 	ctx, cancel := context.WithTimeout(ctx, time.Minute)
 	defer cancel()
 
@@ -339,7 +342,7 @@ func (str *Store) buildReleaseMatcher(ctx context.Context) (*matcher.EventMatche
 		return nil, err
 	}
 
-	relM := matcher.New()
+	relM := core.NewEventMatcher()
 	for _, env := range envList.Items {
 		release := env.Status.ActiveRelease
 		if release == nil {
@@ -363,12 +366,12 @@ func (str *Store) buildReleaseMatcher(ctx context.Context) (*matcher.EventMatche
 			continue
 		}
 
-		routes, err := str.buildRoutes(ctx, appDep.Spec.Components, env.Data.Vars, evtCtx)
+		routes, err := str.buildRoutes(ctx, appDep.Spec.Components, env.Data, evtCtx)
 		if err != nil {
 			str.log.Warn(err)
 			continue
 		}
-		if err := relM.AddRoutes(routes); err != nil {
+		if err := relM.AddRoutes(routes...); err != nil {
 			str.log.Warn(err)
 			continue
 		}
@@ -380,20 +383,24 @@ func (str *Store) buildReleaseMatcher(ctx context.Context) (*matcher.EventMatche
 func (str *Store) buildRoutes(
 	ctx context.Context,
 	comps map[string]*v1alpha1.Component,
-	vars map[string]*api.Val,
+	data *api.VirtualEnvData,
 	evtCtx *core.EventContext) ([]*core.Route, error) {
 
-	routes := make([]*core.Route, 0)
+	var routes []*core.Route
 	for compName, compSpec := range comps {
 		comp := &core.Component{Name: compName, Commit: compSpec.Commit}
 		for _, r := range compSpec.Routes {
 			// TODO? cache routes so template doesn't need to be parsed again
+			rule, err := core.NewRule(r.Id, r.Rule)
+			if err != nil {
+				return nil, err
+			}
 			route := &core.Route{
-				RouteSpec:    r,
+				Rule:         rule,
 				Component:    comp,
 				EventContext: evtCtx,
 			}
-			if err := route.Resolve(vars); err != nil {
+			if err := route.Resolve(data); err != nil {
 				return nil, err
 			}
 			routes = append(routes, route)

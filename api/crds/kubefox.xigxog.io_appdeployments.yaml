@@ -82,21 +82,33 @@ spec:
                         - type
                         type: object
                       type: object
+                    envVarSchema:
+                      additionalProperties:
+                        properties:
+                          required:
+                            default: false
+                            type: boolean
+                          type:
+                            enum:
+                            - array
+                            - boolean
+                            - number
+                            - string
+                            type: string
+                        required:
+                        - required
+                        type: object
+                      type: object
                     image:
                       type: string
                     routes:
                       items:
                         properties:
-                          id:
-                            type: integer
-                          priority:
-                            type: integer
-                          rule:
-                            type: string
-                          virtualEnvSchema:
+                          envVarSchema:
                             additionalProperties:
                               properties:
                                 required:
+                                  default: false
                                   type: boolean
                                 type:
                                   enum:
@@ -105,18 +117,16 @@ spec:
                                   - number
                                   - string
                                   type: string
-                                unique:
-                                  description: Unique indicates that this environment
-                                    variable must have a unique value across all environments.
-                                    If the value is not unique then making a dynamic
-                                    request or creating a release that utilizes this
-                                    variable will fail.
-                                  type: boolean
                               required:
                               - required
-                              - unique
                               type: object
                             type: object
+                          id:
+                            type: integer
+                          priority:
+                            type: integer
+                          rule:
+                            type: string
                         required:
                         - id
                         - rule
@@ -129,30 +139,6 @@ spec:
                       - kubefox
                       - http
                       type: string
-                    virtualEnvSchema:
-                      additionalProperties:
-                        properties:
-                          required:
-                            type: boolean
-                          type:
-                            enum:
-                            - array
-                            - boolean
-                            - number
-                            - string
-                            type: string
-                          unique:
-                            description: Unique indicates that this environment variable
-                              must have a unique value across all environments. If
-                              the value is not unique then making a dynamic request
-                              or creating a release that utilizes this variable will
-                              fail.
-                            type: boolean
-                        required:
-                        - required
-                        - unique
-                        type: object
-                      type: object
                   required:
                   - commit
                   - type

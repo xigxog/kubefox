@@ -1,4 +1,4 @@
-package matcher
+package core
 
 import (
 	"fmt"
@@ -6,28 +6,32 @@ import (
 	"regexp"
 	"sort"
 	"strings"
-	"sync"
 
 	"github.com/vulcand/predicate"
 	"github.com/xigxog/kubefox/api"
-	"github.com/xigxog/kubefox/core"
 )
+
+// Takes an Event and returns true or false if rule matches.
+type EventPredicate func(e *Event) bool
 
 type param struct {
 	name  string
 	regex *regexp.Regexp
 }
 
-type EventMatcher struct {
-	routes []*core.Route
-	parser predicate.Parser
-	mutex  sync.RWMutex
+type parsedRoute struct {
+	*Route
+
+	predicate EventPredicate
 }
 
-func New() *EventMatcher {
-	m := &EventMatcher{
-		routes: make([]*core.Route, 0),
-	}
+type EventMatcher struct {
+	rules  []*parsedRoute
+	parser predicate.Parser
+}
+
+func NewEventMatcher() *EventMatcher {
+	m := &EventMatcher{}
 
 	// TODO add various event criteria for route predicates:
 	// - only genesis events, only comp-comp, etc.
@@ -57,69 +61,48 @@ func New() *EventMatcher {
 	return m
 }
 
-func (m *EventMatcher) IsEmpty() bool {
-	return len(m.routes) == 0
-}
-
-func (m *EventMatcher) AddRoutes(routes []*core.Route) error {
+func (m *EventMatcher) AddRoutes(routes ...*Route) error {
 	for _, r := range routes {
 		if r.ResolvedRule == "" {
-			return fmt.Errorf("route %d has unresolved rule", r.Id)
-		}
-		if r.Component == nil || r.EventContext == nil {
-			return fmt.Errorf("route %d is missing context", r.Id)
+			return fmt.Errorf("rule '%d' has not been resolved", r.Id())
 		}
 
 		parsed, err := m.parser.Parse(r.ResolvedRule)
 		if err != nil {
-			r.ParseErr = fmt.Errorf("invalid route '%s': parsing '%s' failed; %w", r.Rule, r.ResolvedRule, err)
-			continue
+			return err
 		}
-		r.Predicate = parsed.(core.EventPredicate)
 
-		m.mutex.Lock()
-		m.routes = append(m.routes, r)
-		m.mutex.Unlock()
+		m.rules = append(m.rules, &parsedRoute{
+			Route:     r,
+			predicate: parsed.(EventPredicate),
+		})
 	}
 
 	// Sort rules, longest (most specific) rule should be tested first.
-	sort.SliceStable(m.routes, func(i, j int) bool {
-		return m.routes[i].Priority > m.routes[j].Priority
+	sort.SliceStable(m.rules, func(i, j int) bool {
+		return m.rules[i].Priority > m.rules[j].Priority
 	})
 
 	return nil
 }
 
-func (m *EventMatcher) Match(evt *core.Event) (*core.Route, bool) {
-	m.mutex.RLock()
-	defer m.mutex.RUnlock()
-
-	for _, r := range m.routes {
-		if matched, _ := r.Match(evt); matched {
-			if evt.Target != nil {
-				// Ensure matched route belongs to event target.
-				if evt.Target.Name != "" && evt.Target.Name != r.Component.Name {
-					continue
-				}
-				if evt.Target.Commit != "" && evt.Target.Commit != r.Component.Commit {
-					continue
-				}
-			}
-
-			return r, true
+func (m *EventMatcher) Match(evt *Event) (*Route, bool) {
+	for _, r := range m.rules {
+		if r.predicate(evt) {
+			return r.Route, true
 		}
 	}
 
 	return nil, false
 }
 
-func (m *EventMatcher) all() core.EventPredicate {
-	return func(e *core.Event) bool {
+func (m *EventMatcher) all() EventPredicate {
+	return func(e *Event) bool {
 		return true
 	}
 }
 
-func (m *EventMatcher) header(key, val string) (core.EventPredicate, error) {
+func (m *EventMatcher) header(key, val string) (EventPredicate, error) {
 	if key == "" {
 		return nil, fmt.Errorf("header key must be provided")
 	}
@@ -130,24 +113,24 @@ func (m *EventMatcher) header(key, val string) (core.EventPredicate, error) {
 		return nil, fmt.Errorf("invalid regex of header predicate %s: %w", val, err)
 	}
 
-	return func(e *core.Event) bool {
+	return func(e *Event) bool {
 		return matchMap(key, val, regex, e.ValueMap(api.ValKeyHeader))
 	}, nil
 }
 
-func (m *EventMatcher) host(s string) (core.EventPredicate, error) {
+func (m *EventMatcher) host(s string) (EventPredicate, error) {
 	parts, params, err := split(s, '.')
 	if err != nil {
 		return nil, err
 	}
 
-	return func(e *core.Event) bool {
+	return func(e *Event) bool {
 		return matchParts(api.ValKeyHost, ".", parts, params, e, false)
 	}, nil
 }
 
-func (m *EventMatcher) method(s ...string) core.EventPredicate {
-	return func(e *core.Event) bool {
+func (m *EventMatcher) method(s ...string) EventPredicate {
+	return func(e *Event) bool {
 		m := e.Value(api.ValKeyMethod)
 		for _, v := range s {
 			if strings.EqualFold(m, v) {
@@ -158,29 +141,29 @@ func (m *EventMatcher) method(s ...string) core.EventPredicate {
 	}
 }
 
-func (m *EventMatcher) path(s string) (core.EventPredicate, error) {
+func (m *EventMatcher) path(s string) (EventPredicate, error) {
 	parts, params, err := split(s, '/')
 	if err != nil {
 		return nil, err
 	}
 
-	return func(e *core.Event) bool {
+	return func(e *Event) bool {
 		return matchParts(api.ValKeyPath, "/", parts, params, e, false)
 	}, nil
 }
 
-func (m *EventMatcher) pathPrefix(s string) (core.EventPredicate, error) {
+func (m *EventMatcher) pathPrefix(s string) (EventPredicate, error) {
 	parts, params, err := split(s, '/')
 	if err != nil {
 		return nil, err
 	}
 
-	return func(e *core.Event) bool {
+	return func(e *Event) bool {
 		return matchParts(api.ValKeyPath, "/", parts, params, e, true)
 	}, nil
 }
 
-func (m *EventMatcher) query(key, val string) (core.EventPredicate, error) {
+func (m *EventMatcher) query(key, val string) (EventPredicate, error) {
 	if key == "" {
 		return nil, fmt.Errorf("query param key must be provided")
 	}
@@ -190,35 +173,35 @@ func (m *EventMatcher) query(key, val string) (core.EventPredicate, error) {
 		return nil, fmt.Errorf("invalid regex of query predicate %s: %w", val, err)
 	}
 
-	return func(e *core.Event) bool {
+	return func(e *Event) bool {
 		return matchMap(key, val, regex, e.ValueMap(api.ValKeyQuery))
 	}, nil
 }
 
-func (m *EventMatcher) eventType(s string) core.EventPredicate {
-	return func(e *core.Event) bool {
+func (m *EventMatcher) eventType(s string) EventPredicate {
+	return func(e *Event) bool {
 		return e.GetType() == s ||
 			strings.HasSuffix(strings.ToLower(e.GetType()), strings.ToLower(s))
 	}
 }
 
 // Logical operator AND that combines predicates
-func and(a, b core.EventPredicate) core.EventPredicate {
-	return func(e *core.Event) bool {
+func and(a, b EventPredicate) EventPredicate {
+	return func(e *Event) bool {
 		return a(e) && b(e)
 	}
 }
 
 // Logical operator OR that combines predicates
-func or(a, b core.EventPredicate) core.EventPredicate {
-	return func(e *core.Event) bool {
+func or(a, b EventPredicate) EventPredicate {
+	return func(e *Event) bool {
 		return a(e) || b(e)
 	}
 }
 
 // Logical operator NOT that negates predicates
-func not(a core.EventPredicate) core.EventPredicate {
-	return func(e *core.Event) bool {
+func not(a EventPredicate) EventPredicate {
+	return func(e *Event) bool {
 		return !a(e)
 	}
 }
@@ -253,7 +236,7 @@ func matchMap(key, val string, regex *regexp.Regexp, m map[string][]string) bool
 	return false
 }
 
-func matchParts(val string, sep string, parts []string, params map[int]*param, e *core.Event, prefix bool) bool {
+func matchParts(val string, sep string, parts []string, params map[int]*param, e *Event, prefix bool) bool {
 	evtParts := strings.Split(strings.Trim(e.Value(val), sep), sep)
 
 	if len(parts) > len(evtParts) {

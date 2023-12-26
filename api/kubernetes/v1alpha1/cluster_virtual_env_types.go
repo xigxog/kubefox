@@ -9,6 +9,7 @@ one at https://mozilla.org/MPL/2.0/.
 package v1alpha1
 
 import (
+	"github.com/xigxog/kubefox/api"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -23,7 +24,7 @@ type ClusterVirtualEnv struct {
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
 	Spec    ClusterVirtualEnvSpec `json:"spec,omitempty"`
-	Data    VirtualEnvData        `json:"data,omitempty"`
+	Data    api.VirtualEnvData    `json:"data,omitempty"`
 	Details VirtualEnvDetails     `json:"details,omitempty"`
 }
 

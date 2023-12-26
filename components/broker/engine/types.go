@@ -5,7 +5,6 @@ import (
 	"time"
 
 	"github.com/xigxog/kubefox/api"
-	"github.com/xigxog/kubefox/api/kubernetes/v1alpha1"
 	"github.com/xigxog/kubefox/core"
 	"google.golang.org/protobuf/types/known/structpb"
 )
@@ -24,7 +23,7 @@ type SendEvent func(*BrokerEvent) error
 type BrokerEvent struct {
 	*core.Event
 
-	Data    *v1alpha1.VirtualEnvData
+	Data    *api.VirtualEnvData
 	RouteId int64
 
 	TargetAdapter api.Adapter

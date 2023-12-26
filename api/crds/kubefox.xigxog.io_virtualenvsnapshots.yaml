@@ -82,8 +82,7 @@ spec:
                       VirtualEnvSnapshot then dataChecksum must match the current
                       dataChecksum of the VirtualEnv. If data is not provided at creation
                       time dataChecksum will be populated automatically.
-                    format: int64
-                    type: integer
+                    type: string
                   name:
                     description: Name of the VirtualEnv this snapshot is of. Note,
                       ClusterVirtualEnvs cannot be snapshotted.

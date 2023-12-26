@@ -50,10 +50,10 @@ func New() Kit {
 		routes: make([]*route, 0),
 		spec: &api.ComponentDetails{
 			ComponentDefinition: api.ComponentDefinition{
-				Type:             api.ComponentTypeKubeFox,
-				Routes:           make([]api.RouteSpec, 0),
-				VirtualEnvSchema: make(map[string]*api.VirtualEnvVarDefinition),
-				Dependencies:     make(map[string]*api.Dependency),
+				Type:         api.ComponentTypeKubeFox,
+				Routes:       make([]api.RouteSpec, 0),
+				EnvVarSchema: make(map[string]*api.EnvVarDefinition),
+				Dependencies: make(map[string]*api.Dependency),
 			},
 		},
 	}
@@ -132,20 +132,22 @@ func (svc *kit) Description(description string) {
 }
 
 func (svc *kit) Route(rule string, handler EventHandler) {
-	r := &core.Route{
-		RouteSpec: api.RouteSpec{
-			Id:   len(svc.routes),
-			Rule: rule,
-		},
+	r, err := core.NewRule(len(svc.routes), rule)
+	if err != nil {
+		svc.log.Fatalf("error parsing route: %v", err)
 	}
-	r.BuildEnvSchema()
 
 	kitRoute := &route{
-		RouteSpec: r.RouteSpec,
-		handler:   handler,
+		RouteSpec: api.RouteSpec{
+			Id:           r.Id(),
+			Rule:         rule,
+			EnvVarSchema: r.EnvSchema().Vars,
+		},
+		handler: handler,
+		err:     err,
 	}
 	svc.routes = append(svc.routes, kitRoute)
-	svc.spec.Routes = append(svc.spec.Routes, r.RouteSpec)
+	svc.spec.Routes = append(svc.spec.Routes, kitRoute.RouteSpec)
 }
 
 func (svc *kit) Default(handler EventHandler) {
@@ -158,14 +160,14 @@ func (svc *kit) EnvVar(name string, opts ...env.VarOption) EnvVarDep {
 		svc.log.Fatal("environment variable name is required")
 	}
 
-	envSchema := &api.VirtualEnvVarDefinition{}
+	envSchema := &api.EnvVarDefinition{}
 	for _, o := range opts {
 		o(envSchema)
 	}
 	if envSchema.Type == "" {
 		envSchema.Type = api.EnvVarTypeString
 	}
-	svc.spec.VirtualEnvSchema[name] = envSchema
+	svc.spec.EnvVarSchema[name] = envSchema
 
 	return env.NewVar(name, envSchema.Type)
 }

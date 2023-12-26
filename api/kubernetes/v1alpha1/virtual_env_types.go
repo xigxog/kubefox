@@ -76,7 +76,7 @@ type ReleaseHistoryLimits struct {
 	// archiveTime.
 	Count uint `json:"count,omitempty"`
 
-	// TODO
+	// TODO implement release history limit by age
 	// Maximum age of the Release to keep in history. Once the limit is reached
 	// the oldest Release in history will be deleted. Age is based on
 	// archiveTime.
@@ -148,15 +148,6 @@ type ProblemSource struct {
 	Value *string `json:"value,omitempty"`
 }
 
-type VirtualEnvData struct {
-	// +kubebuilder:validation:Schemaless
-	// +kubebuilder:validation:Type=object
-	// +kubebuilder:pruning:PreserveUnknownFields
-
-	Vars    map[string]*api.Val `json:"vars,omitempty"`
-	Secrets map[string]*api.Val `json:"secrets,omitempty"`
-}
-
 type VirtualEnvDetails struct {
 	api.Details `json:",inline"`
 
@@ -168,7 +159,7 @@ type VirtualEnvStatus struct {
 	// DataChecksum is a hash value of the Data object. If the VirtualEnv has a
 	// parent the parent's Data object is merged before the hash is create. It
 	// can be used to check for changes to the Data object.
-	DataChecksum uint64 `json:"dataChecksum,omitempty"`
+	DataChecksum string `json:"dataChecksum,omitempty"`
 
 	PendingReleaseFailed bool `json:"pendingReleaseFailed,omitempty"`
 
@@ -195,10 +186,10 @@ type VirtualEnv struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec    VirtualEnvSpec    `json:"spec,omitempty"`
-	Data    VirtualEnvData    `json:"data,omitempty"`
-	Details VirtualEnvDetails `json:"details,omitempty"`
-	Status  VirtualEnvStatus  `json:"status,omitempty"`
+	Spec    VirtualEnvSpec     `json:"spec,omitempty"`
+	Data    api.VirtualEnvData `json:"data,omitempty"`
+	Details VirtualEnvDetails  `json:"details,omitempty"`
+	Status  VirtualEnvStatus   `json:"status,omitempty"`
 }
 
 // +kubebuilder:object:root=true

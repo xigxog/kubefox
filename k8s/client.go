@@ -158,7 +158,7 @@ func (r *Client) SnapshotVirtualEnv(ctx context.Context, namespace, envName stri
 			Source: v1alpha1.VirtualEnvSource{
 				Name:            envName,
 				ResourceVersion: env.ResourceVersion,
-				DataChecksum:    hash,
+				DataChecksum:    fmt.Sprint(hash),
 			},
 		},
 		Data:    &env.Data,

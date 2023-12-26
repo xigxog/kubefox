@@ -39,6 +39,7 @@ type AppDeploymentSpec struct {
 type Component struct {
 	api.ComponentDefinition `json:",inline"`
 
+	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:Pattern="^[a-z0-9]{40}$"
 	Commit string `json:"commit"`
 	Image  string `json:"image,omitempty"`
