@@ -419,7 +419,7 @@ func (brk *broker) findTarget(ctx context.Context, evt *BrokerEvent) error {
 	route, matched := matcher.Match(evt.Event)
 	switch {
 	case matched:
-		evt.RouteId = int64(route.Id())
+		evt.RouteId = int64(route.Id)
 		if evt.Target == nil {
 			evt.Target = &core.Component{}
 		}

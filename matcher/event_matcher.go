@@ -27,7 +27,7 @@ type parsedRoute struct {
 }
 
 type EventMatcher struct {
-	rules  []*parsedRoute
+	routes []*parsedRoute
 	parser predicate.Parser
 }
 
@@ -65,7 +65,7 @@ func New() *EventMatcher {
 func (m *EventMatcher) AddRoutes(routes ...*core.Route) error {
 	for _, r := range routes {
 		if r.ResolvedRule == "" {
-			return fmt.Errorf("rule '%d' has not been resolved", r.Id())
+			return fmt.Errorf("rule '%d' has not been resolved", r.Id)
 		}
 
 		parsed, err := m.parser.Parse(r.ResolvedRule)
@@ -73,22 +73,22 @@ func (m *EventMatcher) AddRoutes(routes ...*core.Route) error {
 			return err
 		}
 
-		m.rules = append(m.rules, &parsedRoute{
+		m.routes = append(m.routes, &parsedRoute{
 			Route:     r,
 			predicate: parsed.(EventPredicate),
 		})
 	}
 
 	// Sort rules, longest (most specific) rule should be tested first.
-	sort.SliceStable(m.rules, func(i, j int) bool {
-		return m.rules[i].Priority > m.rules[j].Priority
+	sort.SliceStable(m.routes, func(i, j int) bool {
+		return m.routes[i].Priority > m.routes[j].Priority
 	})
 
 	return nil
 }
 
 func (m *EventMatcher) Match(evt *core.Event) (*core.Route, bool) {
-	for _, r := range m.rules {
+	for _, r := range m.routes {
 		if r.predicate(evt) {
 			return r.Route, true
 		}

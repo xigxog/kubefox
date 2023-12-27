@@ -14,8 +14,10 @@ type VirtualEnvData struct {
 	// +kubebuilder:validation:Type=object
 	// +kubebuilder:pruning:PreserveUnknownFields
 
-	Vars    map[string]*Val `json:"vars,omitempty"`
-	Secrets map[string]*Val `json:"secrets,omitempty"`
+	Vars    map[string]*Val   `json:"vars,omitempty"`
+	Secrets map[string]string `json:"secrets,omitempty"`
+
+	ResolvedSecrets map[string]*Val `json:"-"`
 }
 
 type EnvVarDefinition struct {
@@ -33,11 +35,6 @@ type ComponentDefinition struct {
 	DefaultHandler bool                         `json:"defaultHandler,omitempty"`
 	EnvVarSchema   map[string]*EnvVarDefinition `json:"envVarSchema,omitempty"`
 	Dependencies   map[string]*Dependency       `json:"dependencies,omitempty"`
-}
-
-type ComponentDetails struct {
-	ComponentDefinition `json:",inline"`
-	Details             `json:",inline"`
 }
 
 type RouteSpec struct {

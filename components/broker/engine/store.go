@@ -392,15 +392,13 @@ func (str *Store) buildRoutes(
 		comp := &core.Component{Name: compName, Commit: compSpec.Commit}
 		for _, r := range compSpec.Routes {
 			// TODO? cache routes so template doesn't need to be parsed again
-			rule, err := core.NewRule(r.Id, r.Rule)
+			route, err := core.NewRoute(r.Id, r.Rule)
 			if err != nil {
 				return nil, err
 			}
-			route := &core.Route{
-				Rule:         rule,
-				Component:    comp,
-				EventContext: evtCtx,
-			}
+			route.Component = comp
+			route.EventContext = evtCtx
+
 			if err := route.Resolve(data); err != nil {
 				return nil, err
 			}

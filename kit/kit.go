@@ -31,7 +31,8 @@ const (
 //	    Handler(myHandler)
 
 type kit struct {
-	spec *api.ComponentDetails
+	compDef     api.ComponentDefinition
+	compDetails api.Details
 
 	routes     []*route
 	defHandler EventHandler
@@ -48,13 +49,11 @@ type kit struct {
 func New() Kit {
 	svc := &kit{
 		routes: make([]*route, 0),
-		spec: &api.ComponentDetails{
-			ComponentDefinition: api.ComponentDefinition{
-				Type:         api.ComponentTypeKubeFox,
-				Routes:       make([]api.RouteSpec, 0),
-				EnvVarSchema: make(map[string]*api.EnvVarDefinition),
-				Dependencies: make(map[string]*api.Dependency),
-			},
+		compDef: api.ComponentDefinition{
+			Type:         api.ComponentTypeKubeFox,
+			Routes:       make([]api.RouteSpec, 0),
+			EnvVarSchema: make(map[string]*api.EnvVarDefinition),
+			Dependencies: make(map[string]*api.Dependency),
 		},
 	}
 
@@ -124,22 +123,25 @@ func (svc *kit) L() *logkf.Logger {
 }
 
 func (svc *kit) Title(title string) {
-	svc.spec.Title = title
+	svc.compDetails.Title = title
 }
 
 func (svc *kit) Description(description string) {
-	svc.spec.Title = description
+	svc.compDetails.Title = description
 }
 
 func (svc *kit) Route(rule string, handler EventHandler) {
-	r, err := core.NewRule(len(svc.routes), rule)
+	r, err := core.NewEnvTemplate(rule)
 	if err != nil {
-		svc.log.Fatalf("error parsing route: %v", err)
+		svc.log.Fatalf("error parsing route '%s': %v", rule, err)
+	}
+	if len(r.EnvSchema().Secrets) > 0 {
+		svc.log.Fatalf("route '%s' uses env secrets", rule)
 	}
 
 	kitRoute := &route{
 		RouteSpec: api.RouteSpec{
-			Id:           r.Id(),
+			Id:           len(svc.routes),
 			Rule:         rule,
 			EnvVarSchema: r.EnvSchema().Vars,
 		},
@@ -147,12 +149,12 @@ func (svc *kit) Route(rule string, handler EventHandler) {
 		err:     err,
 	}
 	svc.routes = append(svc.routes, kitRoute)
-	svc.spec.Routes = append(svc.spec.Routes, kitRoute.RouteSpec)
+	svc.compDef.Routes = append(svc.compDef.Routes, kitRoute.RouteSpec)
 }
 
 func (svc *kit) Default(handler EventHandler) {
 	svc.defHandler = handler
-	svc.spec.DefaultHandler = handler != nil
+	svc.compDef.DefaultHandler = handler != nil
 }
 
 func (svc *kit) EnvVar(name string, opts ...env.VarOption) EnvVarDep {
@@ -167,7 +169,7 @@ func (svc *kit) EnvVar(name string, opts ...env.VarOption) EnvVarDep {
 	if envSchema.Type == "" {
 		envSchema.Type = api.EnvVarTypeString
 	}
-	svc.spec.EnvVarSchema[name] = envSchema
+	svc.compDef.EnvVarSchema[name] = envSchema
 
 	return env.NewVar(name, envSchema.Type)
 }
@@ -185,7 +187,7 @@ func (svc *kit) dependency(name string, typ api.ComponentType) ComponentDep {
 		typ:  typ,
 		name: name,
 	}
-	svc.spec.Dependencies[name] = &api.Dependency{Type: typ}
+	svc.compDef.Dependencies[name] = &api.Dependency{Type: typ}
 
 	return c
 }
@@ -200,19 +202,19 @@ func (svc *kit) Start() {
 
 func (svc *kit) start() (err error) {
 	if svc.export {
-		c, _ := json.MarshalIndent(svc.spec, "", "  ")
+		c, _ := json.MarshalIndent(svc.compDef, "", "  ")
 		fmt.Println(string(c))
 		os.Exit(0)
 	}
 
-	svc.log.DebugInterface("component spec:", svc.spec)
+	svc.log.DebugInterface("component spec:", svc.compDef)
 
 	if err = svc.brk.StartHealthSrv(); err != nil {
 		svc.log.Errorf("error starting health server: %v", err)
 		return
 	}
 
-	go svc.brk.Start(&svc.spec.ComponentDefinition, maxAttempts)
+	go svc.brk.Start(&svc.compDef, maxAttempts)
 
 	var wg sync.WaitGroup
 	wg.Add(svc.numWorkers)

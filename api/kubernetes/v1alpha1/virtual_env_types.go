@@ -273,16 +273,16 @@ func (env *VirtualEnv) MergeParent(parent *ClusterVirtualEnv) {
 	}
 }
 
-func mergeDataAndDetails(
-	dstData map[string]*api.Val, dstDetails map[string]api.Details,
-	srcData map[string]*api.Val, srcDetails map[string]api.Details) {
+func mergeDataAndDetails[V string | *api.Val](
+	dstData map[string]V, dstDetails map[string]api.Details,
+	srcData map[string]V, srcDetails map[string]api.Details) {
 
 	if srcDetails == nil {
 		srcDetails = map[string]api.Details{}
 	}
 
 	for k, v := range srcData {
-		if d, found := dstData[k]; !found || d.IsNil() {
+		if _, found := dstData[k]; !found {
 			dstData[k] = v
 		}
 
