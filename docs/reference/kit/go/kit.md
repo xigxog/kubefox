@@ -164,7 +164,8 @@ type Kit interface {
 
     // Route registers an EventHandler for the specified rule. If an incoming
     // Event matches the rule the Broker will route it to the Component and Kit
-    // will call the EventHandler.
+    // will call the EventHandler. Routes must be registered before calling
+    // Start().
     //
     // Rules are written in a simple predicate based language that matches parts
     // of an Event. Some predicates accept inputs which should be surrounded
@@ -202,10 +203,12 @@ type Kit interface {
     // the format '{[REGEX]}' or '{[NAME]:[REGEX]}' to extract the matching part
     // to a parameter.
     //
-    // Additionally, environment variables can be utilized in predicate inputs.
-    // They are resolved at request time with the value specified in the
-    // VirtualEnv. Environment variables can be used with the format
-    // '{{.Env.[NAME]}}'.
+    // Environment variables can be utilized in predicate inputs. They are
+    // resolved at request time with the value specified in the VirtualEnv.
+    // Utilized environment variables are required to be set in the VirtualEnv.
+    // To prevent accidental route conflicts the combination of environment
+    // variables used in a route must be unique across all VirtualEnvs.
+    // Environment variables can be used with the format '{{.Env.[NAME]}}'.
     //
     // For example, the following will match Events of type 'http' that are
     // 'GET' requests and have a path with three parts. The first part of the

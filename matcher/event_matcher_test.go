@@ -16,12 +16,10 @@ func TestPath(t *testing.T) {
 		},
 	}
 
-	rule1, _ := core.NewRule(1, "PathPrefix(`/customize/{{.Vars.b}}`)")
-	route1 := &core.Route{Rule: rule1}
+	route1, _ := core.NewRoute(1, "PathPrefix(`/customize/{{.Vars.b}}`)")
 	route1.Resolve(data)
 
-	rule2, _ := core.NewRule(2, "Type(`http`) && Method(`PUT`,`GET`,`POST`) && (Query(`q1`, `{q[1-2]}`) && Header(`header-one`,`{[a-z0-9]+}`)) && Host(`{{.Env.a}}.0.0.{i}`) && Path(`/customize/{{.Vars.b}}/{j:[a-z]+}`)")
-	route2 := &core.Route{Rule: rule2}
+	route2, _ := core.NewRoute(2, "Type(`http`) && Method(`PUT`,`GET`,`POST`) && (Query(`q1`, `{q[1-2]}`) && Header(`header-one`,`{[a-z0-9]+}`)) && Host(`{{.Env.a}}.0.0.{i}`) && Path(`/customize/{{.Vars.b}}/{j:[a-z]+}`)")
 	route2.Resolve(data)
 
 	m := New()
@@ -34,12 +32,12 @@ func TestPath(t *testing.T) {
 		t.Log("should have got a match :(")
 		t.FailNow()
 	}
-	if r.Id() != 2 {
+	if r.Id != 2 {
 		t.Log("incorrect route matched :(")
 		t.FailNow()
 	}
 
-	t.Logf("matched route %d; i=%s, j=%s", r.Id(), e.Param("i"), e.Param("j"))
+	t.Logf("matched route %d; i=%s, j=%s", r.Id, e.Param("i"), e.Param("j"))
 }
 
 func evt(evtType api.EventType) *core.Event {

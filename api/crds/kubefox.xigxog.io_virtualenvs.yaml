@@ -27,7 +27,7 @@ spec:
             properties:
               secrets:
                 additionalProperties:
-                  type: object
+                  type: string
                 type: object
               vars:
                 type: object

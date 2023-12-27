@@ -58,7 +58,6 @@ AppDeployment is the Schema for the AppDeployments API
 
 
 
-
 ### HTTPAdapter
 
 
@@ -294,7 +293,6 @@ Used by:<br>
 Used by:<br>
 
 - <a href=#component>Component</a><br>
-- <a href=#componentdetails>ComponentDetails</a><br>
 </p>
 
 | Field | Type | Description | Validation |
@@ -304,9 +302,6 @@ Used by:<br>
 | `defaultHandler` | <div style="white-space:nowrap">boolean<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
 | `envVarSchema` | <div style="white-space:nowrap">map{string, [EnvVarDefinition](#envvardefinition)}<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
 | `dependencies` | <div style="white-space:nowrap">map{string, [Dependency](#dependency)}<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
-
-
-
 
 
 
@@ -365,7 +360,6 @@ Used by:<br>
 
 - <a href=#component>Component</a><br>
 - <a href=#componentdefinition>ComponentDefinition</a><br>
-- <a href=#componentdetails>ComponentDetails</a><br>
 </p>
 
 | Field | Type | Description | Validation |
@@ -382,7 +376,6 @@ Used by:<br>
 Used by:<br>
 
 - <a href=#appdeploymentdetails>AppDeploymentDetails</a><br>
-- <a href=#componentdetails>ComponentDetails</a><br>
 - <a href=#httpadapter>HTTPAdapter</a><br>
 - <a href=#platformdetails>PlatformDetails</a><br>
 - <a href=#virtualenvdetails>VirtualEnvDetails</a><br>
@@ -404,7 +397,6 @@ Used by:<br>
 
 - <a href=#component>Component</a><br>
 - <a href=#componentdefinition>ComponentDefinition</a><br>
-- <a href=#componentdetails>ComponentDetails</a><br>
 - <a href=#routespec>RouteSpec</a><br>
 </p>
 
@@ -792,7 +784,6 @@ Used by:<br>
 
 - <a href=#component>Component</a><br>
 - <a href=#componentdefinition>ComponentDefinition</a><br>
-- <a href=#componentdetails>ComponentDetails</a><br>
 </p>
 
 | Field | Type | Description | Validation |
@@ -836,7 +827,7 @@ Used by:<br>
 | Field | Type | Description | Validation |
 | ----- | ---- | ----------- | ---------- |
 | `vars` | <div style="white-space:nowrap">map{string, [Val](#val)}<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
-| `secrets` | <div style="white-space:nowrap">map{string, [Val](#val)}<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
+| `secrets` | <div style="white-space:nowrap">map{string, string}<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
 
 
 

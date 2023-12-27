@@ -9,13 +9,8 @@ import (
 	"github.com/xigxog/kubefox/api"
 )
 
-var (
-	RuleParamRegexp = regexp.MustCompile(`([^\\])({[^}]+})`)
-)
-
-type Rule struct {
-	id        int
-	rule      string
+type EnvTemplate struct {
+	template  string
 	envSchema *EnvSchema
 	tree      *parse.Tree
 }
@@ -35,10 +30,9 @@ type envVar struct {
 	Val *api.Val
 }
 
-func NewRule(id int, rule string) (*Rule, error) {
-	r := &Rule{
-		id:   id,
-		rule: rule,
+func NewEnvTemplate(template string) (*EnvTemplate, error) {
+	r := &EnvTemplate{
+		template: template,
 		envSchema: &EnvSchema{
 			Vars:    make(map[string]*api.EnvVarDefinition),
 			Secrets: make(map[string]*api.EnvVarDefinition),
@@ -46,7 +40,7 @@ func NewRule(id int, rule string) (*Rule, error) {
 	}
 
 	// removes any extra whitespace
-	resolved := strings.Join(strings.Fields(r.rule), " ")
+	resolved := strings.Join(strings.Fields(r.template), " ")
 
 	r.tree = parse.New("route")
 	if _, err := r.tree.Parse(resolved, "{{", "}}", map[string]*parse.Tree{}); err != nil {
@@ -90,19 +84,15 @@ func NewRule(id int, rule string) (*Rule, error) {
 	return r, nil
 }
 
-func (r *Rule) Id() int {
-	return r.id
+func (r *EnvTemplate) Template() string {
+	return r.template
 }
 
-func (r *Rule) Rule() string {
-	return r.rule
-}
-
-func (r *Rule) EnvSchema() *EnvSchema {
+func (r *EnvTemplate) EnvSchema() *EnvSchema {
 	return r.envSchema
 }
 
-func (r *Rule) Resolve(data *api.VirtualEnvData) (resolved string, priority int, err error) {
+func (r *EnvTemplate) Resolve(data *api.VirtualEnvData) (string, error) {
 	envVarData := &envVarData{
 		Vars:    make(map[string]*envVar),
 		Secrets: make(map[string]*envVar),
@@ -110,7 +100,7 @@ func (r *Rule) Resolve(data *api.VirtualEnvData) (resolved string, priority int,
 	for k, v := range data.Vars {
 		envVarData.Vars[k] = &envVar{Val: v}
 	}
-	for k, v := range data.Secrets {
+	for k, v := range data.ResolvedSecrets {
 		envVarData.Secrets[k] = &envVar{Val: v}
 	}
 	envVarData.Env = envVarData.Vars
@@ -119,15 +109,11 @@ func (r *Rule) Resolve(data *api.VirtualEnvData) (resolved string, priority int,
 	tpl.Tree = r.tree
 
 	var buf strings.Builder
-	if err = tpl.Execute(&buf, envVarData); err != nil {
-		return
+	if err := tpl.Execute(&buf, envVarData); err != nil {
+		return "", err
 	}
 
-	resolved = strings.ReplaceAll(buf.String(), "<no value>", "")
-	// Normalize path args so they don't affect length.
-	priority = len(RuleParamRegexp.ReplaceAllString(resolved, "$1{}"))
-
-	return
+	return strings.ReplaceAll(buf.String(), "<no value>", ""), nil
 }
 
 func (e *envVar) String() string {

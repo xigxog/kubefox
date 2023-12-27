@@ -128,9 +128,9 @@ you. Take a look around!
 
 Now, let's create some environments. Two example environments are available in
 the `hack` directory. The `subPath` variable ensures unique routes between
-environments, as demonstrated in the frontend component's `main.go` line 21.
+environments, as demonstrated in the frontend component's `main.go` line 17.
 
-```{ .go .no-copy linenums="21" }
+```{ .go .no-copy linenums="17" }
 k.Route("Path(`/{{.Env.subPath}}/hello`)", sayHello)
 ```
 
@@ -474,9 +474,9 @@ earlier with the query parameters.
 
 Next, make a modification to the `frontend` component, commit the changes, and
 deploy. Open up `components/frontend/main.go` in your favorite editor and update
-line 32 in the `sayHello` function to say something new.
+line 28 in the `sayHello` function to say something new.
 
-```go linenums="25" hl_lines="7"
+```go linenums="22" hl_lines="7"
 func sayHello(k kit.Kontext) error {
     r, err := k.Req(backend).Send()
     if err != nil {
