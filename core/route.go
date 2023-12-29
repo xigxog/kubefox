@@ -11,7 +11,7 @@ var (
 )
 
 type Route struct {
-	*EnvTemplate
+	*api.EnvTemplate
 
 	Id           int
 	ResolvedRule string
@@ -22,7 +22,7 @@ type Route struct {
 }
 
 func NewRoute(id int, rule string) (*Route, error) {
-	tpl, err := NewEnvTemplate(rule)
+	tpl, err := api.NewEnvTemplate(rule)
 	if err != nil {
 		return nil, err
 	}

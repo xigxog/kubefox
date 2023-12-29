@@ -14,10 +14,11 @@ enum Category {
 }
 
 message Component {
-  string name = 1;
-  string commit = 2;
-  string id = 3;
-  string broker_id = 4;
+  string type = 1;
+  string name = 2;
+  string commit = 3;
+  string id = 4;
+  string broker_id = 5;
 }
 
 message EventContext {

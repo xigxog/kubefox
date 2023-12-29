@@ -69,6 +69,7 @@ func TestRenderNATS(t *testing.T) {
 		Component: Component{
 			IsPlatformComponent: true,
 			Name:                "nats",
+			Type:                api.ComponentTypeNATS,
 			Image:               "nats:2.9.21-alpine",
 			PodSpec: common.PodSpec{
 				Labels: map[string]string{
@@ -139,6 +140,7 @@ func TestRenderBroker(t *testing.T) {
 		Component: Component{
 			// IsPlatformComponent: true,
 			Name:   "broker",
+			Type:   api.ComponentTypeBroker,
 			Image:  "ghcr.io/xigxog/kubefox/broker:v0.0.1",
 			Commit: "aaaaaaa",
 		},
@@ -182,6 +184,7 @@ func TestRenderHTTPSrv(t *testing.T) {
 		},
 		Component: Component{
 			Name:  "httpsrv",
+			Type:  api.ComponentTypeHTTPAdapter,
 			Image: "ghcr.io/xigxog/kubefox/httpsrv:v0.0.1",
 			ContainerSpec: common.ContainerSpec{
 				Resources: &v1.ResourceRequirements{
@@ -238,6 +241,7 @@ func TestRenderComponent(t *testing.T) {
 		},
 		Component: Component{
 			Name:  "hello",
+			Type:  api.ComponentTypeKubeFox,
 			Image: "ghcr.io/xigxog/kubefox/hello:v0.0.1",
 		},
 		Owner: []*metav1.OwnerReference{

@@ -95,13 +95,14 @@ type PlatformStatus struct {
 }
 
 type ComponentStatus struct {
-	Ready    bool   `json:"ready"`
-	Name     string `json:"name"`
-	Commit   string `json:"commit,omitempty"`
-	PodName  string `json:"podName"`
-	PodIP    string `json:"podIP"`
-	NodeName string `json:"nodeName"`
-	NodeIP   string `json:"nodeIP"`
+	Ready    bool              `json:"ready"`
+	Name     string            `json:"name"`
+	Commit   string            `json:"commit,omitempty"`
+	Type     api.ComponentType `json:"type,omitempty"`
+	PodName  string            `json:"podName"`
+	PodIP    string            `json:"podIP"`
+	NodeName string            `json:"nodeName"`
+	NodeIP   string            `json:"nodeIP"`
 }
 
 // PlatformDetails defines additional details of Platform

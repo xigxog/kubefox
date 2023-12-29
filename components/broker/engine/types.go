@@ -1,6 +1,7 @@
 package engine
 
 import (
+	"fmt"
 	"sync"
 	"time"
 
@@ -20,6 +21,8 @@ const (
 
 type SendEvent func(*BrokerEvent) error
 
+type Adapters map[string]api.Adapter
+
 type BrokerEvent struct {
 	*core.Event
 
@@ -27,7 +30,7 @@ type BrokerEvent struct {
 	RouteId int64
 
 	TargetAdapter api.Adapter
-	Adapters      map[string]api.Adapter
+	Adapters      Adapters
 
 	Receiver   Receiver
 	ReceivedAt time.Time
@@ -69,6 +72,30 @@ func (evt *BrokerEvent) MatchedEvent() *core.MatchedEvent {
 		RouteId: evt.RouteId,
 		Env:     env,
 	}
+}
+
+func (a Adapters) Set(val api.Adapter) {
+	if val == nil {
+		return
+	}
+
+	key := fmt.Sprintf("%s-%s", val.GetName(), val.GetComponentType())
+	a[key] = val
+}
+
+func (a Adapters) Get(name string, typ api.ComponentType) (api.Adapter, bool) {
+	key := fmt.Sprintf("%s-%s", name, typ)
+	val, found := a[key]
+
+	return val, found
+}
+
+func (a Adapters) GetByComponent(c *core.Component) (api.Adapter, bool) {
+	if c == nil {
+		return nil, false
+	}
+
+	return a.Get(c.Name, api.ComponentType(c.Type))
 }
 
 func (r Receiver) String() string {

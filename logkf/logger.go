@@ -18,6 +18,7 @@ const (
 	KeyComponentCommit   = "componentCommit"
 	KeyComponentId       = "componentId"
 	KeyComponentName     = "componentName"
+	KeyComponentType     = "componentType"
 	KeyController        = "controller"
 	KeyEventCategory     = "eventCategory"
 	KeyEventId           = "eventId"
@@ -29,11 +30,13 @@ const (
 	KeySourceCommit      = "sourceCommit"
 	KeySourceId          = "sourceId"
 	KeySourceName        = "sourceName"
+	KeySourceType        = "sourceType"
 	KeySpanId            = "spanId"
 	KeyTargetBrokerId    = "targetBrokerId"
 	KeyTargetCommit      = "targetCommit"
 	KeyTargetId          = "targetId"
 	KeyTargetName        = "targetName"
+	KeyTargetType        = "targetType"
 	KeyTraceId           = "traceId"
 	KeyVirtualEnv        = "virtualEnv"
 	KeyWorker            = "worker"
@@ -171,6 +174,7 @@ func (log *Logger) WithComponent(comp *core.Component) *Logger {
 		KeyComponentId, comp.Id,
 		KeyComponentCommit, comp.Commit,
 		KeyComponentName, comp.Name,
+		KeyComponentType, comp.Type,
 		KeyBrokerId, comp.BrokerId,
 	)
 }
@@ -183,6 +187,7 @@ func (log *Logger) WithSource(src *core.Component) *Logger {
 		KeySourceId, src.Id,
 		KeySourceCommit, src.Commit,
 		KeySourceName, src.Name,
+		KeySourceType, src.Type,
 		KeySourceBrokerId, src.BrokerId,
 	)
 }
@@ -195,6 +200,7 @@ func (log *Logger) WithTarget(tgt *core.Component) *Logger {
 		KeyTargetId, tgt.Id,
 		KeyTargetCommit, tgt.Commit,
 		KeyTargetName, tgt.Name,
+		KeyTargetType, tgt.Type,
 		KeyTargetBrokerId, tgt.BrokerId,
 	)
 }

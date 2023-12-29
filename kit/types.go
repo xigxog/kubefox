@@ -346,7 +346,7 @@ func (c *dependency) Type() api.ComponentType {
 
 func (c *dependency) EventType() api.EventType {
 	switch c.typ {
-	case api.ComponentTypeHTTP:
+	case api.ComponentTypeHTTPAdapter:
 		return api.EventTypeHTTP
 	default:
 		return api.EventTypeKubeFox

@@ -1,41 +1,38 @@
-package core
+package api
 
 import (
+	"fmt"
 	"regexp"
 	"strings"
 	"text/template"
 	"text/template/parse"
-
-	"github.com/xigxog/kubefox/api"
 )
 
+// +kubebuilder:object:generate=false
 type EnvTemplate struct {
 	template  string
 	envSchema *EnvSchema
 	tree      *parse.Tree
 }
 
-type EnvSchema struct {
-	Vars    map[string]*api.EnvVarDefinition
-	Secrets map[string]*api.EnvVarDefinition
-}
-
-type envVarData struct {
+type templateData struct {
 	Vars    map[string]*envVar
 	Env     map[string]*envVar
 	Secrets map[string]*envVar
 }
 
+// envVar is used to override String() method of Val so that it returns a regexp
+// for arrays.
 type envVar struct {
-	Val *api.Val
+	Val *Val
 }
 
 func NewEnvTemplate(template string) (*EnvTemplate, error) {
 	r := &EnvTemplate{
 		template: template,
 		envSchema: &EnvSchema{
-			Vars:    make(map[string]*api.EnvVarDefinition),
-			Secrets: make(map[string]*api.EnvVarDefinition),
+			Vars:    make(EnvVarSchema),
+			Secrets: make(EnvVarSchema),
 		},
 	}
 
@@ -69,11 +66,11 @@ func NewEnvTemplate(template string) (*EnvTemplate, error) {
 				section, name := field.Ident[0], field.Ident[1]
 				switch section {
 				case "Vars", "Env":
-					r.envSchema.Vars[name] = &api.EnvVarDefinition{
+					r.envSchema.Vars[name] = &EnvVarDefinition{
 						Required: true,
 					}
 				case "Secrets":
-					r.envSchema.Secrets[name] = &api.EnvVarDefinition{
+					r.envSchema.Secrets[name] = &EnvVarDefinition{
 						Required: true,
 					}
 				}
@@ -92,8 +89,8 @@ func (r *EnvTemplate) EnvSchema() *EnvSchema {
 	return r.envSchema
 }
 
-func (r *EnvTemplate) Resolve(data *api.VirtualEnvData) (string, error) {
-	envVarData := &envVarData{
+func (r *EnvTemplate) Resolve(data *VirtualEnvData) (string, error) {
+	envVarData := &templateData{
 		Vars:    make(map[string]*envVar),
 		Secrets: make(map[string]*envVar),
 	}
@@ -103,6 +100,7 @@ func (r *EnvTemplate) Resolve(data *api.VirtualEnvData) (string, error) {
 	for k, v := range data.ResolvedSecrets {
 		envVarData.Secrets[k] = &envVar{Val: v}
 	}
+	// Supports use of {{.Env.[NAME]}} or {{.Var.[NAME]}}.
 	envVarData.Env = envVarData.Vars
 
 	tpl := template.New("route").Option("missingkey=zero")
@@ -113,11 +111,43 @@ func (r *EnvTemplate) Resolve(data *api.VirtualEnvData) (string, error) {
 		return "", err
 	}
 
+	// Despite setting `missingkey=zero` above "<no value>" is still injected
+	// for missing keys.
 	return strings.ReplaceAll(buf.String(), "<no value>", ""), nil
 }
 
+func (e EnvVarSchema) Validate(vars map[string]*Val, src *ProblemSource) []Problem {
+	var problems []Problem
+	for varName, varDef := range e {
+		val, found := vars[varName]
+
+		if !found && varDef.Required {
+			src := *src
+			src.Path = fmt.Sprintf("%s.%s", src.Path, varName)
+			problems = append(problems, Problem{
+				Type:    ProblemTypeVarNotFound,
+				Message: fmt.Sprintf(`Variable "%s" not found but is required.`, varName),
+				Causes:  []ProblemSource{src},
+			})
+		}
+		if found && varDef.Type != "" && val.EnvVarType() != varDef.Type {
+			src := *src
+			src.Path = fmt.Sprintf("%s.%s.type", src.Path, varName)
+			src.Value = (*string)(&varDef.Type)
+			problems = append(problems, Problem{
+				Type: ProblemTypeVarWrongType,
+				Message: fmt.Sprintf(`Variable "%s" has wrong type; wanted "%s" got "%s".`,
+					varName, varDef.Type, val.EnvVarType()),
+				Causes: []ProblemSource{src},
+			})
+		}
+	}
+
+	return problems
+}
+
 func (e *envVar) String() string {
-	if e.Val.Type == api.ArrayNumber || e.Val.Type == api.ArrayString {
+	if e.Val.Type == ArrayNumber || e.Val.Type == ArrayString {
 		// Convert array to regex that matches any of the values.
 		b := strings.Builder{}
 		b.WriteString("{")

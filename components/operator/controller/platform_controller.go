@@ -188,6 +188,7 @@ func (r *PlatformReconciler) reconcile(ctx context.Context, platform *v1alpha1.P
 
 	td := baseTD.ForComponent(api.PlatformComponentNATS, &appsv1.StatefulSet{}, &NATSDefaults, templates.Component{
 		Name:                api.PlatformComponentNATS,
+		Type:                api.ComponentTypeNATS,
 		Image:               NATSImage,
 		PodSpec:             platform.Spec.NATS.PodSpec,
 		ContainerSpec:       platform.Spec.NATS.ContainerSpec,
@@ -209,6 +210,7 @@ func (r *PlatformReconciler) reconcile(ctx context.Context, platform *v1alpha1.P
 
 	td = baseTD.ForComponent(api.PlatformComponentBroker, &appsv1.DaemonSet{}, &BrokerDefaults, templates.Component{
 		Name:                api.PlatformComponentBroker,
+		Type:                api.ComponentTypeBroker,
 		Commit:              build.Info.BrokerCommit,
 		Image:               BrokerImage,
 		PodSpec:             platform.Spec.Broker.PodSpec,
@@ -231,6 +233,7 @@ func (r *PlatformReconciler) reconcile(ctx context.Context, platform *v1alpha1.P
 
 	td = baseTD.ForComponent(api.PlatformComponentHTTPSrv, &appsv1.Deployment{}, &HTTPSrvDefaults, templates.Component{
 		Name:                api.PlatformComponentHTTPSrv,
+		Type:                api.ComponentTypeHTTPAdapter,
 		Commit:              build.Info.HTTPSrvCommit,
 		Image:               HTTPSrvImage,
 		PodSpec:             platform.Spec.HTTPSrv.PodSpec,
@@ -284,6 +287,7 @@ func (r *PlatformReconciler) updateComponentsStatus(ctx context.Context, p *v1al
 			Ready:    cond.Status == v1.ConditionTrue,
 			Name:     pod.Labels[api.LabelK8sPlatformComponent],
 			Commit:   pod.Labels[api.LabelK8sComponentCommit],
+			Type:     api.ComponentType(pod.Labels[api.LabelK8sComponentType]),
 			PodName:  pod.Name,
 			PodIP:    pod.Status.PodIP,
 			NodeName: pod.Spec.NodeName,

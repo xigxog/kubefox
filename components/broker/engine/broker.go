@@ -25,6 +25,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/yaml"
 )
 
 // OS status codes
@@ -90,6 +91,7 @@ func New() Engine {
 	ctx, cancel := context.WithCancel(context.Background())
 	brk := &broker{
 		comp: &core.Component{
+			Type:     string(api.ComponentTypeBroker),
 			Name:     name,
 			Commit:   build.Info.Commit,
 			Id:       id,
@@ -314,6 +316,15 @@ func (brk *broker) routeEvent(log *logkf.Logger, evt *BrokerEvent) error {
 		log.Debugf("matched event to target '%s'", evt.Target)
 	}
 
+	problems, err := brk.store.ValidateEventContext(ctx, evt.Context)
+	if err != nil {
+		return err
+	}
+	if len(problems) > 0 {
+		b, _ := yaml.Marshal(problems)
+		return core.ErrInvalid(fmt.Errorf("event context is invalid\n%s", b))
+	}
+
 	if err := brk.attachEnv(ctx, evt); err != nil {
 		return err
 	}
@@ -361,11 +372,11 @@ func (brk *broker) checkEvent(evt *BrokerEvent) error {
 		return core.ErrTimeout()
 	}
 
-	if evt.Source == nil || !evt.Source.IsFull() {
+	if evt.Source == nil || !evt.Source.IsComplete() {
 		return core.ErrInvalid(fmt.Errorf("event source is invalid"))
 	}
 
-	if evt.Category == core.Category_RESPONSE && (evt.Target == nil || !evt.Target.IsFull()) {
+	if evt.Category == core.Category_RESPONSE && (evt.Target == nil || !evt.Target.IsComplete()) {
 		return core.ErrInvalid(fmt.Errorf("response target is missing required attribute"))
 	}
 
@@ -379,7 +390,7 @@ func (brk *broker) checkEvent(evt *BrokerEvent) error {
 		}
 
 	case ReceiverGRPCServer:
-		if evt.Target != nil && !evt.Target.IsFull() && !evt.Target.IsNameOnly() {
+		if evt.Target != nil && !evt.Target.IsComplete() && !evt.Target.IsNameOnly() {
 			return core.ErrInvalid(fmt.Errorf("event target is invalid"))
 		}
 
@@ -396,7 +407,7 @@ func (brk *broker) checkEvent(evt *BrokerEvent) error {
 }
 
 func (brk *broker) findTarget(ctx context.Context, evt *BrokerEvent) error {
-	if evt.Target != nil && evt.Target.IsFull() {
+	if evt.Target != nil && evt.Target.IsComplete() {
 		return nil
 	}
 
@@ -423,11 +434,12 @@ func (brk *broker) findTarget(ctx context.Context, evt *BrokerEvent) error {
 		if evt.Target == nil {
 			evt.Target = &core.Component{}
 		}
+		evt.Target.Type = route.Component.Type
 		evt.Target.Name = route.Component.Name
 		evt.Target.Commit = route.Component.Commit
 		evt.SetContext(route.EventContext)
 
-	case evt.Target != nil && evt.Target.Name != "":
+	case evt.Target != nil && evt.Target.Name != "" && evt.Target.Type == string(api.ComponentTypeKubeFox):
 		evt.RouteId = api.DefaultRouteId
 
 	default:
@@ -438,19 +450,13 @@ func (brk *broker) findTarget(ctx context.Context, evt *BrokerEvent) error {
 }
 
 func (brk *broker) attachEnv(ctx context.Context, evt *BrokerEvent) error {
-	// TODO environment checks
-	// - only copy env vars required by component in spec
-	// - check for required vars
-	// - check for unique vars; expensive, don't do for releases, cache
-	// - check for var type
-
 	if env, err := brk.store.VirtualEnv(ctx, evt.Context); err != nil {
 		return core.ErrNotFound(err)
 	} else {
 		evt.Data = env.Data
 	}
 
-	if adapters, err := brk.store.Adapters(ctx); err != nil {
+	if adapters, err := brk.store.AdaptersFromEventContext(ctx, evt.Context); err != nil {
 		return core.ErrUnexpected(err)
 	} else {
 		evt.Adapters = adapters
@@ -460,7 +466,7 @@ func (brk *broker) attachEnv(ctx context.Context, evt *BrokerEvent) error {
 }
 
 func (brk *broker) checkComponents(ctx context.Context, evt *BrokerEvent) error {
-	if evt.Target == nil || evt.Target.Name == "" || evt.Context == nil {
+	if evt.Target == nil || evt.Target.Name == "" || evt.Target.Type == "" || evt.Context == nil {
 		return core.ErrComponentMismatch()
 	}
 
@@ -472,7 +478,7 @@ func (brk *broker) checkComponents(ctx context.Context, evt *BrokerEvent) error 
 	// Check if target is part of deployment spec.
 	var adapter api.Adapter
 	if evt.Adapters != nil {
-		adapter = evt.Adapters[evt.Target.Name]
+		adapter, _ = evt.Adapters.GetByComponent(evt.Target)
 	}
 
 	depComp := appDep.Spec.Components[evt.Target.Name]
@@ -483,7 +489,8 @@ func (brk *broker) checkComponents(ctx context.Context, evt *BrokerEvent) error 
 		}
 
 	case depComp == nil && adapter != nil:
-		if adapter.GetComponentType() != api.ComponentTypeHTTP {
+		// TODO update when more adapters are added.
+		if adapter.GetComponentType() != api.ComponentTypeHTTPAdapter {
 			return core.ErrUnsupportedAdapter(fmt.Errorf("adapter type '%s' is not supported", adapter.GetComponentType()))
 		}
 		evt.TargetAdapter = adapter
@@ -504,7 +511,7 @@ func (brk *broker) checkComponents(ctx context.Context, evt *BrokerEvent) error 
 
 	// Check if source is part of deployment spec.
 	if evt.Adapters != nil {
-		adapter = evt.Adapters[evt.Source.Name]
+		adapter, _ = evt.Adapters.GetByComponent(evt.Source)
 	}
 	depComp = appDep.Spec.Components[evt.Source.Name]
 	switch {

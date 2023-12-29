@@ -9,7 +9,12 @@ one at https://mozilla.org/MPL/2.0/.
 package v1alpha1
 
 import (
+	"errors"
+	"fmt"
+
 	"github.com/xigxog/kubefox/api"
+	"github.com/xigxog/kubefox/core"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -52,6 +57,7 @@ type AppDeploymentStatus struct {
 	// +listType=map
 	// +listMapKey=type
 	Conditions []metav1.Condition `json:"conditions,omitempty" patchStrategy:"merge" patchMergeKey:"type"`
+	Problems   api.Problems       `json:"problems,omitempty"`
 }
 
 // AppDeploymentDetails defines additional details of AppDeployment
@@ -82,6 +88,96 @@ type AppDeploymentList struct {
 	metav1.ListMeta `json:"metadata,omitempty"`
 
 	Items []AppDeployment `json:"items"`
+}
+
+func (appDep *AppDeployment) Validate(
+	data *api.VirtualEnvData,
+	getAdapter func(name string, typ api.ComponentType) (api.Adapter, error)) (api.Problems, error) {
+
+	problems := api.Problems{}
+	for compName, comp := range appDep.Spec.Components {
+		if data != nil {
+			problems = append(problems, comp.EnvVarSchema.Validate(data.Vars, &api.ProblemSource{
+				Kind:               api.ProblemSourceKindAppDeployment,
+				Name:               appDep.Name,
+				ObservedGeneration: appDep.Generation,
+				Path:               fmt.Sprintf("$.spec.components.%s.envVarSchema", compName),
+			})...)
+
+			for i, route := range comp.Routes {
+				// All route vars are required.
+				for _, d := range route.EnvVarSchema {
+					d.Required = true
+				}
+				problems = append(problems, route.EnvVarSchema.Validate(data.Vars, &api.ProblemSource{
+					Kind:               api.ProblemSourceKindAppDeployment,
+					Name:               appDep.Name,
+					ObservedGeneration: appDep.Generation,
+					Path:               fmt.Sprintf("$.spec.components.%s.routes[%d]", compName, i),
+				})...)
+			}
+		}
+
+		for depName, dep := range comp.Dependencies {
+			found := true
+			switch {
+			case dep.Type == api.ComponentTypeKubeFox:
+				_, found = appDep.Spec.Components[depName]
+
+			case dep.Type.IsAdapter():
+				adapter, err := getAdapter(depName, dep.Type)
+				switch {
+				case err == nil:
+					if data != nil {
+						problems = append(problems, adapter.Validate(data)...)
+					}
+
+				case apierrors.IsNotFound(err) || errors.Is(err, core.ErrNotFound()):
+					found = false
+
+				default:
+					return nil, err
+				}
+
+			default:
+				// Unsupported dependency type.
+				problems = append(problems, api.Problem{
+					Type: api.ProblemTypeDependencyInvalid,
+					Message: fmt.Sprintf(`Component "%s" dependency "%s" has unsupported type "%s".`,
+						compName, depName, dep.Type),
+					Causes: []api.ProblemSource{
+						{
+							Kind:               api.ProblemSourceKindAppDeployment,
+							Name:               appDep.Name,
+							ObservedGeneration: appDep.Generation,
+							Path: fmt.Sprintf("$.spec.components.%s.dependencies.%s.type",
+								compName, depName),
+							Value: (*string)(&dep.Type),
+						},
+					},
+				})
+			}
+
+			if !found {
+				problems = append(problems, api.Problem{
+					Type: api.ProblemTypeDependencyNotFound,
+					Message: fmt.Sprintf(`Component "%s" dependency "%s" of type "%s" not found.`,
+						compName, depName, dep.Type),
+					Causes: []api.ProblemSource{
+						{
+							Kind:               api.ProblemSourceKindAppDeployment,
+							Name:               appDep.Name,
+							ObservedGeneration: appDep.Generation,
+							Path: fmt.Sprintf("$.spec.components.%s.dependencies.%s",
+								compName, depName),
+						},
+					},
+				})
+			}
+		}
+	}
+
+	return problems, nil
 }
 
 func init() {

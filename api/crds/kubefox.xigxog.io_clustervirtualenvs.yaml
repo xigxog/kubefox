@@ -77,6 +77,14 @@ spec:
                     type: string
                   historyLimits:
                     properties:
+                      ageDays:
+                        default: 0
+                        description: Maximum age of the Release to keep in history.
+                          Once the limit is reached the oldest Release in history
+                          will be deleted. Age is based on archiveTime. Set to 0 to
+                          disable.
+                        minimum: 0
+                        type: integer
                       count:
                         default: 10
                         description: Maximum number of Releases to keep in history.

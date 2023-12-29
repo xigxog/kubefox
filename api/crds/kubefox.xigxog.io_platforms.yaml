@@ -5163,6 +5163,8 @@ spec:
                       type: string
                     ready:
                       type: boolean
+                    type:
+                      type: string
                   required:
                   - name
                   - nodeIP

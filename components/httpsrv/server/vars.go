@@ -15,6 +15,6 @@ var (
 )
 
 var (
-	Component = new(core.Component)
-	Spec      = new(api.ComponentDefinition)
+	Component    = &core.Component{Id: core.GenerateId(), Type: string(api.ComponentTypeHTTPAdapter)}
+	ComponentDef = &api.ComponentDefinition{Type: api.ComponentTypeHTTPAdapter}
 )

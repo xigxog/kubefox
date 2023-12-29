@@ -70,7 +70,7 @@ func NewClient(opts ClientOpts) *Client {
 
 // Start connects to the broker and begins sending and receiving messages. It is
 // a blocking call.
-func (c *Client) Start(spec *api.ComponentDefinition, maxAttempts int) {
+func (c *Client) Start(def *api.ComponentDefinition, maxAttempts int) {
 	var (
 		attempt int
 		err     error
@@ -78,7 +78,7 @@ func (c *Client) Start(spec *api.ComponentDefinition, maxAttempts int) {
 	for attempt < maxAttempts {
 		c.log.Infof("subscribing to broker, attempt %d/%d", attempt+1, maxAttempts)
 
-		attempt, err = c.run(spec, attempt)
+		attempt, err = c.run(def, attempt)
 
 		c.log.Warnf("broker subscription closed: %v", err)
 		time.Sleep(time.Second * time.Duration(rand.Intn(2)+1))
@@ -88,7 +88,7 @@ func (c *Client) Start(spec *api.ComponentDefinition, maxAttempts int) {
 	close(c.errCh)
 }
 
-func (c *Client) run(spec *api.ComponentDefinition, retry int) (int, error) {
+func (c *Client) run(def *api.ComponentDefinition, retry int) (int, error) {
 	creds, err := credentials.NewClientTLSFromFile(api.PathCACert, "")
 	if err != nil {
 		return retry + 1, fmt.Errorf("unable to load root CA certificate: %v", err)
@@ -130,7 +130,7 @@ func (c *Client) run(spec *api.ComponentDefinition, retry int) (int, error) {
 		Type:   api.EventTypeRegister,
 		Source: c.Component,
 	})
-	if err := evt.SetJSON(spec); err != nil {
+	if err := evt.SetJSON(def); err != nil {
 		return retry + 1, fmt.Errorf("unable to marshal component spec: %v", err)
 	}
 	if err := c.send(evt, time.Now()); err != nil {
@@ -300,6 +300,7 @@ func (c *Client) GetRequestMetadata(ctx context.Context, uri ...string) (map[str
 		"componentId":     c.Component.Id,
 		"componentName":   c.Component.Name,
 		"componentCommit": c.Component.Commit,
+		"componentType":   c.Component.Type,
 		"authToken":       token,
 	}, nil
 }

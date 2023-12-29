@@ -13,6 +13,7 @@ import (
 	"github.com/xigxog/kubefox/api/kubernetes/v1alpha1"
 	"github.com/xigxog/kubefox/build"
 	"github.com/xigxog/kubefox/components/operator/templates"
+	"github.com/xigxog/kubefox/core"
 	"github.com/xigxog/kubefox/k8s"
 	"github.com/xigxog/kubefox/logkf"
 	"golang.org/x/mod/semver"
@@ -142,6 +143,27 @@ func (cm *ComponentManager) ReconcileApps(ctx context.Context, namespace string)
 	}
 	compMap := make(map[string]*TemplateData)
 	for _, appDep := range appDepList.Items {
+		problems, err := appDep.Validate(nil, func(name string, typ api.ComponentType) (api.Adapter, error) {
+			switch typ {
+			case api.ComponentTypeHTTPAdapter:
+				a := &v1alpha1.HTTPAdapter{}
+				if err := cm.Get(ctx, k8s.Key(appDep.Namespace, name), a); err != nil {
+					return nil, err
+				}
+				return a, nil
+
+			default:
+				return nil, core.ErrNotFound()
+			}
+		})
+		if err != nil {
+			return false, err
+		}
+		if c := len(problems); c > 0 {
+			log.Debugf("found %d problems with AppDeployment '%s', skipping", c, appDep.Name)
+			continue
+		}
+
 		td := TemplateData{
 			Data: templates.Data{
 				Instance: templates.Instance{
@@ -169,6 +191,7 @@ func (cm *ComponentManager) ReconcileApps(ctx context.Context, namespace string)
 			compTd := td.ForComponent("component", &appsv1.Deployment{}, &ComponentDefaults, templates.Component{
 				Name:            compName,
 				Commit:          comp.Commit,
+				Type:            api.ComponentTypeKubeFox,
 				App:             appDep.Spec.AppName,
 				Image:           image,
 				ImagePullPolicy: appDep.Spec.ImagePullSecretName,
@@ -189,7 +212,7 @@ func (cm *ComponentManager) ReconcileApps(ctx context.Context, namespace string)
 		}
 		allAvailable = allAvailable && available
 
-		key := CompDepKey(compTD.Component.Name, compTD.Component.Commit)
+		key := compDepKey(compTD.Component.Name, compTD.Component.Commit)
 		depMap[key] = compTD.Obj.(*appsv1.Deployment)
 	}
 
@@ -197,8 +220,26 @@ func (cm *ComponentManager) ReconcileApps(ctx context.Context, namespace string)
 	for _, appDep := range appDepList.Items {
 		curStatus := appDep.Status.DeepCopy()
 
-		available := AvailableCondition(&appDep, depMap)
-		progressing := ProgressingCondition(&appDep, depMap)
+		problems, err := appDep.Validate(nil, func(name string, typ api.ComponentType) (api.Adapter, error) {
+			switch typ {
+			case api.ComponentTypeHTTPAdapter:
+				a := &v1alpha1.HTTPAdapter{}
+				if err := cm.Get(ctx, k8s.Key(appDep.Namespace, name), a); err != nil {
+					return nil, err
+				}
+				return a, nil
+
+			default:
+				return nil, core.ErrNotFound()
+			}
+		})
+		if err != nil {
+			return false, err
+		}
+		appDep.Status.Problems = problems
+
+		available := availableCondition(&appDep, depMap)
+		progressing := progressingCondition(&appDep, depMap)
 		appDep.Status.Conditions = k8s.UpdateConditions(now, appDep.Status.Conditions, available, progressing)
 
 		if !k8s.DeepEqual(&appDep.Status, curStatus) {
@@ -265,12 +306,11 @@ func (td *TemplateData) ForComponent(template string, obj client.Object, defs *c
 	return newTD
 }
 
-func CompDepKey(name, commit string) string {
+func compDepKey(name, commit string) string {
 	return fmt.Sprintf("%s-%s", name, commit)
 }
 
-func AvailableCondition(appDep *v1alpha1.AppDeployment, depMap map[string]*appsv1.Deployment) *metav1.Condition {
-	available, depName, depCond := isAppDeployment(appsv1.DeploymentAvailable, &appDep.Spec, depMap)
+func availableCondition(appDep *v1alpha1.AppDeployment, depMap map[string]*appsv1.Deployment) *metav1.Condition {
 	cond := &metav1.Condition{
 		Type:               api.ConditionTypeAvailable,
 		Status:             metav1.ConditionTrue,
@@ -278,34 +318,49 @@ func AvailableCondition(appDep *v1alpha1.AppDeployment, depMap map[string]*appsv
 		Reason:             api.ConditionReasonComponentsAvailable,
 		Message:            "Component Deployments have minimum availability.",
 	}
-	if !available {
+
+	if len(appDep.Status.Problems) > 0 {
 		cond.Status = metav1.ConditionFalse
-		cond.Reason = api.ConditionReasonComponentUnavailable
-		cond.Message = fmt.Sprintf(`Component Deployment "%s" unavailable; %s`, depName, depCond.Message)
+		cond.Reason = api.ConditionReasonProblemsExist
+		cond.Message = "One or more problems exist with AppDeployment, see `status.problems` for details."
+	} else {
+		available, depName, depCond := isAppDeployment(appsv1.DeploymentAvailable, &appDep.Spec, depMap)
+		if !available {
+			cond.Status = metav1.ConditionFalse
+			cond.Reason = api.ConditionReasonComponentUnavailable
+			cond.Message = fmt.Sprintf(`Component Deployment "%s" unavailable; %s`, depName, depCond.Message)
+		}
 	}
 
 	return cond
 }
 
-func ProgressingCondition(appDep *v1alpha1.AppDeployment, depMap map[string]*appsv1.Deployment) *metav1.Condition {
-	progressing, _, depCond := isAppDeployment(appsv1.DeploymentProgressing, &appDep.Spec, depMap)
+func progressingCondition(appDep *v1alpha1.AppDeployment, depMap map[string]*appsv1.Deployment) *metav1.Condition {
 	cond := &metav1.Condition{
 		Type:               api.ConditionTypeProgressing,
 		Status:             metav1.ConditionTrue,
 		ObservedGeneration: appDep.Generation,
 		Reason:             api.ConditionReasonComponentDeploymentProgressing,
-		Message:            depCond.Message,
 	}
 
-	switch {
-	case progressing && depCond.Reason == "NewReplicaSetAvailable":
+	if len(appDep.Status.Problems) > 0 {
 		cond.Status = metav1.ConditionFalse
-		cond.Reason = api.ConditionReasonComponentsDeployed
-		cond.Message = "Component Deployments have successfully progressed."
+		cond.Reason = api.ConditionReasonProblemsExist
+		cond.Message = "One or more problems exist with AppDeployment, see `status.problems` for details."
+	} else {
+		progressing, _, depCond := isAppDeployment(appsv1.DeploymentProgressing, &appDep.Spec, depMap)
+		cond.Message = depCond.Message
 
-	case !progressing:
-		cond.Status = metav1.ConditionFalse
-		cond.Reason = api.ConditionReasonComponentDeploymentFailed
+		switch {
+		case progressing && depCond.Reason == "NewReplicaSetAvailable":
+			cond.Status = metav1.ConditionFalse
+			cond.Reason = api.ConditionReasonComponentsDeployed
+			cond.Message = "Component Deployments completed successfully."
+
+		case !progressing:
+			cond.Status = metav1.ConditionFalse
+			cond.Reason = api.ConditionReasonComponentDeploymentFailed
+		}
 	}
 
 	return cond
@@ -316,7 +371,7 @@ func isAppDeployment(condType appsv1.DeploymentConditionType,
 
 	cond := &appsv1.DeploymentCondition{Type: condType, Status: corev1.ConditionUnknown}
 	for name, c := range spec.Components {
-		key := CompDepKey(name, c.Commit)
+		key := compDepKey(name, c.Commit)
 		dep, found := depMap[key]
 		if !found || dep == nil {
 			return false, "", &appsv1.DeploymentCondition{Type: condType, Status: corev1.ConditionUnknown}

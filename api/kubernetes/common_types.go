@@ -10,8 +10,19 @@ one at https://mozilla.org/MPL/2.0/.
 package kubernetes
 
 import (
+	"github.com/xigxog/kubefox/api"
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
+
+// ObservedTime is added here instead of api package to prevent k8s.io
+// dependencies from getting pulled into Kit.
+type Problem struct {
+	api.Problem `json:",inline"`
+
+	// ObservedTime at which the problem was recorded.
+	ObservedTime metav1.Time `json:"observedTime"`
+}
 
 type PodSpec struct {
 	// Map of string keys and values that can be used to organize and categorize
