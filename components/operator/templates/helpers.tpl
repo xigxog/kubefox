@@ -10,9 +10,15 @@ kubefox.xigxog.io/platform-component: {{ . | cleanLabel | quote }}
 kubefox.xigxog.io/component-commit: {{ . | cleanLabel | quote }}
 kubefox.xigxog.io/component-commit-short: {{ . | substr 0 7 | cleanLabel | quote }}
   {{- end }}
+  {{- with .Component.Type }}
+kubefox.xigxog.io/component-type: {{ . | cleanLabel | quote }}
+  {{- end }}
 {{- else }}
     {{- with .Component.Name }}
 kubefox.xigxog.io/app-component: {{ . | cleanLabel | quote }}
+  {{- end }}
+  {{- with .Component.Type }}
+kubefox.xigxog.io/component-type: {{ . | cleanLabel | quote }}
   {{- end }}
 {{- end }}
 {{- with .Component.AppCommit }}
@@ -107,6 +113,10 @@ kind: ServiceAccount
 {{- end }}
 {{- with .Component.Commit }}
 - name: KUBEFOX_COMMIT
+  value: {{ . | quote }}
+{{- end }}
+{{- with .Component.Type }}
+- name: KUBEFOX_COMPONENT_TYPE
   value: {{ . | quote }}
 {{- end }}
 - name: KUBEFOX_HOST_IP

@@ -87,7 +87,7 @@ func (srv *Server) Run() error {
 		srv.log.Info("https server started")
 	}
 
-	go srv.brk.Start(Spec, maxAttempts)
+	go srv.brk.Start(ComponentDef, maxAttempts)
 
 	return <-srv.brk.Err()
 }
@@ -124,6 +124,7 @@ func (srv *Server) ServeHTTP(resWriter http.ResponseWriter, httpReq *http.Reques
 	log.Debug("receive request")
 
 	resp, err := srv.brk.SendReq(ctx, req, time.Now())
+	// TODO add event context to response headers
 	switch {
 	case err != nil:
 		writeError(resWriter, err, log)

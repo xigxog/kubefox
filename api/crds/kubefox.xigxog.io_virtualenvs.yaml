@@ -106,6 +106,14 @@ spec:
                     type: string
                   historyLimits:
                     properties:
+                      ageDays:
+                        default: 0
+                        description: Maximum age of the Release to keep in history.
+                          Once the limit is reached the oldest Release in history
+                          will be deleted. Age is based on archiveTime. Set to 0 to
+                          disable.
+                        minimum: 0
+                        type: integer
                       count:
                         default: 10
                         description: Maximum number of Releases to keep in history.
@@ -175,6 +183,8 @@ spec:
                     type: string
                   problems:
                     items:
+                      description: ObservedTime is added here instead of api package
+                        to prevent k8s.io dependencies from getting pulled into Kit.
                       properties:
                         causes:
                           description: Resources and attributes causing problem.
@@ -220,12 +230,13 @@ spec:
                           type: string
                         type:
                           enum:
+                          - AdapterNotFound
                           - AppDeploymentFailed
-                          - AppDeploymentUnavailable
+                          - DependencyInvalid
+                          - DependencyNotFound
                           - ParseError
                           - PolicyViolation
                           - RouteConflict
-                          - SecretNotFound
                           - VarNotFound
                           - VarWrongType
                           - VirtualEnvSnapshotFailed
@@ -363,6 +374,8 @@ spec:
                     type: string
                   problems:
                     items:
+                      description: ObservedTime is added here instead of api package
+                        to prevent k8s.io dependencies from getting pulled into Kit.
                       properties:
                         causes:
                           description: Resources and attributes causing problem.
@@ -408,12 +421,13 @@ spec:
                           type: string
                         type:
                           enum:
+                          - AdapterNotFound
                           - AppDeploymentFailed
-                          - AppDeploymentUnavailable
+                          - DependencyInvalid
+                          - DependencyNotFound
                           - ParseError
                           - PolicyViolation
                           - RouteConflict
-                          - SecretNotFound
                           - VarNotFound
                           - VarWrongType
                           - VirtualEnvSnapshotFailed
@@ -477,6 +491,9 @@ spec:
                       type: string
                     problems:
                       items:
+                        description: ObservedTime is added here instead of api package
+                          to prevent k8s.io dependencies from getting pulled into
+                          Kit.
                         properties:
                           causes:
                             description: Resources and attributes causing problem.
@@ -522,12 +539,13 @@ spec:
                             type: string
                           type:
                             enum:
+                            - AdapterNotFound
                             - AppDeploymentFailed
-                            - AppDeploymentUnavailable
+                            - DependencyInvalid
+                            - DependencyNotFound
                             - ParseError
                             - PolicyViolation
                             - RouteConflict
-                            - SecretNotFound
                             - VarNotFound
                             - VarWrongType
                             - VirtualEnvSnapshotFailed

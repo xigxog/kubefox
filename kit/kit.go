@@ -57,7 +57,7 @@ func New() Kit {
 		},
 	}
 
-	comp := &core.Component{Id: core.GenerateId()}
+	comp := &core.Component{Id: core.GenerateId(), Type: string(api.ComponentTypeKubeFox)}
 
 	var help bool
 	var brokerAddr, healthAddr, logFormat, logLevel string
@@ -131,7 +131,7 @@ func (svc *kit) Description(description string) {
 }
 
 func (svc *kit) Route(rule string, handler EventHandler) {
-	r, err := core.NewEnvTemplate(rule)
+	r, err := api.NewEnvTemplate(rule)
 	if err != nil {
 		svc.log.Fatalf("error parsing route '%s': %v", rule, err)
 	}
@@ -166,9 +166,6 @@ func (svc *kit) EnvVar(name string, opts ...env.VarOption) EnvVarDep {
 	for _, o := range opts {
 		o(envSchema)
 	}
-	if envSchema.Type == "" {
-		envSchema.Type = api.EnvVarTypeString
-	}
 	svc.compDef.EnvVarSchema[name] = envSchema
 
 	return env.NewVar(name, envSchema.Type)
@@ -179,7 +176,7 @@ func (svc *kit) Component(name string) ComponentDep {
 }
 
 func (svc *kit) HTTPAdapter(name string) ComponentDep {
-	return svc.dependency(name, api.ComponentTypeHTTP)
+	return svc.dependency(name, api.ComponentTypeHTTPAdapter)
 }
 
 func (svc *kit) dependency(name string, typ api.ComponentType) ComponentDep {

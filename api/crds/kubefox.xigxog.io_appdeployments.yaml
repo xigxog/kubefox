@@ -74,9 +74,9 @@ spec:
                         properties:
                           type:
                             enum:
-                            - db
-                            - kubefox
-                            - http
+                            - DBAdapter
+                            - KubeFox
+                            - HTTPAdapter
                             type: string
                         required:
                         - type
@@ -90,10 +90,10 @@ spec:
                             type: boolean
                           type:
                             enum:
-                            - array
-                            - boolean
-                            - number
-                            - string
+                            - Array
+                            - Boolean
+                            - Number
+                            - String
                             type: string
                         required:
                         - required
@@ -112,10 +112,10 @@ spec:
                                   type: boolean
                                 type:
                                   enum:
-                                  - array
-                                  - boolean
-                                  - number
-                                  - string
+                                  - Array
+                                  - Boolean
+                                  - Number
+                                  - String
                                   type: string
                               required:
                               - required
@@ -134,10 +134,9 @@ spec:
                       type: array
                     type:
                       enum:
-                      - db
-                      - genesis
-                      - kubefox
-                      - http
+                      - DBAdapter
+                      - KubeFox
+                      - HTTPAdapter
                       type: string
                   required:
                   - commit
@@ -238,6 +237,63 @@ spec:
                 x-kubernetes-list-map-keys:
                 - type
                 x-kubernetes-list-type: map
+              problems:
+                items:
+                  properties:
+                    causes:
+                      description: Resources and attributes causing problem.
+                      items:
+                        properties:
+                          kind:
+                            enum:
+                            - AppDeployment
+                            - Component
+                            - HTTPAdapter
+                            - Release
+                            - VirtualEnv
+                            - VirtualEnvSnapshot
+                            type: string
+                          name:
+                            type: string
+                          observedGeneration:
+                            description: ObservedGeneration represents the .metadata.generation
+                              of the ProblemSource that the problem was generated
+                              from. For instance, if the ProblemSource .metadata.generation
+                              is currently 12, but the observedGeneration is 9, the
+                              problem is out of date with respect to the current state
+                              of the instance.
+                            format: int64
+                            type: integer
+                          path:
+                            description: Path of source object attribute causing problem.
+                            type: string
+                          value:
+                            description: Value causing problem. Pointer is used to
+                              distinguish between not set and empty string.
+                            type: string
+                        required:
+                        - kind
+                        type: object
+                      type: array
+                    message:
+                      type: string
+                    type:
+                      enum:
+                      - AdapterNotFound
+                      - AppDeploymentFailed
+                      - DependencyInvalid
+                      - DependencyNotFound
+                      - ParseError
+                      - PolicyViolation
+                      - RouteConflict
+                      - VarNotFound
+                      - VarWrongType
+                      - VirtualEnvSnapshotFailed
+                      type: string
+                  required:
+                  - type
+                  type: object
+                type: array
             type: object
         type: object
     served: true

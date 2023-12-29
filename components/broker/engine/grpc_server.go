@@ -163,16 +163,16 @@ func (srv *GRPCServer) subscribe(stream grpc.Broker_SubscribeServer) (ReplicaSub
 		return nil, core.ErrUnauthorized(fmt.Errorf("expected event of type %s but got %s",
 			api.EventTypeRegister, regEvt.Type))
 	}
-	compSpec := &api.ComponentDefinition{}
-	if err := regEvt.Bind(compSpec); err != nil {
+	compDef := &api.ComponentDefinition{}
+	if err := regEvt.Bind(compDef); err != nil {
 		return nil, core.ErrUnauthorized(err)
 	}
 
 	sub, err = srv.brk.Subscribe(stream.Context(), &SubscriptionConf{
-		Component:     comp,
-		ComponentSpec: compSpec,
-		SendFunc:      sendEvt,
-		EnableGroup:   true,
+		Component:    comp,
+		ComponentDef: compDef,
+		SendFunc:     sendEvt,
+		EnableGroup:  true,
 	})
 	if err != nil {
 		return nil, err
@@ -253,7 +253,7 @@ func parseMD(stream grpc.Broker_SubscribeServer) (authToken string, comp *core.C
 		return
 	}
 
-	var compId, compCommit, compName string
+	var compId, compCommit, compName, compType string
 	compId, err = getMD(md, "componentId")
 	if err != nil {
 		return
@@ -266,12 +266,17 @@ func parseMD(stream grpc.Broker_SubscribeServer) (authToken string, comp *core.C
 	if err != nil {
 		return
 	}
+	compType, err = getMD(md, "componentType")
+	if err != nil {
+		return
+	}
 	authToken, err = getMD(md, "authToken")
 	if err != nil {
 		return
 	}
 
 	comp = &core.Component{
+		Type:   compType,
 		Id:     compId,
 		Commit: compCommit,
 		Name:   compName,

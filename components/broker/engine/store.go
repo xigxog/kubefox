@@ -27,8 +27,10 @@ import (
 type Store struct {
 	namespace string
 
-	resCache  ctrlcache.Cache
-	compCache cache.Cache[*api.ComponentDefinition]
+	resCache   ctrlcache.Cache
+	compCache  cache.Cache[*api.ComponentDefinition]
+	validCache cache.Cache[api.Problems]
+	adapters   Adapters
 
 	depMatchers cache.Cache[*matcher.EventMatcher]
 	relMatcher  *matcher.EventMatcher
@@ -45,6 +47,7 @@ func NewStore(namespace string) *Store {
 	ctx, cancel := context.WithCancel(context.Background())
 	return &Store{
 		namespace:   namespace,
+		validCache:  cache.New[api.Problems](time.Minute * 15),
 		depMatchers: cache.New[*matcher.EventMatcher](time.Minute * 15),
 		ctx:         ctx,
 		cancel:      cancel,
@@ -136,29 +139,36 @@ func (str *Store) IsGenesisAdapter(comp *core.Component) bool {
 	if !found {
 		return false
 	}
-	return r.Type == api.ComponentTypeGenesis
+
+	switch r.Type {
+	case api.ComponentTypeHTTPAdapter:
+		return true
+	default:
+		return false
+	}
 }
 
-func (str *Store) AppDeployment(ctx context.Context, evt *core.EventContext) (*v1alpha1.AppDeployment, error) {
+func (str *Store) AppDeployment(ctx context.Context, evtCtx *core.EventContext) (*v1alpha1.AppDeployment, error) {
 	obj := new(v1alpha1.AppDeployment)
-	return obj, str.get(evt.AppDeployment, obj, true)
+	return obj, str.get(evtCtx.AppDeployment, obj, true)
 }
 
-func (str *Store) VirtualEnv(ctx context.Context, evt *core.EventContext) (*v1alpha1.VirtualEnvSnapshot, error) {
-	if evt.VirtualEnv == "" {
+// TODO cache
+func (str *Store) VirtualEnv(ctx context.Context, evtCtx *core.EventContext) (*v1alpha1.VirtualEnvSnapshot, error) {
+	if evtCtx.VirtualEnv == "" {
 		return nil, core.ErrNotFound()
 	}
 
-	if evt.VirtualEnvSnapshot != "" {
+	if evtCtx.VirtualEnvSnapshot != "" {
 		snapshot := &v1alpha1.VirtualEnvSnapshot{}
-		if err := str.get(evt.VirtualEnvSnapshot, snapshot, true); err != nil {
+		if err := str.get(evtCtx.VirtualEnvSnapshot, snapshot, true); err != nil {
 			return nil, err
 		}
 		return snapshot, nil
 	}
 
 	env := &v1alpha1.VirtualEnv{}
-	if err := str.get(evt.VirtualEnv, env, true); err != nil {
+	if err := str.get(evtCtx.VirtualEnv, env, true); err != nil {
 		return nil, err
 	}
 
@@ -182,8 +192,7 @@ func (str *Store) VirtualEnv(ctx context.Context, evt *core.EventContext) (*v1al
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: env.Namespace,
-			Name: fmt.Sprintf("%s-%s-%s",
-				env.Name, env.GetResourceVersion(), time.Now().UTC().Format("20060102-150405")),
+			Name:      env.Name,
 		},
 		Spec: v1alpha1.VirtualEnvSnapshotSpec{
 			Source: v1alpha1.VirtualEnvSource{
@@ -197,16 +206,43 @@ func (str *Store) VirtualEnv(ctx context.Context, evt *core.EventContext) (*v1al
 	}, nil
 }
 
-// TODO cache
-func (str *Store) Adapters(ctx context.Context) (map[string]api.Adapter, error) {
+func (str *Store) Adapters(ctx context.Context) (Adapters, error) {
+	if adapters := str.adapters; adapters != nil {
+		return adapters, nil
+	}
+
 	list := &v1alpha1.HTTPAdapterList{}
 	if err := str.resCache.List(ctx, list); err != nil {
 		return nil, err
 	}
 
-	adapters := map[string]api.Adapter{}
+	adapters := make(Adapters, len(list.Items))
 	for _, a := range list.Items {
-		adapters[a.Name] = &a
+		adapters.Set(&a)
+	}
+	str.adapters = adapters
+
+	return adapters, nil
+}
+
+func (str *Store) AdaptersFromEventContext(ctx context.Context, evtCtx *core.EventContext) (Adapters, error) {
+	appDep, err := str.AppDeployment(ctx, evtCtx)
+	if err != nil {
+		return nil, err
+	}
+	allAdapters, err := str.Adapters(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	adapters := Adapters{}
+	for _, c := range appDep.Spec.Components {
+		for name, d := range c.Dependencies {
+			if d.Type.IsAdapter() {
+				a, _ := allAdapters.Get(name, d.Type)
+				adapters.Set(a)
+			}
+		}
 	}
 
 	return adapters, nil
@@ -227,21 +263,18 @@ func (str *Store) ReleaseMatcher(ctx context.Context) (*matcher.EventMatcher, er
 }
 
 func (str *Store) DeploymentMatcher(ctx context.Context, evtCtx *core.EventContext) (*matcher.EventMatcher, error) {
-	dep, err := str.AppDeployment(ctx, evtCtx)
+	key, appDep, env, err := str.evtCtx(ctx, evtCtx)
 	if err != nil {
 		return nil, err
 	}
-	env, err := str.VirtualEnv(ctx, evtCtx)
-	if err != nil {
-		return nil, err
-	}
-	id := fmt.Sprintf("%s-%s-%s-%s", dep.Name, dep.ResourceVersion, env.GetName(), env.GetResourceVersion())
 
-	if depM, found := str.depMatchers.Get(id); found {
+	// Check cache.
+	if depM, found := str.depMatchers.Get(key); found {
+		str.log.Debugf("found cached matcher for event context key '%s'", key)
 		return depM, nil
 	}
 
-	routes, err := str.buildRoutes(ctx, dep.Spec.Components, env.Data, evtCtx)
+	routes, err := str.buildRoutes(ctx, appDep.Spec.Components, env.Data, evtCtx)
 	if err != nil {
 		return nil, err
 	}
@@ -250,9 +283,55 @@ func (str *Store) DeploymentMatcher(ctx context.Context, evtCtx *core.EventConte
 	if err := depM.AddRoutes(routes...); err != nil {
 		return nil, err
 	}
-	str.depMatchers.Set(id, depM)
+	str.depMatchers.Set(key, depM)
 
 	return depM, nil
+}
+
+func (str *Store) ValidateEventContext(ctx context.Context, evtCtx *core.EventContext) (api.Problems, error) {
+	key, appDep, env, err := str.evtCtx(ctx, evtCtx)
+	if err != nil {
+		return nil, err
+	}
+
+	// Check cache.
+	if p, found := str.validCache.Get(key); found {
+		str.log.Debugf("found %d cached problems for event context key '%s'", len(p), key)
+		return p, nil
+	}
+
+	adapters, err := str.Adapters(ctx)
+	if err != nil {
+		return nil, err
+	}
+	problems, err := appDep.Validate(env.Data, func(name string, typ api.ComponentType) (api.Adapter, error) {
+		a, found := adapters[name]
+		if !found {
+			return nil, core.ErrNotFound()
+		}
+		return a, nil
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	str.validCache.Set(key, problems)
+
+	return problems, nil
+}
+
+func (str *Store) evtCtx(ctx context.Context, evtCtx *core.EventContext) (
+	key string, appDep *v1alpha1.AppDeployment, env *v1alpha1.VirtualEnvSnapshot, err error) {
+
+	if appDep, err = str.AppDeployment(ctx, evtCtx); err != nil {
+		return
+	}
+	if env, err = str.VirtualEnv(ctx, evtCtx); err != nil {
+		return
+	}
+	key = fmt.Sprintf("%s-%d_%s-%s", appDep.Name, appDep.Generation, env.Name, env.Spec.Source.DataChecksum)
+
+	return
 }
 
 func (str *Store) OnAdd(obj interface{}, isInInitialList bool) {
@@ -273,7 +352,17 @@ func (str *Store) OnDelete(obj interface{}) {
 
 func (str *Store) onChange(obj interface{}, op string) {
 	str.log.Debugf("%T %s", obj, op)
-	_, isAppDep := obj.(*v1alpha1.AppDeployment)
+
+	isAppDep := false
+	switch obj.(type) {
+	case *v1alpha1.AppDeployment:
+		isAppDep = true
+
+	case *v1alpha1.HTTPAdapter:
+		// Clear adapters to force reload on next use.
+		str.adapters = nil
+	}
+
 	go str.updateCaches(context.Background(), isAppDep)
 }
 
@@ -290,7 +379,7 @@ func (str *Store) updateCaches(ctx context.Context, updateComps bool) error {
 	}
 
 	if relM, err := str.buildReleaseMatcher(ctx); err != nil {
-		// Clear releaseMatcher so it is updated again on next access.
+		// Clear releaseMatcher so it is updated again on next use.
 		str.relMatcher = nil
 		str.log.Error(err)
 		return err
@@ -312,7 +401,7 @@ func (str *Store) buildComponentCache(ctx context.Context) (cache.Cache[*api.Com
 
 	for _, app := range list.Items {
 		for compName, compSpec := range app.Spec.Components {
-			comp := &core.Component{Name: compName, Commit: compSpec.Commit}
+			comp := &core.Component{Name: compName, Commit: compSpec.Commit, Type: string(compSpec.Type)}
 			compCache.Set(comp.GroupKey(), &compSpec.ComponentDefinition)
 		}
 	}
@@ -324,9 +413,9 @@ func (str *Store) buildComponentCache(ctx context.Context) (cache.Cache[*api.Com
 
 	for _, c := range p.Status.Components {
 		if c.Name == api.PlatformComponentHTTPSrv {
-			comp := &core.Component{Name: c.Name, Commit: c.Commit}
+			comp := &core.Component{Name: c.Name, Commit: c.Commit, Type: string(c.Type)}
 			compCache.Set(comp.GroupKey(), &api.ComponentDefinition{
-				Type: api.ComponentTypeGenesis,
+				Type: c.Type,
 			})
 		}
 	}
@@ -389,7 +478,7 @@ func (str *Store) buildRoutes(
 
 	var routes []*core.Route
 	for compName, compSpec := range comps {
-		comp := &core.Component{Name: compName, Commit: compSpec.Commit}
+		comp := &core.Component{Name: compName, Commit: compSpec.Commit, Type: string(compSpec.Type)}
 		for _, r := range compSpec.Routes {
 			// TODO? cache routes so template doesn't need to be parsed again
 			route, err := core.NewRoute(r.Id, r.Rule)

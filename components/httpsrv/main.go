@@ -9,7 +9,6 @@ import (
 	"github.com/xigxog/kubefox/api"
 	"github.com/xigxog/kubefox/build"
 	"github.com/xigxog/kubefox/components/httpsrv/server"
-	"github.com/xigxog/kubefox/core"
 	"github.com/xigxog/kubefox/logkf"
 	"github.com/xigxog/kubefox/utils"
 )
@@ -34,12 +33,6 @@ func main() {
 	if server.Component.Commit != build.Info.Commit {
 		fmt.Fprintf(os.Stderr, "commit '%s' does not match build info commit '%s'", server.Component.Commit, build.Info.Commit)
 		os.Exit(1)
-	}
-
-	server.Component.Id = core.GenerateId()
-
-	server.Spec = &api.ComponentDefinition{
-		Type: api.ComponentTypeGenesis,
 	}
 
 	logkf.Global = logkf.

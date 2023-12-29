@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/xigxog/kubefox/api"
+	common "github.com/xigxog/kubefox/api/kubernetes"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -76,11 +77,13 @@ type ReleaseHistoryLimits struct {
 	// archiveTime.
 	Count uint `json:"count,omitempty"`
 
-	// TODO implement release history limit by age
+	// +kubebuilder:validation:Minimum=0
+	// +kubebuilder:default=0
+
 	// Maximum age of the Release to keep in history. Once the limit is reached
 	// the oldest Release in history will be deleted. Age is based on
-	// archiveTime.
-	// AgeDays uint `json:"ageDays,omitempty"`
+	// archiveTime. Set to 0 to disable.
+	AgeDays uint `json:"ageDays,omitempty"`
 }
 
 type ReleaseStatus struct {
@@ -100,7 +103,7 @@ type ReleaseStatus struct {
 	// Reason Release was archived.
 	ArchiveReason api.ArchiveReason `json:"archiveReason,omitempty"`
 
-	Problems []Problem `json:"problems,omitempty"`
+	Problems []common.Problem `json:"problems,omitempty"`
 }
 
 type ReleaseAppDeploymentStatus struct {
@@ -112,40 +115,6 @@ type ReleaseAppDeploymentStatus struct {
 	// observedGeneration is 9, the status is out of date with respect to the
 	// current state of the instance.
 	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
-}
-
-type Problem struct {
-	// +kubebuilder:validation:Required
-	// +kubebuilder:validation:Enum=AppDeploymentFailed;AppDeploymentUnavailable;ParseError;PolicyViolation;RouteConflict;SecretNotFound;VarNotFound;VarWrongType;VirtualEnvSnapshotFailed
-
-	Type api.ProblemType `json:"type"`
-
-	// +kubebuilder:validation:Required
-
-	// ObservedTime at which the problem was recorded.
-	ObservedTime metav1.Time `json:"observedTime"`
-
-	Message string `json:"message,omitempty"`
-	// Resources and attributes causing problem.
-	Causes []ProblemSource `json:"causes,omitempty"`
-}
-
-type ProblemSource struct {
-	// +kubebuilder:validation:Required
-	// +kubebuilder:validation:Enum=AppDeployment;Component;HTTPAdapter;Release;VirtualEnv;VirtualEnvSnapshot
-	Kind api.ProblemSourceKind `json:"kind"`
-	Name string                `json:"name,omitempty"`
-	// ObservedGeneration represents the .metadata.generation of the
-	// ProblemSource that the problem was generated from. For instance, if the
-	// ProblemSource .metadata.generation is currently 12, but the
-	// observedGeneration is 9, the problem is out of date with respect to the
-	// current state of the instance.
-	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
-	// Path of source object attribute causing problem.
-	Path string `json:"path,omitempty"`
-	// Value causing problem. Pointer is used to distinguish between not set and
-	// empty string.
-	Value *string `json:"value,omitempty"`
 }
 
 type VirtualEnvDetails struct {

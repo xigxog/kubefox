@@ -58,6 +58,9 @@ AppDeployment is the Schema for the AppDeployments API
 
 
 
+
+
+
 ### HTTPAdapter
 
 
@@ -94,6 +97,7 @@ Platform is the Schema for the Platforms API
 | `spec` | <div style="white-space:nowrap">[PlatformSpec](#platformspec)<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
 | `status` | <div style="white-space:nowrap">[PlatformStatus](#platformstatus)<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
 | `details` | <div style="white-space:nowrap">[PlatformDetails](#platformdetails)<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
+
 
 
 
@@ -223,6 +227,7 @@ Used by:<br>
 | Field | Type | Description | Validation |
 | ----- | ---- | ----------- | ---------- |
 | `conditions` | <div style="white-space:nowrap">[Condition](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.28/#condition-v1-meta) array<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
+| `problems` | <div style="white-space:nowrap">[Problems](#problems)<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
 
 
 
@@ -275,10 +280,10 @@ Used by:<br>
 
 | Field | Type | Description | Validation |
 | ----- | ---- | ----------- | ---------- |
-| `type` | <div style="white-space:nowrap">enum[`db`, `genesis`, `kubefox`, `http`]<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap">required</div> |
+| `type` | <div style="white-space:nowrap">enum[`DBAdapter`, `KubeFox`, `HTTPAdapter`]<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap">required</div> |
 | `routes` | <div style="white-space:nowrap">[RouteSpec](#routespec) array<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
 | `defaultHandler` | <div style="white-space:nowrap">boolean<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
-| `envVarSchema` | <div style="white-space:nowrap">map{string, [EnvVarDefinition](#envvardefinition)}<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
+| `envVarSchema` | <div style="white-space:nowrap">[EnvVarSchema](#envvarschema)<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
 | `dependencies` | <div style="white-space:nowrap">map{string, [Dependency](#dependency)}<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
 | `commit` | <div style="white-space:nowrap">string<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap">required, pattern: ^[a-z0-9]{40}$</div> |
 | `image` | <div style="white-space:nowrap">string<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
@@ -297,10 +302,10 @@ Used by:<br>
 
 | Field | Type | Description | Validation |
 | ----- | ---- | ----------- | ---------- |
-| `type` | <div style="white-space:nowrap">enum[`db`, `genesis`, `kubefox`, `http`]<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap">required</div> |
+| `type` | <div style="white-space:nowrap">enum[`DBAdapter`, `KubeFox`, `HTTPAdapter`]<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap">required</div> |
 | `routes` | <div style="white-space:nowrap">[RouteSpec](#routespec) array<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
 | `defaultHandler` | <div style="white-space:nowrap">boolean<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
-| `envVarSchema` | <div style="white-space:nowrap">map{string, [EnvVarDefinition](#envvardefinition)}<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
+| `envVarSchema` | <div style="white-space:nowrap">[EnvVarSchema](#envvarschema)<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
 | `dependencies` | <div style="white-space:nowrap">map{string, [Dependency](#dependency)}<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
 
 
@@ -320,6 +325,7 @@ Used by:<br>
 | `ready` | <div style="white-space:nowrap">boolean<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
 | `name` | <div style="white-space:nowrap">string<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
 | `commit` | <div style="white-space:nowrap">string<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
+| `type` | <div style="white-space:nowrap">[ComponentType](#componenttype)<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
 | `podName` | <div style="white-space:nowrap">string<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
 | `podIP` | <div style="white-space:nowrap">string<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
 | `nodeName` | <div style="white-space:nowrap">string<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
@@ -364,7 +370,7 @@ Used by:<br>
 
 | Field | Type | Description | Validation |
 | ----- | ---- | ----------- | ---------- |
-| `type` | <div style="white-space:nowrap">enum[`db`, `kubefox`, `http`]<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap">required</div> |
+| `type` | <div style="white-space:nowrap">enum[`DBAdapter`, `KubeFox`, `HTTPAdapter`]<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap">required</div> |
 
 
 
@@ -388,22 +394,29 @@ Used by:<br>
 
 
 
-### EnvVarDefinition
+### EnvSchema
 
 
 
 <p style="font-size:.6rem;">
 Used by:<br>
 
-- <a href=#component>Component</a><br>
-- <a href=#componentdefinition>ComponentDefinition</a><br>
-- <a href=#routespec>RouteSpec</a><br>
+- <a href=#envtemplate>EnvTemplate</a><br>
 </p>
 
 | Field | Type | Description | Validation |
 | ----- | ---- | ----------- | ---------- |
-| `type` | <div style="white-space:nowrap">enum[`array`, `boolean`, `number`, `string`]<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
-| `required` | <div style="white-space:nowrap">boolean<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap">default: false</div> |
+| `vars` | <div style="white-space:nowrap">[EnvVarSchema](#envvarschema)<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
+| `secrets` | <div style="white-space:nowrap">[EnvVarSchema](#envvarschema)<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
+
+
+
+
+
+
+
+
+
 
 
 
@@ -621,7 +634,7 @@ Used by:<br>
 
 ### Problem
 
-
+ObservedTime is added here instead of api package to prevent k8s.io dependencies from getting pulled into Kit.
 
 <p style="font-size:.6rem;">
 Used by:<br>
@@ -631,10 +644,10 @@ Used by:<br>
 
 | Field | Type | Description | Validation |
 | ----- | ---- | ----------- | ---------- |
-| `type` | <div style="white-space:nowrap">enum[`AppDeploymentFailed`, `AppDeploymentUnavailable`, `ParseError`, `PolicyViolation`, `RouteConflict`, `SecretNotFound`, `VarNotFound`, `VarWrongType`, `VirtualEnvSnapshotFailed`]<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap">required</div> |
-| `observedTime` | <div style="white-space:nowrap">[Time](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.28/#time-v1-meta)<div> | <div style="max-width:30rem">ObservedTime at which the problem was recorded.</div> | <div style="white-space:nowrap">required</div> |
-| `message` | <div style="white-space:nowrap">string<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
+| `type` | <div style="white-space:nowrap">enum[`AdapterNotFound`, `AppDeploymentFailed`, `DependencyInvalid`, `DependencyNotFound`, `ParseError`, `PolicyViolation`, `RouteConflict`, `VarNotFound`, `VarWrongType`, `VirtualEnvSnapshotFailed`]<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap">required</div> |
+| `message` | <div style="white-space:nowrap">string<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap">required</div> |
 | `causes` | <div style="white-space:nowrap">[ProblemSource](#problemsource) array<div> | <div style="max-width:30rem">Resources and attributes causing problem.</div> | <div style="white-space:nowrap"></div> |
+| `observedTime` | <div style="white-space:nowrap">[Time](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.28/#time-v1-meta)<div> | <div style="max-width:30rem">ObservedTime at which the problem was recorded.</div> | <div style="white-space:nowrap"></div> |
 
 
 
@@ -646,6 +659,7 @@ Used by:<br>
 Used by:<br>
 
 - <a href=#problem>Problem</a><br>
+- <a href=#problem>Problem</a><br>
 </p>
 
 | Field | Type | Description | Validation |
@@ -655,6 +669,9 @@ Used by:<br>
 | `observedGeneration` | <div style="white-space:nowrap">integer<div> | <div style="max-width:30rem">ObservedGeneration represents the .metadata.generation of the ProblemSource that the problem was generated from. For instance, if the ProblemSource .metadata.generation is currently 12, but the observedGeneration is 9, the problem is out of date with respect to the current state of the instance.</div> | <div style="white-space:nowrap"></div> |
 | `path` | <div style="white-space:nowrap">string<div> | <div style="max-width:30rem">Path of source object attribute causing problem.</div> | <div style="white-space:nowrap"></div> |
 | `value` | <div style="white-space:nowrap">string<div> | <div style="max-width:30rem">Value causing problem. Pointer is used to distinguish between not set and empty string.</div> | <div style="white-space:nowrap"></div> |
+
+
+
 
 
 
@@ -730,6 +747,7 @@ Used by:<br>
 | Field | Type | Description | Validation |
 | ----- | ---- | ----------- | ---------- |
 | `count` | <div style="white-space:nowrap">integer<div> | <div style="max-width:30rem">Maximum number of Releases to keep in history. Once the limit is reached the oldest Release in history will be deleted. Age is based on archiveTime.</div> | <div style="white-space:nowrap">min: 0, default: 10</div> |
+| `ageDays` | <div style="white-space:nowrap">integer<div> | <div style="max-width:30rem">Maximum age of the Release to keep in history. Once the limit is reached the oldest Release in history will be deleted. Age is based on archiveTime. Set to 0 to disable.</div> | <div style="white-space:nowrap">min: 0, default: 0</div> |
 
 
 
@@ -791,7 +809,7 @@ Used by:<br>
 | `id` | <div style="white-space:nowrap">integer<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap">required</div> |
 | `rule` | <div style="white-space:nowrap">string<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap">required</div> |
 | `priority` | <div style="white-space:nowrap">integer<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
-| `envVarSchema` | <div style="white-space:nowrap">map{string, [EnvVarDefinition](#envvardefinition)}<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
+| `envVarSchema` | <div style="white-space:nowrap">[EnvVarSchema](#envvarschema)<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
 
 
 

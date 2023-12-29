@@ -139,6 +139,7 @@ func (c *HTTPClient) SendEvent(req *BrokerEvent) error {
 		Parent: req.Event,
 		Target: req.Source,
 		Source: &core.Component{
+			Type:     string(api.ComponentTypeHTTPAdapter),
 			Name:     req.Target.Name,
 			Commit:   c.brk.Component().Commit,
 			Id:       c.brk.Component().Id,

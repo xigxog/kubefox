@@ -120,8 +120,8 @@ func IsValidName(name string) bool {
 // If name is a path only the basename is used.
 //
 // https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/#syntax-and-character-set
-func CleanLabel(value string) string {
-	cleaned := filepath.Base(value)
+func CleanLabel(value any) string {
+	cleaned := filepath.Base(fmt.Sprint(value))
 	// Remove special chars.
 	cleaned = RegexpLabelSpecialChar.ReplaceAllLiteralString(cleaned, "-")
 	// Ensure value begins and ends with [a-z0-9A-Z].

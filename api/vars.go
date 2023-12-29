@@ -31,6 +31,7 @@ const (
 	LabelK8sComponent             string = "app.kubernetes.io/component"
 	LabelK8sComponentCommit       string = "kubefox.xigxog.io/component-commit"
 	LabelK8sComponentCommitShort  string = "kubefox.xigxog.io/component-commit-short"
+	LabelK8sComponentType         string = "kubefox.xigxog.io/component-type"
 	LabelK8sInstance              string = "app.kubernetes.io/instance"
 	LabelK8sPlatform              string = "kubefox.xigxog.io/platform"
 	LabelK8sPlatformComponent     string = "kubefox.xigxog.io/platform-component"
@@ -76,36 +77,29 @@ const (
 )
 
 const (
-	ConditionTypeAvailable        string = "Available"
-	ConditionTypeProgressing      string = "Progressing"
-	ConditionTypeReleaseAvailable string = "ReleaseAvailable"
-	ConditionTypeReleasePending   string = "ReleasePending"
+	ConditionTypeAvailable              string = "Available"
+	ConditionTypeProgressing            string = "Progressing"
+	ConditionTypeActiveReleaseAvailable string = "ActiveReleaseAvailable"
+	ConditionTypeReleasePending         string = "ReleasePending"
 )
 
 const (
-	ConditionReasonAdapterProcessingFailed        string = "AdapterProcessingFailed"
 	ConditionReasonAppDeploymentAvailable         string = "AppDeploymentAvailable"
-	ConditionReasonAppDeploymentFailed            string = "AppDeploymentFailed"
-	ConditionReasonAppDeploymentUnavailable       string = "AppDeploymentUnavailable"
 	ConditionReasonBrokerUnavailable              string = "BrokerUnavailable"
 	ConditionReasonComponentDeploymentFailed      string = "ComponentDeploymentFailed"
 	ConditionReasonComponentDeploymentProgressing string = "ComponentDeploymentProgressing"
 	ConditionReasonComponentsAvailable            string = "ComponentsAvailable"
 	ConditionReasonComponentsDeployed             string = "ComponentsDeployed"
 	ConditionReasonComponentUnavailable           string = "ComponentUnavailable"
-	ConditionReasonDependencyNotFound             string = "DependencyNotFound"
 	ConditionReasonHTTPSrvUnavailable             string = "HTTPSrvUnavailable"
 	ConditionReasonNATSUnavailable                string = "NATSUnavailable"
 	ConditionReasonNoRelease                      string = "NoRelease"
 	ConditionReasonPendingDeadlineExceeded        string = "PendingDeadlineExceeded"
 	ConditionReasonPlatformComponentsAvailable    string = "PlatformComponentsAvailable"
-	ConditionReasonPolicyViolation                string = "PolicyViolation"
+	ConditionReasonProblemsExist                  string = "ProblemsExist"
 	ConditionReasonReconcileFailed                string = "ReconcileFailed"
 	ConditionReasonReleaseActive                  string = "ReleaseActive"
 	ConditionReasonReleasePending                 string = "ReleasePending"
-	ConditionReasonReleaseUpdated                 string = "ReleaseUpdated"
-	ConditionReasonRouteProcessingFailed          string = "RouteProcessingFailed"
-	ConditionReasonVirtualEnvSnapshotFailed       string = "VirtualEnvSnapshotFailed"
 )
 
 type ArchiveReason string
@@ -119,12 +113,13 @@ const (
 type ProblemType string
 
 const (
+	ProblemTypeAdapterNotFound          ProblemType = "AdapterNotFound"
 	ProblemTypeAppDeploymentFailed      ProblemType = "AppDeploymentFailed"
-	ProblemTypeAppDeploymentUnavailable ProblemType = "AppDeploymentUnavailable"
+	ProblemTypeDependencyInvalid        ProblemType = "DependencyInvalid"
+	ProblemTypeDependencyNotFound       ProblemType = "DependencyNotFound"
 	ProblemTypeParseError               ProblemType = "ParseError"
 	ProblemTypePolicyViolation          ProblemType = "PolicyViolation"
 	ProblemTypeRouteConflict            ProblemType = "RouteConflict"
-	ProblemTypeSecretNotFound           ProblemType = "SecretNotFound"
 	ProblemTypeVarNotFound              ProblemType = "VarNotFound"
 	ProblemTypeVarWrongType             ProblemType = "VarWrongType"
 	ProblemTypeVirtualEnvSnapshotFailed ProblemType = "VirtualEnvSnapshotFailed"
@@ -136,7 +131,6 @@ const (
 	ProblemSourceKindAppDeployment      ProblemSourceKind = "AppDeployment"
 	ProblemSourceKindComponent          ProblemSourceKind = "Component"
 	ProblemSourceKindHTTPAdapter        ProblemSourceKind = "HTTPAdapter"
-	ProblemSourceKindRelease            ProblemSourceKind = "Release"
 	ProblemSourceKindVirtualEnv         ProblemSourceKind = "VirtualEnv"
 	ProblemSourceKindVirtualEnvSnapshot ProblemSourceKind = "VirtualEnvSnapshot"
 )
@@ -144,20 +138,30 @@ const (
 type EnvVarType string
 
 const (
-	EnvVarTypeArray   EnvVarType = "array"
-	EnvVarTypeBoolean EnvVarType = "boolean"
-	EnvVarTypeNumber  EnvVarType = "number"
-	EnvVarTypeString  EnvVarType = "string"
+	EnvVarTypeArray   EnvVarType = "Array"
+	EnvVarTypeBoolean EnvVarType = "Boolean"
+	EnvVarTypeNumber  EnvVarType = "Number"
+	EnvVarTypeString  EnvVarType = "String"
 )
 
 type ComponentType string
 
 const (
-	ComponentTypeDatabase ComponentType = "db"
-	ComponentTypeGenesis  ComponentType = "genesis"
-	ComponentTypeHTTP     ComponentType = "http"
-	ComponentTypeKubeFox  ComponentType = "kubefox"
+	ComponentTypeBroker          ComponentType = "Broker"
+	ComponentTypeDatabaseAdapter ComponentType = "DBAdapter"
+	ComponentTypeHTTPAdapter     ComponentType = "HTTPAdapter"
+	ComponentTypeKubeFox         ComponentType = "KubeFox"
+	ComponentTypeNATS            ComponentType = "NATS"
 )
+
+func (c ComponentType) IsAdapter() bool {
+	switch c {
+	case ComponentTypeBroker, ComponentTypeHTTPAdapter:
+		return true
+	default:
+		return false
+	}
+}
 
 type FollowRedirects string
 

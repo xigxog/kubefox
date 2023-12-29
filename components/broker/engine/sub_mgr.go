@@ -31,16 +31,16 @@ type GroupSubscription interface {
 }
 
 type SubscriptionConf struct {
-	Component     *core.Component
-	ComponentSpec *api.ComponentDefinition
-	SendFunc      SendEvent
-	EnableGroup   bool
+	Component    *core.Component
+	ComponentDef *api.ComponentDefinition
+	SendFunc     SendEvent
+	EnableGroup  bool
 }
 
 type ReplicaSubscription interface {
 	Subscription
 	Component() *core.Component
-	ComponentSpec() *api.ComponentDefinition
+	ComponentDef() *api.ComponentDefinition
 	IsGroupEnabled() bool
 	Cancel(err error)
 	Err() error
@@ -64,9 +64,9 @@ type subscriptionGroup struct {
 }
 
 type subscription struct {
-	comp     *core.Component
-	compSpec *api.ComponentDefinition
-	mgr      *subscriptionMgr
+	comp    *core.Component
+	compDef *api.ComponentDefinition
+	mgr     *subscriptionMgr
 
 	sendFunc   SendEvent
 	recvCh     chan *BrokerEvent
@@ -128,7 +128,7 @@ func (mgr *subscriptionMgr) Create(ctx context.Context, cfg *SubscriptionConf, r
 	subCtx, subCancel := context.WithCancelCause(ctx)
 	sub := &subscription{
 		comp:       cfg.Component,
-		compSpec:   cfg.ComponentSpec,
+		compDef:    cfg.ComponentDef,
 		mgr:        mgr,
 		sendFunc:   cfg.SendFunc,
 		recvCh:     recvCh,
@@ -251,8 +251,8 @@ func (sub *subscription) Component() *core.Component {
 	return sub.comp
 }
 
-func (sub *subscription) ComponentSpec() *api.ComponentDefinition {
-	return sub.compSpec
+func (sub *subscription) ComponentDef() *api.ComponentDefinition {
+	return sub.compDef
 }
 
 func (sub *subscription) IsGroupEnabled() bool {
