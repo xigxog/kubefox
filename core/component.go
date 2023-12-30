@@ -36,15 +36,15 @@ func (c *Component) IsComplete() bool {
 }
 
 func (c *Component) IsGroupComplete() bool {
-	return c.Type != "" && c.App != "" && c.Name != "" && c.Commit != ""
+	return c.Type != "" && c.Name != "" && c.Commit != ""
 }
 
 func (c *Component) IsNameOnly() bool {
-	return c.Type != "" && c.App != "" && c.Name != "" && c.Commit == "" && c.Id == "" && c.BrokerId == ""
+	return c.Type != "" && c.Name != "" && c.Commit == "" && c.Id == "" && c.BrokerId == ""
 }
 
 func (lhs *Component) Equal(rhs *Component) bool {
-	if rhs == nil {
+	if lhs == nil || rhs == nil {
 		return false
 	}
 	return lhs.Type == rhs.Type &&

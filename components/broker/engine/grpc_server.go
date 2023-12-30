@@ -221,11 +221,12 @@ func (srv *GRPCServer) subscribe(stream grpc.Broker_SubscribeServer) (ReplicaSub
 			l := subLog.WithEvent(evt)
 			l.Debug("receive event")
 
-			if evt.Source == nil {
-				evt.Source = meta.Component
-			} else if !evt.Source.Equal(meta.Component) {
+			if evt.Context == nil || evt.Context.Platform != config.Platform ||
+				evt.Source == nil || !evt.Source.Equal(meta.Component) {
+
 				return sub, core.ErrUnauthorized(
-					fmt.Errorf("event from '%s' claiming to be '%s'", meta.Component.Key(), evt.Source.Key()))
+					fmt.Errorf("event from '%s' claiming to be '%s' for platform '%s'",
+						meta.Component.Key(), evt.Source.Key(), evt.Context.Platform))
 			}
 			evt.Source.BrokerId = srv.brk.Component().Id
 
