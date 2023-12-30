@@ -417,7 +417,7 @@ func (brk *broker) checkEvent(evt *BrokerEvent) error {
 		}
 
 		// If a valid context is not present reject.
-		if evt.Context == nil || evt.Context.Platform == "" ||
+		if evt.Context == nil || evt.Context.Platform != config.Platform ||
 			(evt.Context.AppDeployment != "" && evt.Context.VirtualEnv == "") ||
 			(evt.Context.AppDeployment == "" && evt.Context.VirtualEnv != "") {
 
@@ -489,7 +489,7 @@ func (brk *broker) attachEnv(ctx context.Context, evt *BrokerEvent) error {
 }
 
 func (brk *broker) checkComponents(ctx context.Context, evt *BrokerEvent) error {
-	if evt.Context == nil || evt.Target == nil || !evt.Target.IsGroupComplete() {
+	if evt.Context == nil || evt.Target == nil || evt.Target.Name == "" {
 		return core.ErrComponentMismatch()
 	}
 
@@ -498,7 +498,7 @@ func (brk *broker) checkComponents(ctx context.Context, evt *BrokerEvent) error 
 		return core.ErrNotFound(err)
 	}
 
-	// Check if target is part of deployment spec.
+	// Check if target is adapter or part of deployment spec.
 	var adapter api.Adapter
 	if evt.Adapters != nil {
 		adapter, _ = evt.Adapters.GetByComponent(evt.Target)
@@ -512,9 +512,9 @@ func (brk *broker) checkComponents(ctx context.Context, evt *BrokerEvent) error 
 		}
 
 	case depComp == nil && adapter != nil:
-		// TODO update when more adapters are added.
 		if adapter.GetComponentType() != api.ComponentTypeHTTPAdapter {
-			return core.ErrUnsupportedAdapter(fmt.Errorf("adapter type '%s' is not supported", adapter.GetComponentType()))
+			return core.ErrUnsupportedAdapter(
+				fmt.Errorf("adapter type '%s' is not supported", adapter.GetComponentType()))
 		}
 		evt.TargetAdapter = adapter
 
