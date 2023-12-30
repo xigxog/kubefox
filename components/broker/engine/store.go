@@ -148,6 +148,11 @@ func (str *Store) IsGenesisAdapter(comp *core.Component) bool {
 	}
 }
 
+func (str *Store) Platform(ctx context.Context) (*v1alpha1.Platform, error) {
+	obj := new(v1alpha1.Platform)
+	return obj, str.get(config.Platform, obj, true)
+}
+
 func (str *Store) AppDeployment(ctx context.Context, evtCtx *core.EventContext) (*v1alpha1.AppDeployment, error) {
 	obj := new(v1alpha1.AppDeployment)
 	return obj, str.get(evtCtx.AppDeployment, obj, true)
@@ -274,7 +279,7 @@ func (str *Store) DeploymentMatcher(ctx context.Context, evtCtx *core.EventConte
 		return depM, nil
 	}
 
-	routes, err := str.buildRoutes(ctx, appDep.Spec.Components, env.Data, evtCtx)
+	routes, err := str.buildRoutes(ctx, &appDep.Spec, env.Data, evtCtx)
 	if err != nil {
 		return nil, err
 	}
@@ -399,9 +404,14 @@ func (str *Store) buildComponentCache(ctx context.Context) (cache.Cache[*api.Com
 		return nil, err
 	}
 
-	for _, app := range list.Items {
-		for compName, compSpec := range app.Spec.Components {
-			comp := &core.Component{Name: compName, Commit: compSpec.Commit, Type: string(compSpec.Type)}
+	for _, appDep := range list.Items {
+		for compName, compSpec := range appDep.Spec.Components {
+			comp := &core.Component{
+				Type:   string(compSpec.Type),
+				App:    appDep.Spec.AppName,
+				Name:   compName,
+				Commit: compSpec.Commit,
+			}
 			compCache.Set(comp.GroupKey(), &compSpec.ComponentDefinition)
 		}
 	}
@@ -413,7 +423,11 @@ func (str *Store) buildComponentCache(ctx context.Context) (cache.Cache[*api.Com
 
 	for _, c := range p.Status.Components {
 		if c.Name == api.PlatformComponentHTTPSrv {
-			comp := &core.Component{Name: c.Name, Commit: c.Commit, Type: string(c.Type)}
+			comp := &core.Component{
+				Type:   string(c.Type),
+				Name:   c.Name,
+				Commit: c.Commit,
+			}
 			compCache.Set(comp.GroupKey(), &api.ComponentDefinition{
 				Type: c.Type,
 			})
@@ -441,6 +455,7 @@ func (str *Store) buildReleaseMatcher(ctx context.Context) (*matcher.EventMatche
 		}
 
 		evtCtx := &core.EventContext{
+			Platform:           config.Platform,
 			AppDeployment:      release.AppDeployment.Name,
 			VirtualEnv:         env.Name,
 			VirtualEnvSnapshot: release.VirtualEnvSnapshot,
@@ -456,7 +471,7 @@ func (str *Store) buildReleaseMatcher(ctx context.Context) (*matcher.EventMatche
 			continue
 		}
 
-		routes, err := str.buildRoutes(ctx, appDep.Spec.Components, env.Data, evtCtx)
+		routes, err := str.buildRoutes(ctx, &appDep.Spec, env.Data, evtCtx)
 		if err != nil {
 			str.log.Warn(err)
 			continue
@@ -472,13 +487,18 @@ func (str *Store) buildReleaseMatcher(ctx context.Context) (*matcher.EventMatche
 
 func (str *Store) buildRoutes(
 	ctx context.Context,
-	comps map[string]*v1alpha1.Component,
+	spec *v1alpha1.AppDeploymentSpec,
 	data *api.VirtualEnvData,
 	evtCtx *core.EventContext) ([]*core.Route, error) {
 
 	var routes []*core.Route
-	for compName, compSpec := range comps {
-		comp := &core.Component{Name: compName, Commit: compSpec.Commit, Type: string(compSpec.Type)}
+	for compName, compSpec := range spec.Components {
+		comp := &core.Component{
+			Type:   string(compSpec.Type),
+			App:    spec.AppName,
+			Name:   compName,
+			Commit: compSpec.Commit,
+		}
 		for _, r := range compSpec.Routes {
 			// TODO? cache routes so template doesn't need to be parsed again
 			route, err := core.NewRoute(r.Id, r.Rule)

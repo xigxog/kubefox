@@ -102,6 +102,18 @@ const (
 	ConditionReasonReleasePending                 string = "ReleasePending"
 )
 
+// gRPC metadata keys.
+const (
+	GRPCKeyApp       string = "app"
+	GRPCKeyCommit    string = "commit"
+	GRPCKeyComponent string = "component"
+	GRPCKeyId        string = "id"
+	GRPCKeyName      string = "name"
+	GRPCKeyPlatform  string = "platform"
+	GRPCKeyToken     string = "token"
+	GRPCKeyType      string = "type"
+)
+
 type ArchiveReason string
 
 const (

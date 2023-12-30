@@ -31,6 +31,12 @@ type GRPCServer struct {
 	log *logkf.Logger
 }
 
+type Metadata struct {
+	Component *core.Component
+	Platform  string
+	Token     string
+}
+
 func NewGRPCServer(brk Broker) *GRPCServer {
 	return &GRPCServer{
 		brk: brk,
@@ -126,18 +132,17 @@ func (srv *GRPCServer) Subscribe(stream grpc.Broker_SubscribeServer) error {
 func (srv *GRPCServer) subscribe(stream grpc.Broker_SubscribeServer) (ReplicaSubscription, error) {
 	var (
 		err       error
-		authToken string
-		comp      *core.Component
+		meta      *Metadata
 		sub       ReplicaSubscription
 		sendMutex sync.Mutex
 	)
 
-	if authToken, comp, err = parseMD(stream); err != nil {
+	if meta, err = parseMD(stream); err != nil {
 		return nil, core.ErrUnauthorized(err)
 	}
-	subLog := srv.log.WithComponent(comp)
+	subLog := srv.log.WithComponent(meta.Component)
 
-	if err := srv.brk.AuthorizeComponent(stream.Context(), comp, authToken); err != nil {
+	if err := srv.brk.AuthorizeComponent(stream.Context(), meta); err != nil {
 		return nil, core.ErrUnauthorized(err)
 	}
 
@@ -169,7 +174,7 @@ func (srv *GRPCServer) subscribe(stream grpc.Broker_SubscribeServer) (ReplicaSub
 	}
 
 	sub, err = srv.brk.Subscribe(stream.Context(), &SubscriptionConf{
-		Component:    comp,
+		Component:    meta.Component,
 		ComponentDef: compDef,
 		SendFunc:     sendEvt,
 		EnableGroup:  true,
@@ -217,10 +222,10 @@ func (srv *GRPCServer) subscribe(stream grpc.Broker_SubscribeServer) (ReplicaSub
 			l.Debug("receive event")
 
 			if evt.Source == nil {
-				evt.Source = comp
-			} else if !evt.Source.Equal(comp) {
+				evt.Source = meta.Component
+			} else if !evt.Source.Equal(meta.Component) {
 				return sub, core.ErrUnauthorized(
-					fmt.Errorf("event from '%s' claiming to be '%s'", comp.Key(), evt.Source.Key()))
+					fmt.Errorf("event from '%s' claiming to be '%s'", meta.Component.Key(), evt.Source.Key()))
 			}
 			evt.Source.BrokerId = srv.brk.Component().Id
 
@@ -246,57 +251,65 @@ func (srv *GRPCServer) subscribe(stream grpc.Broker_SubscribeServer) (ReplicaSub
 	}
 }
 
-func parseMD(stream grpc.Broker_SubscribeServer) (authToken string, comp *core.Component, err error) {
+func parseMD(stream grpc.Broker_SubscribeServer) (*Metadata, error) {
 	md, found := metadata.FromIncomingContext(stream.Context())
 	if !found {
-		err = fmt.Errorf("gRPC metadata missing")
-		return
+		return nil, fmt.Errorf("gRPC metadata missing")
 	}
 
-	var compId, compCommit, compName, compType string
-	compId, err = getMD(md, "componentId")
-	if err != nil {
-		return
-	}
-	compCommit, err = getMD(md, "componentCommit")
-	if err != nil {
-		return
-	}
-	compName, err = getMD(md, "componentName")
-	if err != nil {
-		return
-	}
-	compType, err = getMD(md, "componentType")
-	if err != nil {
-		return
-	}
-	authToken, err = getMD(md, "authToken")
-	if err != nil {
-		return
+	m := &Metadata{
+		Component: &core.Component{},
 	}
 
-	comp = &core.Component{
-		Type:   compType,
-		Id:     compId,
-		Commit: compCommit,
-		Name:   compName,
+	var err error
+	m.Component.Id, err = getMD(md, api.GRPCKeyId, true)
+	if err != nil {
+		return nil, err
+	}
+	m.Component.Commit, err = getMD(md, api.GRPCKeyCommit, true)
+	if err != nil {
+		return nil, err
+	}
+	m.Component.Name, err = getMD(md, api.GRPCKeyComponent, true)
+	if err != nil {
+		return nil, err
+	}
+	m.Component.Type, err = getMD(md, api.GRPCKeyType, true)
+	if err != nil {
+		return nil, err
+	}
+	m.Component.App, err = getMD(md, api.GRPCKeyApp, false)
+	if err != nil {
+		return nil, err
+	}
+	m.Platform, err = getMD(md, api.GRPCKeyPlatform, true)
+	if err != nil {
+		return nil, err
+	}
+	m.Token, err = getMD(md, api.GRPCKeyToken, true)
+	if err != nil {
+		return nil, err
 	}
 
-	return
+	return m, nil
 }
 
-func getMD(md metadata.MD, key string) (string, error) {
+func getMD(md metadata.MD, key string, required bool) (string, error) {
 	arr := md.Get(key)
 	switch len(arr) {
 	case 1:
 		v := arr[0]
-		if v == "" {
+		if v == "" && required {
 			return "", fmt.Errorf("%s not provided", key)
 		}
 		return v, nil
 	case 0:
-		return "", fmt.Errorf("%s not provided", key)
+		if required {
+			return "", fmt.Errorf("%s not provided", key)
+		}
 	default:
 		return "", fmt.Errorf("more than one %s provided", key)
 	}
+
+	return "", nil
 }

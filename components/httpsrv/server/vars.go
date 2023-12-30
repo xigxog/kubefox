@@ -8,6 +8,7 @@ import (
 )
 
 var (
+	Platform                  string
 	HTTPAddr, HTTPSAddr       string
 	BrokerAddr, HealthSrvAddr string
 	EventTimeout              time.Duration

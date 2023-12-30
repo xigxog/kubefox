@@ -30,6 +30,7 @@ type Server struct {
 func New() *Server {
 	return &Server{
 		brk: grpc.NewClient(grpc.ClientOpts{
+			Platform:      Platform,
 			Component:     Component,
 			BrokerAddr:    BrokerAddr,
 			HealthSrvAddr: HealthSrvAddr,

@@ -117,7 +117,7 @@ func (evt *Event) HasContext() bool {
 	if evt.Context == nil {
 		return false
 	}
-	return evt.Context.AppDeployment != "" && evt.Context.VirtualEnv != ""
+	return evt.Context.Platform != "" && evt.Context.AppDeployment != "" && evt.Context.VirtualEnv != ""
 }
 
 func (evt *Event) SetContext(evtCtx *EventContext) {
@@ -127,6 +127,7 @@ func (evt *Event) SetContext(evtCtx *EventContext) {
 	if evt.Context == nil {
 		evt.Context = &EventContext{}
 	}
+	evt.Context.Platform = evtCtx.Platform
 	evt.Context.AppDeployment = evtCtx.AppDeployment
 	evt.Context.VirtualEnv = evtCtx.VirtualEnv
 	evt.Context.VirtualEnvSnapshot = evtCtx.VirtualEnvSnapshot
