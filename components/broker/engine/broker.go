@@ -199,6 +199,10 @@ func (brk *broker) Subscribe(ctx context.Context, conf *SubscriptionConf) (Repli
 }
 
 func (brk *broker) AuthorizeComponent(ctx context.Context, meta *Metadata) error {
+	if meta.Platform != config.Platform {
+		return fmt.Errorf("component provided incorrect platform")
+	}
+
 	parsed, err := jwt.ParseString(meta.Token)
 	if err != nil {
 		return err

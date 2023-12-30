@@ -246,6 +246,16 @@ func (c *Client) send(evt *core.Event, start time.Time) error {
 	c.sendMutex.Lock()
 	defer c.sendMutex.Unlock()
 
+	if evt.Context == nil {
+		evt.Context = &core.EventContext{}
+	}
+	if evt.Context.Platform == "" {
+		evt.Context.Platform = c.Platform
+	}
+	if evt.Source == nil {
+		evt.Source = c.Component
+	}
+
 	evt.ReduceTTL(start)
 	if evt.TTL() < 0 {
 		return core.ErrTimeout()
