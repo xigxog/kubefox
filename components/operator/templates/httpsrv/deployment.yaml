@@ -28,6 +28,7 @@ spec:
           {{- include "resources" . | nindent 10 }}
           {{- include "probes" . | nindent 10 }}
           args:
+            - -platform={{ .Platform.Name }}
             - -name={{ .Component.Name }}
             - -commit={{ .BuildInfo.HTTPSrvCommit }}
             - -http-addr=0.0.0.0:8080

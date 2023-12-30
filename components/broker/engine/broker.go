@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
-	"strings"
 	"sync"
 	"syscall"
 	"time"
@@ -50,7 +49,7 @@ type Engine interface {
 }
 
 type Broker interface {
-	AuthorizeComponent(context.Context, *core.Component, string) error
+	AuthorizeComponent(context.Context, *Metadata) error
 	Subscribe(context.Context, *SubscriptionConf) (ReplicaSubscription, error)
 	RecvEvent(evt *core.Event, receiver Receiver) *BrokerEvent
 	Component() *core.Component
@@ -199,8 +198,8 @@ func (brk *broker) Subscribe(ctx context.Context, conf *SubscriptionConf) (Repli
 	return sub, nil
 }
 
-func (brk *broker) AuthorizeComponent(ctx context.Context, comp *core.Component, authToken string) error {
-	parsed, err := jwt.ParseString(authToken)
+func (brk *broker) AuthorizeComponent(ctx context.Context, meta *Metadata) error {
+	parsed, err := jwt.ParseString(meta.Token)
 	if err != nil {
 		return err
 	}
@@ -213,10 +212,31 @@ func (brk *broker) AuthorizeComponent(ctx context.Context, comp *core.Component,
 		}
 	}
 
-	// TODO use platform status to check if component is platform component.
-	platformCompName := fmt.Sprintf("%s-%s", config.Platform, comp.Name)
-	if !strings.HasSuffix(svcAccName, comp.GroupKey()) && svcAccName != platformCompName {
-		return fmt.Errorf("service account name does not match component")
+	if meta.Component.App == "" {
+		// Check if component is a Platform component.
+		p, err := brk.store.Platform(ctx)
+		if err != nil {
+			return err
+		}
+
+		found := false
+		for _, c := range p.Status.Components {
+			if c.Name == meta.Component.Name && c.Commit == meta.Component.Commit {
+				found = true
+				break
+			}
+		}
+		if !found {
+			return fmt.Errorf("component not found")
+		}
+
+	} else {
+		if svcAccName != meta.Component.GroupKey() {
+			return fmt.Errorf("service account name does not match component")
+		}
+		if _, found := brk.store.ComponentDef(meta.Component); !found {
+			return fmt.Errorf("component not found")
+		}
 	}
 
 	review := authv1.TokenReview{
@@ -224,7 +244,7 @@ func (brk *broker) AuthorizeComponent(ctx context.Context, comp *core.Component,
 			Name: svcAccName,
 		},
 		Spec: authv1.TokenReviewSpec{
-			Token: authToken,
+			Token: meta.Token,
 		},
 	}
 	if err := brk.k8sClient.Create(ctx, &review); err != nil {
@@ -233,8 +253,6 @@ func (brk *broker) AuthorizeComponent(ctx context.Context, comp *core.Component,
 	if !review.Status.Authenticated {
 		return fmt.Errorf("unauthorized component: %s", review.Status.Error)
 	}
-
-	// TODO make sure component exists in an AppDeployment
 
 	return nil
 }
@@ -395,7 +413,7 @@ func (brk *broker) checkEvent(evt *BrokerEvent) error {
 		}
 
 		// If a valid context is not present reject.
-		if evt.Context == nil ||
+		if evt.Context == nil || evt.Context.Platform == "" ||
 			(evt.Context.AppDeployment != "" && evt.Context.VirtualEnv == "") ||
 			(evt.Context.AppDeployment == "" && evt.Context.VirtualEnv != "") {
 
@@ -435,11 +453,12 @@ func (brk *broker) findTarget(ctx context.Context, evt *BrokerEvent) error {
 			evt.Target = &core.Component{}
 		}
 		evt.Target.Type = route.Component.Type
+		evt.Target.App = route.Component.App
 		evt.Target.Name = route.Component.Name
 		evt.Target.Commit = route.Component.Commit
 		evt.SetContext(route.EventContext)
 
-	case evt.Target != nil && evt.Target.Name != "" && evt.Target.Type == string(api.ComponentTypeKubeFox):
+	case evt.Target != nil && evt.Target.Type == string(api.ComponentTypeKubeFox):
 		evt.RouteId = api.DefaultRouteId
 
 	default:
@@ -466,7 +485,7 @@ func (brk *broker) attachEnv(ctx context.Context, evt *BrokerEvent) error {
 }
 
 func (brk *broker) checkComponents(ctx context.Context, evt *BrokerEvent) error {
-	if evt.Target == nil || evt.Target.Name == "" || evt.Target.Type == "" || evt.Context == nil {
+	if evt.Context == nil || evt.Target == nil || !evt.Target.IsGroupComplete() {
 		return core.ErrComponentMismatch()
 	}
 

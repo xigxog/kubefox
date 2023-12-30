@@ -15,6 +15,7 @@ import (
 
 func main() {
 	var logFormat, logLevel string
+	flag.StringVar(&server.Platform, "platform", "", "KubeFox Platform name. (required)")
 	flag.StringVar(&server.Component.Name, "name", "", `Component name. (required)`)
 	flag.StringVar(&server.Component.Commit, "commit", "", `Commit the Component was built from. (required)`)
 	flag.StringVar(&server.HTTPAddr, "http-addr", "127.0.0.1:8080", `Address and port the HTTP server should bind to, set to "false" to disable.`)
@@ -27,6 +28,7 @@ func main() {
 	flag.StringVar(&logLevel, "log-level", "debug", "Log level. [options 'debug', 'info', 'warn', 'error']")
 	flag.Parse()
 
+	utils.CheckRequiredFlag("platform", server.Platform)
 	utils.CheckRequiredFlag("name", server.Component.Name)
 	utils.CheckRequiredFlag("commit", server.Component.Commit)
 
