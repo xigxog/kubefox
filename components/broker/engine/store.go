@@ -15,6 +15,7 @@ import (
 	"github.com/xigxog/kubefox/k8s"
 	"github.com/xigxog/kubefox/logkf"
 	"github.com/xigxog/kubefox/matcher"
+	"sigs.k8s.io/yaml"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -158,7 +159,6 @@ func (str *Store) AppDeployment(ctx context.Context, evtCtx *core.EventContext) 
 	return obj, str.get(evtCtx.AppDeployment, obj, true)
 }
 
-// TODO cache
 func (str *Store) VirtualEnv(ctx context.Context, evtCtx *core.EventContext) (*v1alpha1.VirtualEnvSnapshot, error) {
 	if evtCtx.VirtualEnv == "" {
 		return nil, core.ErrNotFound()
@@ -211,48 +211,6 @@ func (str *Store) VirtualEnv(ctx context.Context, evtCtx *core.EventContext) (*v
 	}, nil
 }
 
-func (str *Store) Adapters(ctx context.Context) (Adapters, error) {
-	if adapters := str.adapters; adapters != nil {
-		return adapters, nil
-	}
-
-	list := &v1alpha1.HTTPAdapterList{}
-	if err := str.resCache.List(ctx, list); err != nil {
-		return nil, err
-	}
-
-	adapters := make(Adapters, len(list.Items))
-	for _, a := range list.Items {
-		adapters.Set(&a)
-	}
-	str.adapters = adapters
-
-	return adapters, nil
-}
-
-func (str *Store) AdaptersFromEventContext(ctx context.Context, evtCtx *core.EventContext) (Adapters, error) {
-	appDep, err := str.AppDeployment(ctx, evtCtx)
-	if err != nil {
-		return nil, err
-	}
-	allAdapters, err := str.Adapters(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	adapters := Adapters{}
-	for _, c := range appDep.Spec.Components {
-		for name, d := range c.Dependencies {
-			if d.Type.IsAdapter() {
-				a, _ := allAdapters.Get(name, d.Type)
-				adapters.Set(a)
-			}
-		}
-	}
-
-	return adapters, nil
-}
-
 func (str *Store) ReleaseMatcher(ctx context.Context) (*matcher.EventMatcher, error) {
 	str.mutex.RLock()
 	if str.relMatcher != nil {
@@ -267,19 +225,14 @@ func (str *Store) ReleaseMatcher(ctx context.Context) (*matcher.EventMatcher, er
 	return str.relMatcher, nil
 }
 
-func (str *Store) DeploymentMatcher(ctx context.Context, evtCtx *core.EventContext) (*matcher.EventMatcher, error) {
-	key, appDep, env, err := str.evtCtx(ctx, evtCtx)
-	if err != nil {
-		return nil, err
-	}
-
+func (str *Store) DeploymentMatcher(ctx context.Context, evt *BrokerEvent) (*matcher.EventMatcher, error) {
 	// Check cache.
-	if depM, found := str.depMatchers.Get(key); found {
+	if depM, found := str.depMatchers.Get(evt.ContextKey); found {
 		str.log.Debugf("found cached matcher for event context key '%s'", key)
 		return depM, nil
 	}
 
-	routes, err := str.buildRoutes(ctx, &appDep.Spec, env.Data, evtCtx)
+	routes, err := str.buildRoutes(ctx, &evt.AppDep.Spec, evt.Env.Data, evt.Context)
 	if err != nil {
 		return nil, err
 	}
@@ -288,55 +241,74 @@ func (str *Store) DeploymentMatcher(ctx context.Context, evtCtx *core.EventConte
 	if err := depM.AddRoutes(routes...); err != nil {
 		return nil, err
 	}
-	str.depMatchers.Set(key, depM)
+	str.depMatchers.Set(evt.ContextKey, depM)
 
 	return depM, nil
 }
 
-func (str *Store) ValidateEventContext(ctx context.Context, evtCtx *core.EventContext) (api.Problems, error) {
-	key, appDep, env, err := str.evtCtx(ctx, evtCtx)
-	if err != nil {
-		return nil, err
+// AttachEventContext gets the VirtualEnv, AppDeployment, and Adapters of the
+// Event Context, attaches them to the BrokerEvent, and then validates the Event
+// Context. Problems found during validation are returned.
+func (str *Store) AttachEventContext(ctx context.Context, evt *BrokerEvent) error {
+	var err error
+	if evt.Env, err = str.VirtualEnv(ctx, evt.Context); err != nil {
+		return err
 	}
+	if evt.AppDep, err = str.AppDeployment(ctx, evt.Context); err != nil {
+		return err
+	}
+	evt.ContextKey = fmt.Sprintf("%s-%d_%s-%s",
+		evt.AppDep.Name, evt.AppDep.Generation, evt.Env.Name, evt.Env.Spec.Source.DataChecksum)
 
-	// Check cache.
-	if p, found := str.validCache.Get(key); found {
-		str.log.Debugf("found %d cached problems for event context key '%s'", len(p), key)
-		return p, nil
-	}
+	str.mutex.Lock()
+	defer str.mutex.Unlock()
 
-	adapters, err := str.Adapters(ctx)
-	if err != nil {
-		return nil, err
-	}
-	problems, err := appDep.Validate(env.Data, func(name string, typ api.ComponentType) (api.Adapter, error) {
-		a, found := adapters[name]
-		if !found {
-			return nil, core.ErrNotFound()
+	allAdapters := str.adapters
+	if allAdapters == nil {
+		list := &v1alpha1.HTTPAdapterList{}
+		if err := str.resCache.List(ctx, list); err != nil {
+			return err
 		}
-		return a, nil
-	})
-	if err != nil {
-		return nil, err
+
+		allAdapters = make(Adapters, len(list.Items))
+		for _, a := range list.Items {
+			allAdapters.Set(&a)
+		}
+		str.adapters = allAdapters
 	}
 
-	str.validCache.Set(key, problems)
-
-	return problems, nil
-}
-
-func (str *Store) evtCtx(ctx context.Context, evtCtx *core.EventContext) (
-	key string, appDep *v1alpha1.AppDeployment, env *v1alpha1.VirtualEnvSnapshot, err error) {
-
-	if appDep, err = str.AppDeployment(ctx, evtCtx); err != nil {
-		return
+	evt.Adapters = Adapters{}
+	for _, c := range evt.AppDep.Spec.Components {
+		for name, d := range c.Dependencies {
+			if d.Type.IsAdapter() {
+				a, _ := allAdapters.Get(name, d.Type)
+				evt.Adapters.Set(a)
+			}
+		}
 	}
-	if env, err = str.VirtualEnv(ctx, evtCtx); err != nil {
-		return
-	}
-	key = fmt.Sprintf("%s-%d_%s-%s", appDep.Name, appDep.Generation, env.Name, env.Spec.Source.DataChecksum)
 
-	return
+	// Check validation cache.
+	problems, found := str.validCache.Get(evt.ContextKey)
+	if !found {
+		problems, err = evt.AppDep.Validate(evt.Env.Data,
+			func(name string, typ api.ComponentType) (api.Adapter, error) {
+				a, found := evt.Adapters[name]
+				if !found {
+					return nil, core.ErrNotFound()
+				}
+				return a, nil
+			})
+		if err != nil {
+			return err
+		}
+		str.validCache.Set(evt.ContextKey, problems)
+	}
+	if len(problems) > 0 {
+		b, _ := yaml.Marshal(problems)
+		return core.ErrInvalid(fmt.Errorf("event context is invalid\n%s", b))
+	}
+
+	return nil
 }
 
 func (str *Store) OnAdd(obj interface{}, isInInitialList bool) {

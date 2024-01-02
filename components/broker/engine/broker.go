@@ -24,7 +24,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/yaml"
 )
 
 // OS status codes
@@ -328,8 +327,23 @@ func (brk *broker) routeEvent(log *logkf.Logger, evt *BrokerEvent) error {
 	if err := brk.checkEvent(evt); err != nil {
 		return err
 	}
+
+	ctxAttached := false
+	if evt.HasContext() {
+		if err := brk.store.AttachEventContext(ctx, evt); err != nil {
+			return err
+		}
+		ctxAttached = true
+	}
+
 	if err := brk.findTarget(ctx, evt); err != nil {
 		return err
+	}
+
+	if !ctxAttached && evt.HasContext() {
+		if err := brk.store.AttachEventContext(ctx, evt); err != nil {
+			return err
+		}
 	}
 
 	// Set log attributes after matching.
@@ -338,23 +352,9 @@ func (brk *broker) routeEvent(log *logkf.Logger, evt *BrokerEvent) error {
 		log.Debugf("matched event to target '%s'", evt.Target)
 	}
 
-	problems, err := brk.store.ValidateEventContext(ctx, evt.Context)
-	if err != nil {
-		return err
-	}
-	if len(problems) > 0 {
-		b, _ := yaml.Marshal(problems)
-		return core.ErrInvalid(fmt.Errorf("event context is invalid\n%s", b))
-	}
-
-	if err := brk.attachEnv(ctx, evt); err != nil {
-		return err
-	}
 	if err := brk.checkComponents(ctx, evt); err != nil {
 		return err
 	}
-
-	// TODO add policy checks
 
 	var sub Subscription
 	if evt.TargetAdapter == nil {
@@ -363,7 +363,6 @@ func (brk *broker) routeEvent(log *logkf.Logger, evt *BrokerEvent) error {
 			sub, _ = brk.subMgr.ReplicaSubscription(evt.Target)
 
 		case evt.Target.Id == "":
-
 			sub, _ = brk.subMgr.GroupSubscription(evt.Target)
 		}
 	}
@@ -438,7 +437,7 @@ func (brk *broker) findTarget(ctx context.Context, evt *BrokerEvent) error {
 		err     error
 	)
 	if evt.HasContext() {
-		matcher, err = brk.store.DeploymentMatcher(ctx, evt.Context)
+		matcher, err = brk.store.DeploymentMatcher(ctx, evt)
 	} else {
 		matcher, err = brk.store.ReleaseMatcher(ctx)
 	}
@@ -472,30 +471,9 @@ func (brk *broker) findTarget(ctx context.Context, evt *BrokerEvent) error {
 	return nil
 }
 
-func (brk *broker) attachEnv(ctx context.Context, evt *BrokerEvent) error {
-	if env, err := brk.store.VirtualEnv(ctx, evt.Context); err != nil {
-		return core.ErrNotFound(err)
-	} else {
-		evt.Data = env.Data
-	}
-
-	if adapters, err := brk.store.AdaptersFromEventContext(ctx, evt.Context); err != nil {
-		return core.ErrUnexpected(err)
-	} else {
-		evt.Adapters = adapters
-	}
-
-	return nil
-}
-
 func (brk *broker) checkComponents(ctx context.Context, evt *BrokerEvent) error {
 	if evt.Context == nil || evt.Target == nil || evt.Target.Name == "" {
 		return core.ErrComponentMismatch()
-	}
-
-	appDep, err := brk.store.AppDeployment(ctx, evt.Context)
-	if err != nil {
-		return core.ErrNotFound(err)
 	}
 
 	// Check if target is adapter or part of deployment spec.
@@ -504,7 +482,7 @@ func (brk *broker) checkComponents(ctx context.Context, evt *BrokerEvent) error 
 		adapter, _ = evt.Adapters.GetByComponent(evt.Target)
 	}
 
-	depComp := appDep.Spec.Components[evt.Target.Name]
+	depComp := evt.AppDep.Spec.Components[evt.Target.Name]
 	switch {
 	case depComp == nil && adapter == nil:
 		if !brk.store.IsGenesisAdapter(evt.Target) {
@@ -520,11 +498,7 @@ func (brk *broker) checkComponents(ctx context.Context, evt *BrokerEvent) error 
 
 	case evt.Target.Commit == "" && evt.RouteId == api.DefaultRouteId:
 		evt.Target.Commit = depComp.Commit
-		compDef, found := brk.store.ComponentDef(evt.Target)
-		if !found {
-			return core.ErrNotFound(fmt.Errorf("target component not found"))
-		}
-		if !compDef.DefaultHandler {
+		if !depComp.ComponentDefinition.DefaultHandler {
 			return core.ErrRouteNotFound(fmt.Errorf("target component does not have default handler"))
 		}
 
@@ -536,7 +510,7 @@ func (brk *broker) checkComponents(ctx context.Context, evt *BrokerEvent) error 
 	if evt.Adapters != nil {
 		adapter, _ = evt.Adapters.GetByComponent(evt.Source)
 	}
-	depComp = appDep.Spec.Components[evt.Source.Name]
+	depComp = evt.AppDep.Spec.Components[evt.Source.Name]
 	switch {
 	case depComp == nil && adapter == nil:
 		if !brk.store.IsGenesisAdapter(evt.Source) {
