@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/xigxog/kubefox/api"
+	"github.com/xigxog/kubefox/api/kubernetes/v1alpha1"
 	"github.com/xigxog/kubefox/core"
 	"google.golang.org/protobuf/types/known/structpb"
 )
@@ -26,8 +27,10 @@ type Adapters map[string]api.Adapter
 type BrokerEvent struct {
 	*core.Event
 
-	Data    *api.VirtualEnvData
-	RouteId int64
+	ContextKey string
+	Env        *v1alpha1.VirtualEnvSnapshot
+	AppDep     *v1alpha1.AppDeployment
+	RouteId    int64
 
 	TargetAdapter api.Adapter
 	Adapters      Adapters
@@ -60,9 +63,9 @@ func (evt *BrokerEvent) Done() chan *core.Err {
 
 func (evt *BrokerEvent) MatchedEvent() *core.MatchedEvent {
 	var env map[string]*structpb.Value
-	if evt.Data != nil && evt.Data.Vars != nil {
-		env = make(map[string]*structpb.Value, len(evt.Data.Vars))
-		for k, v := range evt.Data.Vars {
+	if evt.Env != nil && evt.Env.Data != nil && evt.Env.Data.Vars != nil {
+		env = make(map[string]*structpb.Value, len(evt.Env.Data.Vars))
+		for k, v := range evt.Env.Data.Vars {
 			env[k] = v.Proto()
 		}
 	}

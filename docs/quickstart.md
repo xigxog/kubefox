@@ -483,11 +483,11 @@ func sayHello(k kit.Kontext) error {
         return err
     }
 
-    msg := fmt.Sprintf("👋 Hello %s!", r.Str()) //(1)
-    k.Log().Debug(msg)
-
+    msg := fmt.Sprintf("👋 Hello %s!", r.Str())
     json := map[string]any{"msg": msg}
     html := fmt.Sprintf(htmlTmpl, msg)
+    k.Log().Debug(msg)
+
     return k.Resp().SendAccepts(json, html, msg)
 }
 ```
