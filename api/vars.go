@@ -241,19 +241,20 @@ const (
 
 // Headers and query params.
 const (
-	HeaderAbbrvDep       = "kf-dep"
-	HeaderAbbrvEnv       = "kf-env"
-	HeaderAbbrvEventType = "kf-type"
-	HeaderAdapter        = "kubefox-adapter"
-	HeaderContentLength  = "Content-Length"
-	HeaderDep            = "kubefox-deployment"
-	HeaderEnv            = "kubefox-environment"
-	HeaderEventType      = "kubefox-type"
-	HeaderHost           = "Host"
-	HeaderShortDep       = "kfd"
-	HeaderShortEnv       = "kfe"
-	HeaderShortEventType = "kft"
-	HeaderTraceId        = "kubefox-trace-id"
+	HeaderAdapter         = "kubefox-adapter"
+	HeaderAppDep          = "kubefox-app-deployment"
+	HeaderAppDepAbbrv     = "kf-dep"
+	HeaderAppDepShort     = "kfd"
+	HeaderContentLength   = "Content-Length"
+	HeaderEventType       = "kubefox-event-type"
+	HeaderEventTypeAbbrv  = "kf-type"
+	HeaderEventTypeShort  = "kft"
+	HeaderHost            = "Host"
+	HeaderPlatform        = "kubefox-platform"
+	HeaderTraceId         = "kubefox-trace-id"
+	HeaderVirtualEnv      = "kubefox-virtual-env"
+	HeaderVirtualEnvAbbrv = "kf-env"
+	HeaderVirtualEnvShort = "kfe"
 )
 
 const (

@@ -472,7 +472,6 @@ func (str *Store) buildRoutes(
 			Commit: compSpec.Commit,
 		}
 		for _, r := range compSpec.Routes {
-			// TODO? cache routes so template doesn't need to be parsed again
 			route, err := core.NewRoute(r.Id, r.Rule)
 			if err != nil {
 				return nil, err
