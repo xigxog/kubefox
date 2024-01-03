@@ -16,7 +16,7 @@ Ensure that the following tools are installed for this quickstart:
   Kubernetes cluster via kind.
 - [Fox](https://github.com/xigxog/kubefox-cli/releases/) - A CLI for
   communicating with the KubeFox platform. Download the latest release and add
-  the binary to your system's path.
+  the binary to your system's path. Or, if Go is installed, use `go install github.com/xigxog/fox@v0.7.0-alpha`.
 - [Git](https://github.com/git-guides/install-git) - A distributed version
   control system.
 - [Helm](https://helm.sh/docs/intro/install/) - Package manager for Kubernetes
@@ -36,8 +36,6 @@ Here are a few optional but recommended tools:
   source code editor. Helpful if you want to explore the `hello-world` app.
 
 ## Install KubeFox
-
-TODO add `go install fox` and links to `fox` bins
 
 Let's kick things off by setting up a local Kubernetes cluster using kind. Use
 the following command to create the cluster.
