@@ -125,7 +125,14 @@ func (srv *Server) ServeHTTP(resWriter http.ResponseWriter, httpReq *http.Reques
 	log.Debug("receive request")
 
 	resp, err := srv.brk.SendReq(ctx, req, time.Now())
-	// TODO add event context to response headers
+
+	// Add Event Context to response headers.
+	if resp.Context != nil {
+		setHeader(resWriter, api.HeaderPlatform, resp.Context.Platform)
+		setHeader(resWriter, api.HeaderVirtualEnv, resp.Context.VirtualEnv)
+		setHeader(resWriter, api.HeaderAppDep, resp.Context.AppDeployment)
+	}
+
 	switch {
 	case err != nil:
 		writeError(resWriter, err, log)
@@ -149,6 +156,15 @@ func (srv *Server) ServeHTTP(resWriter http.ResponseWriter, httpReq *http.Reques
 	resWriter.Header().Set("Content-Length", strconv.Itoa(len(resp.Content)))
 	resWriter.WriteHeader(httpResp.StatusCode)
 	resWriter.Write(resp.Content)
+}
+
+// setHeader will set the header on the http.ResponseWriter if the value is not
+// empty.
+func setHeader(resWriter http.ResponseWriter, key, value string) {
+	if value == "" {
+		return
+	}
+	resWriter.Header().Set(key, value)
 }
 
 func writeError(resWriter http.ResponseWriter, err error, log *logkf.Logger) {

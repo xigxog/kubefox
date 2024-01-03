@@ -542,14 +542,14 @@ func (evt *Event) SetHTTPRequest(httpReq *http.Request, maxEventSize int64) erro
 	evt.Category = Category_REQUEST
 
 	if evt.Context.VirtualEnv == "" {
-		evt.Context.VirtualEnv = GetParamOrHeader(httpReq, api.HeaderEnv, api.HeaderAbbrvEnv, api.HeaderShortEnv)
+		evt.Context.VirtualEnv = GetParamOrHeader(httpReq, api.HeaderVirtualEnv, api.HeaderVirtualEnvAbbrv, api.HeaderVirtualEnvShort)
 	}
 	if evt.Context.AppDeployment == "" {
-		evt.Context.AppDeployment = GetParamOrHeader(httpReq, api.HeaderDep, api.HeaderAbbrvDep, api.HeaderShortDep)
+		evt.Context.AppDeployment = GetParamOrHeader(httpReq, api.HeaderAppDep, api.HeaderAppDepAbbrv, api.HeaderAppDepShort)
 	}
 
 	if evt.Type == "" || evt.Type == string(api.EventTypeUnknown) {
-		evtType := GetParamOrHeader(httpReq, api.HeaderEventType, api.HeaderAbbrvEventType, api.HeaderShortEventType)
+		evtType := GetParamOrHeader(httpReq, api.HeaderEventType, api.HeaderEventTypeAbbrv, api.HeaderEventTypeShort)
 		if evtType != "" {
 			evt.Type = evtType
 		} else {
@@ -558,9 +558,9 @@ func (evt *Event) SetHTTPRequest(httpReq *http.Request, maxEventSize int64) erro
 	}
 
 	DelParamOrHeader(httpReq,
-		api.HeaderEnv, api.HeaderAbbrvEnv, api.HeaderShortEnv,
-		api.HeaderDep, api.HeaderAbbrvDep, api.HeaderShortDep,
-		api.HeaderEventType, api.HeaderAbbrvEventType, api.HeaderShortEventType,
+		api.HeaderVirtualEnv, api.HeaderVirtualEnvAbbrv, api.HeaderVirtualEnvShort,
+		api.HeaderAppDep, api.HeaderAppDepAbbrv, api.HeaderAppDepShort,
+		api.HeaderEventType, api.HeaderEventTypeAbbrv, api.HeaderEventTypeShort,
 	)
 
 	u := *httpReq.URL
@@ -644,17 +644,17 @@ func DelParamOrHeader(httpReq *http.Request, keys ...string) {
 // is not exceeded, then closes the reader. If body is 'nil' then 'nil' is
 // returned.
 func ReadBody(body io.ReadCloser, header http.Header, maxEventSize int64) ([]byte, error) {
-	if body != nil {
-		defer body.Close()
-
-		if i, err := strconv.Atoi(header.Get(api.HeaderContentLength)); err == nil { // success
-			if i > int(maxEventSize) {
-				return nil, ErrContentTooLarge()
-			}
-		}
-
-		return io.ReadAll(&LimitedReader{body, maxEventSize})
+	if body == nil {
+		return nil, nil
 	}
 
-	return nil, nil
+	defer body.Close()
+
+	if i, err := strconv.Atoi(header.Get(api.HeaderContentLength)); err == nil { // success
+		if i > int(maxEventSize) {
+			return nil, ErrContentTooLarge()
+		}
+	}
+
+	return io.ReadAll(&LimitedReader{body, maxEventSize})
 }
