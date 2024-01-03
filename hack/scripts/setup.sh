@@ -38,6 +38,8 @@ IMAGE=${IMAGE:-"${CONTAINER_REGISTRY}/kubefox/${COMPONENT}:${IMAGE_TAG}"}
 
 export GO111MODULE=on
 export CGO_ENABLED=0
+export GOARCH=amd64
+export GOOS=linux
 export GOBIN="${REPO_ROOT}/${TOOLS_DIR}"
 export PATH="${PATH}:${GOBIN}"
 
