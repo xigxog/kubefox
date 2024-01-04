@@ -5,7 +5,7 @@ Environments](virtual_environments.md) and [Versioned
 Deployments](versioned_deployments.md) because it dynamically routes requests at
 runtime.
 
-When requests originate - [Genesis Events](../concepts.md#genesis-events) in
+When requests originate - [Genesis Events](index.md#genesis-event) in
 KubeFox – metadata is associated with them that informs the KubeFox runtime how
 the requests should be routed. This occurs not only at origination time, but
 throughout the System and for all components that are part of that System. In so
