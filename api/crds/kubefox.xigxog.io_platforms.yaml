@@ -22,7 +22,28 @@ spec:
     singular: platform
   scope: Namespaced
   versions:
-  - name: v1alpha1
+  - additionalPrinterColumns:
+    - jsonPath: .status.conditions[?(@.type=='Available')].status
+      name: Available
+      type: string
+    - jsonPath: .spec.events.timeoutSeconds
+      name: Event Timeout
+      type: integer
+    - jsonPath: .spec.events.maxSize
+      name: Event Max
+      type: string
+    - jsonPath: .spec.logger.level
+      name: Log Level
+      type: string
+    - jsonPath: .details.title
+      name: Title
+      priority: 1
+      type: string
+    - jsonPath: .details.description
+      name: Description
+      priority: 1
+      type: string
+    name: v1alpha1
     schema:
       openAPIV3Schema:
         description: Platform is the Schema for the Platforms API

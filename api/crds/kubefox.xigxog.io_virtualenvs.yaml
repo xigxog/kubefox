@@ -22,7 +22,43 @@ spec:
     singular: virtualenv
   scope: Namespaced
   versions:
-  - name: v1alpha1
+  - additionalPrinterColumns:
+    - jsonPath: .status.conditions[?(@.type=='ActiveReleaseAvailable')].status
+      name: Available
+      type: string
+    - jsonPath: .status.activeRelease.appDeployment.name
+      name: Release
+      type: string
+    - jsonPath: .status.activeRelease.appDeployment.version
+      name: Version
+      type: string
+    - jsonPath: .status.activeRelease.virtualEnvSnapshot
+      name: Snapshot
+      priority: 1
+      type: string
+    - jsonPath: .status.pendingRelease.appDeployment.name
+      name: Pending
+      type: string
+    - jsonPath: .status.pendingRelease.appDeployment.version
+      name: Pending Version
+      type: string
+    - jsonPath: .status.pendingRelease.virtualEnvSnapshot
+      name: Pending Snapshot
+      priority: 1
+      type: string
+    - jsonPath: .status.conditions[?(@.type=='ReleasePending')].reason
+      name: Pending Reason
+      priority: 1
+      type: string
+    - jsonPath: .details.title
+      name: Title
+      priority: 1
+      type: string
+    - jsonPath: .details.description
+      name: Description
+      priority: 1
+      type: string
+    name: v1alpha1
     schema:
       openAPIV3Schema:
         properties:

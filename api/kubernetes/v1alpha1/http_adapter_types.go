@@ -38,6 +38,9 @@ type HTTPAdapterSpec struct {
 }
 
 // +kubebuilder:object:root=true
+// +kubebuilder:printcolumn:name="Title",type=string,JSONPath=`.details.title`,priority=1
+// +kubebuilder:printcolumn:name="Description",type=string,JSONPath=`.details.description`,priority=1
+
 type HTTPAdapter struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`

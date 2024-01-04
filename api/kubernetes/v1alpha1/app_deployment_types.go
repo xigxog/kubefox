@@ -67,8 +67,15 @@ type AppDeploymentDetails struct {
 	Components map[string]api.Details `json:"components,omitempty"`
 }
 
-//+kubebuilder:object:root=true
-//+kubebuilder:subresource:status
+// +kubebuilder:object:root=true
+// +kubebuilder:subresource:status
+// +kubebuilder:printcolumn:name="Available",type=string,JSONPath=`.status.conditions[?(@.type=='Available')].status`
+// +kubebuilder:printcolumn:name="Progressing",type=string,JSONPath=`.status.conditions[?(@.type=='Progressing')].status`
+// +kubebuilder:printcolumn:name="App",type=string,JSONPath=`.spec.appName`
+// +kubebuilder:printcolumn:name="Version",type=string,JSONPath=`.spec.version`
+// +kubebuilder:printcolumn:name="Commit",type=string,JSONPath=`.spec.commit`,priority=1
+// +kubebuilder:printcolumn:name="Title",type=string,JSONPath=`.details.title`,priority=1
+// +kubebuilder:printcolumn:name="Description",type=string,JSONPath=`.details.description`,priority=1
 
 // AppDeployment is the Schema for the AppDeployments API
 type AppDeployment struct {

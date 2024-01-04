@@ -7,7 +7,6 @@
 #
 # SPDX-License-Identifier: MPL-2.0
 
-
 source "$(dirname "${BASH_SOURCE[0]}")/setup.sh"
 
 CONTROLLER_GEN_VERSION="v0.13.0"
@@ -43,3 +42,7 @@ protoc \
     --go-grpc_out=./${GRPC_OUT} \
     --go-grpc_opt=paths=source_relative \
     broker_svc.proto
+
+${SCRIPTS}/addlicense.sh
+
+gofmt -l -s -w .
