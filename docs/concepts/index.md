@@ -1,8 +1,6 @@
 # Overview
 
-The following are brief descriptions of KubeFox concepts. For more details and
-tutorials on their use, checkout additional documentation under
-[topics](../topics).
+The following are brief descriptions of KubeFox concepts.
 
 ## Event
 
@@ -40,7 +38,7 @@ Components.
 
 ## App
 
-An App is an application; a collection of Components which together provide
+An App is an application; a collection of Components which together to provide
 useful capabilities to end users of the software. Apps serve as the deployable
 unit in the context of KubeFox. That means all Components of an App are deployed
 (and optionally versioned) together.
