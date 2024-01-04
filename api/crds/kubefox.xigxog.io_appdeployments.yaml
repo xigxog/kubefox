@@ -22,7 +22,32 @@ spec:
     singular: appdeployment
   scope: Namespaced
   versions:
-  - name: v1alpha1
+  - additionalPrinterColumns:
+    - jsonPath: .status.conditions[?(@.type=='Available')].status
+      name: Available
+      type: string
+    - jsonPath: .status.conditions[?(@.type=='Progressing')].status
+      name: Progressing
+      type: string
+    - jsonPath: .spec.appName
+      name: App
+      type: string
+    - jsonPath: .spec.version
+      name: Version
+      type: string
+    - jsonPath: .spec.commit
+      name: Commit
+      priority: 1
+      type: string
+    - jsonPath: .details.title
+      name: Title
+      priority: 1
+      type: string
+    - jsonPath: .details.description
+      name: Description
+      priority: 1
+      type: string
+    name: v1alpha1
     schema:
       openAPIV3Schema:
         description: AppDeployment is the Schema for the AppDeployments API

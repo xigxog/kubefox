@@ -19,6 +19,9 @@ type ClusterVirtualEnvSpec struct {
 
 // +kubebuilder:object:root=true
 // +kubebuilder:resource:path=clustervirtualenvs,scope=Cluster
+// +kubebuilder:printcolumn:name="Title",type=string,JSONPath=`.details.title`,priority=1
+// +kubebuilder:printcolumn:name="Description",type=string,JSONPath=`.details.description`,priority=1
+
 type ClusterVirtualEnv struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`

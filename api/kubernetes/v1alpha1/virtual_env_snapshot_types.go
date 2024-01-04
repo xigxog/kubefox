@@ -44,6 +44,12 @@ type VirtualEnvSource struct {
 }
 
 // +kubebuilder:object:root=true
+// +kubebuilder:printcolumn:name="Source",type=string,JSONPath=`.spec.source.name`
+// +kubebuilder:printcolumn:name="Created",type=string,JSONPath=`.metadata.creationTimestamp`
+// +kubebuilder:printcolumn:name="Age",type=date,JSONPath=`.metadata.creationTimestamp`
+// +kubebuilder:printcolumn:name="Title",type=string,JSONPath=`.details.title`,priority=1
+// +kubebuilder:printcolumn:name="Description",type=string,JSONPath=`.details.description`,priority=1
+
 type VirtualEnvSnapshot struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`

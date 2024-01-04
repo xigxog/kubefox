@@ -150,6 +150,16 @@ type VirtualEnvStatus struct {
 
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
+// +kubebuilder:printcolumn:name="Available",type=string,JSONPath=`.status.conditions[?(@.type=='ActiveReleaseAvailable')].status`
+// +kubebuilder:printcolumn:name="Release",type=string,JSONPath=`.status.activeRelease.appDeployment.name`
+// +kubebuilder:printcolumn:name="Version",type=string,JSONPath=`.status.activeRelease.appDeployment.version`
+// +kubebuilder:printcolumn:name="Snapshot",type=string,JSONPath=`.status.activeRelease.virtualEnvSnapshot`,priority=1
+// +kubebuilder:printcolumn:name="Pending",type=string,JSONPath=`.status.pendingRelease.appDeployment.name`
+// +kubebuilder:printcolumn:name="Pending Version",type=string,JSONPath=`.status.pendingRelease.appDeployment.version`
+// +kubebuilder:printcolumn:name="Pending Snapshot",type=string,JSONPath=`.status.pendingRelease.virtualEnvSnapshot`,priority=1
+// +kubebuilder:printcolumn:name="Pending Reason",type=string,JSONPath=`.status.conditions[?(@.type=='ReleasePending')].reason`,priority=1
+// +kubebuilder:printcolumn:name="Title",type=string,JSONPath=`.details.title`,priority=1
+// +kubebuilder:printcolumn:name="Description",type=string,JSONPath=`.details.description`,priority=1
 
 type VirtualEnv struct {
 	metav1.TypeMeta   `json:",inline"`
