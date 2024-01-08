@@ -37,7 +37,7 @@ func Key(namespace, name string) types.NamespacedName {
 	}
 }
 
-func HasLabel(obj client.Object, key, value string) bool {
+func ContainsLabel(obj client.Object, key, value string) bool {
 	if obj == nil {
 		return false
 	}
@@ -66,7 +66,7 @@ func UpdateLabel(obj client.Object, key, value string) bool {
 	}
 
 	value = utils.CleanLabel(value)
-	if HasLabel(obj, key, value) {
+	if ContainsLabel(obj, key, value) {
 		return false
 	}
 
@@ -85,6 +85,10 @@ func AddFinalizer(o client.Object, finalizer string) bool {
 
 func RemoveFinalizer(o client.Object, finalizer string) bool {
 	return controllerutil.RemoveFinalizer(o, finalizer)
+}
+
+func ContainsFinalizer(o client.Object, finalizer string) bool {
+	return controllerutil.ContainsFinalizer(o, finalizer)
 }
 
 func DeepEqual(lhs interface{}, rhs interface{}) bool {

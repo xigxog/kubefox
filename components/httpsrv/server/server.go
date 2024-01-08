@@ -137,7 +137,7 @@ func (srv *Server) ServeHTTP(resWriter http.ResponseWriter, httpReq *http.Reques
 	// Add Event Context to response headers.
 	if resp.Context != nil {
 		setHeader(resWriter, api.HeaderPlatform, resp.Context.Platform)
-		setHeader(resWriter, api.HeaderVirtualEnv, resp.Context.VirtualEnv)
+		setHeader(resWriter, api.HeaderVirtualEnvironment, resp.Context.VirtualEnvironment)
 		setHeader(resWriter, api.HeaderAppDep, resp.Context.AppDeployment)
 	}
 

@@ -12,26 +12,19 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.13.0
-  name: virtualenvsnapshots.kubefox.xigxog.io
+  name: environments.kubefox.xigxog.io
 spec:
   group: kubefox.xigxog.io
   names:
-    kind: VirtualEnvSnapshot
-    listKind: VirtualEnvSnapshotList
-    plural: virtualenvsnapshots
-    singular: virtualenvsnapshot
-  scope: Namespaced
+    kind: Environment
+    listKind: EnvironmentList
+    plural: environments
+    shortNames:
+    - env
+    singular: environment
+  scope: Cluster
   versions:
   - additionalPrinterColumns:
-    - jsonPath: .spec.source.name
-      name: Source
-      type: string
-    - jsonPath: .metadata.creationTimestamp
-      name: Created
-      type: string
-    - jsonPath: .metadata.creationTimestamp
-      name: Age
-      type: date
     - jsonPath: .details.title
       name: Title
       priority: 1
@@ -50,16 +43,10 @@ spec:
               internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
             type: string
           data:
-            description: Data is a copy of the source VirtualEnv's data object. If
-              provided at creation time then the source VirtualEnv's resourceVersion
-              and current dataChecksum must also be provided. If set to nil at creation
-              time then the current data object, resourceVersion, and dataChecksum
-              of the source VirtualEnv will automatically be copied.
             properties:
               secrets:
-                additionalProperties:
-                  type: string
                 type: object
+                x-kubernetes-preserve-unknown-fields: true
               vars:
                 type: object
                 x-kubernetes-preserve-unknown-fields: true
@@ -98,34 +85,47 @@ spec:
             type: object
           spec:
             properties:
-              source:
-                description: VirtualEnv that this snapshot is of. Note, ClusterVirtualEnvs
-                  cannot be snapshotted.
+              releasePolicy:
                 properties:
-                  dataChecksum:
-                    description: DataChecksum is the hash of the VirtualEnv's data
-                      this snapshot is of. If data is provided at creation of the
-                      VirtualEnvSnapshot then dataChecksum must match the current
-                      dataChecksum of the VirtualEnv. If data is not provided at creation
-                      time dataChecksum will be populated automatically.
-                    type: string
-                  name:
-                    description: Name of the VirtualEnv this snapshot is of. Note,
-                      ClusterVirtualEnvs cannot be snapshotted.
-                    minLength: 1
-                    type: string
-                  resourceVersion:
-                    description: ResourceVersion of the VirtualEnv this snapshot is
-                      of. If data is provided at creation of the VirtualEnvSnapshot
-                      then resourceVersion must match the current resourceVersion
-                      of the VirtualEnv. If data is not provided at creation time
-                      resourceVersion will be populated automatically.
-                    type: string
+                  dataSnapshotRequired:
+                    default: true
+                    description: If '.spec.release.dataSnapshot' is required. Pointer
+                      is used to distinguish between not set and false.
+                    type: boolean
+                  historyLimits:
+                    properties:
+                      ageDays:
+                        description: Maximum age of the Release to keep in history.
+                          Once the limit is reached the oldest Release in history
+                          will be deleted. Age is based on archiveTime. Set to 0 to
+                          disable.
+                        minimum: 0
+                        type: integer
+                      count:
+                        default: 10
+                        description: Maximum number of Releases to keep in history.
+                          Once the limit is reached the oldest Release in history
+                          will be deleted. Age is based on archiveTime.
+                        minimum: 0
+                        type: integer
+                    type: object
+                  pendingDeadlineSeconds:
+                    default: 300
+                    description: If the pending Request cannot be activated before
+                      the deadline it will be considered failed. If the Release becomes
+                      available for activation after the deadline has been exceeded,
+                      it will not be activated.
+                    minimum: 3
+                    type: integer
+                  versionRequired:
+                    default: true
+                    description: If true '.spec.release.appDeployment.version' is
+                      required. Pointer is used to distinguish between not set and
+                      false.
+                    type: boolean
                 required:
-                - name
+                - historyLimits
                 type: object
-            required:
-            - source
             type: object
         type: object
     served: true

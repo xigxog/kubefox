@@ -20,34 +20,34 @@ import (
 )
 
 const (
-	KeyAppDeployment     = "appDeployment"
-	KeyBrokerId          = "brokerId"
-	KeyBrokerName        = "brokerName"
-	KeyComponentCommit   = "componentCommit"
-	KeyComponentId       = "componentId"
-	KeyComponentName     = "componentName"
-	KeyComponentType     = "componentType"
-	KeyController        = "controller"
-	KeyEventCategory     = "eventCategory"
-	KeyEventId           = "eventId"
-	KeyEventType         = "eventType"
-	KeyInstance          = "instance"
-	KeyPlatform          = "platform"
-	KeyPlatformComponent = "platformComponent"
-	KeySourceBrokerId    = "sourceBrokerId"
-	KeySourceCommit      = "sourceCommit"
-	KeySourceId          = "sourceId"
-	KeySourceName        = "sourceName"
-	KeySourceType        = "sourceType"
-	KeySpanId            = "spanId"
-	KeyTargetBrokerId    = "targetBrokerId"
-	KeyTargetCommit      = "targetCommit"
-	KeyTargetId          = "targetId"
-	KeyTargetName        = "targetName"
-	KeyTargetType        = "targetType"
-	KeyTraceId           = "traceId"
-	KeyVirtualEnv        = "virtualEnv"
-	KeyWorker            = "worker"
+	KeyAppDeployment      = "appDeployment"
+	KeyBrokerId           = "brokerId"
+	KeyBrokerName         = "brokerName"
+	KeyComponentCommit    = "componentCommit"
+	KeyComponentId        = "componentId"
+	KeyComponentName      = "componentName"
+	KeyComponentType      = "componentType"
+	KeyController         = "controller"
+	KeyEventCategory      = "eventCategory"
+	KeyEventId            = "eventId"
+	KeyEventType          = "eventType"
+	KeyInstance           = "instance"
+	KeyPlatform           = "platform"
+	KeyPlatformComponent  = "platformComponent"
+	KeySourceBrokerId     = "sourceBrokerId"
+	KeySourceCommit       = "sourceCommit"
+	KeySourceId           = "sourceId"
+	KeySourceName         = "sourceName"
+	KeySourceType         = "sourceType"
+	KeySpanId             = "spanId"
+	KeyTargetBrokerId     = "targetBrokerId"
+	KeyTargetCommit       = "targetCommit"
+	KeyTargetId           = "targetId"
+	KeyTargetName         = "targetName"
+	KeyTargetType         = "targetType"
+	KeyTraceId            = "traceId"
+	KeyVirtualEnvironment = "virtualEnvironment"
+	KeyWorker             = "worker"
 )
 
 var (
@@ -231,7 +231,7 @@ func (log *Logger) WithEvent(evt *core.Event) *Logger {
 			KeyEventType, evt.Type,
 			KeyEventCategory, evt.Category.String(),
 			KeyAppDeployment, evtCtx.AppDeployment,
-			KeyVirtualEnv, evtCtx.VirtualEnv,
+			KeyVirtualEnvironment, evtCtx.VirtualEnvironment,
 			KeyTraceId, evt.TraceId(),
 			KeySpanId, evt.SpanId(),
 		)

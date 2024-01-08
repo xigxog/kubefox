@@ -125,6 +125,7 @@ func main() {
 	}
 	cancel()
 
+	// Register Controllers.
 	if err = (&controller.PlatformReconciler{
 		Client:    ctrlClient,
 		Instance:  instance,
@@ -136,26 +137,31 @@ func main() {
 	}).SetupWithManager(mgr); err != nil {
 		log.Fatalf("unable to create Platform controller: %v", err)
 	}
+	if err = (&controller.EnvironmentReconciler{
+		Client: ctrlClient,
+	}).SetupWithManager(mgr); err != nil {
+		log.Fatalf("unable to create Environment controller: %v", err)
+	}
+	if err = (&controller.VirtualEnvReconciler{
+		Client: ctrlClient,
+	}).SetupWithManager(mgr); err != nil {
+		log.Fatalf("unable to create VirtualEnvironment controller: %v", err)
+	}
 	if err = (&controller.AppDeploymentReconciler{
 		Client:  ctrlClient,
 		CompMgr: compMgr,
 	}).SetupWithManager(mgr); err != nil {
 		log.Fatalf("unable to create AppDeployment controller: %v", err)
 	}
-	if err = (&controller.VirtualEnvReconciler{
-		Client: ctrlClient,
-	}).SetupWithManager(mgr); err != nil {
-		log.Fatalf("unable to create VirtualEnv controller: %v", err)
-	}
-	// TODO  ComponentSpec controller
 
-	// Validating WebHooks.
+	// Register Validating WebHooks.
 	mgr.GetWebhookServer().Register("/immutable/validate", &webhook.Admission{
 		Handler: &controller.ImmutableWebhook{
 			Decoder: admission.NewDecoder(scheme),
 		},
 	})
-	// Mutating WebHooks.
+
+	// Register Mutating WebHooks.
 	mgr.GetWebhookServer().Register("/index/mutate", &webhook.Admission{
 		Handler: &controller.IndexWebhook{
 			Decoder: admission.NewDecoder(scheme),
@@ -167,8 +173,14 @@ func main() {
 			Decoder: admission.NewDecoder(scheme),
 		},
 	})
-	mgr.GetWebhookServer().Register("/v1alpha1/virtualenvsnapshots/mutate", &webhook.Admission{
-		Handler: &controller.SnapshotWebhook{
+	mgr.GetWebhookServer().Register("/v1alpha1/datasnapshots/mutate", &webhook.Admission{
+		Handler: &controller.DataSnapshotWebhook{
+			Client:  ctrlClient,
+			Decoder: admission.NewDecoder(scheme),
+		},
+	})
+	mgr.GetWebhookServer().Register("/secrets/mutate", &webhook.Admission{
+		Handler: &controller.SecretsWebhook{
 			Client:  ctrlClient,
 			Decoder: admission.NewDecoder(scheme),
 		},

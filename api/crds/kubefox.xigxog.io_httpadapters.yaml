@@ -19,6 +19,8 @@ spec:
     kind: HTTPAdapter
     listKind: HTTPAdapterList
     plural: httpadapters
+    shortNames:
+    - http
     singular: httpadapter
   scope: Namespaced
   versions:

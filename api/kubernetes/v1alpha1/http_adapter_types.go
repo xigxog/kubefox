@@ -38,6 +38,7 @@ type HTTPAdapterSpec struct {
 }
 
 // +kubebuilder:object:root=true
+// +kubebuilder:resource:path=httpadapters,shortName=http
 // +kubebuilder:printcolumn:name="Title",type=string,JSONPath=`.details.title`,priority=1
 // +kubebuilder:printcolumn:name="Description",type=string,JSONPath=`.details.description`,priority=1
 
@@ -61,7 +62,7 @@ func (a *HTTPAdapter) GetComponentType() api.ComponentType {
 	return api.ComponentTypeHTTPAdapter
 }
 
-func (a *HTTPAdapter) Validate(data *api.VirtualEnvData) api.Problems {
+func (a *HTTPAdapter) Validate(data *api.Data) api.Problems {
 	var problems api.Problems
 
 	src := api.ProblemSource{

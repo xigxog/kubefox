@@ -102,9 +102,9 @@ func (str *Store) init(ctx context.Context) error {
 	}
 
 	err = str.initInformers(ctx,
-		&v1alpha1.ClusterVirtualEnv{},
-		&v1alpha1.VirtualEnv{},
-		&v1alpha1.VirtualEnvSnapshot{},
+		&v1alpha1.Environment{},
+		&v1alpha1.VirtualEnvironment{},
+		&v1alpha1.DataSnapshot{},
 		&v1alpha1.HTTPAdapter{},
 		&v1alpha1.AppDeployment{},
 		&v1alpha1.Platform{},
@@ -167,55 +167,55 @@ func (str *Store) AppDeployment(ctx context.Context, evtCtx *core.EventContext) 
 	return obj, str.get(evtCtx.AppDeployment, obj, true)
 }
 
-func (str *Store) VirtualEnv(ctx context.Context, evtCtx *core.EventContext) (*v1alpha1.VirtualEnvSnapshot, error) {
-	if evtCtx.VirtualEnv == "" {
+func (str *Store) DataSnapshot(ctx context.Context, evtCtx *core.EventContext) (*v1alpha1.DataSnapshot, error) {
+	if evtCtx.VirtualEnvironment == "" {
 		return nil, core.ErrNotFound()
 	}
 
-	if evtCtx.VirtualEnvSnapshot != "" {
-		snapshot := &v1alpha1.VirtualEnvSnapshot{}
-		if err := str.get(evtCtx.VirtualEnvSnapshot, snapshot, true); err != nil {
+	if evtCtx.DataSnapshot != "" {
+		snapshot := &v1alpha1.DataSnapshot{}
+		if err := str.get(evtCtx.DataSnapshot, snapshot, true); err != nil {
 			return nil, err
 		}
 		return snapshot, nil
 	}
 
-	env := &v1alpha1.VirtualEnv{}
-	if err := str.get(evtCtx.VirtualEnv, env, true); err != nil {
+	ve := &v1alpha1.VirtualEnvironment{}
+	if err := str.get(evtCtx.VirtualEnvironment, ve, true); err != nil {
 		return nil, err
 	}
 
-	if env.Spec.Parent != "" {
-		clusterEnv := &v1alpha1.ClusterVirtualEnv{}
-		if err := str.get(env.Spec.Parent, clusterEnv, false); err != nil {
+	if ve.Spec.Environment != "" {
+		env := &v1alpha1.Environment{}
+		if err := str.get(ve.Spec.Environment, env, false); err != nil {
 			return nil, err
 		}
-		env.MergeParent(clusterEnv)
+		ve.Merge(env)
 	}
 
-	hash, err := hashstructure.Hash(&env.Data, hashstructure.FormatV2, nil)
+	hash, err := hashstructure.Hash(&ve.Data, hashstructure.FormatV2, nil)
 	if err != nil {
 		return nil, err
 	}
 
-	return &v1alpha1.VirtualEnvSnapshot{
+	return &v1alpha1.DataSnapshot{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: v1alpha1.GroupVersion.Identifier(),
-			Kind:       "VirtualEnvSnapshot",
+			Kind:       "DataSnapshot",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Namespace: env.Namespace,
-			Name:      env.Name,
+			Namespace: ve.Namespace,
+			Name:      ve.Name,
 		},
-		Spec: v1alpha1.VirtualEnvSnapshotSpec{
-			Source: v1alpha1.VirtualEnvSource{
-				Name:            env.Name,
-				ResourceVersion: env.ResourceVersion,
+		Spec: v1alpha1.DataSnapshotSpec{
+			Source: v1alpha1.DataSource{
+				Name:            ve.Name,
+				ResourceVersion: ve.ResourceVersion,
 				DataChecksum:    fmt.Sprint(hash),
 			},
 		},
-		Data:    &env.Data,
-		Details: env.Details,
+		Data:    &ve.Data,
+		Details: ve.Details,
 	}, nil
 }
 
@@ -240,7 +240,7 @@ func (str *Store) DeploymentMatcher(ctx context.Context, evt *BrokerEvent) (*mat
 		return depM, nil
 	}
 
-	routes, err := str.buildRoutes(ctx, &evt.AppDep.Spec, evt.Env.Data, evt.Context)
+	routes, err := str.buildRoutes(ctx, &evt.AppDep.Spec, evt.Data.Data, evt.Context)
 	if err != nil {
 		return nil, err
 	}
@@ -254,19 +254,19 @@ func (str *Store) DeploymentMatcher(ctx context.Context, evt *BrokerEvent) (*mat
 	return depM, nil
 }
 
-// AttachEventContext gets the VirtualEnv, AppDeployment, and Adapters of the
-// Event Context, attaches them to the BrokerEvent, and then validates the Event
-// Context. Problems found during validation are returned.
+// AttachEventContext gets the VirtualEnvironment, AppDeployment, and Adapters
+// of the Event Context, attaches them to the BrokerEvent, and then validates
+// the Event Context. Problems found during validation are returned.
 func (str *Store) AttachEventContext(ctx context.Context, evt *BrokerEvent) error {
 	var err error
-	if evt.Env, err = str.VirtualEnv(ctx, evt.Context); err != nil {
+	if evt.Data, err = str.DataSnapshot(ctx, evt.Context); err != nil {
 		return err
 	}
 	if evt.AppDep, err = str.AppDeployment(ctx, evt.Context); err != nil {
 		return err
 	}
 	evt.ContextKey = fmt.Sprintf("%s-%d_%s-%s",
-		evt.AppDep.Name, evt.AppDep.Generation, evt.Env.Name, evt.Env.Spec.Source.DataChecksum)
+		evt.AppDep.Name, evt.AppDep.Generation, evt.Data.Name, evt.Data.Spec.Source.DataChecksum)
 
 	str.mutex.Lock()
 	defer str.mutex.Unlock()
@@ -298,7 +298,7 @@ func (str *Store) AttachEventContext(ctx context.Context, evt *BrokerEvent) erro
 	// Check validation cache.
 	problems, found := str.validCache.Get(evt.ContextKey)
 	if !found {
-		problems, err = evt.AppDep.Validate(evt.Env.Data,
+		problems, err = evt.AppDep.Validate(evt.Data.Data,
 			func(name string, typ api.ComponentType) (api.Adapter, error) {
 				a, found := evt.Adapters[name]
 				if !found {
@@ -421,7 +421,7 @@ func (str *Store) buildReleaseMatcher(ctx context.Context) (*matcher.EventMatche
 	ctx, cancel := context.WithTimeout(ctx, time.Minute)
 	defer cancel()
 
-	envList := &v1alpha1.VirtualEnvList{}
+	envList := &v1alpha1.VirtualEnvironmentList{}
 	if err := str.resCache.List(ctx, envList); err != nil {
 		return nil, err
 	}
@@ -430,28 +430,35 @@ func (str *Store) buildReleaseMatcher(ctx context.Context) (*matcher.EventMatche
 	for _, env := range envList.Items {
 		release := env.Status.ActiveRelease
 		if release == nil {
-			str.log.Debugf("VirtualEnv '%s/%s' does not have an active Release", env.Namespace, env.Name)
+			str.log.Debugf("VirtualEnvironment '%s/%s' does not have an active Release", env.Namespace, env.Name)
+			continue
+		}
+
+		avail := k8s.Condition(env.Status.Conditions, api.ConditionTypeActiveReleaseAvailable)
+		if avail.Status == metav1.ConditionFalse {
+			str.log.Debugf("VirtualEnvironment '%s/%s' Release is not available, reason: '%s'",
+				env.Namespace, env.Name, avail.Reason)
 			continue
 		}
 
 		evtCtx := &core.EventContext{
 			Platform:           config.Platform,
 			AppDeployment:      release.AppDeployment.Name,
-			VirtualEnv:         env.Name,
-			VirtualEnvSnapshot: release.VirtualEnvSnapshot,
+			VirtualEnvironment: env.Name,
+			DataSnapshot:       release.DataSnapshot,
 		}
 		appDep, err := str.AppDeployment(ctx, evtCtx)
 		if err != nil {
 			str.log.Warn(err)
 			continue
 		}
-		env, err := str.VirtualEnv(ctx, evtCtx)
+		snap, err := str.DataSnapshot(ctx, evtCtx)
 		if err != nil {
 			str.log.Warn(err)
 			continue
 		}
 
-		routes, err := str.buildRoutes(ctx, &appDep.Spec, env.Data, evtCtx)
+		routes, err := str.buildRoutes(ctx, &appDep.Spec, snap.Data, evtCtx)
 		if err != nil {
 			str.log.Warn(err)
 			continue
@@ -468,7 +475,7 @@ func (str *Store) buildReleaseMatcher(ctx context.Context) (*matcher.EventMatche
 func (str *Store) buildRoutes(
 	ctx context.Context,
 	spec *v1alpha1.AppDeploymentSpec,
-	data *api.VirtualEnvData,
+	data *api.Data,
 	evtCtx *core.EventContext) ([]*core.Route, error) {
 
 	var routes []*core.Route

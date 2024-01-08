@@ -41,7 +41,7 @@ func NewRoute(id int, rule string) (*Route, error) {
 	}, nil
 }
 
-func (r *Route) Resolve(data *api.VirtualEnvData) (err error) {
+func (r *Route) Resolve(data *api.Data) (err error) {
 	if r.ResolvedRule, err = r.EnvTemplate.Resolve(data); err != nil {
 		return
 	}

@@ -200,15 +200,14 @@ type Kit interface {
     //
     // Predicate inputs can utilize regular expressions to match and optionally
     // extract parts of an Event to a named parameter. Regular expression use
-    // the format '{[REGEX]}' or '{[NAME]:[REGEX]}' to extract the matching part
+    // the format '{<NAME>}' or '{[NAME]:<REGEX>}' to extract the matching part
     // to a parameter.
     //
     // Environment variables can be utilized in predicate inputs. They are
-    // resolved at request time with the value specified in the VirtualEnv.
-    // Utilized environment variables are required to be set in the VirtualEnv.
-    // To prevent accidental route conflicts the combination of environment
-    // variables used in a route must be unique across all VirtualEnvs.
-    // Environment variables can be used with the format '{{.Env.[NAME]}}'.
+    // resolved at request time with the value specified in the
+    // VirtualEnvironment. Utilized environment variables are required to be set
+    // in the VirtualEnvironment. Environment variables can be used with the
+    // format '{{.Env.<NAME>}}'.
     //
     // For example, the following will match Events of type 'http' that are
     // 'GET' requests and have a path with three parts. The first part of the

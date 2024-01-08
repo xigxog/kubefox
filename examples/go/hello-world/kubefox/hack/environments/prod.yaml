@@ -1,12 +1,19 @@
 apiVersion: kubefox.xigxog.io/v1alpha1
-kind: VirtualEnv
+kind: Environment
 metadata:
   name: prod
 spec:
   releasePolicy:
-    appDeploymentPolicy: VersionRequired
-    virtualEnvPolicy: SnapshotRequired
+    versionRequired: true
+    dataSnapshotRequired: true
 data:
   vars:
     subPath: prod
     who: Universe
+---
+apiVersion: kubefox.xigxog.io/v1alpha1
+kind: VirtualEnvironment
+metadata:
+  name: prod
+spec:
+  environment: prod

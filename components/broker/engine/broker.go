@@ -425,8 +425,8 @@ func (brk *broker) checkEvent(evt *BrokerEvent) error {
 
 		// If a valid context is not present reject.
 		if evt.Context == nil || evt.Context.Platform != config.Platform ||
-			(evt.Context.AppDeployment != "" && evt.Context.VirtualEnv == "") ||
-			(evt.Context.AppDeployment == "" && evt.Context.VirtualEnv != "") {
+			(evt.Context.AppDeployment != "" && evt.Context.VirtualEnvironment == "") ||
+			(evt.Context.AppDeployment == "" && evt.Context.VirtualEnvironment != "") {
 
 			return core.ErrInvalid(fmt.Errorf("event context is invalid"))
 		}

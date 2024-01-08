@@ -16,7 +16,7 @@ import (
 )
 
 func TestPath(t *testing.T) {
-	data := &api.VirtualEnvData{
+	data := &api.Data{
 		Vars: map[string]*api.Val{
 			"a": api.ValString("127"),
 			"b": api.ValArrayInt([]int{0, 1}),

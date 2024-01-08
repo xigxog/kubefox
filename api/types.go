@@ -13,7 +13,13 @@ package api
 type Adapter interface {
 	GetName() string
 	GetComponentType() ComponentType
-	Validate(data *VirtualEnvData) Problems
+	Validate(data *Data) Problems
+}
+
+// +kubebuilder:object:generate=false
+type DataProvider interface {
+	GetData() *Data
+	GetDataChecksum() string
 }
 
 type EnvVarSchema map[string]*EnvVarDefinition
@@ -23,13 +29,15 @@ type EnvSchema struct {
 	Secrets EnvVarSchema `json:"secrets,omitempty"`
 }
 
-type VirtualEnvData struct {
+type Data struct {
 	// +kubebuilder:validation:Schemaless
 	// +kubebuilder:validation:Type=object
 	// +kubebuilder:pruning:PreserveUnknownFields
-
-	Vars    map[string]*Val   `json:"vars,omitempty"`
-	Secrets map[string]string `json:"secrets,omitempty"`
+	Vars map[string]*Val `json:"vars,omitempty"`
+	// +kubebuilder:validation:Schemaless
+	// +kubebuilder:validation:Type=object
+	// +kubebuilder:pruning:PreserveUnknownFields
+	Secrets map[string]*Val `json:"secrets,omitempty"`
 
 	ResolvedSecrets map[string]*Val `json:"-"`
 }
@@ -75,7 +83,7 @@ type Problems []Problem
 
 type Problem struct {
 	// +kubebuilder:validation:Required
-	// +kubebuilder:validation:Enum=AdapterNotFound;AppDeploymentFailed;DependencyInvalid;DependencyNotFound;ParseError;PolicyViolation;RouteConflict;VarNotFound;VarWrongType;VirtualEnvSnapshotFailed
+	// +kubebuilder:validation:Enum=AdapterNotFound;AppDeploymentFailed;DependencyInvalid;DependencyNotFound;ParseError;PolicyViolation;RouteConflict;VarNotFound;VarWrongType;DataSnapshotFailed
 
 	Type ProblemType `json:"type"`
 
@@ -88,7 +96,7 @@ type Problem struct {
 
 type ProblemSource struct {
 	// +kubebuilder:validation:Required
-	// +kubebuilder:validation:Enum=AppDeployment;Component;HTTPAdapter;Release;VirtualEnv;VirtualEnvSnapshot
+	// +kubebuilder:validation:Enum=AppDeployment;Component;HTTPAdapter;Release;VirtualEnvironment;DataSnapshot
 
 	Kind ProblemSourceKind `json:"kind"`
 	Name string            `json:"name,omitempty"`

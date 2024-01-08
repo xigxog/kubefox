@@ -15,7 +15,7 @@ The context can still be overridden manually by setting the header or query
 param on the original request.
 
 ```
-fox proxy (PORT) [flags]
+fox proxy <PORT> [flags]
 ```
 
 ### Examples

@@ -19,6 +19,9 @@ spec:
     kind: AppDeployment
     listKind: AppDeploymentList
     plural: appdeployments
+    shortNames:
+    - appdep
+    - app
     singular: appdeployment
   scope: Namespaced
   versions:
@@ -26,8 +29,8 @@ spec:
     - jsonPath: .status.conditions[?(@.type=='Available')].status
       name: Available
       type: string
-    - jsonPath: .status.conditions[?(@.type=='Progressing')].status
-      name: Progressing
+    - jsonPath: .status.conditions[?(@.type=='Available')].reason
+      name: Reason
       type: string
     - jsonPath: .spec.appName
       name: App
@@ -37,6 +40,10 @@ spec:
       type: string
     - jsonPath: .spec.commit
       name: Commit
+      priority: 1
+      type: string
+    - jsonPath: .status.conditions[?(@.type=='Progressing')].status
+      name: Progressing
       priority: 1
       type: string
     - jsonPath: .details.title
@@ -283,8 +290,8 @@ spec:
                             - Component
                             - HTTPAdapter
                             - Release
-                            - VirtualEnv
-                            - VirtualEnvSnapshot
+                            - VirtualEnvironment
+                            - DataSnapshot
                             type: string
                           name:
                             type: string
@@ -321,7 +328,7 @@ spec:
                       - RouteConflict
                       - VarNotFound
                       - VarWrongType
-                      - VirtualEnvSnapshotFailed
+                      - DataSnapshotFailed
                       type: string
                   required:
                   - type

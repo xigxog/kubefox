@@ -59,7 +59,7 @@ type PlatformReconciler struct {
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *PlatformReconciler) SetupWithManager(mgr ctrl.Manager) error {
-	r.log = logkf.Global.With(logkf.KeyController, "platform")
+	r.log = logkf.Global.With(logkf.KeyController, "Platform")
 	r.setupMap = make(map[string]bool)
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&v1alpha1.Platform{}).

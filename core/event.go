@@ -125,7 +125,9 @@ func (evt *Event) HasContext() bool {
 	if evt.Context == nil {
 		return false
 	}
-	return evt.Context.Platform != "" && evt.Context.AppDeployment != "" && evt.Context.VirtualEnv != ""
+	return evt.Context.Platform != "" &&
+		evt.Context.AppDeployment != "" &&
+		evt.Context.VirtualEnvironment != ""
 }
 
 func (evt *Event) SetContext(evtCtx *EventContext) {
@@ -137,8 +139,8 @@ func (evt *Event) SetContext(evtCtx *EventContext) {
 	}
 	evt.Context.Platform = evtCtx.Platform
 	evt.Context.AppDeployment = evtCtx.AppDeployment
-	evt.Context.VirtualEnv = evtCtx.VirtualEnv
-	evt.Context.VirtualEnvSnapshot = evtCtx.VirtualEnvSnapshot
+	evt.Context.VirtualEnvironment = evtCtx.VirtualEnvironment
+	evt.Context.DataSnapshot = evtCtx.DataSnapshot
 }
 
 func (evt *Event) EventType() api.EventType {
@@ -549,8 +551,8 @@ func (evt *Event) SetHTTPRequest(httpReq *http.Request, maxEventSize int64) erro
 	evt.ContentType = httpReq.Header.Get("Content-Type")
 	evt.Category = Category_REQUEST
 
-	if evt.Context.VirtualEnv == "" {
-		evt.Context.VirtualEnv = GetParamOrHeader(httpReq, api.HeaderVirtualEnv, api.HeaderVirtualEnvAbbrv, api.HeaderVirtualEnvShort)
+	if evt.Context.VirtualEnvironment == "" {
+		evt.Context.VirtualEnvironment = GetParamOrHeader(httpReq, api.HeaderVirtualEnvironment, api.HeaderVirtualEnvironmentAbbrv, api.HeaderVirtualEnvironmentShort)
 	}
 	if evt.Context.AppDeployment == "" {
 		evt.Context.AppDeployment = GetParamOrHeader(httpReq, api.HeaderAppDep, api.HeaderAppDepAbbrv, api.HeaderAppDepShort)
@@ -566,7 +568,7 @@ func (evt *Event) SetHTTPRequest(httpReq *http.Request, maxEventSize int64) erro
 	}
 
 	DelParamOrHeader(httpReq,
-		api.HeaderVirtualEnv, api.HeaderVirtualEnvAbbrv, api.HeaderVirtualEnvShort,
+		api.HeaderVirtualEnvironment, api.HeaderVirtualEnvironmentAbbrv, api.HeaderVirtualEnvironmentShort,
 		api.HeaderAppDep, api.HeaderAppDepAbbrv, api.HeaderAppDepShort,
 		api.HeaderEventType, api.HeaderEventTypeAbbrv, api.HeaderEventTypeShort,
 	)

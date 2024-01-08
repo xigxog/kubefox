@@ -97,7 +97,11 @@ func (r *EnvTemplate) EnvSchema() *EnvSchema {
 	return r.envSchema
 }
 
-func (r *EnvTemplate) Resolve(data *VirtualEnvData) (string, error) {
+func (r *EnvTemplate) Resolve(data *Data) (string, error) {
+	if data == nil {
+		data = &Data{}
+	}
+
 	envVarData := &templateData{
 		Vars:    make(map[string]*envVar),
 		Secrets: make(map[string]*envVar),
@@ -108,7 +112,7 @@ func (r *EnvTemplate) Resolve(data *VirtualEnvData) (string, error) {
 	for k, v := range data.ResolvedSecrets {
 		envVarData.Secrets[k] = &envVar{Val: v}
 	}
-	// Supports use of {{.Env.[NAME]}} or {{.Var.[NAME]}}.
+	// Supports use of {{.Env.<NAME>}} or {{.Vars.<NAME>}}.
 	envVarData.Env = envVarData.Vars
 
 	tpl := template.New("route").Option("missingkey=zero")
