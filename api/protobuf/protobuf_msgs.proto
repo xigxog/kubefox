@@ -33,8 +33,8 @@ message Component {
 message EventContext {
   string platform = 1;
   string app_deployment = 2;
-  string virtual_env = 3;
-  string virtual_env_snapshot = 4;
+  string virtual_environment = 3;
+  string data_snapshot = 4;
 }
 
 message Event {

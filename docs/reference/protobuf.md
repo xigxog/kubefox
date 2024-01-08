@@ -92,8 +92,8 @@
 | ----- | ---- | ----- | ----------- |
 | platform | [string](#string) |  |  |
 | app_deployment | [string](#string) |  |  |
-| virtual_env | [string](#string) |  |  |
-| virtual_env_snapshot | [string](#string) |  |  |
+| virtual_environment | [string](#string) |  |  |
+| data_snapshot | [string](#string) |  |  |
 
 
 

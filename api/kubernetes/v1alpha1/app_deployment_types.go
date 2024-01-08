@@ -69,11 +69,13 @@ type AppDeploymentDetails struct {
 
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
+// +kubebuilder:resource:path=appdeployments,shortName=appdep;app
 // +kubebuilder:printcolumn:name="Available",type=string,JSONPath=`.status.conditions[?(@.type=='Available')].status`
-// +kubebuilder:printcolumn:name="Progressing",type=string,JSONPath=`.status.conditions[?(@.type=='Progressing')].status`
+// +kubebuilder:printcolumn:name="Reason",type=string,JSONPath=`.status.conditions[?(@.type=='Available')].reason`
 // +kubebuilder:printcolumn:name="App",type=string,JSONPath=`.spec.appName`
 // +kubebuilder:printcolumn:name="Version",type=string,JSONPath=`.spec.version`
 // +kubebuilder:printcolumn:name="Commit",type=string,JSONPath=`.spec.commit`,priority=1
+// +kubebuilder:printcolumn:name="Progressing",type=string,JSONPath=`.status.conditions[?(@.type=='Progressing')].status`,priority=1
 // +kubebuilder:printcolumn:name="Title",type=string,JSONPath=`.details.title`,priority=1
 // +kubebuilder:printcolumn:name="Description",type=string,JSONPath=`.details.description`,priority=1
 
@@ -98,7 +100,7 @@ type AppDeploymentList struct {
 }
 
 func (appDep *AppDeployment) Validate(
-	data *api.VirtualEnvData,
+	data *api.Data,
 	getAdapter func(name string, typ api.ComponentType) (api.Adapter, error)) (api.Problems, error) {
 
 	problems := api.Problems{}

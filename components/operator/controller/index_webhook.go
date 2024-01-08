@@ -25,6 +25,7 @@ import (
 	"github.com/xigxog/kubefox/api/kubernetes/v1alpha1"
 	"github.com/xigxog/kubefox/k8s"
 	"github.com/xigxog/kubefox/utils"
+	admv1 "k8s.io/api/admission/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 )
@@ -49,8 +50,30 @@ func (r *IndexWebhook) Handle(ctx context.Context, req admission.Request) admiss
 		k8s.UpdateLabel(appDep, api.LabelK8sAppTag, appDep.Spec.Tag)
 		k8s.UpdateLabel(appDep, api.LabelK8sAppBranch, appDep.Spec.Branch)
 
-	case "kubefox.xigxog.io/v1alpha1, Kind=VirtualEnv":
-		env := &v1alpha1.VirtualEnv{}
+	case "kubefox.xigxog.io/v1alpha1, Kind=DataSnapshot":
+		env := &v1alpha1.DataSnapshot{}
+		if err := r.DecodeRaw(req.Object, env); err != nil {
+			return admission.Errored(http.StatusBadRequest, err)
+		}
+		obj = env
+
+		k8s.UpdateLabel(env, api.LabelK8sSourceKind, string(env.Spec.Source.Kind))
+		k8s.UpdateLabel(env, api.LabelK8sSourceName, env.Spec.Source.Name)
+		k8s.UpdateLabel(env, api.LabelK8sSourceVersion, env.Spec.Source.ResourceVersion)
+
+	case "kubefox.xigxog.io/v1alpha1, Kind=Environment":
+		if req.Operation == admv1.Create {
+			env := &v1alpha1.Environment{}
+			if err := r.DecodeRaw(req.Object, env); err != nil {
+				return admission.Errored(http.StatusBadRequest, err)
+			}
+			obj = env
+
+			k8s.AddFinalizer(env, api.FinalizerEnvironmentProtection)
+		}
+
+	case "kubefox.xigxog.io/v1alpha1, Kind=VirtualEnvironment":
+		env := &v1alpha1.VirtualEnvironment{}
 		if err := r.DecodeRaw(req.Object, env); err != nil {
 			return admission.Errored(http.StatusBadRequest, err)
 		}
@@ -59,23 +82,13 @@ func (r *IndexWebhook) Handle(ctx context.Context, req admission.Request) admiss
 		if env.Spec.Release != nil {
 			k8s.UpdateLabel(env, api.LabelK8sAppDeployment, env.Spec.Release.AppDeployment.Name)
 			k8s.UpdateLabel(env, api.LabelK8sAppVersion, env.Spec.Release.AppDeployment.Version)
-			k8s.UpdateLabel(env, api.LabelK8sVirtualEnvSnapshot, env.Spec.Release.VirtualEnvSnapshot)
+			k8s.UpdateLabel(env, api.LabelK8sDataSnapshot, env.Spec.Release.DataSnapshot)
 		} else {
 			k8s.UpdateLabel(env, api.LabelK8sAppDeployment, "")
 			k8s.UpdateLabel(env, api.LabelK8sAppVersion, "")
-			k8s.UpdateLabel(env, api.LabelK8sVirtualEnvSnapshot, "")
+			k8s.UpdateLabel(env, api.LabelK8sDataSnapshot, "")
 		}
-		k8s.UpdateLabel(env, api.LabelK8sVirtualEnvParent, env.Spec.Parent)
-
-	case "kubefox.xigxog.io/v1alpha1, Kind=VirtualEnvSnapshot":
-		env := &v1alpha1.VirtualEnvSnapshot{}
-		if err := r.DecodeRaw(req.Object, env); err != nil {
-			return admission.Errored(http.StatusBadRequest, err)
-		}
-		obj = env
-
-		k8s.UpdateLabel(env, api.LabelK8sVirtualEnv, env.Spec.Source.Name)
-		k8s.UpdateLabel(env, api.LabelK8sSourceResourceVersion, env.Spec.Source.ResourceVersion)
+		k8s.UpdateLabel(env, api.LabelK8sEnvironment, env.Spec.Environment)
 
 	default:
 		return admission.Allowed("🦊")

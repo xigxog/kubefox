@@ -329,7 +329,7 @@ func availableCondition(appDep *v1alpha1.AppDeployment, depMap map[string]*appsv
 
 	if len(appDep.Status.Problems) > 0 {
 		cond.Status = metav1.ConditionFalse
-		cond.Reason = api.ConditionReasonProblemsExist
+		cond.Reason = api.ConditionReasonProblemsFound
 		cond.Message = "One or more problems exist with AppDeployment, see `status.problems` for details."
 	} else {
 		available, depName, depCond := isAppDeployment(appsv1.DeploymentAvailable, &appDep.Spec, depMap)
@@ -353,7 +353,7 @@ func progressingCondition(appDep *v1alpha1.AppDeployment, depMap map[string]*app
 
 	if len(appDep.Status.Problems) > 0 {
 		cond.Status = metav1.ConditionFalse
-		cond.Reason = api.ConditionReasonProblemsExist
+		cond.Reason = api.ConditionReasonProblemsFound
 		cond.Message = "One or more problems exist with AppDeployment, see `status.problems` for details."
 	} else {
 		progressing, _, depCond := isAppDeployment(appsv1.DeploymentProgressing, &appDep.Spec, depMap)

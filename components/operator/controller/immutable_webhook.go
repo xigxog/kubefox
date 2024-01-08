@@ -55,12 +55,12 @@ func (r *ImmutableWebhook) Handle(ctx context.Context, req admission.Request) ad
 
 		}
 
-	case "kubefox.xigxog.io/v1alpha1, Kind=VirtualEnvSnapshot":
-		obj := &v1alpha1.VirtualEnvSnapshot{}
+	case "kubefox.xigxog.io/v1alpha1, Kind=DataSnapshot":
+		obj := &v1alpha1.DataSnapshot{}
 		if err := r.DecodeRaw(req.Object, obj); err != nil {
 			return admission.Errored(http.StatusBadRequest, err)
 		}
-		oldObj := &v1alpha1.VirtualEnvSnapshot{}
+		oldObj := &v1alpha1.DataSnapshot{}
 		if err := r.DecodeRaw(req.OldObject, oldObj); err != nil {
 			return admission.Errored(http.StatusBadRequest, err)
 		}

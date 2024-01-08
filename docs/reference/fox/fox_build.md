@@ -11,7 +11,7 @@ that the build working directory is the root of the repository, not the
 component directory.
 
 ```
-fox build (NAME) [flags]
+fox build <NAME> [flags]
 ```
 
 ### Examples

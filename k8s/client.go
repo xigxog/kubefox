@@ -10,12 +10,8 @@ package k8s
 
 import (
 	"context"
-	"fmt"
-	"time"
 
-	"github.com/mitchellh/hashstructure/v2"
 	"github.com/xigxog/kubefox/api/kubernetes/v1alpha1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 	cmd "k8s.io/client-go/tools/clientcmd"
@@ -131,45 +127,4 @@ func (c *Client) merge(ctx context.Context, modified, original client.Object) (c
 	modified.SetResourceVersion(original.GetResourceVersion())
 
 	return client.MergeFrom(original), nil
-}
-
-func (r *Client) SnapshotVirtualEnv(ctx context.Context, namespace, envName string) (*v1alpha1.VirtualEnvSnapshot, error) {
-	env := &v1alpha1.VirtualEnv{}
-	if err := r.Get(ctx, Key(namespace, envName), env); err != nil {
-		return nil, err
-	}
-
-	if env.Spec.Parent != "" {
-		parent := &v1alpha1.ClusterVirtualEnv{}
-		if err := r.Get(ctx, Key("", env.Spec.Parent), parent); err != nil {
-			return nil, err
-		}
-		env.MergeParent(parent)
-	}
-
-	hash, err := hashstructure.Hash(&env.Data, hashstructure.FormatV2, nil)
-	if err != nil {
-		return nil, err
-	}
-
-	return &v1alpha1.VirtualEnvSnapshot{
-		TypeMeta: metav1.TypeMeta{
-			APIVersion: v1alpha1.GroupVersion.Identifier(),
-			Kind:       "VirtualEnvSnapshot",
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: namespace,
-			Name: fmt.Sprintf("%s-%s-%s",
-				envName, env.GetResourceVersion(), time.Now().UTC().Format("20060102-150405")),
-		},
-		Spec: v1alpha1.VirtualEnvSnapshotSpec{
-			Source: v1alpha1.VirtualEnvSource{
-				Name:            envName,
-				ResourceVersion: env.ResourceVersion,
-				DataChecksum:    fmt.Sprint(hash),
-			},
-		},
-		Data:    &env.Data,
-		Details: env.Details,
-	}, nil
 }

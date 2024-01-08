@@ -9,21 +9,23 @@ one at https://mozilla.org/MPL/2.0/.
 package v1alpha1
 
 import (
+	"fmt"
 	"time"
 
+	"github.com/mitchellh/hashstructure/v2"
 	"github.com/xigxog/kubefox/api"
 	common "github.com/xigxog/kubefox/api/kubernetes"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-type VirtualEnvSpec struct {
-	// Parent ClusterVirtualEnv. Note, only ClusterVirtualEnvs can be used as
-	// parents.
-	Parent string `json:"parent,omitempty"`
+type VirtualEnvironmentSpec struct {
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:MinLength=1
 
-	Release *Release `json:"release,omitempty"`
-
-	ReleasePolicy ReleasePolicy `json:"releasePolicy,omitempty"`
+	// Name of the Environment this VirtualEnvironment is part of.
+	Environment   string                `json:"environment"`
+	Release       *Release              `json:"release,omitempty"`
+	ReleasePolicy *VirtEnvReleasePolicy `json:"releasePolicy,omitempty"`
 }
 
 type Release struct {
@@ -31,10 +33,10 @@ type Release struct {
 
 	AppDeployment ReleaseAppDeployment `json:"appDeployment"`
 
-	// Name of VirtualEnvSnapshot to use for Release. If set the immutable Data
-	// object of the snapshot will be used. The source VirtualEnv of the
-	// snapshot must be the same as the VirtualEnv of the Release.
-	VirtualEnvSnapshot string `json:"virtualEnvSnapshot,omitempty"`
+	// Name of DataSnapshot to use for Release. If set, the immutable Data
+	// object of the snapshot will be used. The source of the snapshot must be
+	// this VirtualEnvironment.
+	DataSnapshot string `json:"dataSnapshot,omitempty"`
 }
 
 type ReleaseAppDeployment struct {
@@ -48,52 +50,51 @@ type ReleaseAppDeployment struct {
 	Version string `json:"version,omitempty"`
 }
 
-type ReleasePolicy struct {
+type VirtEnvReleasePolicy struct {
 	// +kubebuilder:validation:Minimum=3
-	// +kubebuilder:default=300
 
 	// If the pending Request cannot be activated before the deadline it will be
 	// considered failed. If the Release becomes available for activation after
-	// the deadline has been exceeded, it will not be activated.
-	PendingDeadlineSeconds uint `json:"pendingDeadlineSeconds,omitempty"`
+	// the deadline has been exceeded, it will not be activated. Pointer is used
+	// to distinguish between not set and false.
+	PendingDeadlineSeconds *uint `json:"pendingDeadlineSeconds,omitempty"`
 
-	// +kubebuilder:validation:Enum=VersionOptional;VersionRequired
-	// +kubebuilder:default=VersionRequired
-	AppDeploymentPolicy api.AppDeploymentPolicy `json:"appDeploymentPolicy,omitempty"`
+	// If true '.spec.release.appDeployment.version' is required. Pointer is
+	// used to distinguish between not set and false.
+	VersionRequired *bool `json:"versionRequired,omitempty"`
 
-	// +kubebuilder:validation:Enum=SnapshotOptional;SnapshotRequired
-	// +kubebuilder:default=SnapshotRequired
-	VirtualEnvPolicy api.VirtualEnvPolicy `json:"virtualEnvPolicy,omitempty"`
+	// If '.spec.release.dataSnapshot' is required. Pointer is used to
+	// distinguish between not set and false.
+	DataSnapshotRequired *bool `json:"dataSnapshotRequired,omitempty"`
 
-	HistoryLimits ReleaseHistoryLimits `json:"historyLimits,omitempty"`
+	HistoryLimits *VirtEnvHistoryLimits `json:"historyLimits,omitempty"`
 }
 
-type ReleaseHistoryLimits struct {
+type VirtEnvHistoryLimits struct {
 	// +kubebuilder:validation:Minimum=0
-	// +kubebuilder:default=10
 
 	// Maximum number of Releases to keep in history. Once the limit is reached
 	// the oldest Release in history will be deleted. Age is based on
-	// archiveTime.
-	Count uint `json:"count,omitempty"`
+	// archiveTime. Pointer is used to distinguish between not set and false.
+	Count *uint `json:"count,omitempty"`
 
 	// +kubebuilder:validation:Minimum=0
-	// +kubebuilder:default=0
 
 	// Maximum age of the Release to keep in history. Once the limit is reached
 	// the oldest Release in history will be deleted. Age is based on
-	// archiveTime. Set to 0 to disable.
-	AgeDays uint `json:"ageDays,omitempty"`
+	// archiveTime. Set to 0 to disable. Pointer is used to distinguish between
+	// not set and false.
+	AgeDays *uint `json:"ageDays,omitempty"`
 }
 
 type ReleaseStatus struct {
-	AppDeployment      ReleaseAppDeploymentStatus `json:"appDeployment,omitempty"`
-	VirtualEnvSnapshot string                     `json:"virtualEnvSnapshot,omitempty"`
+	AppDeployment ReleaseAppDeploymentStatus `json:"appDeployment,omitempty"`
+	DataSnapshot  string                     `json:"dataSnapshot,omitempty"`
 
-	// Time at which the VirtualEnv was updated to use the Release.
+	// Time at which the VirtualEnvironment was updated to use the Release.
 	RequestTime metav1.Time `json:"requestTime,omitempty"`
 	// Time at which the Release became active. If not set the Release was never
-	// active.
+	// activated.
 	ActivationTime *metav1.Time `json:"activationTime,omitempty"`
 	// Time at which the Release was archived to history.
 	ArchiveTime *metav1.Time `json:"archiveTime,omitempty"`
@@ -117,17 +118,10 @@ type ReleaseAppDeploymentStatus struct {
 	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
 }
 
-type VirtualEnvDetails struct {
-	api.Details `json:",inline"`
-
-	Vars    map[string]api.Details `json:"vars,omitempty"`
-	Secrets map[string]api.Details `json:"secrets,omitempty"`
-}
-
-type VirtualEnvStatus struct {
-	// DataChecksum is a hash value of the Data object. If the VirtualEnv has a
-	// parent the parent's Data object is merged before the hash is create. It
-	// can be used to check for changes to the Data object.
+type VirtualEnvironmentStatus struct {
+	// DataChecksum is a hash value of the Data object. The Environment Data
+	// object is merged before the hash is create. It can be used to check for
+	// changes to the Data object.
 	DataChecksum string `json:"dataChecksum,omitempty"`
 
 	PendingReleaseFailed bool `json:"pendingReleaseFailed,omitempty"`
@@ -150,34 +144,36 @@ type VirtualEnvStatus struct {
 
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
+// +kubebuilder:resource:path=virtualenvironments,shortName=virtenv;ve
 // +kubebuilder:printcolumn:name="Available",type=string,JSONPath=`.status.conditions[?(@.type=='ActiveReleaseAvailable')].status`
+// +kubebuilder:printcolumn:name="Reason",type=string,JSONPath=`.status.conditions[?(@.type=='ActiveReleaseAvailable')].reason`
 // +kubebuilder:printcolumn:name="Release",type=string,JSONPath=`.status.activeRelease.appDeployment.name`
 // +kubebuilder:printcolumn:name="Version",type=string,JSONPath=`.status.activeRelease.appDeployment.version`
-// +kubebuilder:printcolumn:name="Snapshot",type=string,JSONPath=`.status.activeRelease.virtualEnvSnapshot`,priority=1
+// +kubebuilder:printcolumn:name="Snapshot",type=string,JSONPath=`.status.activeRelease.dataSnapshot`,priority=1
 // +kubebuilder:printcolumn:name="Pending",type=string,JSONPath=`.status.pendingRelease.appDeployment.name`
 // +kubebuilder:printcolumn:name="Pending Version",type=string,JSONPath=`.status.pendingRelease.appDeployment.version`
-// +kubebuilder:printcolumn:name="Pending Snapshot",type=string,JSONPath=`.status.pendingRelease.virtualEnvSnapshot`,priority=1
+// +kubebuilder:printcolumn:name="Pending Snapshot",type=string,JSONPath=`.status.pendingRelease.dataSnapshot`,priority=1
 // +kubebuilder:printcolumn:name="Pending Reason",type=string,JSONPath=`.status.conditions[?(@.type=='ReleasePending')].reason`,priority=1
 // +kubebuilder:printcolumn:name="Title",type=string,JSONPath=`.details.title`,priority=1
 // +kubebuilder:printcolumn:name="Description",type=string,JSONPath=`.details.description`,priority=1
 
-type VirtualEnv struct {
+type VirtualEnvironment struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec    VirtualEnvSpec     `json:"spec,omitempty"`
-	Data    api.VirtualEnvData `json:"data,omitempty"`
-	Details VirtualEnvDetails  `json:"details,omitempty"`
-	Status  VirtualEnvStatus   `json:"status,omitempty"`
+	Spec    VirtualEnvironmentSpec   `json:"spec,omitempty"`
+	Data    api.Data                 `json:"data,omitempty"`
+	Details DataDetails              `json:"details,omitempty"`
+	Status  VirtualEnvironmentStatus `json:"status,omitempty"`
 }
 
 // +kubebuilder:object:root=true
 
-type VirtualEnvList struct {
+type VirtualEnvironmentList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
 
-	Items []VirtualEnv `json:"items"`
+	Items []VirtualEnvironment `json:"items"`
 }
 
 func (r *ReleaseStatus) Equals(other *Release) bool {
@@ -191,64 +187,97 @@ func (r *ReleaseStatus) Equals(other *Release) bool {
 	}
 
 	return r.AppDeployment.ReleaseAppDeployment == other.AppDeployment &&
-		r.VirtualEnvSnapshot == other.VirtualEnvSnapshot
+		r.DataSnapshot == other.DataSnapshot
 }
 
-func (env *VirtualEnv) ReleasePendingDeadline() time.Duration {
-	if env.Spec.ReleasePolicy.PendingDeadlineSeconds == 0 {
+func (ve *VirtualEnvironment) GetData() *api.Data {
+	return &ve.Data
+}
+
+func (ve *VirtualEnvironment) GetDataChecksum() string {
+	hash, _ := hashstructure.Hash(&ve.Data, hashstructure.FormatV2, nil)
+	return fmt.Sprint(hash)
+}
+
+func (ve *VirtualEnvironment) GetReleasePendingDeadline() time.Duration {
+	secs := ve.Spec.ReleasePolicy.PendingDeadlineSeconds
+	if secs == nil || *secs == 0 {
 		return api.DefaultReleasePendingDeadlineSeconds * time.Second
 	}
 
-	return time.Duration(env.Spec.ReleasePolicy.PendingDeadlineSeconds * uint(time.Second))
+	return time.Duration(*secs * uint(time.Second))
 }
 
-// ReleasePendingDuration returns the current duration that the Release has been
-// pending. If there is no Release pending 0 is returned.
-func (env *VirtualEnv) ReleasePendingDuration() time.Duration {
-	if env.Status.PendingRelease == nil {
+// GetReleasePendingDuration returns the current duration that the Release has
+// been pending. If there is no Release pending 0 is returned.
+func (ve *VirtualEnvironment) GetReleasePendingDuration() time.Duration {
+	if ve.Status.PendingRelease == nil {
 		return 0
 	}
 
-	return time.Since(env.Status.PendingRelease.RequestTime.Time)
+	return time.Since(ve.Status.PendingRelease.RequestTime.Time)
 }
 
-func (env *VirtualEnv) MergeParent(parent *ClusterVirtualEnv) {
-	if env.Data.Vars == nil {
-		env.Data.Vars = parent.Data.Vars
-		env.Details.Vars = parent.Details.Vars
+func (ve *VirtualEnvironment) Merge(env *Environment) {
+	if ve.Data.Vars == nil {
+		ve.Data.Vars = env.Data.Vars
+		ve.Details.Vars = env.Details.Vars
 	} else {
 		mergeDataAndDetails(
-			env.Data.Vars, env.Details.Vars,
-			parent.Data.Vars, parent.Details.Vars)
+			ve.Data.Vars, ve.Details.Vars,
+			env.Data.Vars, env.Details.Vars)
 	}
 
-	if env.Data.Secrets == nil {
-		env.Data.Secrets = parent.Data.Secrets
-		env.Details.Secrets = parent.Details.Secrets
+	if ve.Data.Secrets == nil {
+		ve.Data.Secrets = env.Data.Secrets
+		ve.Details.Secrets = env.Details.Secrets
 	} else {
 		mergeDataAndDetails(
-			env.Data.Secrets, env.Details.Secrets,
-			parent.Data.Secrets, parent.Details.Secrets)
+			ve.Data.Secrets, ve.Details.Secrets,
+			env.Data.Secrets, env.Details.Secrets)
 	}
 
-	if env.Spec.ReleasePolicy.AppDeploymentPolicy == "" {
-		env.Spec.ReleasePolicy.AppDeploymentPolicy =
-			parent.Spec.ReleasePolicies.AppDeploymentPolicy
+	if ve.Spec.ReleasePolicy == nil {
+		ve.Spec.ReleasePolicy = &VirtEnvReleasePolicy{}
 	}
-	if env.Spec.ReleasePolicy.VirtualEnvPolicy == "" {
-		env.Spec.ReleasePolicy.VirtualEnvPolicy =
-			parent.Spec.ReleasePolicies.VirtualEnvPolicy
+	if ve.Spec.ReleasePolicy.PendingDeadlineSeconds == nil {
+		ve.Spec.ReleasePolicy.PendingDeadlineSeconds =
+			&env.Spec.ReleasePolicy.PendingDeadlineSeconds
 	}
-	if env.Spec.ReleasePolicy.HistoryLimits.Count == 0 {
-		env.Spec.ReleasePolicy.HistoryLimits.Count =
-			parent.Spec.ReleasePolicies.HistoryLimits.Count
+	if ve.Spec.ReleasePolicy.VersionRequired == nil {
+		if env.Spec.ReleasePolicy.VersionRequired == nil {
+			ve.Spec.ReleasePolicy.VersionRequired = api.True
+		} else {
+			ve.Spec.ReleasePolicy.VersionRequired =
+				env.Spec.ReleasePolicy.VersionRequired
+		}
+	}
+	if ve.Spec.ReleasePolicy.DataSnapshotRequired == nil {
+		if env.Spec.ReleasePolicy.DataSnapshotRequired == nil {
+			ve.Spec.ReleasePolicy.DataSnapshotRequired = api.True
+		} else {
+			ve.Spec.ReleasePolicy.DataSnapshotRequired =
+				env.Spec.ReleasePolicy.DataSnapshotRequired
+		}
 	}
 
-	if env.Details.Title == "" {
-		env.Details.Title = parent.Details.Title
+	if ve.Spec.ReleasePolicy.HistoryLimits == nil {
+		ve.Spec.ReleasePolicy.HistoryLimits = &VirtEnvHistoryLimits{}
 	}
-	if env.Details.Description == "" {
-		env.Details.Description = parent.Details.Description
+	if ve.Spec.ReleasePolicy.HistoryLimits.Count == nil {
+		ve.Spec.ReleasePolicy.HistoryLimits.Count =
+			&env.Spec.ReleasePolicy.HistoryLimits.Count
+	}
+	if ve.Spec.ReleasePolicy.HistoryLimits.AgeDays == nil {
+		ve.Spec.ReleasePolicy.HistoryLimits.AgeDays =
+			&env.Spec.ReleasePolicy.HistoryLimits.AgeDays
+	}
+
+	if ve.Details.Title == "" {
+		ve.Details.Title = env.Details.Title
+	}
+	if ve.Details.Description == "" {
+		ve.Details.Description = env.Details.Description
 	}
 }
 
@@ -280,5 +309,5 @@ func mergeDataAndDetails[V string | *api.Val](
 }
 
 func init() {
-	SchemeBuilder.Register(&VirtualEnv{}, &VirtualEnvList{})
+	SchemeBuilder.Register(&VirtualEnvironment{}, &VirtualEnvironmentList{})
 }

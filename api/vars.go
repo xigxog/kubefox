@@ -15,40 +15,54 @@ import (
 	"github.com/xigxog/kubefox/utils"
 )
 
+// Misc
+const (
+	SecretToken              = "••••••"
+	MaximumMaxEventSizeBytes = 16777216 // 16 MiB
+)
+
+var (
+	t     = true
+	f     = false
+	True  = &t
+	False = &f
+)
+
+// Defaults
 const (
 	DefaultLogFormat                     = "json"
 	DefaultLogLevel                      = "info"
 	DefaultMaxEventSizeBytes             = 5242880 // 5 MiB
-	DefaultReleaseHistoryLimitCount      = 10
+	DefaultReleaseHistoryAgeLimit        = 0
+	DefaultReleaseHistoryCountLimit      = 10
 	DefaultReleasePendingDeadlineSeconds = 300 // 5 mins
 	DefaultTimeoutSeconds                = 30
-
-	MaximumMaxEventSizeBytes = 16777216 // 16 MiB
 )
 
 // Kubernetes Labels
 const (
-	LabelK8sAppBranch             string = "kubefox.xigxog.io/app-branch"
-	LabelK8sAppCommit             string = "kubefox.xigxog.io/app-commit"
-	LabelK8sAppCommitShort        string = "kubefox.xigxog.io/app-commit-short"
-	LabelK8sAppComponent          string = "kubefox.xigxog.io/app-component"
-	LabelK8sAppDeployment         string = "kubefox.xigxog.io/app-deployment"
-	LabelK8sAppName               string = "app.kubernetes.io/name"
-	LabelK8sAppTag                string = "kubefox.xigxog.io/app-tag"
-	LabelK8sAppVersion            string = "kubefox.xigxog.io/app-version"
-	LabelK8sComponent             string = "app.kubernetes.io/component"
-	LabelK8sComponentCommit       string = "kubefox.xigxog.io/component-commit"
-	LabelK8sComponentCommitShort  string = "kubefox.xigxog.io/component-commit-short"
-	LabelK8sComponentType         string = "kubefox.xigxog.io/component-type"
-	LabelK8sInstance              string = "app.kubernetes.io/instance"
-	LabelK8sPlatform              string = "kubefox.xigxog.io/platform"
-	LabelK8sPlatformComponent     string = "kubefox.xigxog.io/platform-component"
-	LabelK8sReleaseStatus         string = "kubefox.xigxog.io/release-status"
-	LabelK8sRuntimeVersion        string = "kubefox.xigxog.io/runtime-version"
-	LabelK8sSourceResourceVersion string = "kubefox.xigxog.io/source-resource-version"
-	LabelK8sVirtualEnv            string = "kubefox.xigxog.io/virtual-env"
-	LabelK8sVirtualEnvParent      string = "kubefox.xigxog.io/virtual-env-parent"
-	LabelK8sVirtualEnvSnapshot    string = "kubefox.xigxog.io/virtual-env-snapshot"
+	LabelK8sAppBranch            string = "kubefox.xigxog.io/app-branch"
+	LabelK8sAppCommit            string = "kubefox.xigxog.io/app-commit"
+	LabelK8sAppCommitShort       string = "kubefox.xigxog.io/app-commit-short"
+	LabelK8sAppComponent         string = "kubefox.xigxog.io/app-component"
+	LabelK8sAppDeployment        string = "kubefox.xigxog.io/app-deployment"
+	LabelK8sAppName              string = "app.kubernetes.io/name"
+	LabelK8sAppTag               string = "kubefox.xigxog.io/app-tag"
+	LabelK8sAppVersion           string = "kubefox.xigxog.io/app-version"
+	LabelK8sComponent            string = "app.kubernetes.io/component"
+	LabelK8sComponentCommit      string = "kubefox.xigxog.io/component-commit"
+	LabelK8sComponentCommitShort string = "kubefox.xigxog.io/component-commit-short"
+	LabelK8sComponentType        string = "kubefox.xigxog.io/component-type"
+	LabelK8sDataSnapshot         string = "kubefox.xigxog.io/data-snapshot"
+	LabelK8sEnvironment          string = "kubefox.xigxog.io/environment"
+	LabelK8sInstance             string = "app.kubernetes.io/instance"
+	LabelK8sPlatform             string = "kubefox.xigxog.io/platform"
+	LabelK8sPlatformComponent    string = "kubefox.xigxog.io/platform-component"
+	LabelK8sReleaseStatus        string = "kubefox.xigxog.io/release-status"
+	LabelK8sRuntimeVersion       string = "kubefox.xigxog.io/runtime-version"
+	LabelK8sSourceKind           string = "kubefox.xigxog.io/source-kind"
+	LabelK8sSourceName           string = "kubefox.xigxog.io/source-name"
+	LabelK8sSourceVersion        string = "kubefox.xigxog.io/source-version"
 )
 
 // Kubernetes Annotations
@@ -67,7 +81,8 @@ const (
 )
 
 const (
-	FinalizerReleaseProtection string = "kubefox.xigxog.io/release-protection"
+	FinalizerEnvironmentProtection string = "kubefox.xigxog.io/environment-protection"
+	FinalizerReleaseProtection     string = "kubefox.xigxog.io/release-protection"
 )
 
 const (
@@ -92,21 +107,22 @@ const (
 )
 
 const (
-	ConditionReasonAppDeploymentAvailable         string = "AppDeploymentAvailable"
 	ConditionReasonBrokerUnavailable              string = "BrokerUnavailable"
 	ConditionReasonComponentDeploymentFailed      string = "ComponentDeploymentFailed"
 	ConditionReasonComponentDeploymentProgressing string = "ComponentDeploymentProgressing"
 	ConditionReasonComponentsAvailable            string = "ComponentsAvailable"
 	ConditionReasonComponentsDeployed             string = "ComponentsDeployed"
 	ConditionReasonComponentUnavailable           string = "ComponentUnavailable"
+	ConditionReasonContextAvailable               string = "ContextAvailable"
+	ConditionReasonEnvironmentNotFound            string = "EnvironmentNotFound"
 	ConditionReasonHTTPSrvUnavailable             string = "HTTPSrvUnavailable"
 	ConditionReasonNATSUnavailable                string = "NATSUnavailable"
 	ConditionReasonNoRelease                      string = "NoRelease"
 	ConditionReasonPendingDeadlineExceeded        string = "PendingDeadlineExceeded"
 	ConditionReasonPlatformComponentsAvailable    string = "PlatformComponentsAvailable"
-	ConditionReasonProblemsExist                  string = "ProblemsExist"
+	ConditionReasonProblemsFound                  string = "ProblemsFound"
 	ConditionReasonReconcileFailed                string = "ReconcileFailed"
-	ConditionReasonReleaseActive                  string = "ReleaseActive"
+	ConditionReasonReleaseActivated               string = "ReleaseActivated"
 	ConditionReasonReleasePending                 string = "ReleasePending"
 )
 
@@ -133,16 +149,24 @@ const (
 type ProblemType string
 
 const (
-	ProblemTypeAdapterNotFound          ProblemType = "AdapterNotFound"
-	ProblemTypeAppDeploymentFailed      ProblemType = "AppDeploymentFailed"
-	ProblemTypeDependencyInvalid        ProblemType = "DependencyInvalid"
-	ProblemTypeDependencyNotFound       ProblemType = "DependencyNotFound"
-	ProblemTypeParseError               ProblemType = "ParseError"
-	ProblemTypePolicyViolation          ProblemType = "PolicyViolation"
-	ProblemTypeRouteConflict            ProblemType = "RouteConflict"
-	ProblemTypeVarNotFound              ProblemType = "VarNotFound"
-	ProblemTypeVarWrongType             ProblemType = "VarWrongType"
-	ProblemTypeVirtualEnvSnapshotFailed ProblemType = "VirtualEnvSnapshotFailed"
+	ProblemTypeAdapterNotFound       ProblemType = "AdapterNotFound"
+	ProblemTypeAppDeploymentFailed   ProblemType = "AppDeploymentFailed"
+	ProblemTypeAppDeploymentNotFound ProblemType = "AppDeploymentNotFound"
+	ProblemTypeDataSnapshotInvalid   ProblemType = "DataSnapshotInvalid"
+	ProblemTypeDataSnapshotNotFound  ProblemType = "DataSnapshotNotFound"
+	ProblemTypeDependencyInvalid     ProblemType = "DependencyInvalid"
+	ProblemTypeDependencyNotFound    ProblemType = "DependencyNotFound"
+	ProblemTypeParseError            ProblemType = "ParseError"
+	ProblemTypePolicyViolation       ProblemType = "PolicyViolation"
+	ProblemTypeRouteConflict         ProblemType = "RouteConflict"
+	ProblemTypeVarNotFound           ProblemType = "VarNotFound"
+	ProblemTypeVarWrongType          ProblemType = "VarWrongType"
+)
+
+type DataSourceKind string
+
+const (
+	DataSourceKindVirtualEnvironment DataSourceKind = "VirtualEnvironment"
 )
 
 type ProblemSourceKind string
@@ -150,9 +174,9 @@ type ProblemSourceKind string
 const (
 	ProblemSourceKindAppDeployment      ProblemSourceKind = "AppDeployment"
 	ProblemSourceKindComponent          ProblemSourceKind = "Component"
+	ProblemSourceKindDataSnapshot       ProblemSourceKind = "DataSnapshot"
 	ProblemSourceKindHTTPAdapter        ProblemSourceKind = "HTTPAdapter"
-	ProblemSourceKindVirtualEnv         ProblemSourceKind = "VirtualEnv"
-	ProblemSourceKindVirtualEnvSnapshot ProblemSourceKind = "VirtualEnvSnapshot"
+	ProblemSourceKindVirtualEnvironment ProblemSourceKind = "VirtualEnvironment"
 )
 
 type EnvVarType string
@@ -216,20 +240,6 @@ const (
 	EventTypeUnknown   EventType = "io.kubefox.unknown"
 )
 
-type AppDeploymentPolicy string
-
-const (
-	AppDeploymentPolicyVersionOptional AppDeploymentPolicy = "VersionOptional"
-	AppDeploymentPolicyVersionRequired AppDeploymentPolicy = "VersionRequired"
-)
-
-type VirtualEnvPolicy string
-
-const (
-	VirtualEnvPolicySnapshotOptional VirtualEnvPolicy = "SnapshotOptional"
-	VirtualEnvPolicySnapshotRequired VirtualEnvPolicy = "SnapshotRequired"
-)
-
 // Keys for well known values.
 const (
 	ValKeyHeader       = "header"
@@ -249,20 +259,20 @@ const (
 
 // Headers and query params.
 const (
-	HeaderAdapter         = "kubefox-adapter"
-	HeaderAppDep          = "kubefox-app-deployment"
-	HeaderAppDepAbbrv     = "kf-dep"
-	HeaderAppDepShort     = "kfd"
-	HeaderContentLength   = "Content-Length"
-	HeaderEventType       = "kubefox-event-type"
-	HeaderEventTypeAbbrv  = "kf-type"
-	HeaderEventTypeShort  = "kft"
-	HeaderHost            = "Host"
-	HeaderPlatform        = "kubefox-platform"
-	HeaderTraceId         = "kubefox-trace-id"
-	HeaderVirtualEnv      = "kubefox-virtual-env"
-	HeaderVirtualEnvAbbrv = "kf-env"
-	HeaderVirtualEnvShort = "kfe"
+	HeaderAdapter                 = "kubefox-adapter"
+	HeaderAppDep                  = "kubefox-app-deployment"
+	HeaderAppDepAbbrv             = "kf-dep"
+	HeaderAppDepShort             = "kfd"
+	HeaderContentLength           = "Content-Length"
+	HeaderEventType               = "kubefox-event-type"
+	HeaderEventTypeAbbrv          = "kf-type"
+	HeaderEventTypeShort          = "kft"
+	HeaderHost                    = "Host"
+	HeaderPlatform                = "kubefox-platform"
+	HeaderTraceId                 = "kubefox-trace-id"
+	HeaderVirtualEnvironment      = "kubefox-virtual-environment"
+	HeaderVirtualEnvironmentAbbrv = "kf-env"
+	HeaderVirtualEnvironmentShort = "kfe"
 )
 
 const (

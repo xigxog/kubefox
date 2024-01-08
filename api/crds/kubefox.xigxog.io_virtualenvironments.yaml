@@ -12,19 +12,25 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.13.0
-  name: virtualenvs.kubefox.xigxog.io
+  name: virtualenvironments.kubefox.xigxog.io
 spec:
   group: kubefox.xigxog.io
   names:
-    kind: VirtualEnv
-    listKind: VirtualEnvList
-    plural: virtualenvs
-    singular: virtualenv
+    kind: VirtualEnvironment
+    listKind: VirtualEnvironmentList
+    plural: virtualenvironments
+    shortNames:
+    - virtenv
+    - ve
+    singular: virtualenvironment
   scope: Namespaced
   versions:
   - additionalPrinterColumns:
     - jsonPath: .status.conditions[?(@.type=='ActiveReleaseAvailable')].status
       name: Available
+      type: string
+    - jsonPath: .status.conditions[?(@.type=='ActiveReleaseAvailable')].reason
+      name: Reason
       type: string
     - jsonPath: .status.activeRelease.appDeployment.name
       name: Release
@@ -32,7 +38,7 @@ spec:
     - jsonPath: .status.activeRelease.appDeployment.version
       name: Version
       type: string
-    - jsonPath: .status.activeRelease.virtualEnvSnapshot
+    - jsonPath: .status.activeRelease.dataSnapshot
       name: Snapshot
       priority: 1
       type: string
@@ -42,7 +48,7 @@ spec:
     - jsonPath: .status.pendingRelease.appDeployment.version
       name: Pending Version
       type: string
-    - jsonPath: .status.pendingRelease.virtualEnvSnapshot
+    - jsonPath: .status.pendingRelease.dataSnapshot
       name: Pending Snapshot
       priority: 1
       type: string
@@ -70,9 +76,8 @@ spec:
           data:
             properties:
               secrets:
-                additionalProperties:
-                  type: string
                 type: object
+                x-kubernetes-preserve-unknown-fields: true
               vars:
                 type: object
                 x-kubernetes-preserve-unknown-fields: true
@@ -111,9 +116,10 @@ spec:
             type: object
           spec:
             properties:
-              parent:
-                description: Parent ClusterVirtualEnv. Note, only ClusterVirtualEnvs
-                  can be used as parents.
+              environment:
+                description: Name of the Environment this VirtualEnvironment is part
+                  of.
+                minLength: 1
                 type: string
               release:
                 properties:
@@ -131,56 +137,54 @@ spec:
                     required:
                     - name
                     type: object
-                  virtualEnvSnapshot:
-                    description: Name of VirtualEnvSnapshot to use for Release. If
-                      set the immutable Data object of the snapshot will be used.
-                      The source VirtualEnv of the snapshot must be the same as the
-                      VirtualEnv of the Release.
+                  dataSnapshot:
+                    description: Name of DataSnapshot to use for Release. If set,
+                      the immutable Data object of the snapshot will be used. The
+                      source of the snapshot must be this VirtualEnvironment.
                     type: string
                 required:
                 - appDeployment
                 type: object
               releasePolicy:
                 properties:
-                  appDeploymentPolicy:
-                    default: VersionRequired
-                    enum:
-                    - VersionOptional
-                    - VersionRequired
-                    type: string
+                  dataSnapshotRequired:
+                    description: If '.spec.release.dataSnapshot' is required. Pointer
+                      is used to distinguish between not set and false.
+                    type: boolean
                   historyLimits:
                     properties:
                       ageDays:
-                        default: 0
                         description: Maximum age of the Release to keep in history.
                           Once the limit is reached the oldest Release in history
                           will be deleted. Age is based on archiveTime. Set to 0 to
-                          disable.
+                          disable. Pointer is used to distinguish between not set
+                          and false.
                         minimum: 0
                         type: integer
                       count:
-                        default: 10
                         description: Maximum number of Releases to keep in history.
                           Once the limit is reached the oldest Release in history
-                          will be deleted. Age is based on archiveTime.
+                          will be deleted. Age is based on archiveTime. Pointer is
+                          used to distinguish between not set and false.
                         minimum: 0
                         type: integer
                     type: object
                   pendingDeadlineSeconds:
-                    default: 300
                     description: If the pending Request cannot be activated before
                       the deadline it will be considered failed. If the Release becomes
                       available for activation after the deadline has been exceeded,
-                      it will not be activated.
+                      it will not be activated. Pointer is used to distinguish between
+                      not set and false.
                     minimum: 3
                     type: integer
-                  virtualEnvPolicy:
-                    default: SnapshotRequired
-                    enum:
-                    - SnapshotOptional
-                    - SnapshotRequired
-                    type: string
+                  versionRequired:
+                    description: If true '.spec.release.appDeployment.version' is
+                      required. Pointer is used to distinguish between not set and
+                      false.
+                    type: boolean
                 type: object
+            required:
+            - environment
             type: object
           status:
             properties:
@@ -188,7 +192,7 @@ spec:
                 properties:
                   activationTime:
                     description: Time at which the Release became active. If not set
-                      the Release was never active.
+                      the Release was never activated.
                     format: date-time
                     type: string
                   appDeployment:
@@ -225,6 +229,8 @@ spec:
                     description: Time at which the Release was archived to history.
                     format: date-time
                     type: string
+                  dataSnapshot:
+                    type: string
                   problems:
                     items:
                       description: ObservedTime is added here instead of api package
@@ -240,8 +246,8 @@ spec:
                                 - Component
                                 - HTTPAdapter
                                 - Release
-                                - VirtualEnv
-                                - VirtualEnvSnapshot
+                                - VirtualEnvironment
+                                - DataSnapshot
                                 type: string
                               name:
                                 type: string
@@ -283,7 +289,7 @@ spec:
                           - RouteConflict
                           - VarNotFound
                           - VarWrongType
-                          - VirtualEnvSnapshotFailed
+                          - DataSnapshotFailed
                           type: string
                       required:
                       - observedTime
@@ -291,11 +297,9 @@ spec:
                       type: object
                     type: array
                   requestTime:
-                    description: Time at which the VirtualEnv was updated to use the
-                      Release.
+                    description: Time at which the VirtualEnvironment was updated
+                      to use the Release.
                     format: date-time
-                    type: string
-                  virtualEnvSnapshot:
                     type: string
                 type: object
               conditions:
@@ -370,16 +374,15 @@ spec:
                 - type
                 x-kubernetes-list-type: map
               dataChecksum:
-                description: DataChecksum is a hash value of the Data object. If the
-                  VirtualEnv has a parent the parent's Data object is merged before
-                  the hash is create. It can be used to check for changes to the Data
-                  object.
+                description: DataChecksum is a hash value of the Data object. The
+                  Environment Data object is merged before the hash is create. It
+                  can be used to check for changes to the Data object.
                 type: string
               pendingRelease:
                 properties:
                   activationTime:
                     description: Time at which the Release became active. If not set
-                      the Release was never active.
+                      the Release was never activated.
                     format: date-time
                     type: string
                   appDeployment:
@@ -416,6 +419,8 @@ spec:
                     description: Time at which the Release was archived to history.
                     format: date-time
                     type: string
+                  dataSnapshot:
+                    type: string
                   problems:
                     items:
                       description: ObservedTime is added here instead of api package
@@ -431,8 +436,8 @@ spec:
                                 - Component
                                 - HTTPAdapter
                                 - Release
-                                - VirtualEnv
-                                - VirtualEnvSnapshot
+                                - VirtualEnvironment
+                                - DataSnapshot
                                 type: string
                               name:
                                 type: string
@@ -474,7 +479,7 @@ spec:
                           - RouteConflict
                           - VarNotFound
                           - VarWrongType
-                          - VirtualEnvSnapshotFailed
+                          - DataSnapshotFailed
                           type: string
                       required:
                       - observedTime
@@ -482,11 +487,9 @@ spec:
                       type: object
                     type: array
                   requestTime:
-                    description: Time at which the VirtualEnv was updated to use the
-                      Release.
+                    description: Time at which the VirtualEnvironment was updated
+                      to use the Release.
                     format: date-time
-                    type: string
-                  virtualEnvSnapshot:
                     type: string
                 type: object
               pendingReleaseFailed:
@@ -496,7 +499,7 @@ spec:
                   properties:
                     activationTime:
                       description: Time at which the Release became active. If not
-                        set the Release was never active.
+                        set the Release was never activated.
                       format: date-time
                       type: string
                     appDeployment:
@@ -533,6 +536,8 @@ spec:
                       description: Time at which the Release was archived to history.
                       format: date-time
                       type: string
+                    dataSnapshot:
+                      type: string
                     problems:
                       items:
                         description: ObservedTime is added here instead of api package
@@ -549,8 +554,8 @@ spec:
                                   - Component
                                   - HTTPAdapter
                                   - Release
-                                  - VirtualEnv
-                                  - VirtualEnvSnapshot
+                                  - VirtualEnvironment
+                                  - DataSnapshot
                                   type: string
                                 name:
                                   type: string
@@ -592,7 +597,7 @@ spec:
                             - RouteConflict
                             - VarNotFound
                             - VarWrongType
-                            - VirtualEnvSnapshotFailed
+                            - DataSnapshotFailed
                             type: string
                         required:
                         - observedTime
@@ -600,11 +605,9 @@ spec:
                         type: object
                       type: array
                     requestTime:
-                      description: Time at which the VirtualEnv was updated to use
-                        the Release.
+                      description: Time at which the VirtualEnvironment was updated
+                        to use the Release.
                       format: date-time
-                      type: string
-                    virtualEnvSnapshot:
                       type: string
                   type: object
                 type: array

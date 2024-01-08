@@ -41,8 +41,9 @@ webhooks:
           - UPDATE
         resources:
           - appdeployments
-          - virtualenvs
-          - virtualenvsnapshots
+          - datasnapshots
+          - environments
+          - virtualenvironments
 
   - name: platform-mutation.kubefox.xigxog.io
     failurePolicy: Fail
@@ -76,7 +77,7 @@ webhooks:
       service:
         name: {{ name }}-operator
         namespace: {{ namespace }}
-        path: /v1alpha1/virtualenvsnapshots/mutate
+        path: /v1alpha1/datasnapshots/mutate
     rules:
       - apiGroups:
           - kubefox.xigxog.io
@@ -85,4 +86,28 @@ webhooks:
         operations:
           - CREATE
         resources:
-          - virtualenvsnapshots
+          - datasnapshots
+
+  - name: secrets-mutation.kubefox.xigxog.io
+    failurePolicy: Fail
+    sideEffects: None
+    admissionReviewVersions:
+      - v1
+    clientConfig:
+      caBundle: {{ .Values.caBundle }}
+      service:
+        name: {{ name }}-operator
+        namespace: {{ namespace }}
+        path: /secrets/mutate
+    rules:
+      - apiGroups:
+          - kubefox.xigxog.io
+        apiVersions:
+          - v1alpha1
+        operations:
+          - CREATE
+          - UPDATE
+        resources:
+          - datasnapshots
+          - environments
+          - virtualenvironments
