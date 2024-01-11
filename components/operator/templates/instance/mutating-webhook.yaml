@@ -20,6 +20,27 @@ metadata:
     {{- . | toYaml | nindent 4 }}
   {{- end }}
 webhooks:
+  - name: app-deployment-mutation.kubefox.xigxog.io
+    failurePolicy: Fail
+    sideEffects: None
+    admissionReviewVersions:
+      - v1
+    clientConfig:
+      caBundle: {{ .Values.caBundle }}
+      service:
+        name: {{ name }}-operator
+        namespace: {{ namespace }}
+        path: /v1alpha1/appdeployments/mutate
+    rules:
+      - apiGroups:
+          - kubefox.xigxog.io
+        apiVersions:
+          - v1alpha1
+        operations:
+          - CREATE
+        resources:
+          - appdeployments
+
   - name: index-mutation.kubefox.xigxog.io
     failurePolicy: Fail
     sideEffects: None
@@ -41,8 +62,8 @@ webhooks:
           - UPDATE
         resources:
           - appdeployments
-          - datasnapshots
           - environments
+          - releasemanifests
           - virtualenvironments
 
   - name: platform-mutation.kubefox.xigxog.io
@@ -67,27 +88,6 @@ webhooks:
         resources:
           - platforms
 
-  - name: snapshot-mutation.kubefox.xigxog.io
-    failurePolicy: Fail
-    sideEffects: None
-    admissionReviewVersions:
-      - v1
-    clientConfig:
-      caBundle: {{ .Values.caBundle }}
-      service:
-        name: {{ name }}-operator
-        namespace: {{ namespace }}
-        path: /v1alpha1/datasnapshots/mutate
-    rules:
-      - apiGroups:
-          - kubefox.xigxog.io
-        apiVersions:
-          - v1alpha1
-        operations:
-          - CREATE
-        resources:
-          - datasnapshots
-
   - name: secrets-mutation.kubefox.xigxog.io
     failurePolicy: Fail
     sideEffects: None
@@ -108,6 +108,6 @@ webhooks:
           - CREATE
           - UPDATE
         resources:
-          - datasnapshots
           - environments
+          - releasemanifests
           - virtualenvironments

@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package controller
+package webhook
 
 import (
 	"context"
@@ -24,12 +24,14 @@ import (
 
 	"github.com/xigxog/kubefox/api"
 	"github.com/xigxog/kubefox/api/kubernetes/v1alpha1"
+	"github.com/xigxog/kubefox/components/operator/defaults"
+	"github.com/xigxog/kubefox/k8s"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 )
 
 type PlatformWebhook struct {
-	*Client
+	*k8s.Client
 	*admission.Decoder
 }
 
@@ -83,9 +85,9 @@ func (r *PlatformWebhook) Handle(ctx context.Context, req admission.Request) adm
 		svc.Ports.HTTPS = 443
 	}
 
-	SetDefaults(&platform.Spec.NATS.ContainerSpec, &NATSDefaults)
-	SetDefaults(&platform.Spec.Broker.ContainerSpec, &BrokerDefaults)
-	SetDefaults(&platform.Spec.HTTPSrv.ContainerSpec, &HTTPSrvDefaults)
+	defaults.Set(&platform.Spec.NATS.ContainerSpec, &defaults.NATS)
+	defaults.Set(&platform.Spec.Broker.ContainerSpec, &defaults.Broker)
+	defaults.Set(&platform.Spec.HTTPSrv.ContainerSpec, &defaults.HTTPSrv)
 
 	current, err := json.Marshal(platform)
 	if err != nil {

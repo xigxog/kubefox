@@ -20,6 +20,7 @@ import (
 	common "github.com/xigxog/kubefox/api/kubernetes"
 	"github.com/xigxog/kubefox/api/kubernetes/v1alpha1"
 	"github.com/xigxog/kubefox/build"
+	"github.com/xigxog/kubefox/components/operator/defaults"
 	"github.com/xigxog/kubefox/components/operator/templates"
 	"github.com/xigxog/kubefox/core"
 	"github.com/xigxog/kubefox/k8s"
@@ -131,26 +132,15 @@ func (cm *ComponentManager) ReconcileApps(ctx context.Context, namespace string)
 		logkf.KeyPlatform, platform.Name,
 	)
 
-	appDepList := &v1alpha1.AppDeploymentList{}
-	if err := cm.List(ctx, appDepList, client.InNamespace(platform.Namespace)); err != nil {
+	var appDepSpecs []v1alpha1.AppDeploymentSpec
+
+	appDeps := &v1alpha1.AppDeploymentList{}
+	if err := cm.List(ctx, appDeps, client.InNamespace(platform.Namespace)); err != nil {
 		return false, err
 	}
-	log.Debugf("found %d AppDeployments", len(appDepList.Items))
+	log.Debugf("found %d AppDeployments", len(appDeps.Items))
 
-	compDepList := &appsv1.DeploymentList{}
-	if err := cm.List(ctx, compDepList,
-		client.InNamespace(platform.Namespace),
-		client.HasLabels{api.LabelK8sAppComponent, api.LabelK8sAppName}, // filter out Platform Components
-	); err != nil {
-		return false, err
-	}
-
-	maxEventSize := platform.Spec.Events.MaxSize.Value()
-	if platform.Spec.Events.MaxSize.IsZero() {
-		maxEventSize = api.DefaultMaxEventSizeBytes
-	}
-	compMap := make(map[string]*TemplateData)
-	for _, appDep := range appDepList.Items {
+	for _, appDep := range appDeps.Items {
 		problems, err := appDep.Validate(nil, func(name string, typ api.ComponentType) (api.Adapter, error) {
 			switch typ {
 			case api.ComponentTypeHTTPAdapter:
@@ -172,48 +162,69 @@ func (cm *ComponentManager) ReconcileApps(ctx context.Context, namespace string)
 			continue
 		}
 
-		td := TemplateData{
-			Data: templates.Data{
-				Instance: templates.Instance{
-					Name:           cm.instance,
-					BootstrapImage: BootstrapImage,
-				},
-				Platform: templates.Platform{
-					Name:      platform.Name,
-					Namespace: platform.Namespace,
-				},
-				Owner: []*metav1.OwnerReference{
-					metav1.NewControllerRef(platform, platform.GroupVersionKind()),
-				},
+		appDepSpecs = append(appDepSpecs, appDep.Spec)
+	}
 
-				BuildInfo: build.Info,
-			},
+	manifests := &v1alpha1.ReleaseManifestList{}
+	if err := cm.List(ctx, manifests, client.InNamespace(platform.Namespace)); err != nil {
+		return false, err
+	}
+	log.Debugf("found %d ReleaseManifests", len(manifests.Items))
+
+	for _, manifest := range manifests.Items {
+		for _, spec := range manifest.Spec.AppDeployments {
+			appDepSpecs = append(appDepSpecs, spec)
 		}
+	}
 
-		for compName, comp := range appDep.Spec.Components {
+	maxEventSize := platform.Spec.Events.MaxSize.Value()
+	if platform.Spec.Events.MaxSize.IsZero() {
+		maxEventSize = api.DefaultMaxEventSizeBytes
+	}
+	td := TemplateData{
+		Data: templates.Data{
+			Instance: templates.Instance{
+				Name:           cm.instance,
+				BootstrapImage: BootstrapImage,
+			},
+			Platform: templates.Platform{
+				Name:      platform.Name,
+				Namespace: platform.Namespace,
+			},
+			Owner: []*metav1.OwnerReference{
+				metav1.NewControllerRef(platform, platform.GroupVersionKind()),
+			},
+
+			BuildInfo: build.Info,
+		},
+	}
+
+	compsTplData := map[string]*TemplateData{}
+	for _, spec := range appDepSpecs {
+		for compName, comp := range spec.Components {
 			image := comp.Image
 			if image == "" {
-				image = fmt.Sprintf("%s/%s:%s", appDep.Spec.ContainerRegistry, compName, comp.Commit)
+				image = fmt.Sprintf("%s/%s:%s", spec.ContainerRegistry, compName, comp.Commit)
 			}
 
-			compTd := td.ForComponent("component", &appsv1.Deployment{}, &ComponentDefaults, templates.Component{
+			compTd := td.ForComponent("component", &appsv1.Deployment{}, &defaults.Component, templates.Component{
 				Name:            compName,
 				Commit:          comp.Commit,
 				Type:            api.ComponentTypeKubeFox,
-				App:             appDep.Spec.AppName,
+				App:             spec.AppName,
 				Image:           image,
-				ImagePullPolicy: appDep.Spec.ImagePullSecretName,
+				ImagePullPolicy: spec.ImagePullSecretName,
 			})
 			compTd.Values = map[string]any{api.ValKeyMaxEventSize: maxEventSize}
 
-			compMap[compTd.ComponentFullName()] = compTd
+			compsTplData[compTd.ComponentFullName()] = compTd
 		}
 	}
-	log.Debugf("found %d unique Components", len(compMap))
+	log.Debugf("found %d unique Components", len(compsTplData))
 
 	allAvailable := true
-	depMap := make(map[string]*appsv1.Deployment, len(compMap))
-	for _, compTD := range compMap {
+	depMap := make(map[string]*appsv1.Deployment, len(compsTplData))
+	for _, compTD := range compsTplData {
 		available, err := cm.SetupComponent(ctx, compTD)
 		if err != nil {
 			return false, err
@@ -225,7 +236,7 @@ func (cm *ComponentManager) ReconcileApps(ctx context.Context, namespace string)
 	}
 
 	now := metav1.Now()
-	for _, appDep := range appDepList.Items {
+	for _, appDep := range appDeps.Items {
 		curStatus := appDep.Status.DeepCopy()
 
 		problems, err := appDep.Validate(nil, func(name string, typ api.ComponentType) (api.Adapter, error) {
@@ -260,8 +271,17 @@ func (cm *ComponentManager) ReconcileApps(ctx context.Context, namespace string)
 			appDep.Namespace, appDep.Name, available.Status, progressing.Status)
 	}
 
-	for _, d := range compDepList.Items {
-		if _, found := compMap[d.Name]; !found {
+	compDeps := &appsv1.DeploymentList{}
+	if err := cm.List(ctx, compDeps,
+		client.InNamespace(platform.Namespace),
+		client.HasLabels{api.LabelK8sAppComponent, api.LabelK8sAppName}, // filter out Platform Components
+	); err != nil {
+		return false, err
+	}
+	log.Debugf("found %d existing Component Deployments", len(compDeps.Items))
+
+	for _, d := range compDeps.Items {
+		if _, found := compsTplData[d.Name]; !found {
 			log.Debugf("deleting Component Deployment '%s'", d.Name)
 
 			// TODO turn annotation into list of resources created to avoid
@@ -302,7 +322,7 @@ func (td *TemplateData) ForComponent(template string, obj client.Object, defs *c
 		newTD.Values[k] = v
 	}
 
-	SetDefaults(&newTD.Component.ContainerSpec, defs)
+	defaults.Set(&newTD.Component.ContainerSpec, defs)
 
 	if cpu := newTD.Component.Resources.Limits.Cpu(); !cpu.IsZero() {
 		newTD.Values["GOMAXPROCS"] = cpu.Value()

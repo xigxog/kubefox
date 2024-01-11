@@ -40,4 +40,4 @@ webhooks:
           - UPDATE
         resources:
           - appdeployments
-          - virtualenvsnapshots
+          - releasemanifests

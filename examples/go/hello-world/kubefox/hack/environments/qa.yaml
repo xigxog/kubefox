@@ -5,7 +5,6 @@ metadata:
 spec:
   releasePolicy:
     versionRequired: false
-    dataSnapshotRequired: false
 data:
   vars:
     who: World
@@ -17,3 +16,6 @@ metadata:
   name: qa
 spec:
   environment: qa
+data:
+  secrets:
+    this: thisisatest

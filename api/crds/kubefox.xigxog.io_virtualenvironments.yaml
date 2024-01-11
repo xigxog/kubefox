@@ -26,35 +26,20 @@ spec:
   scope: Namespaced
   versions:
   - additionalPrinterColumns:
+    - jsonPath: .status.activeRelease.releaseManifest
+      name: Manifest
+      type: string
     - jsonPath: .status.conditions[?(@.type=='ActiveReleaseAvailable')].status
       name: Available
       type: string
     - jsonPath: .status.conditions[?(@.type=='ActiveReleaseAvailable')].reason
       name: Reason
       type: string
-    - jsonPath: .status.activeRelease.appDeployment.name
-      name: Release
-      type: string
-    - jsonPath: .status.activeRelease.appDeployment.version
-      name: Version
-      type: string
-    - jsonPath: .status.activeRelease.dataSnapshot
-      name: Snapshot
-      priority: 1
-      type: string
-    - jsonPath: .status.pendingRelease.appDeployment.name
+    - jsonPath: .status.conditions[?(@.type=='ReleasePending')].status
       name: Pending
-      type: string
-    - jsonPath: .status.pendingRelease.appDeployment.version
-      name: Pending Version
-      type: string
-    - jsonPath: .status.pendingRelease.dataSnapshot
-      name: Pending Snapshot
-      priority: 1
       type: string
     - jsonPath: .status.conditions[?(@.type=='ReleasePending')].reason
       name: Pending Reason
-      priority: 1
       type: string
     - jsonPath: .details.title
       name: Title
@@ -123,34 +108,23 @@ spec:
                 type: string
               release:
                 properties:
-                  appDeployment:
-                    properties:
-                      name:
-                        minLength: 1
-                        type: string
-                      version:
-                        description: Version of the App being released. Use of semantic
-                          versioning is recommended. If set the value is compared
-                          to the AppDeployment version. If the two versions do not
-                          match the release will fail.
-                        type: string
-                    required:
-                    - name
+                  appDeployments:
+                    additionalProperties:
+                      properties:
+                        version:
+                          description: Version of the App being released. Use of semantic
+                            versioning is recommended. If set the value is compared
+                            to the AppDeployment version. If the two versions do not
+                            match the release will fail.
+                          type: string
+                      type: object
+                    minProperties: 1
                     type: object
-                  dataSnapshot:
-                    description: Name of DataSnapshot to use for Release. If set,
-                      the immutable Data object of the snapshot will be used. The
-                      source of the snapshot must be this VirtualEnvironment.
-                    type: string
                 required:
-                - appDeployment
+                - appDeployments
                 type: object
               releasePolicy:
                 properties:
-                  dataSnapshotRequired:
-                    description: If '.spec.release.dataSnapshot' is required. Pointer
-                      is used to distinguish between not set and false.
-                    type: boolean
                   historyLimits:
                     properties:
                       ageDays:
@@ -195,28 +169,25 @@ spec:
                       the Release was never activated.
                     format: date-time
                     type: string
-                  appDeployment:
-                    properties:
-                      name:
-                        minLength: 1
-                        type: string
-                      observedGeneration:
-                        description: ObservedGeneration represents the .metadata.generation
-                          of the AppDeployment that the status was set based upon.
-                          For instance, if the AppDeployment .metadata.generation
-                          is currently 12, but the observedGeneration is 9, the status
-                          is out of date with respect to the current state of the
-                          instance.
-                        format: int64
-                        type: integer
-                      version:
-                        description: Version of the App being released. Use of semantic
-                          versioning is recommended. If set the value is compared
-                          to the AppDeployment version. If the two versions do not
-                          match the release will fail.
-                        type: string
-                    required:
-                    - name
+                  appDeployments:
+                    additionalProperties:
+                      properties:
+                        observedGeneration:
+                          description: ObservedGeneration represents the .metadata.generation
+                            of the AppDeployment that the status was set based upon.
+                            For instance, if the AppDeployment .metadata.generation
+                            is currently 12, but the observedGeneration is 9, the
+                            status is out of date with respect to the current state
+                            of the instance.
+                          format: int64
+                          type: integer
+                        version:
+                          description: Version of the App being released. Use of semantic
+                            versioning is recommended. If set the value is compared
+                            to the AppDeployment version. If the two versions do not
+                            match the release will fail.
+                          type: string
+                      type: object
                     type: object
                   archiveReason:
                     description: Reason Release was archived.
@@ -228,8 +199,6 @@ spec:
                   archiveTime:
                     description: Time at which the Release was archived to history.
                     format: date-time
-                    type: string
-                  dataSnapshot:
                     type: string
                   problems:
                     items:
@@ -246,8 +215,8 @@ spec:
                                 - Component
                                 - HTTPAdapter
                                 - Release
+                                - ReleaseManifest
                                 - VirtualEnvironment
-                                - DataSnapshot
                                 type: string
                               name:
                                 type: string
@@ -289,13 +258,14 @@ spec:
                           - RouteConflict
                           - VarNotFound
                           - VarWrongType
-                          - DataSnapshotFailed
                           type: string
                       required:
                       - observedTime
                       - type
                       type: object
                     type: array
+                  releaseManifest:
+                    type: string
                   requestTime:
                     description: Time at which the VirtualEnvironment was updated
                       to use the Release.
@@ -375,7 +345,7 @@ spec:
                 x-kubernetes-list-type: map
               dataChecksum:
                 description: DataChecksum is a hash value of the Data object. The
-                  Environment Data object is merged before the hash is create. It
+                  Environment Data object is merged before the hash is created. It
                   can be used to check for changes to the Data object.
                 type: string
               pendingRelease:
@@ -385,28 +355,25 @@ spec:
                       the Release was never activated.
                     format: date-time
                     type: string
-                  appDeployment:
-                    properties:
-                      name:
-                        minLength: 1
-                        type: string
-                      observedGeneration:
-                        description: ObservedGeneration represents the .metadata.generation
-                          of the AppDeployment that the status was set based upon.
-                          For instance, if the AppDeployment .metadata.generation
-                          is currently 12, but the observedGeneration is 9, the status
-                          is out of date with respect to the current state of the
-                          instance.
-                        format: int64
-                        type: integer
-                      version:
-                        description: Version of the App being released. Use of semantic
-                          versioning is recommended. If set the value is compared
-                          to the AppDeployment version. If the two versions do not
-                          match the release will fail.
-                        type: string
-                    required:
-                    - name
+                  appDeployments:
+                    additionalProperties:
+                      properties:
+                        observedGeneration:
+                          description: ObservedGeneration represents the .metadata.generation
+                            of the AppDeployment that the status was set based upon.
+                            For instance, if the AppDeployment .metadata.generation
+                            is currently 12, but the observedGeneration is 9, the
+                            status is out of date with respect to the current state
+                            of the instance.
+                          format: int64
+                          type: integer
+                        version:
+                          description: Version of the App being released. Use of semantic
+                            versioning is recommended. If set the value is compared
+                            to the AppDeployment version. If the two versions do not
+                            match the release will fail.
+                          type: string
+                      type: object
                     type: object
                   archiveReason:
                     description: Reason Release was archived.
@@ -418,8 +385,6 @@ spec:
                   archiveTime:
                     description: Time at which the Release was archived to history.
                     format: date-time
-                    type: string
-                  dataSnapshot:
                     type: string
                   problems:
                     items:
@@ -436,8 +401,8 @@ spec:
                                 - Component
                                 - HTTPAdapter
                                 - Release
+                                - ReleaseManifest
                                 - VirtualEnvironment
-                                - DataSnapshot
                                 type: string
                               name:
                                 type: string
@@ -479,13 +444,14 @@ spec:
                           - RouteConflict
                           - VarNotFound
                           - VarWrongType
-                          - DataSnapshotFailed
                           type: string
                       required:
                       - observedTime
                       - type
                       type: object
                     type: array
+                  releaseManifest:
+                    type: string
                   requestTime:
                     description: Time at which the VirtualEnvironment was updated
                       to use the Release.
@@ -502,28 +468,25 @@ spec:
                         set the Release was never activated.
                       format: date-time
                       type: string
-                    appDeployment:
-                      properties:
-                        name:
-                          minLength: 1
-                          type: string
-                        observedGeneration:
-                          description: ObservedGeneration represents the .metadata.generation
-                            of the AppDeployment that the status was set based upon.
-                            For instance, if the AppDeployment .metadata.generation
-                            is currently 12, but the observedGeneration is 9, the
-                            status is out of date with respect to the current state
-                            of the instance.
-                          format: int64
-                          type: integer
-                        version:
-                          description: Version of the App being released. Use of semantic
-                            versioning is recommended. If set the value is compared
-                            to the AppDeployment version. If the two versions do not
-                            match the release will fail.
-                          type: string
-                      required:
-                      - name
+                    appDeployments:
+                      additionalProperties:
+                        properties:
+                          observedGeneration:
+                            description: ObservedGeneration represents the .metadata.generation
+                              of the AppDeployment that the status was set based upon.
+                              For instance, if the AppDeployment .metadata.generation
+                              is currently 12, but the observedGeneration is 9, the
+                              status is out of date with respect to the current state
+                              of the instance.
+                            format: int64
+                            type: integer
+                          version:
+                            description: Version of the App being released. Use of
+                              semantic versioning is recommended. If set the value
+                              is compared to the AppDeployment version. If the two
+                              versions do not match the release will fail.
+                            type: string
+                        type: object
                       type: object
                     archiveReason:
                       description: Reason Release was archived.
@@ -535,8 +498,6 @@ spec:
                     archiveTime:
                       description: Time at which the Release was archived to history.
                       format: date-time
-                      type: string
-                    dataSnapshot:
                       type: string
                     problems:
                       items:
@@ -554,8 +515,8 @@ spec:
                                   - Component
                                   - HTTPAdapter
                                   - Release
+                                  - ReleaseManifest
                                   - VirtualEnvironment
-                                  - DataSnapshot
                                   type: string
                                 name:
                                   type: string
@@ -597,13 +558,14 @@ spec:
                             - RouteConflict
                             - VarNotFound
                             - VarWrongType
-                            - DataSnapshotFailed
                             type: string
                         required:
                         - observedTime
                         - type
                         type: object
                       type: array
+                    releaseManifest:
+                      type: string
                     requestTime:
                       description: Time at which the VirtualEnvironment was updated
                         to use the Release.

@@ -61,26 +61,26 @@ func NewHTTPClient(brk Broker) *HTTPClient {
 		CheckRedirect: followNever,
 		Transport:     secureTransport,
 	}
-	clients[key(api.FollowRedirectsNever, false)] = &http.Client{
+	clients[clientKey(api.FollowRedirectsNever, false)] = &http.Client{
 		CheckRedirect: followNever,
 		Transport:     secureTransport,
 	}
-	clients[key(api.FollowRedirectsNever, true)] = &http.Client{
+	clients[clientKey(api.FollowRedirectsNever, true)] = &http.Client{
 		CheckRedirect: followNever,
 		Transport:     insecureTransport,
 	}
-	clients[key(api.FollowRedirectsSameHost, false)] = &http.Client{
+	clients[clientKey(api.FollowRedirectsSameHost, false)] = &http.Client{
 		CheckRedirect: followSameHost,
 		Transport:     secureTransport,
 	}
-	clients[key(api.FollowRedirectsSameHost, true)] = &http.Client{
+	clients[clientKey(api.FollowRedirectsSameHost, true)] = &http.Client{
 		CheckRedirect: followSameHost,
 		Transport:     insecureTransport,
 	}
-	clients[key(api.FollowRedirectsAlways, false)] = &http.Client{
+	clients[clientKey(api.FollowRedirectsAlways, false)] = &http.Client{
 		Transport: secureTransport,
 	}
-	clients[key(api.FollowRedirectsAlways, true)] = &http.Client{
+	clients[clientKey(api.FollowRedirectsAlways, true)] = &http.Client{
 		Transport: insecureTransport,
 	}
 
@@ -181,7 +181,7 @@ func (c *HTTPClient) SendEvent(req *BrokerEvent) error {
 }
 
 func (c *HTTPClient) adapterClient(a *v1alpha1.HTTPAdapter) *http.Client {
-	key := key(a.Spec.FollowRedirects, a.Spec.InsecureSkipVerify)
+	key := clientKey(a.Spec.FollowRedirects, a.Spec.InsecureSkipVerify)
 	client := c.clients[key]
 	if client == nil {
 		client = c.clients["default"]
@@ -189,7 +189,7 @@ func (c *HTTPClient) adapterClient(a *v1alpha1.HTTPAdapter) *http.Client {
 	return client
 }
 
-func key(follow api.FollowRedirects, insecure bool) string {
+func clientKey(follow api.FollowRedirects, insecure bool) string {
 	if follow == "" {
 		follow = api.FollowRedirectsNever
 	}

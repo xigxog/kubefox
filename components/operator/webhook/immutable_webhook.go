@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package controller
+package webhook
 
 import (
 	"context"
@@ -31,14 +31,15 @@ type ImmutableWebhook struct {
 	*admission.Decoder
 }
 
+const (
+	notAllowedMsg = "update operation not allowed: %s is immutable"
+)
+
 func (r *ImmutableWebhook) Handle(ctx context.Context, req admission.Request) admission.Response {
 	if req.Operation != admv1.Update {
 		return admission.Allowed("🦊")
 	}
 
-	var (
-		lhs, rhs any
-	)
 	switch req.Kind.String() {
 	case "kubefox.xigxog.io/v1alpha1, Kind=AppDeployment":
 		obj := &v1alpha1.AppDeployment{}
@@ -49,28 +50,26 @@ func (r *ImmutableWebhook) Handle(ctx context.Context, req admission.Request) ad
 		if err := r.DecodeRaw(req.OldObject, oldObj); err != nil {
 			return admission.Errored(http.StatusBadRequest, err)
 		}
-		if oldObj.Spec.Version != "" {
-			lhs = &obj.Spec
-			rhs = &oldObj.Spec
 
+		if oldObj.Spec.Version != "" {
+			if !k8s.DeepEqual(&obj.Spec, &oldObj.Spec) {
+				return admission.Denied(fmt.Sprintf(notAllowedMsg, req.Kind.Kind))
+			}
 		}
 
-	case "kubefox.xigxog.io/v1alpha1, Kind=DataSnapshot":
-		obj := &v1alpha1.DataSnapshot{}
+	case "kubefox.xigxog.io/v1alpha1, Kind=ReleaseManifest":
+		obj := &v1alpha1.ReleaseManifest{}
 		if err := r.DecodeRaw(req.Object, obj); err != nil {
 			return admission.Errored(http.StatusBadRequest, err)
 		}
-		oldObj := &v1alpha1.DataSnapshot{}
+		oldObj := &v1alpha1.ReleaseManifest{}
 		if err := r.DecodeRaw(req.OldObject, oldObj); err != nil {
 			return admission.Errored(http.StatusBadRequest, err)
 		}
-		lhs = &obj.Data
-		rhs = &oldObj.Data
-	}
 
-	if !k8s.DeepEqual(lhs, rhs) {
-		return admission.Denied(fmt.Sprintf(
-			"update operation not allowed: %s is immutable", req.Kind.Kind))
+		if !k8s.DeepEqual(&obj.Spec, &oldObj.Spec) || !k8s.DeepEqual(&obj.Data, &oldObj.Data) {
+			return admission.Denied(fmt.Sprintf(notAllowedMsg, req.Kind.Kind))
+		}
 	}
 
 	return admission.Allowed("🦊")

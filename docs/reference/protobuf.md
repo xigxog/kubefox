@@ -93,7 +93,7 @@
 | platform | [string](#string) |  |  |
 | app_deployment | [string](#string) |  |  |
 | virtual_environment | [string](#string) |  |  |
-| data_snapshot | [string](#string) |  |  |
+| release_manifest | [string](#string) |  |  |
 
 
 

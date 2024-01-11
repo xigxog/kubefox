@@ -32,7 +32,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/metrics/server"
-	"sigs.k8s.io/controller-runtime/pkg/webhook"
+	kwebhook "sigs.k8s.io/controller-runtime/pkg/webhook"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 	"sigs.k8s.io/yaml"
 
@@ -41,6 +41,8 @@ import (
 	"github.com/xigxog/kubefox/build"
 	"github.com/xigxog/kubefox/components/operator/controller"
 	"github.com/xigxog/kubefox/components/operator/templates"
+	"github.com/xigxog/kubefox/components/operator/vault"
+	"github.com/xigxog/kubefox/components/operator/webhook"
 	"github.com/xigxog/kubefox/k8s"
 	"github.com/xigxog/kubefox/logkf"
 	"github.com/xigxog/kubefox/utils"
@@ -92,7 +94,7 @@ func main() {
 			BindAddress: "0",
 		},
 		HealthProbeBindAddress: healthAddr,
-		WebhookServer: webhook.NewServer(webhook.Options{
+		WebhookServer: kwebhook.NewServer(kwebhook.Options{
 			CertDir: api.KubeFoxHome,
 		}),
 		LeaderElection:          leaderElection,
@@ -125,6 +127,11 @@ func main() {
 	}
 	cancel()
 
+	vault.Instance = instance
+	vault.Namespace = namespace
+	vault.URL = vaultURL
+	vault.K8sClient = ctrlClient.Client
+
 	// Register Controllers.
 	if err = (&controller.PlatformReconciler{
 		Client:    ctrlClient,
@@ -155,34 +162,34 @@ func main() {
 	}
 
 	// Register Validating WebHooks.
-	mgr.GetWebhookServer().Register("/immutable/validate", &webhook.Admission{
-		Handler: &controller.ImmutableWebhook{
+	mgr.GetWebhookServer().Register("/immutable/validate", &kwebhook.Admission{
+		Handler: &webhook.ImmutableWebhook{
 			Decoder: admission.NewDecoder(scheme),
 		},
 	})
 
 	// Register Mutating WebHooks.
-	mgr.GetWebhookServer().Register("/index/mutate", &webhook.Admission{
-		Handler: &controller.IndexWebhook{
+	mgr.GetWebhookServer().Register("/v1alpha1/appdeployments/mutate", &kwebhook.Admission{
+		Handler: &webhook.AppDeploymentWebhook{
+			Client:  &ctrlClient.Client,
 			Decoder: admission.NewDecoder(scheme),
 		},
 	})
-	mgr.GetWebhookServer().Register("/v1alpha1/platforms/mutate", &webhook.Admission{
-		Handler: &controller.PlatformWebhook{
-			Client:  ctrlClient,
+	mgr.GetWebhookServer().Register("/index/mutate", &kwebhook.Admission{
+		Handler: &webhook.IndexWebhook{
 			Decoder: admission.NewDecoder(scheme),
 		},
 	})
-	mgr.GetWebhookServer().Register("/v1alpha1/datasnapshots/mutate", &webhook.Admission{
-		Handler: &controller.DataSnapshotWebhook{
-			Client:  ctrlClient,
+	mgr.GetWebhookServer().Register("/v1alpha1/platforms/mutate", &kwebhook.Admission{
+		Handler: &webhook.PlatformWebhook{
+			Client:  &ctrlClient.Client,
 			Decoder: admission.NewDecoder(scheme),
 		},
 	})
-	mgr.GetWebhookServer().Register("/secrets/mutate", &webhook.Admission{
-		Handler: &controller.SecretsWebhook{
-			Client:  ctrlClient,
-			Decoder: admission.NewDecoder(scheme),
+	mgr.GetWebhookServer().Register("/secrets/mutate", &kwebhook.Admission{
+		Handler: &webhook.SecretsWebhook{
+			Decoder:  admission.NewDecoder(scheme),
+			Instance: instance,
 		},
 	})
 

@@ -25,19 +25,17 @@ fox release <NAME | COMMIT | SHORT COMMIT | VERSION | TAG | BRANCH> [flags]
 fox release main --virtual-env dev
 
 # Release the AppDeployment with version 'v1.2.3' using the 'prod' 
-# VirtualEnvironment, creating an DataSnapshot if needed.
-fox release v1.2.3 --virtual-env prod --create-snapshot
+# VirtualEnvironment.
+fox release v1.2.3 --virtual-env prod
 ```
 
 ### Options
 
 ```
-  -c, --create-snapshot      create an immutable snapshot of VirtualEnvironment data and use for Release
       --dry-run              submit server-side request without persisting the resource
   -h, --help                 help for release
   -n, --namespace string     namespace of KubeFox Platform
   -p, --platform string      name of KubeFox Platform to utilize
-  -d, --snapshot string      name of DataSnapshot to use for Release
   -e, --virtual-env string   name of VirtualEnvironment to use for Release
       --wait duration        wait up the specified time for components to be ready
 ```

@@ -32,19 +32,8 @@ spec:
     - jsonPath: .status.conditions[?(@.type=='Available')].reason
       name: Reason
       type: string
-    - jsonPath: .spec.appName
-      name: App
-      type: string
-    - jsonPath: .spec.version
-      name: Version
-      type: string
-    - jsonPath: .spec.commit
-      name: Commit
-      priority: 1
-      type: string
     - jsonPath: .status.conditions[?(@.type=='Progressing')].status
       name: Progressing
-      priority: 1
       type: string
     - jsonPath: .details.title
       name: Title
@@ -91,6 +80,44 @@ spec:
           spec:
             description: AppDeploymentSpec defines the desired state of AppDeployment
             properties:
+              adapters:
+                description: Specs of all Adapters defined as dependencies by the
+                  Components. This a read-only field and is set by the KubeFox Operator
+                  when a versioned AppDeployment is created.
+                properties:
+                  http:
+                    additionalProperties:
+                      properties:
+                        followRedirects:
+                          default: Never
+                          enum:
+                          - Never
+                          - Always
+                          - SameHost
+                          type: string
+                        headers:
+                          additionalProperties:
+                            type: string
+                          type: object
+                        insecureSkipVerify:
+                          default: false
+                          description: InsecureSkipVerify controls whether the Adapter
+                            verifies the server's certificate chain and host name.
+                            If InsecureSkipVerify is true, any certificate presented
+                            by the server and any host name in that certificate is
+                            accepted. In this mode, TLS is susceptible to machine-in-the-middle
+                            attacks.
+                          type: boolean
+                        url:
+                          format: uri
+                          type: string
+                      required:
+                      - url
+                      type: object
+                    type: object
+                required:
+                - http
+                type: object
               appName:
                 type: string
               branch:
@@ -290,8 +317,8 @@ spec:
                             - Component
                             - HTTPAdapter
                             - Release
+                            - ReleaseManifest
                             - VirtualEnvironment
-                            - DataSnapshot
                             type: string
                           name:
                             type: string
@@ -328,7 +355,6 @@ spec:
                       - RouteConflict
                       - VarNotFound
                       - VarWrongType
-                      - DataSnapshotFailed
                       type: string
                   required:
                   - type
