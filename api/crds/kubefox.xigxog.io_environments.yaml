@@ -87,11 +87,6 @@ spec:
             properties:
               releasePolicy:
                 properties:
-                  dataSnapshotRequired:
-                    default: true
-                    description: If '.spec.release.dataSnapshot' is required. Pointer
-                      is used to distinguish between not set and false.
-                    type: boolean
                   historyLimits:
                     properties:
                       ageDays:
@@ -123,8 +118,6 @@ spec:
                       required. Pointer is used to distinguish between not set and
                       false.
                     type: boolean
-                required:
-                - historyLimits
                 type: object
             type: object
         type: object

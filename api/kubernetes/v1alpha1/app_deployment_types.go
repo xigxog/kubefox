@@ -21,24 +21,39 @@ import (
 // AppDeploymentSpec defines the desired state of AppDeployment
 type AppDeploymentSpec struct {
 	// +kubebuilder:validation:Required
+
 	AppName string `json:"appName"`
+
 	// Version of the defined App. Use of semantic versioning is recommended.
 	// Once set the AppDeployment spec becomes immutable.
 	Version string `json:"version,omitempty"`
+
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:Pattern="^[a-z0-9]{40}$"
+
 	Commit string `json:"commit"`
+
 	// +kubebuilder:validation:Required
+
 	CommitTime metav1.Time `json:"commitTime"`
 	Branch     string      `json:"branch,omitempty"`
 	Tag        string      `json:"tag,omitempty"`
+
 	// +kubebuilder:validation:Format=uri
+
 	RepoURL             string `json:"repoURL,omitempty"`
 	ContainerRegistry   string `json:"containerRegistry,omitempty"`
 	ImagePullSecretName string `json:"imagePullSecretName,omitempty"`
+
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:MinProperties=1
+
 	Components map[string]*Component `json:"components"`
+
+	// Specs of all Adapters defined as dependencies by the Components. This a
+	// read-only field and is set by the KubeFox Operator when a versioned
+	// AppDeployment is created.
+	Adapters *Adapters `json:"adapters,omitempty"`
 }
 
 type Component struct {
@@ -48,6 +63,14 @@ type Component struct {
 	// +kubebuilder:validation:Pattern="^[a-z0-9]{40}$"
 	Commit string `json:"commit"`
 	Image  string `json:"image,omitempty"`
+}
+
+type Adapters struct {
+	HTTP map[string]HTTPAdapterSpec `json:"http"`
+}
+
+type AdapterSpec struct {
+	HTTPAdapterSpec `json:",inline"`
 }
 
 // AppDeploymentStatus defines the observed state of AppDeployment
@@ -72,10 +95,7 @@ type AppDeploymentDetails struct {
 // +kubebuilder:resource:path=appdeployments,shortName=appdep;app
 // +kubebuilder:printcolumn:name="Available",type=string,JSONPath=`.status.conditions[?(@.type=='Available')].status`
 // +kubebuilder:printcolumn:name="Reason",type=string,JSONPath=`.status.conditions[?(@.type=='Available')].reason`
-// +kubebuilder:printcolumn:name="App",type=string,JSONPath=`.spec.appName`
-// +kubebuilder:printcolumn:name="Version",type=string,JSONPath=`.spec.version`
-// +kubebuilder:printcolumn:name="Commit",type=string,JSONPath=`.spec.commit`,priority=1
-// +kubebuilder:printcolumn:name="Progressing",type=string,JSONPath=`.status.conditions[?(@.type=='Progressing')].status`,priority=1
+// +kubebuilder:printcolumn:name="Progressing",type=string,JSONPath=`.status.conditions[?(@.type=='Progressing')].status`
 // +kubebuilder:printcolumn:name="Title",type=string,JSONPath=`.details.title`,priority=1
 // +kubebuilder:printcolumn:name="Description",type=string,JSONPath=`.details.description`,priority=1
 

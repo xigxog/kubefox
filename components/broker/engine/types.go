@@ -35,10 +35,11 @@ type Adapters map[string]api.Adapter
 type BrokerEvent struct {
 	*core.Event
 
-	ContextKey string
-	Data       *v1alpha1.DataSnapshot
-	AppDep     *v1alpha1.AppDeployment
-	RouteId    int64
+	ContextKey   string
+	Data         *api.Data
+	DataChecksum string
+	AppDep       *v1alpha1.AppDeployment
+	RouteId      int64
 
 	TargetAdapter api.Adapter
 	Adapters      Adapters
@@ -71,9 +72,9 @@ func (evt *BrokerEvent) Done() chan *core.Err {
 
 func (evt *BrokerEvent) MatchedEvent() *core.MatchedEvent {
 	var env map[string]*structpb.Value
-	if evt.Data != nil && evt.Data.Data != nil && evt.Data.Data.Vars != nil {
-		env = make(map[string]*structpb.Value, len(evt.Data.Data.Vars))
-		for k, v := range evt.Data.Data.Vars {
+	if evt.Data != nil && evt.Data.Vars != nil {
+		env = make(map[string]*structpb.Value, len(evt.Data.Vars))
+		for k, v := range evt.Data.Vars {
 			env[k] = v.Proto()
 		}
 	}

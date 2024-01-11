@@ -6,7 +6,7 @@
 //
 // SPDX-License-Identifier: MPL-2.0
 
-package controller
+package defaults
 
 import (
 	common "github.com/xigxog/kubefox/api/kubernetes"
@@ -16,7 +16,7 @@ import (
 )
 
 var (
-	NATSDefaults = common.ContainerSpec{
+	NATS = common.ContainerSpec{
 		Resources: &v1.ResourceRequirements{
 			Requests: v1.ResourceList{
 				"memory": resource.MustParse("64Mi"),
@@ -61,7 +61,7 @@ var (
 		},
 	}
 
-	BrokerDefaults = common.ContainerSpec{
+	Broker = common.ContainerSpec{
 		Resources: &v1.ResourceRequirements{
 			Requests: v1.ResourceList{
 				"memory": resource.MustParse("64Mi"), // 90% of limit, used to set GOMEMLIMIT
@@ -88,7 +88,7 @@ var (
 		},
 	}
 
-	HTTPSrvDefaults = common.ContainerSpec{
+	HTTPSrv = common.ContainerSpec{
 		Resources: &v1.ResourceRequirements{
 			Requests: v1.ResourceList{
 				"memory": resource.MustParse("64Mi"),
@@ -115,7 +115,7 @@ var (
 		},
 	}
 
-	ComponentDefaults = common.ContainerSpec{
+	Component = common.ContainerSpec{
 		Resources: &v1.ResourceRequirements{
 			Requests: v1.ResourceList{},
 			Limits:   v1.ResourceList{},
@@ -137,7 +137,7 @@ var (
 	}
 )
 
-func SetDefaults(cur *common.ContainerSpec, defs *common.ContainerSpec) {
+func Set(cur *common.ContainerSpec, defs *common.ContainerSpec) {
 	if cur.Resources == nil {
 		cur.Resources = defs.Resources
 	}

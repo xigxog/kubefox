@@ -104,7 +104,7 @@ func (str *Store) init(ctx context.Context) error {
 	err = str.initInformers(ctx,
 		&v1alpha1.Environment{},
 		&v1alpha1.VirtualEnvironment{},
-		&v1alpha1.DataSnapshot{},
+		&v1alpha1.ReleaseManifest{},
 		&v1alpha1.HTTPAdapter{},
 		&v1alpha1.AppDeployment{},
 		&v1alpha1.Platform{},
@@ -162,61 +162,34 @@ func (str *Store) Platform(ctx context.Context) (*v1alpha1.Platform, error) {
 	return obj, str.get(config.Platform, obj, true)
 }
 
-func (str *Store) AppDeployment(ctx context.Context, evtCtx *core.EventContext) (*v1alpha1.AppDeployment, error) {
+func (str *Store) AppDeployment(ctx context.Context, name string) (*v1alpha1.AppDeployment, error) {
 	obj := new(v1alpha1.AppDeployment)
-	return obj, str.get(evtCtx.AppDeployment, obj, true)
+	return obj, str.get(name, obj, true)
 }
 
-func (str *Store) DataSnapshot(ctx context.Context, evtCtx *core.EventContext) (*v1alpha1.DataSnapshot, error) {
+func (str *Store) Data(ctx context.Context, evtCtx *core.EventContext) (*api.Data, error) {
 	if evtCtx.VirtualEnvironment == "" {
 		return nil, core.ErrNotFound()
 	}
 
-	if evtCtx.DataSnapshot != "" {
-		snapshot := &v1alpha1.DataSnapshot{}
-		if err := str.get(evtCtx.DataSnapshot, snapshot, true); err != nil {
+	if evtCtx.ReleaseManifest != "" {
+		manifest := &v1alpha1.ReleaseManifest{}
+		if err := str.get(evtCtx.ReleaseManifest, manifest, true); err != nil {
 			return nil, err
 		}
-		return snapshot, nil
+		return manifest.Data, nil
 	}
 
 	ve := &v1alpha1.VirtualEnvironment{}
 	if err := str.get(evtCtx.VirtualEnvironment, ve, true); err != nil {
 		return nil, err
 	}
-
-	if ve.Spec.Environment != "" {
-		env := &v1alpha1.Environment{}
-		if err := str.get(ve.Spec.Environment, env, false); err != nil {
-			return nil, err
-		}
-		ve.Merge(env)
-	}
-
-	hash, err := hashstructure.Hash(&ve.Data, hashstructure.FormatV2, nil)
-	if err != nil {
+	env := &v1alpha1.Environment{}
+	if err := str.get(ve.Spec.Environment, env, false); err != nil {
 		return nil, err
 	}
 
-	return &v1alpha1.DataSnapshot{
-		TypeMeta: metav1.TypeMeta{
-			APIVersion: v1alpha1.GroupVersion.Identifier(),
-			Kind:       "DataSnapshot",
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: ve.Namespace,
-			Name:      ve.Name,
-		},
-		Spec: v1alpha1.DataSnapshotSpec{
-			Source: v1alpha1.DataSource{
-				Name:            ve.Name,
-				ResourceVersion: ve.ResourceVersion,
-				DataChecksum:    fmt.Sprint(hash),
-			},
-		},
-		Data:    &ve.Data,
-		Details: ve.Details,
-	}, nil
+	return ve.Data.MergeInto(&env.Data), nil
 }
 
 func (str *Store) ReleaseMatcher(ctx context.Context) (*matcher.EventMatcher, error) {
@@ -236,11 +209,11 @@ func (str *Store) ReleaseMatcher(ctx context.Context) (*matcher.EventMatcher, er
 func (str *Store) DeploymentMatcher(ctx context.Context, evt *BrokerEvent) (*matcher.EventMatcher, error) {
 	// Check cache.
 	if depM, found := str.depMatchers.Get(evt.ContextKey); found {
-		str.log.Debugf("found cached matcher for event context key '%s'", key)
+		str.log.Debugf("found cached matcher for event context key '%s'", evt.ContextKey)
 		return depM, nil
 	}
 
-	routes, err := str.buildRoutes(ctx, &evt.AppDep.Spec, evt.Data.Data, evt.Context)
+	routes, err := str.buildRoutes(ctx, evt.AppDep, evt.Data, evt.Context)
 	if err != nil {
 		return nil, err
 	}
@@ -259,14 +232,17 @@ func (str *Store) DeploymentMatcher(ctx context.Context, evt *BrokerEvent) (*mat
 // the Event Context. Problems found during validation are returned.
 func (str *Store) AttachEventContext(ctx context.Context, evt *BrokerEvent) error {
 	var err error
-	if evt.Data, err = str.DataSnapshot(ctx, evt.Context); err != nil {
+	if evt.Data, err = str.Data(ctx, evt.Context); err != nil {
 		return err
 	}
-	if evt.AppDep, err = str.AppDeployment(ctx, evt.Context); err != nil {
+	hash, _ := hashstructure.Hash(evt.Data, hashstructure.FormatV2, nil)
+	evt.DataChecksum = fmt.Sprint(hash)
+
+	if evt.AppDep, err = str.AppDeployment(ctx, evt.Context.AppDeployment); err != nil {
 		return err
 	}
 	evt.ContextKey = fmt.Sprintf("%s-%d_%s-%s",
-		evt.AppDep.Name, evt.AppDep.Generation, evt.Data.Name, evt.Data.Spec.Source.DataChecksum)
+		evt.AppDep.Name, evt.AppDep.Generation, evt.Context.VirtualEnvironment, evt.DataChecksum)
 
 	str.mutex.Lock()
 	defer str.mutex.Unlock()
@@ -298,7 +274,7 @@ func (str *Store) AttachEventContext(ctx context.Context, evt *BrokerEvent) erro
 	// Check validation cache.
 	problems, found := str.validCache.Get(evt.ContextKey)
 	if !found {
-		problems, err = evt.AppDep.Validate(evt.Data.Data,
+		problems, err = evt.AppDep.Validate(evt.Data,
 			func(name string, typ api.ComponentType) (api.Adapter, error) {
 				a, found := evt.Adapters[name]
 				if !found {
@@ -443,29 +419,31 @@ func (str *Store) buildReleaseMatcher(ctx context.Context) (*matcher.EventMatche
 
 		evtCtx := &core.EventContext{
 			Platform:           config.Platform,
-			AppDeployment:      release.AppDeployment.Name,
 			VirtualEnvironment: env.Name,
-			DataSnapshot:       release.DataSnapshot,
-		}
-		appDep, err := str.AppDeployment(ctx, evtCtx)
-		if err != nil {
-			str.log.Warn(err)
-			continue
-		}
-		snap, err := str.DataSnapshot(ctx, evtCtx)
-		if err != nil {
-			str.log.Warn(err)
-			continue
+			ReleaseManifest:    release.ReleaseManifest,
 		}
 
-		routes, err := str.buildRoutes(ctx, &appDep.Spec, snap.Data, evtCtx)
-		if err != nil {
-			str.log.Warn(err)
-			continue
-		}
-		if err := relM.AddRoutes(routes...); err != nil {
-			str.log.Warn(err)
-			continue
+		for appDepName := range release.AppDeployments {
+			appDep, err := str.AppDeployment(ctx, appDepName)
+			if err != nil {
+				str.log.Warn(err)
+				continue
+			}
+			data, err := str.Data(ctx, evtCtx)
+			if err != nil {
+				str.log.Warn(err)
+				continue
+			}
+
+			routes, err := str.buildRoutes(ctx, appDep, data, evtCtx)
+			if err != nil {
+				str.log.Warn(err)
+				continue
+			}
+			if err := relM.AddRoutes(routes...); err != nil {
+				str.log.Warn(err)
+				continue
+			}
 		}
 	}
 
@@ -474,15 +452,15 @@ func (str *Store) buildReleaseMatcher(ctx context.Context) (*matcher.EventMatche
 
 func (str *Store) buildRoutes(
 	ctx context.Context,
-	spec *v1alpha1.AppDeploymentSpec,
+	appDep *v1alpha1.AppDeployment,
 	data *api.Data,
 	evtCtx *core.EventContext) ([]*core.Route, error) {
 
 	var routes []*core.Route
-	for compName, compSpec := range spec.Components {
+	for compName, compSpec := range appDep.Spec.Components {
 		comp := &core.Component{
 			Type:   string(compSpec.Type),
-			App:    spec.AppName,
+			App:    appDep.Spec.AppName,
 			Name:   compName,
 			Commit: compSpec.Commit,
 		}
@@ -492,7 +470,12 @@ func (str *Store) buildRoutes(
 				return nil, err
 			}
 			route.Component = comp
-			route.EventContext = evtCtx
+			route.EventContext = &core.EventContext{
+				Platform:           evtCtx.Platform,
+				AppDeployment:      appDep.Name,
+				VirtualEnvironment: evtCtx.VirtualEnvironment,
+				ReleaseManifest:    evtCtx.ReleaseManifest,
+			}
 
 			if err := route.Resolve(data); err != nil {
 				return nil, err

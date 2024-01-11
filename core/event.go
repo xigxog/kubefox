@@ -140,7 +140,7 @@ func (evt *Event) SetContext(evtCtx *EventContext) {
 	evt.Context.Platform = evtCtx.Platform
 	evt.Context.AppDeployment = evtCtx.AppDeployment
 	evt.Context.VirtualEnvironment = evtCtx.VirtualEnvironment
-	evt.Context.DataSnapshot = evtCtx.DataSnapshot
+	evt.Context.ReleaseManifest = evtCtx.ReleaseManifest
 }
 
 func (evt *Event) EventType() api.EventType {

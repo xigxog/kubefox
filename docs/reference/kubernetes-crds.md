@@ -5,6 +5,8 @@
 
 
 
+
+
 ### AppDeployment
 
 AppDeployment is the Schema for the AppDeployments API
@@ -31,24 +33,6 @@ AppDeployment is the Schema for the AppDeployments API
 
 
 
-
-
-
-
-### DataSnapshot
-
-
-
-
-
-| Field | Type | Description | Validation |
-| ----- | ---- | ----------- | ---------- |
-| `apiVersion` | string | `kubefox.xigxog.io/v1alpha1` | |
-| `kind` | string | `DataSnapshot` | |
-| `metadata` | <div style="white-space:nowrap">[ObjectMeta](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.28/#objectmeta-v1-meta)<div> | <div style="max-width:30rem">Refer to Kubernetes API documentation for fields of `metadata`.</div> | <div style="white-space:nowrap"></div> |
-| `spec` | <div style="white-space:nowrap">[DataSnapshotSpec](#datasnapshotspec)<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
-| `data` | <div style="white-space:nowrap">[Data](#data)<div> | <div style="max-width:30rem">Data is a copy of the source's data object. If provided at creation time then the source's resourceVersion and current dataChecksum must also be provided. If set to nil at creation time then the current data object, resourceVersion, and dataChecksum of the source will automatically be copied.</div> | <div style="white-space:nowrap"></div> |
-| `details` | <div style="white-space:nowrap">[DataDetails](#datadetails)<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
 
 
 
@@ -136,6 +120,25 @@ Platform is the Schema for the Platforms API
 
 
 
+### ReleaseManifest
+
+
+
+
+
+| Field | Type | Description | Validation |
+| ----- | ---- | ----------- | ---------- |
+| `apiVersion` | string | `kubefox.xigxog.io/v1alpha1` | |
+| `kind` | string | `ReleaseManifest` | |
+| `metadata` | <div style="white-space:nowrap">[ObjectMeta](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.28/#objectmeta-v1-meta)<div> | <div style="max-width:30rem">Refer to Kubernetes API documentation for fields of `metadata`.</div> | <div style="white-space:nowrap"></div> |
+| `spec` | <div style="white-space:nowrap">[ReleaseManifestSpec](#releasemanifestspec)<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap">required</div> |
+| `data` | <div style="white-space:nowrap">[Data](#data)<div> | <div style="max-width:30rem">Data is the merged values of the Environment and VirtualEnvironment data objects.</div> | <div style="white-space:nowrap">required</div> |
+| `details` | <div style="white-space:nowrap">[DataDetails](#datadetails)<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
+
+
+
+
+
 
 
 
@@ -170,6 +173,25 @@ Platform is the Schema for the Platforms API
 
 
 
+
+
+### Adapters
+
+
+
+<p style="font-size:.6rem;">
+Used by:<br>
+
+- <a href=#appdeploymentspec>AppDeploymentSpec</a><br>
+</p>
+
+| Field | Type | Description | Validation |
+| ----- | ---- | ----------- | ---------- |
+| `http` | <div style="white-space:nowrap">map{string, [HTTPAdapterSpec](#httpadapterspec)}<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
+
+
+
+
 ### AppDeploymentDetails
 
 AppDeploymentDetails defines additional details of AppDeployment
@@ -196,6 +218,7 @@ AppDeploymentSpec defines the desired state of AppDeployment
 Used by:<br>
 
 - <a href=#appdeployment>AppDeployment</a><br>
+- <a href=#releasemanifestspec>ReleaseManifestSpec</a><br>
 </p>
 
 | Field | Type | Description | Validation |
@@ -210,6 +233,7 @@ Used by:<br>
 | `containerRegistry` | <div style="white-space:nowrap">string<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
 | `imagePullSecretName` | <div style="white-space:nowrap">string<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
 | `components` | <div style="white-space:nowrap">map{string, [Component](#component)}<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap">required</div> |
+| `adapters` | <div style="white-space:nowrap">[Adapters](#adapters)<div> | <div style="max-width:30rem">Specs of all Adapters defined as dependencies by the Components. This a read-only field and is set by the KubeFox Operator when a versioned AppDeployment is created.</div> | <div style="white-space:nowrap"></div> |
 
 
 
@@ -346,8 +370,8 @@ Used by:<br>
 <p style="font-size:.6rem;">
 Used by:<br>
 
-- <a href=#datasnapshot>DataSnapshot</a><br>
 - <a href=#environment>Environment</a><br>
+- <a href=#releasemanifest>ReleaseManifest</a><br>
 - <a href=#virtualenvironment>VirtualEnvironment</a><br>
 </p>
 
@@ -365,8 +389,8 @@ Used by:<br>
 <p style="font-size:.6rem;">
 Used by:<br>
 
-- <a href=#datasnapshot>DataSnapshot</a><br>
 - <a href=#environment>Environment</a><br>
+- <a href=#releasemanifest>ReleaseManifest</a><br>
 - <a href=#virtualenvironment>VirtualEnvironment</a><br>
 </p>
 
@@ -382,39 +406,6 @@ Used by:<br>
 
 
 
-
-### DataSnapshotSpec
-
-
-
-<p style="font-size:.6rem;">
-Used by:<br>
-
-- <a href=#datasnapshot>DataSnapshot</a><br>
-</p>
-
-| Field | Type | Description | Validation |
-| ----- | ---- | ----------- | ---------- |
-| `source` | <div style="white-space:nowrap">[DataSource](#datasource)<div> | <div style="max-width:30rem">Source resource that this snapshot is of.</div> | <div style="white-space:nowrap">required</div> |
-
-
-
-### DataSource
-
-
-
-<p style="font-size:.6rem;">
-Used by:<br>
-
-- <a href=#datasnapshotspec>DataSnapshotSpec</a><br>
-</p>
-
-| Field | Type | Description | Validation |
-| ----- | ---- | ----------- | ---------- |
-| `kind` | <div style="white-space:nowrap">enum[`VirtualEnvironment`]<div> | <div style="max-width:30rem">Kind of the resource the data is sourced from.</div> | <div style="white-space:nowrap">required</div> |
-| `name` | <div style="white-space:nowrap">string<div> | <div style="max-width:30rem">Name of the resource the data is sourced from.</div> | <div style="white-space:nowrap">required, minLength: 1</div> |
-| `resourceVersion` | <div style="white-space:nowrap">string<div> | <div style="max-width:30rem">ResourceVersion of the source resource. If data is provided at creation of the snapshot then resourceVersion must match the current resourceVersion of the source. If data is not provided at creation time resourceVersion will be populated automatically.</div> | <div style="white-space:nowrap"></div> |
-| `dataChecksum` | <div style="white-space:nowrap">string<div> | <div style="max-width:30rem">DataChecksum is the hash of the source's data. If data is provided at creation of the snapshot then dataChecksum must match the current dataChecksum of the source. If data is not provided at creation time dataChecksum will be populated automatically.</div> | <div style="white-space:nowrap"></div> |
 
 
 
@@ -489,7 +480,6 @@ Used by:<br>
 | ----- | ---- | ----------- | ---------- |
 | `pendingDeadlineSeconds` | <div style="white-space:nowrap">integer<div> | <div style="max-width:30rem">If the pending Request cannot be activated before the deadline it will be considered failed. If the Release becomes available for activation after the deadline has been exceeded, it will not be activated.</div> | <div style="white-space:nowrap">min: 3, default: 300</div> |
 | `versionRequired` | <div style="white-space:nowrap">boolean<div> | <div style="max-width:30rem">If true '.spec.release.appDeployment.version' is required. Pointer is used to distinguish between not set and false.</div> | <div style="white-space:nowrap">default: true</div> |
-| `dataSnapshotRequired` | <div style="white-space:nowrap">boolean<div> | <div style="max-width:30rem">If '.spec.release.dataSnapshot' is required. Pointer is used to distinguish between not set and false.</div> | <div style="white-space:nowrap">default: true</div> |
 | `historyLimits` | <div style="white-space:nowrap">[EnvReleaseHistoryLimits](#envreleasehistorylimits)<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
 
 
@@ -571,6 +561,8 @@ Used by:<br>
 <p style="font-size:.6rem;">
 Used by:<br>
 
+- <a href=#adapterspec>AdapterSpec</a><br>
+- <a href=#adapters>Adapters</a><br>
 - <a href=#httpadapter>HTTPAdapter</a><br>
 </p>
 
@@ -761,7 +753,7 @@ Used by:<br>
 
 | Field | Type | Description | Validation |
 | ----- | ---- | ----------- | ---------- |
-| `type` | <div style="white-space:nowrap">enum[`AdapterNotFound`, `AppDeploymentFailed`, `DependencyInvalid`, `DependencyNotFound`, `ParseError`, `PolicyViolation`, `RouteConflict`, `VarNotFound`, `VarWrongType`, `DataSnapshotFailed`]<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap">required</div> |
+| `type` | <div style="white-space:nowrap">enum[`AdapterNotFound`, `AppDeploymentFailed`, `DependencyInvalid`, `DependencyNotFound`, `ParseError`, `PolicyViolation`, `RouteConflict`, `VarNotFound`, `VarWrongType`]<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap">required</div> |
 | `message` | <div style="white-space:nowrap">string<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap">required</div> |
 | `causes` | <div style="white-space:nowrap">[ProblemSource](#problemsource) array<div> | <div style="max-width:30rem">Resources and attributes causing problem.</div> | <div style="white-space:nowrap"></div> |
 | `observedTime` | <div style="white-space:nowrap">[Time](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.28/#time-v1-meta)<div> | <div style="max-width:30rem">ObservedTime at which the problem was recorded.</div> | <div style="white-space:nowrap"></div> |
@@ -781,7 +773,7 @@ Used by:<br>
 
 | Field | Type | Description | Validation |
 | ----- | ---- | ----------- | ---------- |
-| `kind` | <div style="white-space:nowrap">enum[`AppDeployment`, `Component`, `HTTPAdapter`, `Release`, `VirtualEnvironment`, `DataSnapshot`]<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap">required</div> |
+| `kind` | <div style="white-space:nowrap">enum[`AppDeployment`, `Component`, `HTTPAdapter`, `Release`, `ReleaseManifest`, `VirtualEnvironment`]<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap">required</div> |
 | `name` | <div style="white-space:nowrap">string<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
 | `observedGeneration` | <div style="white-space:nowrap">integer<div> | <div style="max-width:30rem">ObservedGeneration represents the .metadata.generation of the ProblemSource that the problem was generated from. For instance, if the ProblemSource .metadata.generation is currently 12, but the observedGeneration is 9, the problem is out of date with respect to the current state of the instance.</div> | <div style="white-space:nowrap"></div> |
 | `path` | <div style="white-space:nowrap">string<div> | <div style="max-width:30rem">Path of source object attribute causing problem.</div> | <div style="white-space:nowrap"></div> |
@@ -810,8 +802,7 @@ Used by:<br>
 
 | Field | Type | Description | Validation |
 | ----- | ---- | ----------- | ---------- |
-| `appDeployment` | <div style="white-space:nowrap">[ReleaseAppDeployment](#releaseappdeployment)<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap">required</div> |
-| `dataSnapshot` | <div style="white-space:nowrap">string<div> | <div style="max-width:30rem">Name of DataSnapshot to use for Release. If set, the immutable Data object of the snapshot will be used. The source of the snapshot must be this VirtualEnvironment.</div> | <div style="white-space:nowrap"></div> |
+| `appDeployments` | <div style="white-space:nowrap">map{string, [ReleaseAppDeployment](#releaseappdeployment)}<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap">required</div> |
 
 
 
@@ -828,7 +819,6 @@ Used by:<br>
 
 | Field | Type | Description | Validation |
 | ----- | ---- | ----------- | ---------- |
-| `name` | <div style="white-space:nowrap">string<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap">required, minLength: 1</div> |
 | `version` | <div style="white-space:nowrap">string<div> | <div style="max-width:30rem">Version of the App being released. Use of semantic versioning is recommended. If set the value is compared to the AppDeployment version. If the two versions do not match the release will fail.</div> | <div style="white-space:nowrap"></div> |
 
 
@@ -845,9 +835,44 @@ Used by:<br>
 
 | Field | Type | Description | Validation |
 | ----- | ---- | ----------- | ---------- |
-| `name` | <div style="white-space:nowrap">string<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap">required, minLength: 1</div> |
 | `version` | <div style="white-space:nowrap">string<div> | <div style="max-width:30rem">Version of the App being released. Use of semantic versioning is recommended. If set the value is compared to the AppDeployment version. If the two versions do not match the release will fail.</div> | <div style="white-space:nowrap"></div> |
 | `observedGeneration` | <div style="white-space:nowrap">integer<div> | <div style="max-width:30rem">ObservedGeneration represents the .metadata.generation of the AppDeployment that the status was set based upon. For instance, if the AppDeployment .metadata.generation is currently 12, but the observedGeneration is 9, the status is out of date with respect to the current state of the instance.</div> | <div style="white-space:nowrap"></div> |
+
+
+
+
+### ReleaseManifestEnv
+
+
+
+<p style="font-size:.6rem;">
+Used by:<br>
+
+- <a href=#releasemanifestspec>ReleaseManifestSpec</a><br>
+</p>
+
+| Field | Type | Description | Validation |
+| ----- | ---- | ----------- | ---------- |
+| `name` | <div style="white-space:nowrap">string<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap">required, minLength: 1</div> |
+| `environment` | <div style="white-space:nowrap">string<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap">required, minLength: 1</div> |
+| `resourceVersion` | <div style="white-space:nowrap">string<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap">required, minLength: 1</div> |
+
+
+
+### ReleaseManifestSpec
+
+
+
+<p style="font-size:.6rem;">
+Used by:<br>
+
+- <a href=#releasemanifest>ReleaseManifest</a><br>
+</p>
+
+| Field | Type | Description | Validation |
+| ----- | ---- | ----------- | ---------- |
+| `virtualEnvironment` | <div style="white-space:nowrap">[ReleaseManifestEnv](#releasemanifestenv)<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap">required</div> |
+| `appDeployments` | <div style="white-space:nowrap">map{string, [AppDeploymentSpec](#appdeploymentspec)}<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap">required</div> |
 
 
 
@@ -863,8 +888,8 @@ Used by:<br>
 
 | Field | Type | Description | Validation |
 | ----- | ---- | ----------- | ---------- |
-| `appDeployment` | <div style="white-space:nowrap">[ReleaseAppDeploymentStatus](#releaseappdeploymentstatus)<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
-| `dataSnapshot` | <div style="white-space:nowrap">string<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
+| `releaseManifest` | <div style="white-space:nowrap">string<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
+| `appDeployments` | <div style="white-space:nowrap">map{string, [ReleaseAppDeploymentStatus](#releaseappdeploymentstatus)}<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
 | `requestTime` | <div style="white-space:nowrap">[Time](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.28/#time-v1-meta)<div> | <div style="max-width:30rem">Time at which the VirtualEnvironment was updated to use the Release.</div> | <div style="white-space:nowrap"></div> |
 | `activationTime` | <div style="white-space:nowrap">[Time](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.28/#time-v1-meta)<div> | <div style="max-width:30rem">Time at which the Release became active. If not set the Release was never activated.</div> | <div style="white-space:nowrap"></div> |
 | `archiveTime` | <div style="white-space:nowrap">[Time](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.28/#time-v1-meta)<div> | <div style="max-width:30rem">Time at which the Release was archived to history.</div> | <div style="white-space:nowrap"></div> |
@@ -940,7 +965,6 @@ Used by:<br>
 | ----- | ---- | ----------- | ---------- |
 | `pendingDeadlineSeconds` | <div style="white-space:nowrap">integer<div> | <div style="max-width:30rem">If the pending Request cannot be activated before the deadline it will be considered failed. If the Release becomes available for activation after the deadline has been exceeded, it will not be activated. Pointer is used to distinguish between not set and false.</div> | <div style="white-space:nowrap">min: 3</div> |
 | `versionRequired` | <div style="white-space:nowrap">boolean<div> | <div style="max-width:30rem">If true '.spec.release.appDeployment.version' is required. Pointer is used to distinguish between not set and false.</div> | <div style="white-space:nowrap"></div> |
-| `dataSnapshotRequired` | <div style="white-space:nowrap">boolean<div> | <div style="max-width:30rem">If '.spec.release.dataSnapshot' is required. Pointer is used to distinguish between not set and false.</div> | <div style="white-space:nowrap"></div> |
 | `historyLimits` | <div style="white-space:nowrap">[VirtEnvHistoryLimits](#virtenvhistorylimits)<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
 
 
@@ -976,7 +1000,7 @@ Used by:<br>
 
 | Field | Type | Description | Validation |
 | ----- | ---- | ----------- | ---------- |
-| `dataChecksum` | <div style="white-space:nowrap">string<div> | <div style="max-width:30rem">DataChecksum is a hash value of the Data object. The Environment Data object is merged before the hash is create. It can be used to check for changes to the Data object.</div> | <div style="white-space:nowrap"></div> |
+| `dataChecksum` | <div style="white-space:nowrap">string<div> | <div style="max-width:30rem">DataChecksum is a hash value of the Data object. The Environment Data object is merged before the hash is created. It can be used to check for changes to the Data object.</div> | <div style="white-space:nowrap"></div> |
 | `pendingReleaseFailed` | <div style="white-space:nowrap">boolean<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
 | `activeRelease` | <div style="white-space:nowrap">[ReleaseStatus](#releasestatus)<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
 | `pendingRelease` | <div style="white-space:nowrap">[ReleaseStatus](#releasestatus)<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |

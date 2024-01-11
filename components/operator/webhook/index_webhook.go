@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package controller
+package webhook
 
 import (
 	"context"
@@ -50,17 +50,6 @@ func (r *IndexWebhook) Handle(ctx context.Context, req admission.Request) admiss
 		k8s.UpdateLabel(appDep, api.LabelK8sAppTag, appDep.Spec.Tag)
 		k8s.UpdateLabel(appDep, api.LabelK8sAppBranch, appDep.Spec.Branch)
 
-	case "kubefox.xigxog.io/v1alpha1, Kind=DataSnapshot":
-		env := &v1alpha1.DataSnapshot{}
-		if err := r.DecodeRaw(req.Object, env); err != nil {
-			return admission.Errored(http.StatusBadRequest, err)
-		}
-		obj = env
-
-		k8s.UpdateLabel(env, api.LabelK8sSourceKind, string(env.Spec.Source.Kind))
-		k8s.UpdateLabel(env, api.LabelK8sSourceName, env.Spec.Source.Name)
-		k8s.UpdateLabel(env, api.LabelK8sSourceVersion, env.Spec.Source.ResourceVersion)
-
 	case "kubefox.xigxog.io/v1alpha1, Kind=Environment":
 		if req.Operation == admv1.Create {
 			env := &v1alpha1.Environment{}
@@ -72,6 +61,16 @@ func (r *IndexWebhook) Handle(ctx context.Context, req admission.Request) admiss
 			k8s.AddFinalizer(env, api.FinalizerEnvironmentProtection)
 		}
 
+	case "kubefox.xigxog.io/v1alpha1, Kind=ReleaseManifest":
+		env := &v1alpha1.ReleaseManifest{}
+		if err := r.DecodeRaw(req.Object, env); err != nil {
+			return admission.Errored(http.StatusBadRequest, err)
+		}
+		obj = env
+
+		k8s.UpdateLabel(env, api.LabelK8sEnvironment, string(env.Spec.VirtualEnvironment.Name))
+		k8s.UpdateLabel(env, api.LabelK8sVirtualEnvironment, env.Spec.VirtualEnvironment.Environment)
+
 	case "kubefox.xigxog.io/v1alpha1, Kind=VirtualEnvironment":
 		env := &v1alpha1.VirtualEnvironment{}
 		if err := r.DecodeRaw(req.Object, env); err != nil {
@@ -79,15 +78,6 @@ func (r *IndexWebhook) Handle(ctx context.Context, req admission.Request) admiss
 		}
 		obj = env
 
-		if env.Spec.Release != nil {
-			k8s.UpdateLabel(env, api.LabelK8sAppDeployment, env.Spec.Release.AppDeployment.Name)
-			k8s.UpdateLabel(env, api.LabelK8sAppVersion, env.Spec.Release.AppDeployment.Version)
-			k8s.UpdateLabel(env, api.LabelK8sDataSnapshot, env.Spec.Release.DataSnapshot)
-		} else {
-			k8s.UpdateLabel(env, api.LabelK8sAppDeployment, "")
-			k8s.UpdateLabel(env, api.LabelK8sAppVersion, "")
-			k8s.UpdateLabel(env, api.LabelK8sDataSnapshot, "")
-		}
 		k8s.UpdateLabel(env, api.LabelK8sEnvironment, env.Spec.Environment)
 
 	default:

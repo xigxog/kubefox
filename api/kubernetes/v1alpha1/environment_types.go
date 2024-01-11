@@ -9,9 +9,6 @@ one at https://mozilla.org/MPL/2.0/.
 package v1alpha1
 
 import (
-	"fmt"
-
-	"github.com/mitchellh/hashstructure/v2"
 	"github.com/xigxog/kubefox/api"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -37,11 +34,6 @@ type EnvReleasePolicy struct {
 	VersionRequired *bool `json:"versionRequired"`
 
 	// +kubebuilder:validation:Optional
-	// +kubebuilder:default=true
-
-	// If '.spec.release.dataSnapshot' is required. Pointer is used to
-	// distinguish between not set and false.
-	DataSnapshotRequired *bool `json:"dataSnapshotRequired"`
 
 	HistoryLimits EnvReleaseHistoryLimits `json:"historyLimits"`
 }
@@ -74,7 +66,7 @@ type Environment struct {
 
 	Spec    EnvironmentSpec `json:"spec,omitempty"`
 	Data    api.Data        `json:"data,omitempty"`
-	Details DataDetails     `json:"details,omitempty"`
+	Details api.DataDetails `json:"details,omitempty"`
 }
 
 // +kubebuilder:object:root=true
@@ -89,9 +81,11 @@ func (env *Environment) GetData() *api.Data {
 	return &env.Data
 }
 
-func (env *Environment) GetDataChecksum() string {
-	hash, _ := hashstructure.Hash(&env.Data, hashstructure.FormatV2, nil)
-	return fmt.Sprint(hash)
+func (d *Environment) GetDataKey() api.DataKey {
+	return api.DataKey{
+		Kind: d.Kind,
+		Name: d.Name,
+	}
 }
 
 func init() {

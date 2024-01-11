@@ -53,16 +53,13 @@ const (
 	LabelK8sComponentCommit      string = "kubefox.xigxog.io/component-commit"
 	LabelK8sComponentCommitShort string = "kubefox.xigxog.io/component-commit-short"
 	LabelK8sComponentType        string = "kubefox.xigxog.io/component-type"
-	LabelK8sDataSnapshot         string = "kubefox.xigxog.io/data-snapshot"
 	LabelK8sEnvironment          string = "kubefox.xigxog.io/environment"
 	LabelK8sInstance             string = "app.kubernetes.io/instance"
 	LabelK8sPlatform             string = "kubefox.xigxog.io/platform"
 	LabelK8sPlatformComponent    string = "kubefox.xigxog.io/platform-component"
-	LabelK8sReleaseStatus        string = "kubefox.xigxog.io/release-status"
+	LabelK8sReleaseManifest      string = "kubefox.xigxog.io/release-manifest"
 	LabelK8sRuntimeVersion       string = "kubefox.xigxog.io/runtime-version"
-	LabelK8sSourceKind           string = "kubefox.xigxog.io/source-kind"
-	LabelK8sSourceName           string = "kubefox.xigxog.io/source-name"
-	LabelK8sSourceVersion        string = "kubefox.xigxog.io/source-version"
+	LabelK8sVirtualEnvironment   string = "kubefox.xigxog.io/virtual-environment"
 )
 
 // Kubernetes Annotations
@@ -149,18 +146,18 @@ const (
 type ProblemType string
 
 const (
-	ProblemTypeAdapterNotFound       ProblemType = "AdapterNotFound"
-	ProblemTypeAppDeploymentFailed   ProblemType = "AppDeploymentFailed"
-	ProblemTypeAppDeploymentNotFound ProblemType = "AppDeploymentNotFound"
-	ProblemTypeDataSnapshotInvalid   ProblemType = "DataSnapshotInvalid"
-	ProblemTypeDataSnapshotNotFound  ProblemType = "DataSnapshotNotFound"
-	ProblemTypeDependencyInvalid     ProblemType = "DependencyInvalid"
-	ProblemTypeDependencyNotFound    ProblemType = "DependencyNotFound"
-	ProblemTypeParseError            ProblemType = "ParseError"
-	ProblemTypePolicyViolation       ProblemType = "PolicyViolation"
-	ProblemTypeRouteConflict         ProblemType = "RouteConflict"
-	ProblemTypeVarNotFound           ProblemType = "VarNotFound"
-	ProblemTypeVarWrongType          ProblemType = "VarWrongType"
+	// ProblemTypeReleaseManifestInvalid     ProblemType = "ReleaseManifestInvalid"
+	ProblemTypeAdapterNotFound         ProblemType = "AdapterNotFound"
+	ProblemTypeAppDeploymentFailed     ProblemType = "AppDeploymentFailed"
+	ProblemTypeAppDeploymentNotFound   ProblemType = "AppDeploymentNotFound"
+	ProblemTypeDependencyInvalid       ProblemType = "DependencyInvalid"
+	ProblemTypeDependencyNotFound      ProblemType = "DependencyNotFound"
+	ProblemTypeParseError              ProblemType = "ParseError"
+	ProblemTypePolicyViolation         ProblemType = "PolicyViolation"
+	ProblemTypeReleaseManifestNotFound ProblemType = "ReleaseManifestNotFound"
+	ProblemTypeRouteConflict           ProblemType = "RouteConflict"
+	ProblemTypeVarNotFound             ProblemType = "VarNotFound"
+	ProblemTypeVarWrongType            ProblemType = "VarWrongType"
 )
 
 type DataSourceKind string
@@ -174,8 +171,8 @@ type ProblemSourceKind string
 const (
 	ProblemSourceKindAppDeployment      ProblemSourceKind = "AppDeployment"
 	ProblemSourceKindComponent          ProblemSourceKind = "Component"
-	ProblemSourceKindDataSnapshot       ProblemSourceKind = "DataSnapshot"
 	ProblemSourceKindHTTPAdapter        ProblemSourceKind = "HTTPAdapter"
+	ProblemSourceKindReleaseManifest    ProblemSourceKind = "ReleaseManifest"
 	ProblemSourceKindVirtualEnvironment ProblemSourceKind = "VirtualEnvironment"
 )
 

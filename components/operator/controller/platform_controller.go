@@ -26,6 +26,7 @@ import (
 	"github.com/xigxog/kubefox/api"
 	"github.com/xigxog/kubefox/api/kubernetes/v1alpha1"
 	"github.com/xigxog/kubefox/build"
+	"github.com/xigxog/kubefox/components/operator/defaults"
 	"github.com/xigxog/kubefox/components/operator/templates"
 	"github.com/xigxog/kubefox/k8s"
 	"github.com/xigxog/kubefox/logkf"
@@ -186,7 +187,7 @@ func (r *PlatformReconciler) reconcile(ctx context.Context, platform *v1alpha1.P
 		r.setSetup(pKey, true)
 	}
 
-	td := baseTD.ForComponent(api.PlatformComponentNATS, &appsv1.StatefulSet{}, &NATSDefaults, templates.Component{
+	td := baseTD.ForComponent(api.PlatformComponentNATS, &appsv1.StatefulSet{}, &defaults.NATS, templates.Component{
 		Name:                api.PlatformComponentNATS,
 		Type:                api.ComponentTypeNATS,
 		Image:               NATSImage,
@@ -194,7 +195,7 @@ func (r *PlatformReconciler) reconcile(ctx context.Context, platform *v1alpha1.P
 		ContainerSpec:       platform.Spec.NATS.ContainerSpec,
 		IsPlatformComponent: true,
 	})
-	if err := r.setupVaultComponent(ctx, td, ""); err != nil {
+	if err := r.setupPKI(ctx, td, ""); err != nil {
 		return err
 	}
 	if rdy, err := r.CompMgr.SetupComponent(ctx, td); !rdy || err != nil {
@@ -208,7 +209,7 @@ func (r *PlatformReconciler) reconcile(ctx context.Context, platform *v1alpha1.P
 		return chill(err)
 	}
 
-	td = baseTD.ForComponent(api.PlatformComponentBroker, &appsv1.DaemonSet{}, &BrokerDefaults, templates.Component{
+	td = baseTD.ForComponent(api.PlatformComponentBroker, &appsv1.DaemonSet{}, &defaults.Broker, templates.Component{
 		Name:                api.PlatformComponentBroker,
 		Type:                api.ComponentTypeBroker,
 		Commit:              build.Info.BrokerCommit,
@@ -217,7 +218,7 @@ func (r *PlatformReconciler) reconcile(ctx context.Context, platform *v1alpha1.P
 		ContainerSpec:       platform.Spec.Broker.ContainerSpec,
 		IsPlatformComponent: true,
 	})
-	if err := r.setupVaultComponent(ctx, td, ""); err != nil {
+	if err := r.setupPKI(ctx, td, ""); err != nil {
 		return err
 	}
 	if rdy, err := r.CompMgr.SetupComponent(ctx, td); !rdy || err != nil {
@@ -231,7 +232,7 @@ func (r *PlatformReconciler) reconcile(ctx context.Context, platform *v1alpha1.P
 		return chill(err)
 	}
 
-	td = baseTD.ForComponent(api.PlatformComponentHTTPSrv, &appsv1.Deployment{}, &HTTPSrvDefaults, templates.Component{
+	td = baseTD.ForComponent(api.PlatformComponentHTTPSrv, &appsv1.Deployment{}, &defaults.HTTPSrv, templates.Component{
 		Name:                api.PlatformComponentHTTPSrv,
 		Type:                api.ComponentTypeHTTPAdapter,
 		Commit:              build.Info.HTTPSrvCommit,
@@ -245,7 +246,7 @@ func (r *PlatformReconciler) reconcile(ctx context.Context, platform *v1alpha1.P
 	td.Values["serviceType"] = platform.Spec.HTTPSrv.Service.Type
 	td.Values["httpPort"] = platform.Spec.HTTPSrv.Service.Ports.HTTP
 	td.Values["httpsPort"] = platform.Spec.HTTPSrv.Service.Ports.HTTPS
-	if err := r.setupVaultComponent(ctx, td, ""); err != nil {
+	if err := r.setupPKI(ctx, td, ""); err != nil {
 		return err
 	}
 	if rdy, err := r.CompMgr.SetupComponent(ctx, td); !rdy || err != nil {
@@ -306,6 +307,46 @@ func (r *PlatformReconciler) setupVault(ctx context.Context, td *TemplateData) e
 		return err
 	}
 
+	// Setup KVs for secrets.
+	secretPath := fmt.Sprintf("kubefox/instance/%s/namespace/%s",
+		td.Instance.Name, td.Platform.Namespace)
+	if cfg, _ := vault.Sys().MountConfig(secretPath); cfg != nil {
+		r.log.Debugf("namespace kv store at path '%s' exists", secretPath)
+
+	} else {
+		r.log.Infof("creating namespace kv store at path '%s'", secretPath)
+		err = vault.Sys().Mount(secretPath, &vapi.MountInput{
+			Type: "kv",
+			Description: fmt.Sprintf("Namespace scoped KubeFox secret data store; instance: %s, namespace: %s",
+				td.Instance.Name, td.Platform.Namespace),
+			Options: map[string]string{
+				"version": "2", // Supports versioning and optimistic locking.
+			},
+		})
+		if err != nil {
+			return fmt.Errorf("error creating namespace kv store at path '%s': %w", secretPath, err)
+		}
+	}
+
+	secretPath = fmt.Sprintf("kubefox/instance/%s/cluster", td.Instance.Name)
+	if cfg, _ := vault.Sys().MountConfig(secretPath); cfg != nil {
+		r.log.Debugf("cluster kv store at path '%s' exists", secretPath)
+
+	} else {
+		r.log.Infof("creating cluster kv store at path '%s'", secretPath)
+		err = vault.Sys().Mount(secretPath, &vapi.MountInput{
+			Type:        "kv",
+			Description: fmt.Sprintf("Cluster scoped KubeFox secret data store; instance: %s", td.Instance.Name),
+			Options: map[string]string{
+				"version": "2", // Supports versioning and optimistic locking.
+			},
+		})
+		if err != nil {
+			return fmt.Errorf("error creating cluster kv store at path '%s': %w", secretPath, err)
+		}
+	}
+
+	// Setup PKI.
 	pkiPath := fmt.Sprintf("pki/int/platform/%s", td.PlatformVaultName())
 	if cfg, _ := vault.Sys().MountConfig(pkiPath); cfg == nil {
 		err = vault.Sys().Mount(pkiPath, &vapi.MountInput{
@@ -352,13 +393,13 @@ func (r *PlatformReconciler) setupVault(ctx context.Context, td *TemplateData) e
 	return nil
 }
 
-func (r *PlatformReconciler) setupVaultComponent(ctx context.Context, td *TemplateData, additionalPolicies string) error {
+func (r *PlatformReconciler) setupPKI(ctx context.Context, td *TemplateData, additionalPolicies string) error {
 	setup := r.isSetup(td.ComponentFullName())
 	if setup {
-		r.log.Debugf("vault already setup for component '%s'", td.ComponentFullName())
+		r.log.Debugf("pki already setup for component '%s'", td.ComponentFullName())
 		return nil
 	}
-	r.log.Debugf("setting up vault for component '%s'", td.ComponentFullName())
+	r.log.Debugf("setting up pki for component '%s'", td.ComponentFullName())
 
 	vault, err := r.vaultClient(ctx, r.VaultURL, []byte(td.Instance.RootCA))
 	if err != nil {
@@ -407,7 +448,7 @@ func (r *PlatformReconciler) setupVaultComponent(ctx context.Context, td *Templa
 	}
 
 	r.setSetup(td.ComponentFullName(), true)
-	r.log.Debugf("vault successfully setup for component '%s'", td.ComponentFullName())
+	r.log.Debugf("pki successfully setup for component '%s'", td.ComponentFullName())
 
 	return nil
 }

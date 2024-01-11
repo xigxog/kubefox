@@ -16,30 +16,11 @@ type Adapter interface {
 	Validate(data *Data) Problems
 }
 
-// +kubebuilder:object:generate=false
-type DataProvider interface {
-	GetData() *Data
-	GetDataChecksum() string
-}
-
 type EnvVarSchema map[string]*EnvVarDefinition
 
 type EnvSchema struct {
 	Vars    EnvVarSchema `json:"vars,omitempty"`
 	Secrets EnvVarSchema `json:"secrets,omitempty"`
-}
-
-type Data struct {
-	// +kubebuilder:validation:Schemaless
-	// +kubebuilder:validation:Type=object
-	// +kubebuilder:pruning:PreserveUnknownFields
-	Vars map[string]*Val `json:"vars,omitempty"`
-	// +kubebuilder:validation:Schemaless
-	// +kubebuilder:validation:Type=object
-	// +kubebuilder:pruning:PreserveUnknownFields
-	Secrets map[string]*Val `json:"secrets,omitempty"`
-
-	ResolvedSecrets map[string]*Val `json:"-"`
 }
 
 type EnvVarDefinition struct {
@@ -83,7 +64,7 @@ type Problems []Problem
 
 type Problem struct {
 	// +kubebuilder:validation:Required
-	// +kubebuilder:validation:Enum=AdapterNotFound;AppDeploymentFailed;DependencyInvalid;DependencyNotFound;ParseError;PolicyViolation;RouteConflict;VarNotFound;VarWrongType;DataSnapshotFailed
+	// +kubebuilder:validation:Enum=AdapterNotFound;AppDeploymentFailed;DependencyInvalid;DependencyNotFound;ParseError;PolicyViolation;RouteConflict;VarNotFound;VarWrongType
 
 	Type ProblemType `json:"type"`
 
@@ -96,7 +77,7 @@ type Problem struct {
 
 type ProblemSource struct {
 	// +kubebuilder:validation:Required
-	// +kubebuilder:validation:Enum=AppDeployment;Component;HTTPAdapter;Release;VirtualEnvironment;DataSnapshot
+	// +kubebuilder:validation:Enum=AppDeployment;Component;HTTPAdapter;Release;ReleaseManifest;VirtualEnvironment;
 
 	Kind ProblemSourceKind `json:"kind"`
 	Name string            `json:"name,omitempty"`
