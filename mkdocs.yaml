@@ -52,6 +52,7 @@ theme:
   features:
     - content.action.edit
     - content.code.annotate
+    - content.tabs.link    
     - navigation.instant
     - navigation.tabs
     - navigation.tabs.sticky
@@ -75,6 +76,8 @@ markdown_extensions:
   - pymdownx.mark
   - pymdownx.tilde
   - pymdownx.details
+  - pymdownx.tabbed:
+      alternate_style: true
   - pymdownx.emoji:
       emoji_index: !!python/name:material.extensions.emoji.twemoji
       emoji_generator: !!python/name:material.extensions.emoji.to_svg

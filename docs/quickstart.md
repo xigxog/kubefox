@@ -1,7 +1,7 @@
 # Quickstart
 
 Welcome to the world of KubeFox! This technical guide will walk you through the
-process of setting up a local Kubernetes cluster using kind and deploying your
+process of setting up a Kubernetes cluster using either kind or Azure and deploying your
 inaugural KubeFox app. From crafting environments and deploying apps to testing
 and version control, we'll cover it all. Whether you're a seasoned developer or
 just getting started, this guide will help you navigate the fundamentals of a
@@ -34,38 +34,76 @@ Here are a few optional but recommended tools:
   installed.
 - [VS Code](https://code.visualstudio.com/download) - A lightweight but powerful
   source code editor. Helpful if you want to explore the `hello-world` app.
+- [Azure CLI](https://learn.microsoft.com/en-us/cli/azure/install-azure-cli) - CLI for communicating
+  with the Azure control plane.  
 
-## Install KubeFox
+## Setup Kubernetes Infrastructure
 
-TODO add `go install fox` and links to `fox` bins
+Let's kick things off by setting up our first Kubernetes cluster. Use
+the below set of commands depending on which Kubernetes provider you would like to use. 
+If you already have a Kubernetes Cluster provisioned, you can skip this step.
 
-Let's kick things off by setting up a local Kubernetes cluster using kind. Use
-the following command to create the cluster.
+=== "Local (kind)"
+    Let's start with setting up a local Kubernetes cluster using the kind CLI. The following commands can be used to create and interact with the cluster.
 
-```{ .shell .copy }
-kind create cluster --wait 5m
-```
-
-??? example "Output"
-
-    ```text
-    $ kind create cluster --wait 5m
-    Creating cluster "kind" ...
-    ✓ Ensuring node image (kindest/node:v1.27.3) 🖼
-    ✓ Preparing nodes 📦
-    ✓ Writing configuration 📜
-    ✓ Starting control-plane 🕹️
-    ✓ Installing CNI 🔌
-    ✓ Installing StorageClass 💾
-    ✓ Waiting ≤ 5m0s for control-plane = Ready ⏳
-    • Ready after 15s 💚
-    Set kubectl context to "kind-kind"
-    You can now use your cluster with:
-
-    kubectl cluster-info --context kind-kind
-
-    Have a nice day! 👋
+    ```{ .shell .copy }
+    kind create cluster --wait 5m
     ```
+
+    ??? example "Output"
+
+        ```text
+        $ kind create cluster --wait 5m
+        Creating cluster "kind" ...
+        ✓ Ensuring node image (kindest/node:v1.27.3) 🖼
+        ✓ Preparing nodes 📦
+        ✓ Writing configuration 📜
+        ✓ Starting control-plane 🕹️
+        ✓ Installing CNI 🔌
+        ✓ Installing StorageClass 💾
+        ✓ Waiting ≤ 5m0s for control-plane = Ready ⏳
+        • Ready after 15s 💚
+        Set kubectl context to "kind-kind"
+        You can now use your cluster with:
+
+        kubectl cluster-info --context kind-kind
+
+        Have a nice day! 👋
+        ```
+
+=== "Azure (AKS)"
+    Let's start with setting up a remote Kubernetes cluster using the Azure CLI. The following commands can be used to create and interact with the cluster.
+    First you need to login to Azure and select the proper Azure subscription where you want to deploy your Kubernetes cluster using the below commands.
+
+    ```shell
+    az login
+    az account show
+    az account set --subscription <subscription ID here>
+    ```
+
+    Next you need to create a Resource Group for the AKS cluster, and then deploy AKS. The below example is using EASTUS2 as the region and an example free tier AKS cluster.
+    *Note: This command will take > 5 minutes to complete.*
+
+    ```shell
+    az group create --location eastus2 --name kf-quickstart-infra-eus2-rg
+    az aks create \
+        --resource-group kf-quickstart-infra-eus2-rg \
+        --tier free \
+        --name kf-quickstart-eus2-aks-01 \
+        --location eastus2 \
+        --node-count 1 \
+        --node-vm-size "Standard_B2s"
+    ```
+
+    Once your AKS cluster is ready, you can use the below command to add the cluster to your kubectl configuration.
+
+    ```shell
+    az aks get-credentials \
+    --resource-group kf-quickstart-infra-eus2-rg  \
+    --name kf-quickstart-eus2-aks-01 
+    ```
+
+## Install KubeFox Platform
 
 Now, install the KubeFox Helm Chart to initiate the KubeFox operator on your
 Kubernetes cluster. The operator manages KubeFox platforms and apps.
@@ -94,37 +132,96 @@ helm upgrade kubefox kubefox \
     TEST SUITE: None
     ```
 
-## Deploy
+## Setup Fox
+Here we will setup the Fox CLI.
 
-Awesome! You're all set to create your first KubeFox app and deploy it to a
-KubeFox platform running on the local kind cluster. To begin, create a new
-directory and use Fox to initialize the `hello-world` app. Run all subsequent
+??? "Install using GO (Linux, MacOS, Windows)"
+
+    ```shell
+    go install github.com/xigxog/fox@stable
+    ```
+
+??? "Install using Shell (Linux, MacOS)"
+
+    ```shell
+    latest=$(curl -s https://api.github.com/repos/xigxog/fox/releases/latest | jq -r '.name')
+    os=$(uname -s | tr '[:upper:]' '[:lower:]')
+
+    echo "Latest Fox CLI Version: ${latest}"
+    echo "OS: ${os}"
+
+    curl -s -L https://github.com/xigxog/fox/releases/download/${latest}/fox-${latest}-${os}-amd64.tar.gz \
+        | tar xvz - -C /tmp && \
+        sudo mv /tmp/fox /usr/local/bin/fox && \
+        echo "Fox CLI Successfuly installed"
+    ```
+
+To begin, create a new directory and use Fox to initialize the `hello-world` app. Run all subsequent
 commands from this directory. The environment variable `FOX_INFO` tells Fox to
 to provide additional output about what is going on. Employ the `--quickstart`
 flag to use defaults and create a KubeFox platform named `demo` in the
 `kubefox-demo` namespace.
 
-```{ .shell .copy }
-export FOX_INFO=true && \
-  mkdir kubefox-quickstart && \
-  cd kubefox-quickstart && \
-  fox init --quickstart
-```
+=== "Local (kind)"
 
-??? example "Output"
+    ```{ .shell .copy }
+    export FOX_INFO=true && \
+      mkdir kubefox-quickstart && \
+      cd kubefox-quickstart && \
+      fox init --quickstart
+    ```
 
-    ```text
-    $ export FOX_INFO=true && \
-        mkdir kubefox-quickstart && \
-        cd kubefox-quickstart && \
-        fox init --quickstart
-    info    Waiting for KubeFox Platform 'demo' to be ready...
-    info    KubeFox initialized for the quickstart guide!
+    ??? example "Output"
+
+        ```text
+        $ export FOX_INFO=true && \
+            mkdir kubefox-quickstart && \
+            cd kubefox-quickstart && \
+            fox init --quickstart
+        info    Waiting for KubeFox Platform 'demo' to be ready...
+        info    KubeFox initialized for the quickstart guide!
+        ```
+
+=== "Azure (AKS)"
+
+    Please run the below command if you need to setup a container registry on Azure using ACR. If you already have a registry which is accessible from Azure, you can skip this step. Any OCI compliant container registry can be used here.
+
+    ??? "(optional) Create Container Registry on Azure"
+        Create your Azure Container Registry in the same resource group as your AKS cluster.
+        
+        ```shell
+        az acr create --name <your ACR Name> --sku Basic --admin-enabled true --resource-group kf-quickstart-infra-eus2-rg
+        ```
+        
+        Run the below commands to get the endpoints and token required to access your registry.
+        
+        ```shell
+        az acr show-endpoints -n <your ACR Name> --resource-group kf-quickstart-infra-eus2-rg --query 'loginServer'
+
+        az acr token create --name MyTokenWildcard \
+          --registry <your ACR Name>  \
+          --resource-group kf-quickstart-infra-eus2-rg  \
+          --repository "*" \
+          content/write content/read \
+          --query "[credentials.username,credentials.passwords[0].value]"
+        ```
+    The fox command below will prompt you for your ACR endpoint and token which you generated above.
+
+    ```{ .shell .copy }
+    export FOX_INFO=true && \
+      mkdir kubefox-quickstart && \
+      cd kubefox-quickstart && \
+      fox init --quickstart --remote-registry
     ```
 
 Notice the newly created directories and files. The `hello-world` app comprises
 two components and example environments. Fox also initialized a new Git repo for
 you. Take a look around!
+
+## Deploy
+
+Awesome! You're all set to create your first KubeFox app and deploy it to a
+KubeFox platform running on your kubernetes cluster. 
 
 Now, let's create some environments. Two example environments are available in
 the `hack` directory. The `subPath` variable ensures unique routes between
@@ -791,6 +888,25 @@ curl "http://localhost:8080/prod/hello"
     $ curl "http://localhost:8080/prod/hello"
     👋 Hello Universe!
     ```
+
+## Cleanup
+
+Once you are done with the quickstart, you can optionally use the below commands to clean up the Kubernetes environment.
+
+=== "Local (kind)"
+
+    ```{ .shell .copy }
+    kind delete cluster
+    ```
+
+=== "Azure (AKS)"
+
+    ```shell
+    az aks delete -g kf-quickstart-infra-eus2-rg --name kf-quickstart-eus2-aks-01
+    az group delete -g kf-quickstart-infra-eus2-rg
+    ```
+
+## Feedback
 
 Explore the rest of the documentation for more details. If you encounter any
 problems please let us know on [GitHub
