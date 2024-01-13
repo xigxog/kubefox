@@ -7,7 +7,7 @@ what components are currently running in the cluster, and what components have
 changed in the new deployment.  In so doing, KubeFox helps you control
 provisioning.
 
-## Example
+<h3>Example</h3>
 
 For purposes of illustration, consider an simple Order application [App](./index.md#app).
 
@@ -40,7 +40,7 @@ and two of which user-written:
 1. Order user interface (order-ui)
 2. API server (api-srv)
 
-Note that the fulfillment app and web-ui modules both employ the api-srv component,
+Note that the fulfillment and web-ui modules both employ the api-srv component,
 i.e., this component is shared.
 
 <h3>Version 1 Deployment</h3>
@@ -125,7 +125,7 @@ and similarly for Version 3:
   <figcaption>Figure 8 - Version 3 traffic (with Versions 1 and 2 present)</figcaption>
 </figure>
 
-## Summary Notes
+## Summary
 
 There are a number things of note here:
 
