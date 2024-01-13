@@ -423,8 +423,8 @@ func (str *Store) buildReleaseMatcher(ctx context.Context) (*matcher.EventMatche
 			ReleaseManifest:    release.ReleaseManifest,
 		}
 
-		for appDepName := range release.AppDeployments {
-			appDep, err := str.AppDeployment(ctx, appDepName)
+		for _, app := range release.Apps {
+			appDep, err := str.AppDeployment(ctx, app.AppDeployment)
 			if err != nil {
 				str.log.Warn(err)
 				continue
