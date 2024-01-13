@@ -802,11 +802,11 @@ Used by:<br>
 
 | Field | Type | Description | Validation |
 | ----- | ---- | ----------- | ---------- |
-| `appDeployments` | <div style="white-space:nowrap">map{string, [ReleaseAppDeployment](#releaseappdeployment)}<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap">required</div> |
+| `apps` | <div style="white-space:nowrap">map{string, [ReleaseApp](#releaseapp)}<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap">required</div> |
 
 
 
-### ReleaseAppDeployment
+### ReleaseApp
 
 
 
@@ -814,16 +814,17 @@ Used by:<br>
 Used by:<br>
 
 - <a href=#release>Release</a><br>
-- <a href=#releaseappdeploymentstatus>ReleaseAppDeploymentStatus</a><br>
+- <a href=#releaseappstatus>ReleaseAppStatus</a><br>
 </p>
 
 | Field | Type | Description | Validation |
 | ----- | ---- | ----------- | ---------- |
+| `appDeployment` | <div style="white-space:nowrap">string<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap">required, minLength: 1</div> |
 | `version` | <div style="white-space:nowrap">string<div> | <div style="max-width:30rem">Version of the App being released. Use of semantic versioning is recommended. If set the value is compared to the AppDeployment version. If the two versions do not match the release will fail.</div> | <div style="white-space:nowrap"></div> |
 
 
 
-### ReleaseAppDeploymentStatus
+### ReleaseAppStatus
 
 
 
@@ -835,6 +836,7 @@ Used by:<br>
 
 | Field | Type | Description | Validation |
 | ----- | ---- | ----------- | ---------- |
+| `appDeployment` | <div style="white-space:nowrap">string<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap">required, minLength: 1</div> |
 | `version` | <div style="white-space:nowrap">string<div> | <div style="max-width:30rem">Version of the App being released. Use of semantic versioning is recommended. If set the value is compared to the AppDeployment version. If the two versions do not match the release will fail.</div> | <div style="white-space:nowrap"></div> |
 | `observedGeneration` | <div style="white-space:nowrap">integer<div> | <div style="max-width:30rem">ObservedGeneration represents the .metadata.generation of the AppDeployment that the status was set based upon. For instance, if the AppDeployment .metadata.generation is currently 12, but the observedGeneration is 9, the status is out of date with respect to the current state of the instance.</div> | <div style="white-space:nowrap"></div> |
 
@@ -889,7 +891,7 @@ Used by:<br>
 | Field | Type | Description | Validation |
 | ----- | ---- | ----------- | ---------- |
 | `releaseManifest` | <div style="white-space:nowrap">string<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
-| `appDeployments` | <div style="white-space:nowrap">map{string, [ReleaseAppDeploymentStatus](#releaseappdeploymentstatus)}<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
+| `apps` | <div style="white-space:nowrap">map{string, [ReleaseAppStatus](#releaseappstatus)}<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
 | `requestTime` | <div style="white-space:nowrap">[Time](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.28/#time-v1-meta)<div> | <div style="max-width:30rem">Time at which the VirtualEnvironment was updated to use the Release.</div> | <div style="white-space:nowrap"></div> |
 | `activationTime` | <div style="white-space:nowrap">[Time](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.28/#time-v1-meta)<div> | <div style="max-width:30rem">Time at which the Release became active. If not set the Release was never activated.</div> | <div style="white-space:nowrap"></div> |
 | `archiveTime` | <div style="white-space:nowrap">[Time](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.28/#time-v1-meta)<div> | <div style="max-width:30rem">Time at which the Release was archived to history.</div> | <div style="white-space:nowrap"></div> |

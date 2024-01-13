@@ -108,20 +108,25 @@ spec:
                 type: string
               release:
                 properties:
-                  appDeployments:
+                  apps:
                     additionalProperties:
                       properties:
+                        appDeployment:
+                          minLength: 1
+                          type: string
                         version:
                           description: Version of the App being released. Use of semantic
                             versioning is recommended. If set the value is compared
                             to the AppDeployment version. If the two versions do not
                             match the release will fail.
                           type: string
+                      required:
+                      - appDeployment
                       type: object
                     minProperties: 1
                     type: object
                 required:
-                - appDeployments
+                - apps
                 type: object
               releasePolicy:
                 properties:
@@ -169,9 +174,12 @@ spec:
                       the Release was never activated.
                     format: date-time
                     type: string
-                  appDeployments:
+                  apps:
                     additionalProperties:
                       properties:
+                        appDeployment:
+                          minLength: 1
+                          type: string
                         observedGeneration:
                           description: ObservedGeneration represents the .metadata.generation
                             of the AppDeployment that the status was set based upon.
@@ -187,6 +195,8 @@ spec:
                             to the AppDeployment version. If the two versions do not
                             match the release will fail.
                           type: string
+                      required:
+                      - appDeployment
                       type: object
                     type: object
                   archiveReason:
@@ -355,9 +365,12 @@ spec:
                       the Release was never activated.
                     format: date-time
                     type: string
-                  appDeployments:
+                  apps:
                     additionalProperties:
                       properties:
+                        appDeployment:
+                          minLength: 1
+                          type: string
                         observedGeneration:
                           description: ObservedGeneration represents the .metadata.generation
                             of the AppDeployment that the status was set based upon.
@@ -373,6 +386,8 @@ spec:
                             to the AppDeployment version. If the two versions do not
                             match the release will fail.
                           type: string
+                      required:
+                      - appDeployment
                       type: object
                     type: object
                   archiveReason:
@@ -468,9 +483,12 @@ spec:
                         set the Release was never activated.
                       format: date-time
                       type: string
-                    appDeployments:
+                    apps:
                       additionalProperties:
                         properties:
+                          appDeployment:
+                            minLength: 1
+                            type: string
                           observedGeneration:
                             description: ObservedGeneration represents the .metadata.generation
                               of the AppDeployment that the status was set based upon.
@@ -486,6 +504,8 @@ spec:
                               is compared to the AppDeployment version. If the two
                               versions do not match the release will fail.
                             type: string
+                        required:
+                        - appDeployment
                         type: object
                       type: object
                     archiveReason:

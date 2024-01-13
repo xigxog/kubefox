@@ -26,6 +26,9 @@ spec:
   scope: Namespaced
   versions:
   - additionalPrinterColumns:
+    - jsonPath: .spec.appName
+      name: App
+      type: string
     - jsonPath: .status.conditions[?(@.type=='Available')].status
       name: Available
       type: string

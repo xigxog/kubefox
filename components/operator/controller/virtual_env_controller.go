@@ -143,10 +143,10 @@ func (r *VirtualEnvReconciler) reconcile(ctx context.Context, ve *v1alpha1.Virtu
 		// Rollback to active Release.
 		if active := ve.Status.ActiveRelease; active != nil {
 			ve.Spec.Release = &v1alpha1.Release{
-				AppDeployments: map[string]v1alpha1.ReleaseAppDeployment{},
+				Apps: map[string]v1alpha1.ReleaseApp{},
 			}
-			for appDepName, appDep := range active.AppDeployments {
-				ve.Spec.Release.AppDeployments[appDepName] = appDep.ReleaseAppDeployment
+			for appName, app := range active.Apps {
+				ve.Spec.Release.Apps[appName] = app.ReleaseApp
 			}
 
 		} else {
@@ -220,12 +220,12 @@ func (r *VirtualEnvReconciler) reconcile(ctx context.Context, ve *v1alpha1.Virtu
 
 	} else if !releaseEqual(ve.Status.PendingRelease, ve.Spec.Release) {
 		ve.Status.PendingRelease = &v1alpha1.ReleaseStatus{
-			RequestTime:    now,
-			AppDeployments: map[string]v1alpha1.ReleaseAppDeploymentStatus{},
+			RequestTime: now,
+			Apps:        map[string]v1alpha1.ReleaseAppStatus{},
 		}
-		for appDepName, appDep := range ve.Spec.Release.AppDeployments {
-			ve.Status.PendingRelease.AppDeployments[appDepName] = v1alpha1.ReleaseAppDeploymentStatus{
-				ReleaseAppDeployment: appDep,
+		for appName, app := range ve.Spec.Release.Apps {
+			ve.Status.PendingRelease.Apps[appName] = v1alpha1.ReleaseAppStatus{
+				ReleaseApp: app,
 			}
 		}
 	}
@@ -368,15 +368,15 @@ func (r *VirtualEnvReconciler) updateProblems(ctx context.Context, now metav1.Ti
 	data := ve.Data.MergeInto(&env.Data)
 	policy := ve.GetReleasePolicy(env)
 
-	for relAppDepName, relAppDep := range rel.AppDeployments {
-		relAppDep.ObservedGeneration = 0
+	for relAppName, relApp := range rel.Apps {
+		relApp.ObservedGeneration = 0
 
 		appDep := &v1alpha1.AppDeployment{}
-		err := r.Get(ctx, k8s.Key(ve.Namespace, relAppDepName), appDep)
+		err := r.Get(ctx, k8s.Key(ve.Namespace, relApp.AppDeployment), appDep)
 
 		switch {
 		case err == nil:
-			relAppDep.ObservedGeneration = appDep.Generation
+			relApp.ObservedGeneration = appDep.Generation
 			progressing := k8s.Condition(appDep.Status.Conditions, api.ConditionTypeProgressing)
 			available := k8s.Condition(appDep.Status.Conditions, api.ConditionTypeAvailable)
 
@@ -450,8 +450,8 @@ func (r *VirtualEnvReconciler) updateProblems(ctx context.Context, now metav1.Ti
 				})
 			}
 
-			if *policy.VersionRequired && relAppDep.Version == "" {
-				msg := fmt.Sprintf(`Version is required but not set for AppDeployment "%s".`, relAppDepName)
+			if *policy.VersionRequired && relApp.Version == "" {
+				msg := fmt.Sprintf(`Version is required but not set for App "%s".`, relAppName)
 				value := fmt.Sprint(*policy.VersionRequired)
 				rel.Problems = append(rel.Problems, common.Problem{
 					ObservedTime: now,
@@ -467,19 +467,20 @@ func (r *VirtualEnvReconciler) updateProblems(ctx context.Context, now metav1.Ti
 								Value:              &value,
 							},
 							{
-								Kind:               api.ProblemSourceKindAppDeployment,
-								ObservedGeneration: appDep.Generation,
-								Path:               "$.spec.version",
-								Value:              &appDep.Spec.Version,
+								Kind:               api.ProblemSourceKindVirtualEnvironment,
+								Name:               ve.Name,
+								ObservedGeneration: ve.Generation,
+								Path:               fmt.Sprintf("$.spec.release.apps.%s.version", relAppName),
+								Value:              &relApp.Version,
 							},
 						},
 					},
 				})
 			}
 
-			if relAppDep.Version != "" && relAppDep.Version != appDep.Spec.Version {
-				msg := fmt.Sprintf(`AppDeployment "%s" version "%s" does not match Release version "%s".`,
-					appDep.Name, appDep.Spec.Version, relAppDep.Version)
+			if relApp.Version != "" && relApp.Version != appDep.Spec.Version {
+				msg := fmt.Sprintf(`AppDeployment "%s" version "%s" does not match App "%s" version "%s".`,
+					appDep.Name, appDep.Spec.Version, relAppName, relApp.Version)
 				rel.Problems = append(rel.Problems, common.Problem{
 					ObservedTime: now,
 					Problem: api.Problem{
@@ -488,9 +489,10 @@ func (r *VirtualEnvReconciler) updateProblems(ctx context.Context, now metav1.Ti
 						Causes: []api.ProblemSource{
 							{
 								Kind:               api.ProblemSourceKindVirtualEnvironment,
+								Name:               ve.Name,
 								ObservedGeneration: ve.Generation,
-								Path:               "$.spec.release.appDeployment.version",
-								Value:              &relAppDep.Version,
+								Path:               fmt.Sprintf("$.spec.release.apps.%s.version", relAppName),
+								Value:              &relApp.Version,
 							},
 							{
 								Kind:               api.ProblemSourceKindAppDeployment,
@@ -506,7 +508,7 @@ func (r *VirtualEnvReconciler) updateProblems(ctx context.Context, now metav1.Ti
 
 		case k8s.IsNotFound(err):
 			err = nil
-			msg := fmt.Sprintf(`AppDeployment "%s" not found.`, relAppDepName)
+			msg := fmt.Sprintf(`AppDeployment "%s" for App "%s" not found.`, relApp.AppDeployment, relAppName)
 			rel.Problems = append(rel.Problems, common.Problem{
 				ObservedTime: now,
 				Problem: api.Problem{
@@ -514,8 +516,15 @@ func (r *VirtualEnvReconciler) updateProblems(ctx context.Context, now metav1.Ti
 					Message: msg,
 					Causes: []api.ProblemSource{
 						{
+							Kind:               api.ProblemSourceKindVirtualEnvironment,
+							Name:               ve.Name,
+							ObservedGeneration: ve.Generation,
+							Path:               fmt.Sprintf("$.spec.release.apps.%s.appDeployment", relAppName),
+							Value:              &relApp.AppDeployment,
+						},
+						{
 							Kind: api.ProblemSourceKindAppDeployment,
-							Name: relAppDepName,
+							Name: relApp.AppDeployment,
 						},
 					},
 				},
@@ -572,14 +581,20 @@ func releaseEqual(lhs *v1alpha1.ReleaseStatus, rhs *v1alpha1.Release) bool {
 		return false
 	case lhs == nil && rhs != nil:
 		return false
-	case len(lhs.AppDeployments) != len(rhs.AppDeployments):
+	case lhs.Apps == nil && rhs.Apps == nil:
+		return true
+	case lhs.Apps != nil && rhs.Apps == nil:
+		return false
+	case lhs.Apps == nil && rhs.Apps != nil:
+		return false
+	case len(lhs.Apps) != len(rhs.Apps):
 		return false
 	}
 
-	for _, lhsAppDep := range lhs.AppDeployments {
+	for _, lhsApp := range lhs.Apps {
 		found := false
-		for _, rhsAppDep := range rhs.AppDeployments {
-			if lhsAppDep.ReleaseAppDeployment == rhsAppDep {
+		for _, rhsApp := range rhs.Apps {
+			if lhsApp.ReleaseApp == rhsApp {
 				found = true
 				break
 			}

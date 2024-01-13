@@ -30,10 +30,15 @@ type Release struct {
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:MinProperties=1
 
-	AppDeployments map[string]ReleaseAppDeployment `json:"appDeployments"`
+	Apps map[string]ReleaseApp `json:"apps"`
 }
 
-type ReleaseAppDeployment struct {
+type ReleaseApp struct {
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:MinLength=1
+
+	AppDeployment string `json:"appDeployment"`
+
 	// Version of the App being released. Use of semantic versioning is
 	// recommended. If set the value is compared to the AppDeployment version.
 	// If the two versions do not match the release will fail.
@@ -74,8 +79,8 @@ type VirtEnvHistoryLimits struct {
 }
 
 type ReleaseStatus struct {
-	ReleaseManifest string                                `json:"releaseManifest,omitempty"`
-	AppDeployments  map[string]ReleaseAppDeploymentStatus `json:"appDeployments,omitempty"`
+	ReleaseManifest string                      `json:"releaseManifest,omitempty"`
+	Apps            map[string]ReleaseAppStatus `json:"apps,omitempty"`
 
 	// Time at which the VirtualEnvironment was updated to use the Release.
 	RequestTime metav1.Time `json:"requestTime,omitempty"`
@@ -92,8 +97,8 @@ type ReleaseStatus struct {
 	Problems      []common.Problem  `json:"problems,omitempty"`
 }
 
-type ReleaseAppDeploymentStatus struct {
-	ReleaseAppDeployment `json:",inline"`
+type ReleaseAppStatus struct {
+	ReleaseApp `json:",inline"`
 
 	// ObservedGeneration represents the .metadata.generation of the
 	// AppDeployment that the status was set based upon. For instance, if the
