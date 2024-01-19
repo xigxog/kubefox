@@ -6,7 +6,6 @@
 
 
 
-
 ### AppDeployment
 
 AppDeployment is the Schema for the AppDeployments API
@@ -21,7 +20,6 @@ AppDeployment is the Schema for the AppDeployments API
 | `spec` | <div style="white-space:nowrap">[AppDeploymentSpec](#appdeploymentspec)<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
 | `status` | <div style="white-space:nowrap">[AppDeploymentStatus](#appdeploymentstatus)<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
 | `details` | <div style="white-space:nowrap">[AppDeploymentDetails](#appdeploymentdetails)<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
-
 
 
 
@@ -69,6 +67,7 @@ AppDeployment is the Schema for the AppDeployments API
 
 
 
+
 ### HTTPAdapter
 
 
@@ -82,6 +81,7 @@ AppDeployment is the Schema for the AppDeployments API
 | `metadata` | <div style="white-space:nowrap">[ObjectMeta](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.28/#objectmeta-v1-meta)<div> | <div style="max-width:30rem">Refer to Kubernetes API documentation for fields of `metadata`.</div> | <div style="white-space:nowrap"></div> |
 | `spec` | <div style="white-space:nowrap">[HTTPAdapterSpec](#httpadapterspec)<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
 | `details` | <div style="white-space:nowrap">[Details](#details)<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
+
 
 
 
@@ -119,7 +119,6 @@ Platform is the Schema for the Platforms API
 
 
 
-
 ### ReleaseManifest
 
 
@@ -134,6 +133,10 @@ Platform is the Schema for the Platforms API
 | `spec` | <div style="white-space:nowrap">[ReleaseManifestSpec](#releasemanifestspec)<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap">required</div> |
 | `data` | <div style="white-space:nowrap">[Data](#data)<div> | <div style="max-width:30rem">Data is the merged values of the Environment and VirtualEnvironment data objects.</div> | <div style="white-space:nowrap">required</div> |
 | `details` | <div style="white-space:nowrap">[DataDetails](#datadetails)<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
+| `status` | <div style="white-space:nowrap">[ReleaseManifestStatus](#releasemanifeststatus)<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
+
+
+
 
 
 
@@ -167,9 +170,6 @@ Platform is the Schema for the Platforms API
 
 
 ## Types
-
-
-
 
 
 
@@ -218,7 +218,7 @@ AppDeploymentSpec defines the desired state of AppDeployment
 Used by:<br>
 
 - <a href=#appdeployment>AppDeployment</a><br>
-- <a href=#releasemanifestspec>ReleaseManifestSpec</a><br>
+- <a href=#releasemanifestappdep>ReleaseManifestAppDep</a><br>
 </p>
 
 | Field | Type | Description | Validation |
@@ -229,10 +229,10 @@ Used by:<br>
 | `commitTime` | <div style="white-space:nowrap">[Time](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.28/#time-v1-meta)<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap">required</div> |
 | `branch` | <div style="white-space:nowrap">string<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
 | `tag` | <div style="white-space:nowrap">string<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
-| `repoURL` | <div style="white-space:nowrap">string<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap">format: uri</div> |
+| `repoURL` | <div style="white-space:nowrap">string<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
 | `containerRegistry` | <div style="white-space:nowrap">string<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
 | `imagePullSecretName` | <div style="white-space:nowrap">string<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
-| `components` | <div style="white-space:nowrap">map{string, [Component](#component)}<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap">required</div> |
+| `components` | <div style="white-space:nowrap">map{string, ComponentDefinition}<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap">required</div> |
 | `adapters` | <div style="white-space:nowrap">[Adapters](#adapters)<div> | <div style="max-width:30rem">Specs of all Adapters defined as dependencies by the Components. This a read-only field and is set by the KubeFox Operator when a versioned AppDeployment is created.</div> | <div style="white-space:nowrap"></div> |
 
 
@@ -274,7 +274,7 @@ Used by:<br>
 
 
 
-### Component
+### ComponentDefinition
 
 
 
@@ -293,26 +293,6 @@ Used by:<br>
 | `dependencies` | <div style="white-space:nowrap">map{string, [Dependency](#dependency)}<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
 | `commit` | <div style="white-space:nowrap">string<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap">required, pattern: ^[a-z0-9]{40}$</div> |
 | `image` | <div style="white-space:nowrap">string<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
-
-
-
-### ComponentDefinition
-
-
-
-<p style="font-size:.6rem;">
-Used by:<br>
-
-- <a href=#component>Component</a><br>
-</p>
-
-| Field | Type | Description | Validation |
-| ----- | ---- | ----------- | ---------- |
-| `type` | <div style="white-space:nowrap">enum[`DBAdapter`, `KubeFox`, `HTTPAdapter`]<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap">required</div> |
-| `routes` | <div style="white-space:nowrap">[RouteSpec](#routespec) array<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
-| `defaultHandler` | <div style="white-space:nowrap">boolean<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
-| `envVarSchema` | <div style="white-space:nowrap">[EnvVarSchema](#envvarschema)<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
-| `dependencies` | <div style="white-space:nowrap">map{string, [Dependency](#dependency)}<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
 
 
 
@@ -419,7 +399,6 @@ Used by:<br>
 <p style="font-size:.6rem;">
 Used by:<br>
 
-- <a href=#component>Component</a><br>
 - <a href=#componentdefinition>ComponentDefinition</a><br>
 </p>
 
@@ -554,6 +533,9 @@ Used by:<br>
 
 
 
+
+
+
 ### HTTPAdapterSpec
 
 
@@ -561,7 +543,6 @@ Used by:<br>
 <p style="font-size:.6rem;">
 Used by:<br>
 
-- <a href=#adapterspec>AdapterSpec</a><br>
 - <a href=#adapters>Adapters</a><br>
 - <a href=#httpadapter>HTTPAdapter</a><br>
 </p>
@@ -664,6 +645,9 @@ Used by:<br>
 
 
 
+
+
+
 ### PlatformDetails
 
 PlatformDetails defines additional details of Platform
@@ -753,7 +737,7 @@ Used by:<br>
 
 | Field | Type | Description | Validation |
 | ----- | ---- | ----------- | ---------- |
-| `type` | <div style="white-space:nowrap">enum[`AdapterNotFound`, `AppDeploymentFailed`, `DependencyInvalid`, `DependencyNotFound`, `ParseError`, `PolicyViolation`, `RouteConflict`, `VarNotFound`, `VarWrongType`]<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap">required</div> |
+| `type` | <div style="white-space:nowrap">[ProblemType](#problemtype)<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap">required</div> |
 | `message` | <div style="white-space:nowrap">string<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap">required</div> |
 | `causes` | <div style="white-space:nowrap">[ProblemSource](#problemsource) array<div> | <div style="max-width:30rem">Resources and attributes causing problem.</div> | <div style="white-space:nowrap"></div> |
 | `observedTime` | <div style="white-space:nowrap">[Time](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.28/#time-v1-meta)<div> | <div style="max-width:30rem">ObservedTime at which the problem was recorded.</div> | <div style="white-space:nowrap"></div> |
@@ -773,7 +757,7 @@ Used by:<br>
 
 | Field | Type | Description | Validation |
 | ----- | ---- | ----------- | ---------- |
-| `kind` | <div style="white-space:nowrap">enum[`AppDeployment`, `Component`, `HTTPAdapter`, `Release`, `ReleaseManifest`, `VirtualEnvironment`]<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap">required</div> |
+| `kind` | <div style="white-space:nowrap">[ProblemSourceKind](#problemsourcekind)<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap">required</div> |
 | `name` | <div style="white-space:nowrap">string<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
 | `observedGeneration` | <div style="white-space:nowrap">integer<div> | <div style="max-width:30rem">ObservedGeneration represents the .metadata.generation of the ProblemSource that the problem was generated from. For instance, if the ProblemSource .metadata.generation is currently 12, but the observedGeneration is 9, the problem is out of date with respect to the current state of the instance.</div> | <div style="white-space:nowrap"></div> |
 | `path` | <div style="white-space:nowrap">string<div> | <div style="max-width:30rem">Path of source object attribute causing problem.</div> | <div style="white-space:nowrap"></div> |
@@ -802,6 +786,7 @@ Used by:<br>
 
 | Field | Type | Description | Validation |
 | ----- | ---- | ----------- | ---------- |
+| `id` | <div style="white-space:nowrap">string<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap">required, minLength: 1</div> |
 | `apps` | <div style="white-space:nowrap">map{string, [ReleaseApp](#releaseapp)}<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap">required</div> |
 
 
@@ -814,7 +799,6 @@ Used by:<br>
 Used by:<br>
 
 - <a href=#release>Release</a><br>
-- <a href=#releaseappstatus>ReleaseAppStatus</a><br>
 </p>
 
 | Field | Type | Description | Validation |
@@ -824,22 +808,39 @@ Used by:<br>
 
 
 
-### ReleaseAppStatus
+
+### ReleaseManifestApp
 
 
 
 <p style="font-size:.6rem;">
 Used by:<br>
 
-- <a href=#releasestatus>ReleaseStatus</a><br>
+- <a href=#releasemanifestspec>ReleaseManifestSpec</a><br>
 </p>
 
 | Field | Type | Description | Validation |
 | ----- | ---- | ----------- | ---------- |
-| `appDeployment` | <div style="white-space:nowrap">string<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap">required, minLength: 1</div> |
-| `version` | <div style="white-space:nowrap">string<div> | <div style="max-width:30rem">Version of the App being released. Use of semantic versioning is recommended. If set the value is compared to the AppDeployment version. If the two versions do not match the release will fail.</div> | <div style="white-space:nowrap"></div> |
-| `observedGeneration` | <div style="white-space:nowrap">integer<div> | <div style="max-width:30rem">ObservedGeneration represents the .metadata.generation of the AppDeployment that the status was set based upon. For instance, if the AppDeployment .metadata.generation is currently 12, but the observedGeneration is 9, the status is out of date with respect to the current state of the instance.</div> | <div style="white-space:nowrap"></div> |
+| `version` | <div style="white-space:nowrap">string<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
+| `appDeployment` | <div style="white-space:nowrap">[ReleaseManifestAppDep](#releasemanifestappdep)<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap">required</div> |
 
+
+
+### ReleaseManifestAppDep
+
+
+
+<p style="font-size:.6rem;">
+Used by:<br>
+
+- <a href=#releasemanifestapp>ReleaseManifestApp</a><br>
+</p>
+
+| Field | Type | Description | Validation |
+| ----- | ---- | ----------- | ---------- |
+| `name` | <div style="white-space:nowrap">string<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap">required, minLength: 1</div> |
+| `resourceVersion` | <div style="white-space:nowrap">string<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap">required, minLength: 1</div> |
+| `spec` | <div style="white-space:nowrap">[AppDeploymentSpec](#appdeploymentspec)<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap">required</div> |
 
 
 
@@ -873,8 +874,44 @@ Used by:<br>
 
 | Field | Type | Description | Validation |
 | ----- | ---- | ----------- | ---------- |
+| `id` | <div style="white-space:nowrap">string<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap">required, minLength: 1</div> |
 | `virtualEnvironment` | <div style="white-space:nowrap">[ReleaseManifestEnv](#releasemanifestenv)<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap">required</div> |
-| `appDeployments` | <div style="white-space:nowrap">map{string, [AppDeploymentSpec](#appdeploymentspec)}<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap">required</div> |
+| `apps` | <div style="white-space:nowrap">map{string, [ReleaseManifestApp](#releasemanifestapp)}<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap">required</div> |
+
+
+
+### ReleaseManifestStatus
+
+
+
+<p style="font-size:.6rem;">
+Used by:<br>
+
+- <a href=#releasemanifest>ReleaseManifest</a><br>
+</p>
+
+| Field | Type | Description | Validation |
+| ----- | ---- | ----------- | ---------- |
+| `problems` | <div style="white-space:nowrap">[Problems](#problems)<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
+| `conditions` | <div style="white-space:nowrap">[Condition](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.28/#condition-v1-meta) array<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
+
+
+
+### ReleasePolicy
+
+
+
+<p style="font-size:.6rem;">
+Used by:<br>
+
+- <a href=#virtualenvironmentspec>VirtualEnvironmentSpec</a><br>
+</p>
+
+| Field | Type | Description | Validation |
+| ----- | ---- | ----------- | ---------- |
+| `pendingDeadlineSeconds` | <div style="white-space:nowrap">integer<div> | <div style="max-width:30rem">If the pending Request cannot be activated before the deadline it will be considered failed. If the Release becomes available for activation after the deadline has been exceeded, it will not be activated. Pointer is used to distinguish between not set and false.</div> | <div style="white-space:nowrap">min: 3</div> |
+| `versionRequired` | <div style="white-space:nowrap">boolean<div> | <div style="max-width:30rem">If true '.spec.release.appDeployment.version' is required. Pointer is used to distinguish between not set and false.</div> | <div style="white-space:nowrap"></div> |
+| `historyLimits` | <div style="white-space:nowrap">[VirtEnvHistoryLimits](#virtenvhistorylimits)<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
 
 
 
@@ -890,8 +927,8 @@ Used by:<br>
 
 | Field | Type | Description | Validation |
 | ----- | ---- | ----------- | ---------- |
+| `id` | <div style="white-space:nowrap">string<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap">required, minLength: 1</div> |
 | `releaseManifest` | <div style="white-space:nowrap">string<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
-| `apps` | <div style="white-space:nowrap">map{string, [ReleaseAppStatus](#releaseappstatus)}<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
 | `requestTime` | <div style="white-space:nowrap">[Time](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.28/#time-v1-meta)<div> | <div style="max-width:30rem">Time at which the VirtualEnvironment was updated to use the Release.</div> | <div style="white-space:nowrap"></div> |
 | `activationTime` | <div style="white-space:nowrap">[Time](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.28/#time-v1-meta)<div> | <div style="max-width:30rem">Time at which the Release became active. If not set the Release was never activated.</div> | <div style="white-space:nowrap"></div> |
 | `archiveTime` | <div style="white-space:nowrap">[Time](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.28/#time-v1-meta)<div> | <div style="max-width:30rem">Time at which the Release was archived to history.</div> | <div style="white-space:nowrap"></div> |
@@ -907,7 +944,6 @@ Used by:<br>
 <p style="font-size:.6rem;">
 Used by:<br>
 
-- <a href=#component>Component</a><br>
 - <a href=#componentdefinition>ComponentDefinition</a><br>
 </p>
 
@@ -943,31 +979,13 @@ Used by:<br>
 <p style="font-size:.6rem;">
 Used by:<br>
 
-- <a href=#virtenvreleasepolicy>VirtEnvReleasePolicy</a><br>
+- <a href=#releasepolicy>ReleasePolicy</a><br>
 </p>
 
 | Field | Type | Description | Validation |
 | ----- | ---- | ----------- | ---------- |
 | `count` | <div style="white-space:nowrap">integer<div> | <div style="max-width:30rem">Maximum number of Releases to keep in history. Once the limit is reached the oldest Release in history will be deleted. Age is based on archiveTime. Pointer is used to distinguish between not set and false.</div> | <div style="white-space:nowrap">min: 0</div> |
 | `ageDays` | <div style="white-space:nowrap">integer<div> | <div style="max-width:30rem">Maximum age of the Release to keep in history. Once the limit is reached the oldest Release in history will be deleted. Age is based on archiveTime. Set to 0 to disable. Pointer is used to distinguish between not set and false.</div> | <div style="white-space:nowrap">min: 0</div> |
-
-
-
-### VirtEnvReleasePolicy
-
-
-
-<p style="font-size:.6rem;">
-Used by:<br>
-
-- <a href=#virtualenvironmentspec>VirtualEnvironmentSpec</a><br>
-</p>
-
-| Field | Type | Description | Validation |
-| ----- | ---- | ----------- | ---------- |
-| `pendingDeadlineSeconds` | <div style="white-space:nowrap">integer<div> | <div style="max-width:30rem">If the pending Request cannot be activated before the deadline it will be considered failed. If the Release becomes available for activation after the deadline has been exceeded, it will not be activated. Pointer is used to distinguish between not set and false.</div> | <div style="white-space:nowrap">min: 3</div> |
-| `versionRequired` | <div style="white-space:nowrap">boolean<div> | <div style="max-width:30rem">If true '.spec.release.appDeployment.version' is required. Pointer is used to distinguish between not set and false.</div> | <div style="white-space:nowrap"></div> |
-| `historyLimits` | <div style="white-space:nowrap">[VirtEnvHistoryLimits](#virtenvhistorylimits)<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
 
 
 
@@ -984,9 +1002,9 @@ Used by:<br>
 
 | Field | Type | Description | Validation |
 | ----- | ---- | ----------- | ---------- |
-| `environment` | <div style="white-space:nowrap">string<div> | <div style="max-width:30rem">Name of the Environment this VirtualEnvironment is part of.</div> | <div style="white-space:nowrap">required, minLength: 1</div> |
+| `environment` | <div style="white-space:nowrap">string<div> | <div style="max-width:30rem">Name of the Environment this VirtualEnvironment is part of. This field is immutable.</div> | <div style="white-space:nowrap">required, minLength: 1</div> |
 | `release` | <div style="white-space:nowrap">[Release](#release)<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
-| `releasePolicy` | <div style="white-space:nowrap">[VirtEnvReleasePolicy](#virtenvreleasepolicy)<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
+| `releasePolicy` | <div style="white-space:nowrap">[ReleasePolicy](#releasepolicy)<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
 
 
 

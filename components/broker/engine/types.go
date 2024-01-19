@@ -38,7 +38,7 @@ type BrokerEvent struct {
 	ContextKey   string
 	Data         *api.Data
 	DataChecksum string
-	AppDep       *v1alpha1.AppDeployment
+	Spec         *v1alpha1.AppDeploymentSpec
 	RouteId      int64
 
 	TargetAdapter api.Adapter

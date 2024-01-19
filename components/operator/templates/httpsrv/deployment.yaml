@@ -54,7 +54,7 @@ spec:
                   fieldPath: status.podIP
           envFrom:
             - configMapRef:
-                name: {{ name }}-env
+                name: {{ .Platform.Name }}-env
           ports:
             - name: http
               containerPort: 8080

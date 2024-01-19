@@ -30,6 +30,7 @@ import (
 
 type ClientOpts struct {
 	Platform      string
+	App           string
 	Component     *core.Component
 	BrokerAddr    string
 	HealthSrvAddr string
@@ -319,8 +320,8 @@ func (c *Client) GetRequestMetadata(ctx context.Context, uri ...string) (map[str
 		api.GRPCKeyId:        c.Component.Id,
 		api.GRPCKeyCommit:    c.Component.Commit,
 		api.GRPCKeyComponent: c.Component.Name,
-		api.GRPCKeyApp:       c.Component.App,
 		api.GRPCKeyType:      c.Component.Type,
+		api.GRPCKeyApp:       c.App,
 		api.GRPCKeyPlatform:  c.Platform,
 		api.GRPCKeyToken:     token,
 	}, nil

@@ -70,6 +70,27 @@ func (r *ImmutableWebhook) Handle(ctx context.Context, req admission.Request) ad
 		if !k8s.DeepEqual(&obj.Spec, &oldObj.Spec) || !k8s.DeepEqual(&obj.Data, &oldObj.Data) {
 			return admission.Denied(fmt.Sprintf(notAllowedMsg, req.Kind.Kind))
 		}
+
+	case "kubefox.xigxog.io/v1alpha1, Kind=VirtualEnvironment":
+		obj := &v1alpha1.VirtualEnvironment{}
+		if err := r.DecodeRaw(req.Object, obj); err != nil {
+			return admission.Errored(http.StatusBadRequest, err)
+		}
+		oldObj := &v1alpha1.VirtualEnvironment{}
+		if err := r.DecodeRaw(req.OldObject, oldObj); err != nil {
+			return admission.Errored(http.StatusBadRequest, err)
+		}
+
+		if obj.Spec.Environment != oldObj.Spec.Environment {
+			return admission.Denied(fmt.Sprintf(notAllowedMsg, ".spec.environment"))
+		}
+
+		if obj.Spec.Release != nil && oldObj.Spec.Release != nil &&
+			obj.Spec.Release.Id == oldObj.Spec.Release.Id &&
+			!k8s.DeepEqual(obj.Spec.Release.Apps, oldObj.Spec.Release.Apps) {
+
+			return admission.Denied(".spec.release.Id but be updated if changes are made to .spec.release.apps")
+		}
 	}
 
 	return admission.Allowed("🦊")

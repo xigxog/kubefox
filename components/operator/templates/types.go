@@ -65,13 +65,6 @@ type ResourceList struct {
 	Items []*unstructured.Unstructured `json:"items,omitempty"`
 }
 
-func (d Data) Name() string {
-	if d.Platform.Name == "" {
-		return d.Instance.Name
-	}
-	return d.Platform.Name
-}
-
 func (d Data) Namespace() string {
 	if d.Platform.Namespace != "" {
 		return d.Platform.Namespace
@@ -102,23 +95,19 @@ func (d Data) ComponentFullName() string {
 		return ""
 	}
 
-	commit := d.Component.Commit
-	if len(d.Component.Commit) > 7 {
-		commit = commit[0:7]
-	}
+	var name string
 	if d.Component.IsPlatformComponent {
-		commit = ""
+		name = fmt.Sprintf("%s-%s", d.Platform.Name, d.Component.Name)
+	} else {
+		name = fmt.Sprintf("%s-%s", d.Component.Name, d.Component.Commit)
 	}
 
-	name := d.Component.App
-	if name == "" {
-		name = d.Platform.Name
+	name = strings.TrimSuffix(name, "-")
+	if len(name) > 253 {
+		name = name[:253]
 	}
-	if name == "" {
-		name = d.Instance.Name
-	}
-	name = fmt.Sprintf("%s-%s-%s", name, d.Component.Name, commit)
-	return strings.TrimSuffix(name, "-")
+
+	return name
 }
 
 func (d Data) ComponentVaultName() string {

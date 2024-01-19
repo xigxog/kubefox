@@ -103,7 +103,7 @@ spec:
             properties:
               environment:
                 description: Name of the Environment this VirtualEnvironment is part
-                  of.
+                  of. This field is immutable.
                 minLength: 1
                 type: string
               release:
@@ -125,8 +125,12 @@ spec:
                       type: object
                     minProperties: 1
                     type: object
+                  id:
+                    minLength: 1
+                    type: string
                 required:
                 - apps
+                - id
                 type: object
               releasePolicy:
                 properties:
@@ -174,31 +178,6 @@ spec:
                       the Release was never activated.
                     format: date-time
                     type: string
-                  apps:
-                    additionalProperties:
-                      properties:
-                        appDeployment:
-                          minLength: 1
-                          type: string
-                        observedGeneration:
-                          description: ObservedGeneration represents the .metadata.generation
-                            of the AppDeployment that the status was set based upon.
-                            For instance, if the AppDeployment .metadata.generation
-                            is currently 12, but the observedGeneration is 9, the
-                            status is out of date with respect to the current state
-                            of the instance.
-                          format: int64
-                          type: integer
-                        version:
-                          description: Version of the App being released. Use of semantic
-                            versioning is recommended. If set the value is compared
-                            to the AppDeployment version. If the two versions do not
-                            match the release will fail.
-                          type: string
-                      required:
-                      - appDeployment
-                      type: object
-                    type: object
                   archiveReason:
                     description: Reason Release was archived.
                     enum:
@@ -210,6 +189,9 @@ spec:
                     description: Time at which the Release was archived to history.
                     format: date-time
                     type: string
+                  id:
+                    minLength: 1
+                    type: string
                   problems:
                     items:
                       description: ObservedTime is added here instead of api package
@@ -220,13 +202,6 @@ spec:
                           items:
                             properties:
                               kind:
-                                enum:
-                                - AppDeployment
-                                - Component
-                                - HTTPAdapter
-                                - Release
-                                - ReleaseManifest
-                                - VirtualEnvironment
                                 type: string
                               name:
                                 type: string
@@ -258,16 +233,6 @@ spec:
                           format: date-time
                           type: string
                         type:
-                          enum:
-                          - AdapterNotFound
-                          - AppDeploymentFailed
-                          - DependencyInvalid
-                          - DependencyNotFound
-                          - ParseError
-                          - PolicyViolation
-                          - RouteConflict
-                          - VarNotFound
-                          - VarWrongType
                           type: string
                       required:
                       - observedTime
@@ -281,6 +246,8 @@ spec:
                       to use the Release.
                     format: date-time
                     type: string
+                required:
+                - id
                 type: object
               conditions:
                 items:
@@ -365,31 +332,6 @@ spec:
                       the Release was never activated.
                     format: date-time
                     type: string
-                  apps:
-                    additionalProperties:
-                      properties:
-                        appDeployment:
-                          minLength: 1
-                          type: string
-                        observedGeneration:
-                          description: ObservedGeneration represents the .metadata.generation
-                            of the AppDeployment that the status was set based upon.
-                            For instance, if the AppDeployment .metadata.generation
-                            is currently 12, but the observedGeneration is 9, the
-                            status is out of date with respect to the current state
-                            of the instance.
-                          format: int64
-                          type: integer
-                        version:
-                          description: Version of the App being released. Use of semantic
-                            versioning is recommended. If set the value is compared
-                            to the AppDeployment version. If the two versions do not
-                            match the release will fail.
-                          type: string
-                      required:
-                      - appDeployment
-                      type: object
-                    type: object
                   archiveReason:
                     description: Reason Release was archived.
                     enum:
@@ -401,6 +343,9 @@ spec:
                     description: Time at which the Release was archived to history.
                     format: date-time
                     type: string
+                  id:
+                    minLength: 1
+                    type: string
                   problems:
                     items:
                       description: ObservedTime is added here instead of api package
@@ -411,13 +356,6 @@ spec:
                           items:
                             properties:
                               kind:
-                                enum:
-                                - AppDeployment
-                                - Component
-                                - HTTPAdapter
-                                - Release
-                                - ReleaseManifest
-                                - VirtualEnvironment
                                 type: string
                               name:
                                 type: string
@@ -449,16 +387,6 @@ spec:
                           format: date-time
                           type: string
                         type:
-                          enum:
-                          - AdapterNotFound
-                          - AppDeploymentFailed
-                          - DependencyInvalid
-                          - DependencyNotFound
-                          - ParseError
-                          - PolicyViolation
-                          - RouteConflict
-                          - VarNotFound
-                          - VarWrongType
                           type: string
                       required:
                       - observedTime
@@ -472,6 +400,8 @@ spec:
                       to use the Release.
                     format: date-time
                     type: string
+                required:
+                - id
                 type: object
               pendingReleaseFailed:
                 type: boolean
@@ -483,31 +413,6 @@ spec:
                         set the Release was never activated.
                       format: date-time
                       type: string
-                    apps:
-                      additionalProperties:
-                        properties:
-                          appDeployment:
-                            minLength: 1
-                            type: string
-                          observedGeneration:
-                            description: ObservedGeneration represents the .metadata.generation
-                              of the AppDeployment that the status was set based upon.
-                              For instance, if the AppDeployment .metadata.generation
-                              is currently 12, but the observedGeneration is 9, the
-                              status is out of date with respect to the current state
-                              of the instance.
-                            format: int64
-                            type: integer
-                          version:
-                            description: Version of the App being released. Use of
-                              semantic versioning is recommended. If set the value
-                              is compared to the AppDeployment version. If the two
-                              versions do not match the release will fail.
-                            type: string
-                        required:
-                        - appDeployment
-                        type: object
-                      type: object
                     archiveReason:
                       description: Reason Release was archived.
                       enum:
@@ -518,6 +423,9 @@ spec:
                     archiveTime:
                       description: Time at which the Release was archived to history.
                       format: date-time
+                      type: string
+                    id:
+                      minLength: 1
                       type: string
                     problems:
                       items:
@@ -530,13 +438,6 @@ spec:
                             items:
                               properties:
                                 kind:
-                                  enum:
-                                  - AppDeployment
-                                  - Component
-                                  - HTTPAdapter
-                                  - Release
-                                  - ReleaseManifest
-                                  - VirtualEnvironment
                                   type: string
                                 name:
                                   type: string
@@ -568,16 +469,6 @@ spec:
                             format: date-time
                             type: string
                           type:
-                            enum:
-                            - AdapterNotFound
-                            - AppDeploymentFailed
-                            - DependencyInvalid
-                            - DependencyNotFound
-                            - ParseError
-                            - PolicyViolation
-                            - RouteConflict
-                            - VarNotFound
-                            - VarWrongType
                             type: string
                         required:
                         - observedTime
@@ -591,6 +482,8 @@ spec:
                         to use the Release.
                       format: date-time
                       type: string
+                  required:
+                  - id
                   type: object
                 type: array
             type: object

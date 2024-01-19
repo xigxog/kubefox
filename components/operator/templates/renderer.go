@@ -96,7 +96,6 @@ func initFuncs(tpl *template.Template, data *Data) {
 	}
 
 	funcMap["cleanLabel"] = utils.CleanLabel
-	funcMap["name"] = data.Name
 	funcMap["namespace"] = data.Namespace
 	funcMap["platformFullName"] = data.PlatformFullName
 	funcMap["platformVaultName"] = data.PlatformVaultName

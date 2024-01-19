@@ -24,7 +24,7 @@ import "github.com/xigxog/kubefox/kit"
 
 
 <a name="ComponentDep"></a>
-## type ComponentDep
+## type [ComponentDep](<https://github.com/xigxog/kubefox/blob/main/kit/types.go#L328-L332>)
 
 
 
@@ -37,7 +37,7 @@ type ComponentDep interface {
 ```
 
 <a name="EnvVarDep"></a>
-## type EnvVarDep
+## type [EnvVarDep](<https://github.com/xigxog/kubefox/blob/main/kit/types.go#L323-L326>)
 
 
 
@@ -49,7 +49,7 @@ type EnvVarDep interface {
 ```
 
 <a name="EventHandler"></a>
-## type EventHandler
+## type [EventHandler](<https://github.com/xigxog/kubefox/blob/main/kit/types.go#L22>)
 
 
 
@@ -58,7 +58,7 @@ type EventHandler func(ktx Kontext) error
 ```
 
 <a name="EventReader"></a>
-## type EventReader
+## type [EventReader](<https://github.com/xigxog/kubefox/blob/main/kit/types.go#L274-L299>)
 
 
 
@@ -92,7 +92,7 @@ type EventReader interface {
 ```
 
 <a name="EventRoundTripper"></a>
-## type EventRoundTripper
+## type [EventRoundTripper](<https://github.com/xigxog/kubefox/blob/main/kit/transport.go#L15-L17>)
 
 
 
@@ -103,7 +103,7 @@ type EventRoundTripper struct {
 ```
 
 <a name="EventRoundTripper.Do"></a>
-### func \(\*EventRoundTripper\) Do
+### func \(\*EventRoundTripper\) [Do](<https://github.com/xigxog/kubefox/blob/main/kit/transport.go#L32>)
 
 ```go
 func (rt *EventRoundTripper) Do(httpReq *http.Request) (*http.Response, error)
@@ -112,7 +112,7 @@ func (rt *EventRoundTripper) Do(httpReq *http.Request) (*http.Response, error)
 
 
 <a name="EventRoundTripper.RoundTrip"></a>
-### func \(\*EventRoundTripper\) RoundTrip
+### func \(\*EventRoundTripper\) [RoundTrip](<https://github.com/xigxog/kubefox/blob/main/kit/transport.go#L19>)
 
 ```go
 func (rt *EventRoundTripper) RoundTrip(httpReq *http.Request) (*http.Response, error)
@@ -121,7 +121,7 @@ func (rt *EventRoundTripper) RoundTrip(httpReq *http.Request) (*http.Response, e
 
 
 <a name="EventWriter"></a>
-## type EventWriter
+## type [EventWriter](<https://github.com/xigxog/kubefox/blob/main/kit/types.go#L301-L321>)
 
 
 
@@ -150,7 +150,7 @@ type EventWriter interface {
 ```
 
 <a name="Kit"></a>
-## type Kit
+## type [Kit](<https://github.com/xigxog/kubefox/blob/main/kit/types.go#L24-L142>)
 
 
 
@@ -277,7 +277,7 @@ type Kit interface {
 ```
 
 <a name="New"></a>
-### func New
+### func [New](<https://github.com/xigxog/kubefox/blob/main/kit/kit.go#L57>)
 
 ```go
 func New() Kit
@@ -286,7 +286,7 @@ func New() Kit
 
 
 <a name="Kontext"></a>
-## type Kontext
+## type [Kontext](<https://github.com/xigxog/kubefox/blob/main/kit/types.go#L144-L198>)
 
 
 
@@ -349,7 +349,7 @@ type Kontext interface {
 ```
 
 <a name="Req"></a>
-## type Req
+## type [Req](<https://github.com/xigxog/kubefox/blob/main/kit/types.go#L200-L231>)
 
 
 
@@ -389,7 +389,7 @@ type Req interface {
 ```
 
 <a name="Resp"></a>
-## type Resp
+## type [Resp](<https://github.com/xigxog/kubefox/blob/main/kit/types.go#L233-L272>)
 
 
 

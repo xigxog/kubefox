@@ -20,13 +20,19 @@ type VirtualEnvironmentSpec struct {
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:MinLength=1
 
-	// Name of the Environment this VirtualEnvironment is part of.
-	Environment   string                `json:"environment"`
-	Release       *Release              `json:"release,omitempty"`
-	ReleasePolicy *VirtEnvReleasePolicy `json:"releasePolicy,omitempty"`
+	// Name of the Environment this VirtualEnvironment is part of. This field is
+	// immutable.
+	Environment   string         `json:"environment"`
+	Release       *Release       `json:"release,omitempty"`
+	ReleasePolicy *ReleasePolicy `json:"releasePolicy,omitempty"`
 }
 
 type Release struct {
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:MinLength=1
+
+	Id string `json:"id"`
+
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:MinProperties=1
 
@@ -45,7 +51,7 @@ type ReleaseApp struct {
 	Version string `json:"version,omitempty"`
 }
 
-type VirtEnvReleasePolicy struct {
+type ReleasePolicy struct {
 	// +kubebuilder:validation:Minimum=3
 
 	// If the pending Request cannot be activated before the deadline it will be
@@ -79,8 +85,12 @@ type VirtEnvHistoryLimits struct {
 }
 
 type ReleaseStatus struct {
-	ReleaseManifest string                      `json:"releaseManifest,omitempty"`
-	Apps            map[string]ReleaseAppStatus `json:"apps,omitempty"`
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:MinLength=1
+
+	Id string `json:"id"`
+
+	ReleaseManifest string `json:"releaseManifest,omitempty"`
 
 	// Time at which the VirtualEnvironment was updated to use the Release.
 	RequestTime metav1.Time `json:"requestTime,omitempty"`
@@ -95,17 +105,6 @@ type ReleaseStatus struct {
 	// Reason Release was archived.
 	ArchiveReason api.ArchiveReason `json:"archiveReason,omitempty"`
 	Problems      []common.Problem  `json:"problems,omitempty"`
-}
-
-type ReleaseAppStatus struct {
-	ReleaseApp `json:",inline"`
-
-	// ObservedGeneration represents the .metadata.generation of the
-	// AppDeployment that the status was set based upon. For instance, if the
-	// AppDeployment .metadata.generation is currently 12, but the
-	// observedGeneration is 9, the status is out of date with respect to the
-	// current state of the instance.
-	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
 }
 
 type VirtualEnvironmentStatus struct {
@@ -174,7 +173,7 @@ func (d *VirtualEnvironment) GetDataKey() api.DataKey {
 	}
 }
 
-func (p *VirtEnvReleasePolicy) GetPendingDeadline() time.Duration {
+func (p *ReleasePolicy) GetPendingDeadline() time.Duration {
 	if p == nil {
 		return api.DefaultReleasePendingDeadlineSeconds * time.Second
 	}
@@ -197,10 +196,10 @@ func (ve *VirtualEnvironment) GetReleasePendingDuration() time.Duration {
 	return time.Since(ve.Status.PendingRelease.RequestTime.Time)
 }
 
-func (ve *VirtualEnvironment) GetReleasePolicy(env *Environment) *VirtEnvReleasePolicy {
+func (ve *VirtualEnvironment) GetReleasePolicy(env *Environment) *ReleasePolicy {
 	p := ve.Spec.ReleasePolicy.DeepCopy()
 	if p == nil {
-		p = &VirtEnvReleasePolicy{}
+		p = &ReleasePolicy{}
 	}
 
 	if p.PendingDeadlineSeconds == nil {

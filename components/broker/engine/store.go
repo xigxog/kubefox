@@ -158,38 +158,38 @@ func (str *Store) IsGenesisAdapter(comp *core.Component) bool {
 }
 
 func (str *Store) Platform(ctx context.Context) (*v1alpha1.Platform, error) {
-	obj := new(v1alpha1.Platform)
+	obj := &v1alpha1.Platform{}
 	return obj, str.get(config.Platform, obj, true)
 }
 
 func (str *Store) AppDeployment(ctx context.Context, name string) (*v1alpha1.AppDeployment, error) {
-	obj := new(v1alpha1.AppDeployment)
+	obj := &v1alpha1.AppDeployment{}
 	return obj, str.get(name, obj, true)
 }
 
 func (str *Store) Data(ctx context.Context, evtCtx *core.EventContext) (*api.Data, error) {
-	if evtCtx.VirtualEnvironment == "" {
-		return nil, core.ErrNotFound()
-	}
-
-	if evtCtx.ReleaseManifest != "" {
+	switch {
+	case evtCtx.ReleaseManifest != "":
 		manifest := &v1alpha1.ReleaseManifest{}
 		if err := str.get(evtCtx.ReleaseManifest, manifest, true); err != nil {
 			return nil, err
 		}
-		return manifest.Data, nil
-	}
+		return &manifest.Data, nil
 
-	ve := &v1alpha1.VirtualEnvironment{}
-	if err := str.get(evtCtx.VirtualEnvironment, ve, true); err != nil {
-		return nil, err
-	}
-	env := &v1alpha1.Environment{}
-	if err := str.get(ve.Spec.Environment, env, false); err != nil {
-		return nil, err
-	}
+	case evtCtx.VirtualEnvironment != "":
+		ve := &v1alpha1.VirtualEnvironment{}
+		if err := str.get(evtCtx.VirtualEnvironment, ve, true); err != nil {
+			return nil, err
+		}
+		env := &v1alpha1.Environment{}
+		if err := str.get(ve.Spec.Environment, env, false); err != nil {
+			return nil, err
+		}
+		return ve.Data.MergeInto(&env.Data), nil
 
-	return ve.Data.MergeInto(&env.Data), nil
+	default:
+		return nil, core.ErrNotFound()
+	}
 }
 
 func (str *Store) ReleaseMatcher(ctx context.Context) (*matcher.EventMatcher, error) {
@@ -213,7 +213,7 @@ func (str *Store) DeploymentMatcher(ctx context.Context, evt *BrokerEvent) (*mat
 		return depM, nil
 	}
 
-	routes, err := str.buildRoutes(ctx, evt.AppDep, evt.Data, evt.Context)
+	routes, err := str.buildRoutes(ctx, evt.Spec, evt.Data, evt.Context)
 	if err != nil {
 		return nil, err
 	}
@@ -227,9 +227,9 @@ func (str *Store) DeploymentMatcher(ctx context.Context, evt *BrokerEvent) (*mat
 	return depM, nil
 }
 
-// AttachEventContext gets the VirtualEnvironment, AppDeployment, and Adapters
-// of the Event Context, attaches them to the BrokerEvent, and then validates
-// the Event Context. Problems found during validation are returned.
+// AttachEventContext gets the VirtualEnvironment, AppDeployment Spec, and
+// Adapters of the Event Context, attaches them to the BrokerEvent, and then
+// validates the Event Context. Problems found during validation are returned.
 func (str *Store) AttachEventContext(ctx context.Context, evt *BrokerEvent) error {
 	var err error
 	if evt.Data, err = str.Data(ctx, evt.Context); err != nil {
@@ -238,11 +238,37 @@ func (str *Store) AttachEventContext(ctx context.Context, evt *BrokerEvent) erro
 	hash, _ := hashstructure.Hash(evt.Data, hashstructure.FormatV2, nil)
 	evt.DataChecksum = fmt.Sprint(hash)
 
-	if evt.AppDep, err = str.AppDeployment(ctx, evt.Context.AppDeployment); err != nil {
-		return err
+	var obj api.Object
+	switch {
+	case evt.Context.ReleaseManifest != "":
+		manifest := &v1alpha1.ReleaseManifest{}
+		if err := str.get(evt.Context.ReleaseManifest, manifest, true); err != nil {
+			return err
+		}
+		app, found := manifest.Spec.Apps[evt.Context.App]
+		if !found || app == nil {
+			return core.ErrNotFound()
+		}
+
+		evt.Spec = &app.AppDeployment.Spec
+		obj = manifest
+
+	case evt.Context.AppDeployment != "":
+		appDep := &v1alpha1.AppDeployment{}
+		if err := str.get(evt.Context.AppDeployment, appDep, true); err != nil {
+			return err
+		}
+
+		evt.Context.App = appDep.Spec.AppName
+		evt.Spec = &appDep.Spec
+		obj = appDep
+
+	default:
+		return core.ErrNotFound()
 	}
+
 	evt.ContextKey = fmt.Sprintf("%s-%d_%s-%s",
-		evt.AppDep.Name, evt.AppDep.Generation, evt.Context.VirtualEnvironment, evt.DataChecksum)
+		obj.GetName(), obj.GetGeneration(), evt.Context.VirtualEnvironment, evt.DataChecksum)
 
 	str.mutex.Lock()
 	defer str.mutex.Unlock()
@@ -262,7 +288,7 @@ func (str *Store) AttachEventContext(ctx context.Context, evt *BrokerEvent) erro
 	}
 
 	evt.Adapters = Adapters{}
-	for _, c := range evt.AppDep.Spec.Components {
+	for _, c := range evt.Spec.Components {
 		for name, d := range c.Dependencies {
 			if d.Type.IsAdapter() {
 				a, _ := allAdapters.Get(name, d.Type)
@@ -274,7 +300,7 @@ func (str *Store) AttachEventContext(ctx context.Context, evt *BrokerEvent) erro
 	// Check validation cache.
 	problems, found := str.validCache.Get(evt.ContextKey)
 	if !found {
-		problems, err = evt.AppDep.Validate(evt.Data,
+		problems, err = evt.Spec.Validate(obj, evt.Data,
 			func(name string, typ api.ComponentType) (api.Adapter, error) {
 				a, found := evt.Adapters[name]
 				if !found {
@@ -364,11 +390,10 @@ func (str *Store) buildComponentCache(ctx context.Context) (cache.Cache[*api.Com
 		for compName, compSpec := range appDep.Spec.Components {
 			comp := &core.Component{
 				Type:   string(compSpec.Type),
-				App:    appDep.Spec.AppName,
 				Name:   compName,
 				Commit: compSpec.Commit,
 			}
-			compCache.Set(comp.GroupKey(), &compSpec.ComponentDefinition)
+			compCache.Set(comp.GroupKey(), compSpec)
 		}
 	}
 
@@ -423,8 +448,14 @@ func (str *Store) buildReleaseMatcher(ctx context.Context) (*matcher.EventMatche
 			ReleaseManifest:    release.ReleaseManifest,
 		}
 
-		for _, app := range release.Apps {
-			appDep, err := str.AppDeployment(ctx, app.AppDeployment)
+		manifest := &v1alpha1.ReleaseManifest{}
+		if err := str.get(evtCtx.ReleaseManifest, manifest, true); err != nil {
+			str.log.Warn(err)
+			continue
+		}
+
+		for _, app := range manifest.Spec.Apps {
+			appDep, err := str.AppDeployment(ctx, app.AppDeployment.Name)
 			if err != nil {
 				str.log.Warn(err)
 				continue
@@ -435,7 +466,7 @@ func (str *Store) buildReleaseMatcher(ctx context.Context) (*matcher.EventMatche
 				continue
 			}
 
-			routes, err := str.buildRoutes(ctx, appDep, data, evtCtx)
+			routes, err := str.buildRoutes(ctx, &appDep.Spec, data, evtCtx)
 			if err != nil {
 				str.log.Warn(err)
 				continue
@@ -452,15 +483,14 @@ func (str *Store) buildReleaseMatcher(ctx context.Context) (*matcher.EventMatche
 
 func (str *Store) buildRoutes(
 	ctx context.Context,
-	appDep *v1alpha1.AppDeployment,
+	spec *v1alpha1.AppDeploymentSpec,
 	data *api.Data,
 	evtCtx *core.EventContext) ([]*core.Route, error) {
 
 	var routes []*core.Route
-	for compName, compSpec := range appDep.Spec.Components {
+	for compName, compSpec := range spec.Components {
 		comp := &core.Component{
 			Type:   string(compSpec.Type),
-			App:    appDep.Spec.AppName,
 			Name:   compName,
 			Commit: compSpec.Commit,
 		}
@@ -472,8 +502,9 @@ func (str *Store) buildRoutes(
 			route.Component = comp
 			route.EventContext = &core.EventContext{
 				Platform:           evtCtx.Platform,
-				AppDeployment:      appDep.Name,
+				App:                spec.AppName,
 				VirtualEnvironment: evtCtx.VirtualEnvironment,
+				AppDeployment:      evtCtx.AppDeployment,
 				ReleaseManifest:    evtCtx.ReleaseManifest,
 			}
 

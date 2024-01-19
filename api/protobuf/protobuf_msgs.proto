@@ -23,18 +23,18 @@ enum Category {
 
 message Component {
   string type = 1;
-  string app = 2;
-  string name = 3;
-  string commit = 4;
-  string id = 5;
-  string broker_id = 6;
+  string name = 2;
+  string commit = 3;
+  string id = 4;
+  string broker_id = 5;
 }
 
 message EventContext {
   string platform = 1;
-  string app_deployment = 2;
-  string virtual_environment = 3;
-  string release_manifest = 4;
+  string virtual_environment = 2;
+  string app = 3;
+  string app_deployment = 4;
+  string release_manifest = 5;
 }
 
 message Event {

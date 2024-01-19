@@ -12,6 +12,8 @@ import "fmt"
 
 // +kubebuilder:object:generate=false
 type DataProvider interface {
+	Object
+
 	GetData() *Data
 	GetDataKey() DataKey
 }

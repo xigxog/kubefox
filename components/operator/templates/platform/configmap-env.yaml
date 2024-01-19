@@ -9,7 +9,7 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: {{ name }}-env
+  name: {{ .Platform.Name }}-env
   namespace: {{ namespace }}
   labels:
     {{- include "labels" . | nindent 4 }}

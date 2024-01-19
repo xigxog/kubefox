@@ -9,7 +9,7 @@
 apiVersion: admissionregistration.k8s.io/v1
 kind: MutatingWebhookConfiguration
 metadata:
-  name: {{ name }}-operator
+  name: {{ .Instance.Name }}-operator
   namespace: {{ namespace }}
   labels:
     {{- include "labels" . | nindent 4 }}
@@ -28,7 +28,7 @@ webhooks:
     clientConfig:
       caBundle: {{ .Values.caBundle }}
       service:
-        name: {{ name }}-operator
+        name: {{ .Instance.Name }}-operator
         namespace: {{ namespace }}
         path: /v1alpha1/appdeployments/mutate
     rules:
@@ -49,7 +49,7 @@ webhooks:
     clientConfig:
       caBundle: {{ .Values.caBundle }}
       service:
-        name: {{ name }}-operator
+        name: {{ .Instance.Name }}-operator
         namespace: {{ namespace }}
         path: /index/mutate
     rules:
@@ -74,7 +74,7 @@ webhooks:
     clientConfig:
       caBundle: {{ .Values.caBundle }}
       service:
-        name: {{ name }}-operator
+        name: {{ .Instance.Name }}-operator
         namespace: {{ namespace }}
         path: /v1alpha1/platforms/mutate
     rules:
@@ -96,7 +96,7 @@ webhooks:
     clientConfig:
       caBundle: {{ .Values.caBundle }}
       service:
-        name: {{ name }}-operator
+        name: {{ .Instance.Name }}-operator
         namespace: {{ namespace }}
         path: /secrets/mutate
     rules:
