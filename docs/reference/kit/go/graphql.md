@@ -21,7 +21,7 @@ import "github.com/xigxog/kubefox/kit/graphql"
 
 
 <a name="Client"></a>
-## type Client
+## type [Client](<https://github.com/xigxog/kubefox/blob/main/kit/graphql/graphql.go#L19-L22>)
 
 
 
@@ -32,7 +32,7 @@ type Client struct {
 ```
 
 <a name="New"></a>
-### func New
+### func [New](<https://github.com/xigxog/kubefox/blob/main/kit/graphql/graphql.go#L24>)
 
 ```go
 func New(ktx kit.Kontext, dependency kit.ComponentDep) *Client
@@ -41,7 +41,7 @@ func New(ktx kit.Kontext, dependency kit.ComponentDep) *Client
 
 
 <a name="Client.Mutate"></a>
-### func \(\*Client\) Mutate
+### func \(\*Client\) [Mutate](<https://github.com/xigxog/kubefox/blob/main/kit/graphql/graphql.go#L48>)
 
 ```go
 func (c *Client) Mutate(m interface{}, variables map[string]interface{}, options ...graphql.Option) error
@@ -50,7 +50,7 @@ func (c *Client) Mutate(m interface{}, variables map[string]interface{}, options
 Mutate executes a single GraphQL mutation request, with a mutation derived from m, populating the response into it. m should be a pointer to struct that corresponds to the GraphQL schema.
 
 <a name="Client.MutateCtx"></a>
-### func \(\*Client\) MutateCtx
+### func \(\*Client\) [MutateCtx](<https://github.com/xigxog/kubefox/blob/main/kit/graphql/graphql.go#L53>)
 
 ```go
 func (c *Client) MutateCtx(ctx context.Context, m interface{}, variables map[string]interface{}, options ...graphql.Option) error
@@ -59,7 +59,7 @@ func (c *Client) MutateCtx(ctx context.Context, m interface{}, variables map[str
 See Mutate for details.
 
 <a name="Client.MutateRaw"></a>
-### func \(\*Client\) MutateRaw
+### func \(\*Client\) [MutateRaw](<https://github.com/xigxog/kubefox/blob/main/kit/graphql/graphql.go#L72>)
 
 ```go
 func (c *Client) MutateRaw(m interface{}, variables map[string]interface{}, options ...graphql.Option) ([]byte, error)
@@ -68,7 +68,7 @@ func (c *Client) MutateRaw(m interface{}, variables map[string]interface{}, opti
 MutateRaw executes a single GraphQL mutation request, with a mutation derived from m, populating the response into it. m should be a pointer to struct that corresponds to the GraphQL schema. return raw bytes message.
 
 <a name="Client.MutateRawCtx"></a>
-### func \(\*Client\) MutateRawCtx
+### func \(\*Client\) [MutateRawCtx](<https://github.com/xigxog/kubefox/blob/main/kit/graphql/graphql.go#L77>)
 
 ```go
 func (c *Client) MutateRawCtx(ctx context.Context, m interface{}, variables map[string]interface{}, options ...graphql.Option) ([]byte, error)
@@ -77,7 +77,7 @@ func (c *Client) MutateRawCtx(ctx context.Context, m interface{}, variables map[
 See MutateRaw for details.
 
 <a name="Client.Query"></a>
-### func \(\*Client\) Query
+### func \(\*Client\) [Query](<https://github.com/xigxog/kubefox/blob/main/kit/graphql/graphql.go#L36>)
 
 ```go
 func (c *Client) Query(q interface{}, variables map[string]interface{}, options ...graphql.Option) error
@@ -86,7 +86,7 @@ func (c *Client) Query(q interface{}, variables map[string]interface{}, options 
 Query executes a single GraphQL query request, with a query derived from q, populating the response into it. q should be a pointer to struct that corresponds to the GraphQL schema.
 
 <a name="Client.QueryCtx"></a>
-### func \(\*Client\) QueryCtx
+### func \(\*Client\) [QueryCtx](<https://github.com/xigxog/kubefox/blob/main/kit/graphql/graphql.go#L41>)
 
 ```go
 func (c *Client) QueryCtx(ctx context.Context, q interface{}, variables map[string]interface{}, options ...graphql.Option) error
@@ -95,7 +95,7 @@ func (c *Client) QueryCtx(ctx context.Context, q interface{}, variables map[stri
 See Query for details.
 
 <a name="Client.QueryRaw"></a>
-### func \(\*Client\) QueryRaw
+### func \(\*Client\) [QueryRaw](<https://github.com/xigxog/kubefox/blob/main/kit/graphql/graphql.go#L60>)
 
 ```go
 func (c *Client) QueryRaw(q interface{}, variables map[string]interface{}, options ...graphql.Option) ([]byte, error)
@@ -104,7 +104,7 @@ func (c *Client) QueryRaw(q interface{}, variables map[string]interface{}, optio
 Query executes a single GraphQL query request, with a query derived from q, populating the response into it. q should be a pointer to struct that corresponds to the GraphQL schema. return raw bytes message.
 
 <a name="Client.QueryRawCtx"></a>
-### func \(\*Client\) QueryRawCtx
+### func \(\*Client\) [QueryRawCtx](<https://github.com/xigxog/kubefox/blob/main/kit/graphql/graphql.go#L65>)
 
 ```go
 func (c *Client) QueryRawCtx(ctx context.Context, q interface{}, variables map[string]interface{}, options ...graphql.Option) ([]byte, error)

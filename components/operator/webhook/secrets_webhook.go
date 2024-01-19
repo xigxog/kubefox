@@ -58,8 +58,6 @@ func (r *SecretsWebhook) Handle(ctx context.Context, req admission.Request) admi
 		return admission.Errored(http.StatusBadRequest, err)
 	}
 
-	logkf.Global.Infof("resource version: %s", (dataProvider.(client.Object)).GetResourceVersion())
-
 	vaultData, err := c.GetData(ctx, dataProvider.GetDataKey())
 	if err != nil {
 		logkf.Global.Error(err)
@@ -77,9 +75,9 @@ func (r *SecretsWebhook) Handle(ctx context.Context, req admission.Request) admi
 	}
 	// Copy plain text secrets from Data into Vault and mask value in Data.
 	for k, v := range data.Secrets {
-		if v.String() != api.SecretToken {
+		if v.String() != api.SecretMask {
 			vaultData.Secrets[k] = v
-			data.Secrets[k] = api.ValString(api.SecretToken)
+			data.Secrets[k] = api.ValString(api.SecretMask)
 		}
 	}
 

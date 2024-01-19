@@ -15,13 +15,18 @@ import (
 
 type ReleaseManifestSpec struct {
 	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:MinLength=1
+
+	Id string `json:"id"`
+
+	// +kubebuilder:validation:Required
 
 	VirtualEnvironment ReleaseManifestEnv `json:"virtualEnvironment"`
 
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:MinProperties=1
 
-	AppDeployments map[string]AppDeploymentSpec `json:"appDeployments"`
+	Apps map[string]*ReleaseManifestApp `json:"apps"`
 }
 
 type ReleaseManifestEnv struct {
@@ -41,10 +46,49 @@ type ReleaseManifestEnv struct {
 	ResourceVersion string `json:"resourceVersion"`
 }
 
+type ReleaseManifestApp struct {
+	Version string `json:"version,omitempty"`
+
+	// +kubebuilder:validation:Required
+
+	AppDeployment ReleaseManifestAppDep `json:"appDeployment"`
+}
+
+type ReleaseManifestAppDep struct {
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:MinLength=1
+
+	Name string `json:"name"`
+
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:MinLength=1
+
+	ResourceVersion string `json:"resourceVersion"`
+
+	// +kubebuilder:validation:Required
+
+	Spec AppDeploymentSpec `json:"spec"`
+}
+
+type ReleaseManifestStatus struct {
+	Problems api.Problems `json:"problems,omitempty"`
+
+	// +patchStrategy=merge
+	// +patchMergeKey=type
+	// +listType=map
+	// +listMapKey=type
+
+	Conditions []metav1.Condition `json:"conditions,omitempty" patchStrategy:"merge" patchMergeKey:"type"`
+}
+
 // +kubebuilder:object:root=true
+// +kubebuilder:subresource:status
 // +kubebuilder:resource:path=releasemanifests,shortName=manifest;rm
 // +kubebuilder:printcolumn:name="Environment",type=string,JSONPath=`.spec.virtualEnvironment.name`
 // +kubebuilder:printcolumn:name="VirtualEnvironment",type=string,JSONPath=`.spec.virtualEnvironment.environment`
+// +kubebuilder:printcolumn:name="Available",type=string,JSONPath=`.status.conditions[?(@.type=='Available')].status`
+// +kubebuilder:printcolumn:name="Reason",type=string,JSONPath=`.status.conditions[?(@.type=='Available')].reason`
+// +kubebuilder:printcolumn:name="Progressing",type=string,JSONPath=`.status.conditions[?(@.type=='Progressing')].status`
 // +kubebuilder:printcolumn:name="Title",type=string,JSONPath=`.details.title`,priority=1
 // +kubebuilder:printcolumn:name="Description",type=string,JSONPath=`.details.description`,priority=1
 
@@ -60,8 +104,9 @@ type ReleaseManifest struct {
 
 	// Data is the merged values of the Environment and VirtualEnvironment data
 	// objects.
-	Data    *api.Data       `json:"data"`
-	Details api.DataDetails `json:"details,omitempty"`
+	Data    api.Data               `json:"data"`
+	Details api.DataDetails        `json:"details,omitempty"`
+	Status  *ReleaseManifestStatus `json:"status,omitempty"`
 }
 
 // +kubebuilder:object:root=true
@@ -73,7 +118,7 @@ type ReleaseManifestList struct {
 }
 
 func (d *ReleaseManifest) GetData() *api.Data {
-	return d.Data
+	return &d.Data
 }
 
 func (d *ReleaseManifest) GetDataKey() api.DataKey {

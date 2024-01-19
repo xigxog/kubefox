@@ -45,7 +45,7 @@ var (
 ```
 
 <a name="Var"></a>
-## type Var
+## type [Var](<https://github.com/xigxog/kubefox/blob/main/kit/env/env.go#L15-L18>)
 
 
 
@@ -56,7 +56,7 @@ type Var struct {
 ```
 
 <a name="NewVar"></a>
-### func NewVar
+### func [NewVar](<https://github.com/xigxog/kubefox/blob/main/kit/env/env.go#L20>)
 
 ```go
 func NewVar(name string, typ api.EnvVarType) *Var
@@ -65,7 +65,7 @@ func NewVar(name string, typ api.EnvVarType) *Var
 
 
 <a name="Var.Name"></a>
-### func \(\*Var\) Name
+### func \(\*Var\) [Name](<https://github.com/xigxog/kubefox/blob/main/kit/env/env.go#L24>)
 
 ```go
 func (v *Var) Name() string
@@ -74,7 +74,7 @@ func (v *Var) Name() string
 
 
 <a name="Var.Type"></a>
-### func \(\*Var\) Type
+### func \(\*Var\) [Type](<https://github.com/xigxog/kubefox/blob/main/kit/env/env.go#L28>)
 
 ```go
 func (v *Var) Type() api.EnvVarType
@@ -83,7 +83,7 @@ func (v *Var) Type() api.EnvVarType
 
 
 <a name="VarOption"></a>
-## type VarOption
+## type [VarOption](<https://github.com/xigxog/kubefox/blob/main/kit/env/env.go#L13>)
 
 
 

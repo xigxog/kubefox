@@ -135,10 +135,13 @@ func (srv *Server) ServeHTTP(resWriter http.ResponseWriter, httpReq *http.Reques
 	resp, err := srv.brk.SendReq(ctx, req, time.Now())
 
 	// Add Event Context to response headers.
-	if resp.Context != nil {
+	if resp != nil && resp.Context != nil {
 		setHeader(resWriter, api.HeaderPlatform, resp.Context.Platform)
 		setHeader(resWriter, api.HeaderVirtualEnvironment, resp.Context.VirtualEnvironment)
 		setHeader(resWriter, api.HeaderAppDep, resp.Context.AppDeployment)
+		if resp.TraceId() != "" {
+			resWriter.Header().Set(api.HeaderTraceId, resp.TraceId())
+		}
 	}
 
 	switch {
@@ -148,10 +151,6 @@ func (srv *Server) ServeHTTP(resWriter http.ResponseWriter, httpReq *http.Reques
 	case resp.Err() != nil:
 		writeError(resWriter, resp.Err(), log)
 		return
-	}
-
-	if resp.TraceId() != "" {
-		resWriter.Header().Set(api.HeaderTraceId, resp.TraceId())
 	}
 
 	httpResp := resp.HTTPResponse()

@@ -57,11 +57,14 @@ func NewComponentManager(instance string, cli *Client) *ComponentManager {
 }
 
 func (cm *ComponentManager) SetupComponent(ctx context.Context, td *TemplateData) (bool, error) {
-	log := cm.log.With(
-		logkf.KeyInstance, td.Instance.Name,
-		logkf.KeyPlatform, td.Platform.Name,
-		logkf.KeyComponentName, td.ComponentFullName(),
-	)
+	log := cm.log.
+		WithInstance(td.Instance.Name).
+		WithPlatform(td.Platform.Name).
+		WithComponent(&core.Component{
+			Type:   string(td.Component.Type),
+			Name:   td.Component.Name,
+			Commit: td.Component.Commit,
+		})
 
 	hash, err := hashstructure.Hash(td.Data, hashstructure.FormatV2, nil)
 	if err != nil {
@@ -132,50 +135,41 @@ func (cm *ComponentManager) ReconcileApps(ctx context.Context, namespace string)
 		logkf.KeyPlatform, platform.Name,
 	)
 
-	var appDepSpecs []v1alpha1.AppDeploymentSpec
+	var appDepSpecs []*v1alpha1.AppDeploymentSpec
 
 	appDeps := &v1alpha1.AppDeploymentList{}
 	if err := cm.List(ctx, appDeps, client.InNamespace(platform.Namespace)); err != nil {
 		return false, err
 	}
+	for _, appDep := range appDeps.Items {
+		appDepSpecs = append(appDepSpecs, &appDep.Spec)
+	}
 	log.Debugf("found %d AppDeployments", len(appDeps.Items))
 
-	for _, appDep := range appDeps.Items {
-		problems, err := appDep.Validate(nil, func(name string, typ api.ComponentType) (api.Adapter, error) {
-			switch typ {
-			case api.ComponentTypeHTTPAdapter:
-				a := &v1alpha1.HTTPAdapter{}
-				if err := cm.Get(ctx, k8s.Key(appDep.Namespace, name), a); err != nil {
-					return nil, err
-				}
-				return a, nil
-
-			default:
-				return nil, core.ErrNotFound()
-			}
-		})
-		if err != nil {
-			return false, err
-		}
-		if c := len(problems); c > 0 {
-			log.Debugf("found %d problems with AppDeployment '%s', skipping", c, appDep.Name)
-			continue
-		}
-
-		appDepSpecs = append(appDepSpecs, appDep.Spec)
-	}
-
-	manifests := &v1alpha1.ReleaseManifestList{}
-	if err := cm.List(ctx, manifests, client.InNamespace(platform.Namespace)); err != nil {
+	virtualEnvs := &v1alpha1.VirtualEnvironmentList{}
+	if err := cm.List(ctx, virtualEnvs, client.InNamespace(platform.Namespace)); err != nil {
 		return false, err
 	}
-	log.Debugf("found %d ReleaseManifests", len(manifests.Items))
 
-	for _, manifest := range manifests.Items {
-		for _, spec := range manifest.Spec.AppDeployments {
-			appDepSpecs = append(appDepSpecs, spec)
+	var manifests []*v1alpha1.ReleaseManifest
+	for _, ve := range virtualEnvs.Items {
+		if ve.Status.ActiveRelease != nil {
+			name := ve.Status.ActiveRelease.ReleaseManifest
+			manifest := &v1alpha1.ReleaseManifest{}
+			if err := cm.Get(ctx, k8s.Key(platform.Namespace, name), manifest); k8s.IgnoreNotFound(err) != nil {
+				return false, err
+			} else if k8s.IsNotFound(err) {
+				log.Debugf("ReleaseManifest '%s/%s' not found, skipping Component reconcile.", platform.Namespace, name)
+				continue
+			}
+			for _, app := range manifest.Spec.Apps {
+				appDepSpecs = append(appDepSpecs, &app.AppDeployment.Spec)
+			}
+			manifests = append(manifests, manifest)
 		}
+
 	}
+	log.Debugf("found %d active ReleaseManifests", len(manifests))
 
 	maxEventSize := platform.Spec.Events.MaxSize.Value()
 	if platform.Spec.Events.MaxSize.IsZero() {
@@ -217,7 +211,8 @@ func (cm *ComponentManager) ReconcileApps(ctx context.Context, namespace string)
 			})
 			compTd.Values = map[string]any{api.ValKeyMaxEventSize: maxEventSize}
 
-			compsTplData[compTd.ComponentFullName()] = compTd
+			key := componentKey(compName, comp.Commit)
+			compsTplData[key] = compTd
 		}
 	}
 	log.Debugf("found %d unique Components", len(compsTplData))
@@ -229,9 +224,11 @@ func (cm *ComponentManager) ReconcileApps(ctx context.Context, namespace string)
 		if err != nil {
 			return false, err
 		}
-		allAvailable = allAvailable && available
+		if !available {
+			allAvailable = false
+		}
 
-		key := compDepKey(compTD.Component.Name, compTD.Component.Commit)
+		key := componentKey(compTD.Component.Name, compTD.Component.Commit)
 		depMap[key] = compTD.Obj.(*appsv1.Deployment)
 	}
 
@@ -239,27 +236,53 @@ func (cm *ComponentManager) ReconcileApps(ctx context.Context, namespace string)
 	for _, appDep := range appDeps.Items {
 		curStatus := appDep.Status.DeepCopy()
 
-		problems, err := appDep.Validate(nil, func(name string, typ api.ComponentType) (api.Adapter, error) {
-			switch typ {
-			case api.ComponentTypeHTTPAdapter:
-				a := &v1alpha1.HTTPAdapter{}
-				if err := cm.Get(ctx, k8s.Key(appDep.Namespace, name), a); err != nil {
-					return nil, err
-				}
-				return a, nil
+		problems, err := appDep.Spec.Validate(&appDep, nil,
+			func(name string, typ api.ComponentType) (api.Adapter, error) {
+				switch typ {
+				case api.ComponentTypeHTTPAdapter:
+					a := &v1alpha1.HTTPAdapter{}
+					if err := cm.Get(ctx, k8s.Key(appDep.Namespace, name), a); err != nil {
+						return nil, err
+					}
+					return a, nil
 
-			default:
-				return nil, core.ErrNotFound()
-			}
-		})
+				default:
+					return nil, core.ErrNotFound()
+				}
+			})
 		if err != nil {
 			return false, err
 		}
-		appDep.Status.Problems = problems
 
-		available := availableCondition(&appDep, depMap)
-		progressing := progressingCondition(&appDep, depMap)
+		var available, progressing *metav1.Condition
+		if len(problems) > 0 {
+			available = &metav1.Condition{
+				Type:    api.ConditionTypeAvailable,
+				Status:  metav1.ConditionFalse,
+				Reason:  api.ConditionReasonProblemsFound,
+				Message: "One or more problems found, see `status.problems` for details.",
+			}
+			progressing = &metav1.Condition{
+				Type:    api.ConditionTypeProgressing,
+				Status:  metav1.ConditionFalse,
+				Reason:  api.ConditionReasonProblemsFound,
+				Message: "One or more problems found, see `status.problems` for details.",
+			}
+		} else {
+			c, p := availableCondition(&appDep.Spec, depMap)
+			available = c
+			problems = append(problems, p...)
+
+			c, p = progressingCondition(&appDep.Spec, depMap)
+			progressing = c
+			problems = append(problems, p...)
+		}
+
+		available.ObservedGeneration = appDep.Generation
+		progressing.ObservedGeneration = appDep.Generation
+
 		appDep.Status.Conditions = k8s.UpdateConditions(now, appDep.Status.Conditions, available, progressing)
+		appDep.Status.Problems = problems
 
 		if !k8s.DeepEqual(&appDep.Status, curStatus) {
 			if err := cm.ApplyStatus(ctx, &appDep); err != nil {
@@ -269,6 +292,70 @@ func (cm *ComponentManager) ReconcileApps(ctx context.Context, namespace string)
 
 		log.Debugf("AppDeployment '%s/%s'; available: %s, progressing: %s",
 			appDep.Namespace, appDep.Name, available.Status, progressing.Status)
+	}
+
+	for _, manifest := range manifests {
+		if manifest.Status == nil {
+			manifest.Status = &v1alpha1.ReleaseManifestStatus{}
+		}
+		curStatus := manifest.Status.DeepCopy()
+
+		var (
+			available, progressing *metav1.Condition
+			problems               api.Problems
+		)
+		for _, app := range manifest.Spec.Apps {
+			appAvailable, appProblems := availableCondition(&app.AppDeployment.Spec, depMap)
+			problems = append(problems, appProblems...)
+			switch {
+			case available == nil:
+				available = appAvailable
+				available.ObservedGeneration = manifest.Generation
+
+			case appAvailable.Reason == api.ConditionReasonComponentUnavailable &&
+				available.Reason != api.ConditionReasonProblemsFound:
+				available = appAvailable
+				available.ObservedGeneration = manifest.Generation
+
+			case appAvailable.Reason == api.ConditionReasonProblemsFound:
+				available = appAvailable
+				available.ObservedGeneration = manifest.Generation
+			}
+
+			appProgressing, appProblems := progressingCondition(&app.AppDeployment.Spec, depMap)
+			problems = append(problems, appProblems...)
+			switch {
+			case progressing == nil:
+				progressing = appProgressing
+				progressing.ObservedGeneration = manifest.Generation
+
+			case appProgressing.Reason == api.ConditionReasonComponentDeploymentProgressing &&
+				progressing.Reason != api.ConditionReasonComponentDeploymentFailed &&
+				progressing.Reason != api.ConditionReasonProblemsFound:
+				progressing = appProgressing
+				progressing.ObservedGeneration = manifest.Generation
+
+			case appProgressing.Reason == api.ConditionReasonComponentDeploymentFailed &&
+				progressing.Reason != api.ConditionReasonProblemsFound:
+				progressing = appProgressing
+				progressing.ObservedGeneration = manifest.Generation
+
+			case appProgressing.Reason == api.ConditionReasonProblemsFound:
+				progressing = appProgressing
+				progressing.ObservedGeneration = manifest.Generation
+			}
+		}
+		manifest.Status.Conditions = k8s.UpdateConditions(now, manifest.Status.Conditions, available, progressing)
+		manifest.Status.Problems = problems
+
+		if !k8s.DeepEqual(&manifest.Status, curStatus) {
+			if err := cm.ApplyStatus(ctx, manifest); err != nil {
+				log.Error(err)
+			}
+		}
+
+		log.Debugf("ReleaseManifest '%s/%s'; available: %s, progressing: %s",
+			manifest.Namespace, manifest.Name, available.Status, progressing.Status)
 	}
 
 	compDeps := &appsv1.DeploymentList{}
@@ -334,90 +421,147 @@ func (td *TemplateData) ForComponent(template string, obj client.Object, defs *c
 	return newTD
 }
 
-func compDepKey(name, commit string) string {
-	return fmt.Sprintf("%s-%s", name, commit)
-}
+func availableCondition(
+	spec *v1alpha1.AppDeploymentSpec, deployments map[string]*appsv1.Deployment) (*metav1.Condition, api.Problems) {
 
-func availableCondition(appDep *v1alpha1.AppDeployment, depMap map[string]*appsv1.Deployment) *metav1.Condition {
-	cond := &metav1.Condition{
-		Type:               api.ConditionTypeAvailable,
-		Status:             metav1.ConditionTrue,
-		ObservedGeneration: appDep.Generation,
-		Reason:             api.ConditionReasonComponentsAvailable,
-		Message:            "Component Deployments have minimum availability.",
-	}
-
-	if len(appDep.Status.Problems) > 0 {
-		cond.Status = metav1.ConditionFalse
-		cond.Reason = api.ConditionReasonProblemsFound
-		cond.Message = "One or more problems exist with AppDeployment, see `status.problems` for details."
-	} else {
-		available, depName, depCond := isAppDeployment(appsv1.DeploymentAvailable, &appDep.Spec, depMap)
-		if !available {
-			cond.Status = metav1.ConditionFalse
-			cond.Reason = api.ConditionReasonComponentUnavailable
-			cond.Message = fmt.Sprintf(`Component Deployment "%s" unavailable; %s`, depName, depCond.Message)
-		}
-	}
-
-	return cond
-}
-
-func progressingCondition(appDep *v1alpha1.AppDeployment, depMap map[string]*appsv1.Deployment) *metav1.Condition {
-	cond := &metav1.Condition{
-		Type:               api.ConditionTypeProgressing,
-		Status:             metav1.ConditionTrue,
-		ObservedGeneration: appDep.Generation,
-		Reason:             api.ConditionReasonComponentDeploymentProgressing,
-	}
-
-	if len(appDep.Status.Problems) > 0 {
-		cond.Status = metav1.ConditionFalse
-		cond.Reason = api.ConditionReasonProblemsFound
-		cond.Message = "One or more problems exist with AppDeployment, see `status.problems` for details."
-	} else {
-		progressing, _, depCond := isAppDeployment(appsv1.DeploymentProgressing, &appDep.Spec, depMap)
-		cond.Message = depCond.Message
-
-		switch {
-		case progressing && depCond.Reason == "NewReplicaSetAvailable":
-			cond.Status = metav1.ConditionFalse
-			cond.Reason = api.ConditionReasonComponentsDeployed
-			cond.Message = "Component Deployments completed successfully."
-
-		case !progressing:
-			cond.Status = metav1.ConditionFalse
-			cond.Reason = api.ConditionReasonComponentDeploymentFailed
-		}
-	}
-
-	return cond
-}
-
-func isAppDeployment(condType appsv1.DeploymentConditionType,
-	spec *v1alpha1.AppDeploymentSpec, depMap map[string]*appsv1.Deployment) (bool, string, *appsv1.DeploymentCondition) {
-
-	cond := &appsv1.DeploymentCondition{Type: condType, Status: corev1.ConditionUnknown}
+	var (
+		condition   = &metav1.Condition{Type: api.ConditionTypeAvailable}
+		available   = false
+		unavailable = false
+		problems    api.Problems
+	)
 	for name, c := range spec.Components {
-		key := compDepKey(name, c.Commit)
-		dep, found := depMap[key]
+		dep, found := deployments[componentKey(name, c.Commit)]
 		if !found || dep == nil {
-			return false, "", &appsv1.DeploymentCondition{Type: condType, Status: corev1.ConditionUnknown}
+			problems = append(problems,
+				api.Problem{
+					Type:    api.ProblemTypeDeploymentNotFound,
+					Message: "Component Deployment not found.",
+					Causes: []api.ProblemSource{
+						{
+							Kind: api.ProblemSourceKindComponent,
+							Name: name,
+						},
+					},
+				},
+			)
+			continue
 		}
-		if cond = condition(dep.Status, condType); cond.Status == corev1.ConditionFalse {
-			return false, dep.Name, cond
+
+		cond := findCondition(dep.Status, appsv1.DeploymentAvailable)
+		switch {
+		case cond.Status == corev1.ConditionTrue:
+			available = true
+		default:
+			unavailable = true
+			problems = append(problems,
+				api.Problem{
+					Type:    api.ProblemTypeDeploymentUnavailable,
+					Message: cond.Message,
+					Causes: []api.ProblemSource{
+						{
+							Kind:               api.ProblemSourceKindDeployment,
+							Name:               dep.Name,
+							ObservedGeneration: dep.Generation,
+						},
+						{
+							Kind: api.ProblemSourceKindComponent,
+							Name: name,
+						},
+					},
+				},
+			)
 		}
 	}
 
-	return true, "", cond
+	switch {
+	case unavailable:
+		condition.Status = metav1.ConditionFalse
+		condition.Reason = api.ConditionReasonComponentUnavailable
+		condition.Message = "One or more Component Deployments is unavailable, see `status.problems` for details."
+	case available:
+		condition.Status = metav1.ConditionTrue
+		condition.Reason = api.ConditionReasonComponentsAvailable
+		condition.Message = "Component Deployments have minimum required Pods available."
+	}
+
+	return condition, problems
 }
 
-func condition(status appsv1.DeploymentStatus, condType appsv1.DeploymentConditionType) *appsv1.DeploymentCondition {
+func progressingCondition(
+	spec *v1alpha1.AppDeploymentSpec, deployments map[string]*appsv1.Deployment) (*metav1.Condition, api.Problems) {
+
+	var (
+		condition   = &metav1.Condition{Type: api.ConditionTypeProgressing}
+		available   = false
+		progressing = false
+		failed      = false
+		problems    api.Problems
+	)
+	for name, c := range spec.Components {
+		dep, found := deployments[componentKey(name, c.Commit)]
+		if !found || dep == nil {
+			// availableCondition adds the ProblemTypeDeploymentNotFound
+			// problem, do not need to add again.
+			continue
+		}
+
+		cond := findCondition(dep.Status, appsv1.DeploymentProgressing)
+		switch {
+		case cond.Reason == "NewReplicaSetAvailable":
+			available = true
+		case cond.Status == corev1.ConditionTrue:
+			progressing = true
+		default:
+			failed = true
+			problems = append(problems,
+				api.Problem{
+					Type:    api.ProblemTypeDeploymentFailed,
+					Message: cond.Message,
+					Causes: []api.ProblemSource{
+						{
+							Kind:               api.ProblemSourceKindDeployment,
+							Name:               dep.Name,
+							ObservedGeneration: dep.Generation,
+						},
+						{
+							Kind: api.ProblemSourceKindComponent,
+							Name: name,
+						},
+					},
+				},
+			)
+		}
+	}
+
+	switch {
+	case failed:
+		condition.Status = metav1.ConditionFalse
+		condition.Reason = api.ConditionReasonComponentDeploymentFailed
+		condition.Message = "One or more Component Deployments has failed, see `status.problems` for details."
+	case progressing:
+		condition.Status = metav1.ConditionTrue
+		condition.Reason = api.ConditionReasonComponentDeploymentProgressing
+		condition.Message = "One or more Component Deployments is progressing."
+	case available:
+		condition.Status = metav1.ConditionFalse
+		condition.Reason = api.ConditionReasonComponentsDeployed
+		condition.Message = "Component Deployments completed successfully."
+	}
+
+	return condition, problems
+}
+
+func findCondition(status appsv1.DeploymentStatus, condType appsv1.DeploymentConditionType) appsv1.DeploymentCondition {
 	for _, c := range status.Conditions {
 		if c.Type == condType {
-			return &c
+			return c
 		}
 	}
 
-	return &appsv1.DeploymentCondition{Type: condType, Status: corev1.ConditionUnknown}
+	return appsv1.DeploymentCondition{Type: condType, Status: corev1.ConditionUnknown}
+}
+
+func componentKey(name, commit string) string {
+	return fmt.Sprintf("%s-%s", name, commit)
 }

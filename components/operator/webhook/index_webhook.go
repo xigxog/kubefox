@@ -62,23 +62,23 @@ func (r *IndexWebhook) Handle(ctx context.Context, req admission.Request) admiss
 		}
 
 	case "kubefox.xigxog.io/v1alpha1, Kind=ReleaseManifest":
-		env := &v1alpha1.ReleaseManifest{}
-		if err := r.DecodeRaw(req.Object, env); err != nil {
+		manifest := &v1alpha1.ReleaseManifest{}
+		if err := r.DecodeRaw(req.Object, manifest); err != nil {
 			return admission.Errored(http.StatusBadRequest, err)
 		}
-		obj = env
+		obj = manifest
 
-		k8s.UpdateLabel(env, api.LabelK8sEnvironment, string(env.Spec.VirtualEnvironment.Name))
-		k8s.UpdateLabel(env, api.LabelK8sVirtualEnvironment, env.Spec.VirtualEnvironment.Environment)
+		k8s.UpdateLabel(manifest, api.LabelK8sVirtualEnvironment, string(manifest.Spec.VirtualEnvironment.Name))
+		k8s.UpdateLabel(manifest, api.LabelK8sEnvironment, manifest.Spec.VirtualEnvironment.Environment)
 
 	case "kubefox.xigxog.io/v1alpha1, Kind=VirtualEnvironment":
-		env := &v1alpha1.VirtualEnvironment{}
-		if err := r.DecodeRaw(req.Object, env); err != nil {
+		ve := &v1alpha1.VirtualEnvironment{}
+		if err := r.DecodeRaw(req.Object, ve); err != nil {
 			return admission.Errored(http.StatusBadRequest, err)
 		}
-		obj = env
+		obj = ve
 
-		k8s.UpdateLabel(env, api.LabelK8sEnvironment, env.Spec.Environment)
+		k8s.UpdateLabel(ve, api.LabelK8sEnvironment, ve.Spec.Environment)
 
 	default:
 		return admission.Allowed("🦊")

@@ -32,6 +32,15 @@ spec:
     - jsonPath: .spec.virtualEnvironment.environment
       name: VirtualEnvironment
       type: string
+    - jsonPath: .status.conditions[?(@.type=='Available')].status
+      name: Available
+      type: string
+    - jsonPath: .status.conditions[?(@.type=='Available')].reason
+      name: Reason
+      type: string
+    - jsonPath: .status.conditions[?(@.type=='Progressing')].status
+      name: Progressing
+      type: string
     - jsonPath: .details.title
       name: Title
       priority: 1
@@ -94,162 +103,188 @@ spec:
             type: object
           spec:
             properties:
-              appDeployments:
+              apps:
                 additionalProperties:
-                  description: AppDeploymentSpec defines the desired state of AppDeployment
                   properties:
-                    adapters:
-                      description: Specs of all Adapters defined as dependencies by
-                        the Components. This a read-only field and is set by the KubeFox
-                        Operator when a versioned AppDeployment is created.
+                    appDeployment:
                       properties:
-                        http:
-                          additionalProperties:
-                            properties:
-                              followRedirects:
-                                default: Never
-                                enum:
-                                - Never
-                                - Always
-                                - SameHost
-                                type: string
-                              headers:
-                                additionalProperties:
-                                  type: string
-                                type: object
-                              insecureSkipVerify:
-                                default: false
-                                description: InsecureSkipVerify controls whether the
-                                  Adapter verifies the server's certificate chain
-                                  and host name. If InsecureSkipVerify is true, any
-                                  certificate presented by the server and any host
-                                  name in that certificate is accepted. In this mode,
-                                  TLS is susceptible to machine-in-the-middle attacks.
-                                type: boolean
-                              url:
-                                format: uri
-                                type: string
-                            required:
-                            - url
-                            type: object
-                          type: object
-                      required:
-                      - http
-                      type: object
-                    appName:
-                      type: string
-                    branch:
-                      type: string
-                    commit:
-                      pattern: ^[a-z0-9]{40}$
-                      type: string
-                    commitTime:
-                      format: date-time
-                      type: string
-                    components:
-                      additionalProperties:
-                        properties:
-                          commit:
-                            pattern: ^[a-z0-9]{40}$
-                            type: string
-                          defaultHandler:
-                            type: boolean
-                          dependencies:
-                            additionalProperties:
+                        name:
+                          minLength: 1
+                          type: string
+                        resourceVersion:
+                          minLength: 1
+                          type: string
+                        spec:
+                          description: AppDeploymentSpec defines the desired state
+                            of AppDeployment
+                          properties:
+                            adapters:
+                              description: Specs of all Adapters defined as dependencies
+                                by the Components. This a read-only field and is set
+                                by the KubeFox Operator when a versioned AppDeployment
+                                is created.
                               properties:
-                                type:
-                                  enum:
-                                  - DBAdapter
-                                  - KubeFox
-                                  - HTTPAdapter
-                                  type: string
-                              required:
-                              - type
-                              type: object
-                            type: object
-                          envVarSchema:
-                            additionalProperties:
-                              properties:
-                                required:
-                                  default: false
-                                  type: boolean
-                                type:
-                                  enum:
-                                  - Array
-                                  - Boolean
-                                  - Number
-                                  - String
-                                  type: string
-                              required:
-                              - required
-                              type: object
-                            type: object
-                          image:
-                            type: string
-                          routes:
-                            items:
-                              properties:
-                                envVarSchema:
+                                http:
                                   additionalProperties:
                                     properties:
-                                      required:
-                                        default: false
-                                        type: boolean
-                                      type:
+                                      followRedirects:
+                                        default: Never
                                         enum:
-                                        - Array
-                                        - Boolean
-                                        - Number
-                                        - String
+                                        - Never
+                                        - Always
+                                        - SameHost
+                                        type: string
+                                      headers:
+                                        additionalProperties:
+                                          type: string
+                                        type: object
+                                      insecureSkipVerify:
+                                        default: false
+                                        description: InsecureSkipVerify controls whether
+                                          the Adapter verifies the server's certificate
+                                          chain and host name. If InsecureSkipVerify
+                                          is true, any certificate presented by the
+                                          server and any host name in that certificate
+                                          is accepted. In this mode, TLS is susceptible
+                                          to machine-in-the-middle attacks.
+                                        type: boolean
+                                      url:
+                                        format: uri
                                         type: string
                                     required:
-                                    - required
+                                    - url
                                     type: object
                                   type: object
-                                id:
-                                  type: integer
-                                priority:
-                                  type: integer
-                                rule:
-                                  type: string
                               required:
-                              - id
-                              - rule
+                              - http
                               type: object
-                            type: array
-                          type:
-                            enum:
-                            - DBAdapter
-                            - KubeFox
-                            - HTTPAdapter
-                            type: string
-                        required:
-                        - commit
-                        - type
-                        type: object
-                      minProperties: 1
+                            appName:
+                              type: string
+                            branch:
+                              type: string
+                            commit:
+                              pattern: ^[a-z0-9]{40}$
+                              type: string
+                            commitTime:
+                              format: date-time
+                              type: string
+                            components:
+                              additionalProperties:
+                                properties:
+                                  commit:
+                                    pattern: ^[a-z0-9]{40}$
+                                    type: string
+                                  defaultHandler:
+                                    type: boolean
+                                  dependencies:
+                                    additionalProperties:
+                                      properties:
+                                        type:
+                                          enum:
+                                          - DBAdapter
+                                          - KubeFox
+                                          - HTTPAdapter
+                                          type: string
+                                      required:
+                                      - type
+                                      type: object
+                                    type: object
+                                  envVarSchema:
+                                    additionalProperties:
+                                      properties:
+                                        required:
+                                          default: false
+                                          type: boolean
+                                        type:
+                                          enum:
+                                          - Array
+                                          - Boolean
+                                          - Number
+                                          - String
+                                          type: string
+                                      required:
+                                      - required
+                                      type: object
+                                    type: object
+                                  image:
+                                    type: string
+                                  routes:
+                                    items:
+                                      properties:
+                                        envVarSchema:
+                                          additionalProperties:
+                                            properties:
+                                              required:
+                                                default: false
+                                                type: boolean
+                                              type:
+                                                enum:
+                                                - Array
+                                                - Boolean
+                                                - Number
+                                                - String
+                                                type: string
+                                            required:
+                                            - required
+                                            type: object
+                                          type: object
+                                        id:
+                                          type: integer
+                                        priority:
+                                          type: integer
+                                        rule:
+                                          type: string
+                                      required:
+                                      - id
+                                      - rule
+                                      type: object
+                                    type: array
+                                  type:
+                                    enum:
+                                    - DBAdapter
+                                    - KubeFox
+                                    - HTTPAdapter
+                                    type: string
+                                required:
+                                - commit
+                                - type
+                                type: object
+                              minProperties: 1
+                              type: object
+                            containerRegistry:
+                              type: string
+                            imagePullSecretName:
+                              type: string
+                            repoURL:
+                              type: string
+                            tag:
+                              type: string
+                            version:
+                              description: Version of the defined App. Use of semantic
+                                versioning is recommended. Once set the AppDeployment
+                                spec becomes immutable.
+                              type: string
+                          required:
+                          - appName
+                          - commit
+                          - commitTime
+                          - components
+                          type: object
+                      required:
+                      - name
+                      - resourceVersion
+                      - spec
                       type: object
-                    containerRegistry:
-                      type: string
-                    imagePullSecretName:
-                      type: string
-                    repoURL:
-                      format: uri
-                      type: string
-                    tag:
-                      type: string
                     version:
-                      description: Version of the defined App. Use of semantic versioning
-                        is recommended. Once set the AppDeployment spec becomes immutable.
                       type: string
                   required:
-                  - appName
-                  - commit
-                  - commitTime
-                  - components
+                  - appDeployment
                   type: object
                 minProperties: 1
                 type: object
+              id:
+                minLength: 1
+                type: string
               virtualEnvironment:
                 properties:
                   environment:
@@ -267,8 +302,122 @@ spec:
                 - resourceVersion
                 type: object
             required:
-            - appDeployments
+            - apps
+            - id
             - virtualEnvironment
+            type: object
+          status:
+            properties:
+              conditions:
+                items:
+                  description: "Condition contains details for one aspect of the current
+                    state of this API Resource. --- This struct is intended for direct
+                    use as an array at the field path .status.conditions.  For example,
+                    \n type FooStatus struct{ // Represents the observations of a
+                    foo's current state. // Known .status.conditions.type are: \"Available\",
+                    \"Progressing\", and \"Degraded\" // +patchMergeKey=type // +patchStrategy=merge
+                    // +listType=map // +listMapKey=type Conditions []metav1.Condition
+                    `json:\"conditions,omitempty\" patchStrategy:\"merge\" patchMergeKey:\"type\"
+                    protobuf:\"bytes,1,rep,name=conditions\"` \n // other fields }"
+                  properties:
+                    lastTransitionTime:
+                      description: lastTransitionTime is the last time the condition
+                        transitioned from one status to another. This should be when
+                        the underlying condition changed.  If that is not known, then
+                        using the time when the API field changed is acceptable.
+                      format: date-time
+                      type: string
+                    message:
+                      description: message is a human readable message indicating
+                        details about the transition. This may be an empty string.
+                      maxLength: 32768
+                      type: string
+                    observedGeneration:
+                      description: observedGeneration represents the .metadata.generation
+                        that the condition was set based upon. For instance, if .metadata.generation
+                        is currently 12, but the .status.conditions[x].observedGeneration
+                        is 9, the condition is out of date with respect to the current
+                        state of the instance.
+                      format: int64
+                      minimum: 0
+                      type: integer
+                    reason:
+                      description: reason contains a programmatic identifier indicating
+                        the reason for the condition's last transition. Producers
+                        of specific condition types may define expected values and
+                        meanings for this field, and whether the values are considered
+                        a guaranteed API. The value should be a CamelCase string.
+                        This field may not be empty.
+                      maxLength: 1024
+                      minLength: 1
+                      pattern: ^[A-Za-z]([A-Za-z0-9_,:]*[A-Za-z0-9_])?$
+                      type: string
+                    status:
+                      description: status of the condition, one of True, False, Unknown.
+                      enum:
+                      - "True"
+                      - "False"
+                      - Unknown
+                      type: string
+                    type:
+                      description: type of condition in CamelCase or in foo.example.com/CamelCase.
+                        --- Many .condition.type values are consistent across resources
+                        like Available, but because arbitrary conditions can be useful
+                        (see .node.status.conditions), the ability to deconflict is
+                        important. The regex it matches is (dns1123SubdomainFmt/)?(qualifiedNameFmt)
+                      maxLength: 316
+                      pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$
+                      type: string
+                  required:
+                  - lastTransitionTime
+                  - message
+                  - reason
+                  - status
+                  - type
+                  type: object
+                type: array
+                x-kubernetes-list-map-keys:
+                - type
+                x-kubernetes-list-type: map
+              problems:
+                items:
+                  properties:
+                    causes:
+                      description: Resources and attributes causing problem.
+                      items:
+                        properties:
+                          kind:
+                            type: string
+                          name:
+                            type: string
+                          observedGeneration:
+                            description: ObservedGeneration represents the .metadata.generation
+                              of the ProblemSource that the problem was generated
+                              from. For instance, if the ProblemSource .metadata.generation
+                              is currently 12, but the observedGeneration is 9, the
+                              problem is out of date with respect to the current state
+                              of the instance.
+                            format: int64
+                            type: integer
+                          path:
+                            description: Path of source object attribute causing problem.
+                            type: string
+                          value:
+                            description: Value causing problem. Pointer is used to
+                              distinguish between not set and empty string.
+                            type: string
+                        required:
+                        - kind
+                        type: object
+                      type: array
+                    message:
+                      type: string
+                    type:
+                      type: string
+                  required:
+                  - type
+                  type: object
+                type: array
             type: object
         required:
         - data
@@ -276,4 +425,5 @@ spec:
         type: object
     served: true
     storage: true
-    subresources: {}
+    subresources:
+      status: {}

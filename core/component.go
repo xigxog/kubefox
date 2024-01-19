@@ -56,7 +56,6 @@ func (lhs *Component) Equal(rhs *Component) bool {
 		return false
 	}
 	return lhs.Type == rhs.Type &&
-		lhs.App == rhs.App &&
 		lhs.Name == rhs.Name &&
 		lhs.Commit == rhs.Commit &&
 		lhs.Id == rhs.Id &&
@@ -68,7 +67,7 @@ func (c *Component) Key() string {
 }
 
 func (c *Component) GroupKey() string {
-	return fmt.Sprintf("%s%s-%s", c.prefix("-"), c.Name, c.ShortCommit())
+	return fmt.Sprintf("%s-%s", c.Name, c.Commit)
 }
 
 func (c *Component) Subject() string {
@@ -78,11 +77,11 @@ func (c *Component) Subject() string {
 	if c.Id == "" {
 		return c.GroupSubject()
 	}
-	return fmt.Sprintf("evt.js.%s%s.%s.%s", c.prefix("."), c.Name, c.ShortCommit(), c.Id)
+	return fmt.Sprintf("evt.js.%s.%s.%s", c.Name, c.Commit, c.Id)
 }
 
 func (c *Component) GroupSubject() string {
-	return fmt.Sprintf("evt.js.%s%s.%s", c.prefix("."), c.Name, c.ShortCommit())
+	return fmt.Sprintf("evt.js.%s.%s", c.Name, c.Commit)
 }
 
 func (c *Component) BrokerSubject() string {
@@ -91,15 +90,7 @@ func (c *Component) BrokerSubject() string {
 
 func (c *Component) ShortCommit() string {
 	if len(c.Commit) >= 7 {
-		return c.Commit[0:7]
-	}
-
-	return ""
-}
-
-func (c *Component) prefix(sep string) string {
-	if c.App != "" {
-		return fmt.Sprintf("%s%s", c.App, sep)
+		return c.Commit[:7]
 	}
 
 	return ""

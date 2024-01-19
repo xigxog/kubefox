@@ -150,7 +150,8 @@ func main() {
 		log.Fatalf("unable to create Environment controller: %v", err)
 	}
 	if err = (&controller.VirtualEnvReconciler{
-		Client: ctrlClient,
+		Client:  ctrlClient,
+		CompMgr: compMgr,
 	}).SetupWithManager(mgr); err != nil {
 		log.Fatalf("unable to create VirtualEnvironment controller: %v", err)
 	}

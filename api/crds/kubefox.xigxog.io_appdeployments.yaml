@@ -219,7 +219,6 @@ spec:
               imagePullSecretName:
                 type: string
               repoURL:
-                format: uri
                 type: string
               tag:
                 type: string
@@ -315,13 +314,6 @@ spec:
                       items:
                         properties:
                           kind:
-                            enum:
-                            - AppDeployment
-                            - Component
-                            - HTTPAdapter
-                            - Release
-                            - ReleaseManifest
-                            - VirtualEnvironment
                             type: string
                           name:
                             type: string
@@ -348,16 +340,6 @@ spec:
                     message:
                       type: string
                     type:
-                      enum:
-                      - AdapterNotFound
-                      - AppDeploymentFailed
-                      - DependencyInvalid
-                      - DependencyNotFound
-                      - ParseError
-                      - PolicyViolation
-                      - RouteConflict
-                      - VarNotFound
-                      - VarWrongType
                       type: string
                   required:
                   - type

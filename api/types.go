@@ -10,11 +10,23 @@ one at https://mozilla.org/MPL/2.0/.
 package api
 
 // +kubebuilder:object:generate=false
-type Adapter interface {
+type Object interface {
+	GetNamespace() string
 	GetName() string
+	GetResourceVersion() string
+	GetGeneration() int64
+}
+
+// +kubebuilder:object:generate=false
+type Adapter interface {
+	Object
+
 	GetComponentType() ComponentType
 	Validate(data *Data) Problems
 }
+
+// +kubebuilder:object:generate=false
+type GetAdapterFunc func(name string, typ ComponentType) (Adapter, error)
 
 type EnvVarSchema map[string]*EnvVarDefinition
 
@@ -38,6 +50,11 @@ type ComponentDefinition struct {
 	DefaultHandler bool                   `json:"defaultHandler,omitempty"`
 	EnvVarSchema   EnvVarSchema           `json:"envVarSchema,omitempty"`
 	Dependencies   map[string]*Dependency `json:"dependencies,omitempty"`
+
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:Pattern="^[a-z0-9]{40}$"
+	Commit string `json:"commit"`
+	Image  string `json:"image,omitempty"`
 }
 
 type RouteSpec struct {
@@ -64,7 +81,6 @@ type Problems []Problem
 
 type Problem struct {
 	// +kubebuilder:validation:Required
-	// +kubebuilder:validation:Enum=AdapterNotFound;AppDeploymentFailed;DependencyInvalid;DependencyNotFound;ParseError;PolicyViolation;RouteConflict;VarNotFound;VarWrongType
 
 	Type ProblemType `json:"type"`
 
@@ -77,7 +93,6 @@ type Problem struct {
 
 type ProblemSource struct {
 	// +kubebuilder:validation:Required
-	// +kubebuilder:validation:Enum=AppDeployment;Component;HTTPAdapter;Release;ReleaseManifest;VirtualEnvironment;
 
 	Kind ProblemSourceKind `json:"kind"`
 	Name string            `json:"name,omitempty"`

@@ -20,6 +20,7 @@ import (
 )
 
 const (
+	KeyApp                = "app"
 	KeyAppDeployment      = "appDeployment"
 	KeyBrokerId           = "brokerId"
 	KeyBrokerName         = "brokerName"
@@ -34,6 +35,7 @@ const (
 	KeyInstance           = "instance"
 	KeyPlatform           = "platform"
 	KeyPlatformComponent  = "platformComponent"
+	KeyReleaseManifest    = "releaseManifest"
 	KeySourceBrokerId     = "sourceBrokerId"
 	KeySourceCommit       = "sourceCommit"
 	KeySourceId           = "sourceId"
@@ -230,8 +232,10 @@ func (log *Logger) WithEvent(evt *core.Event) *Logger {
 			KeyEventId, evt.Id,
 			KeyEventType, evt.Type,
 			KeyEventCategory, evt.Category.String(),
-			KeyAppDeployment, evtCtx.AppDeployment,
+			KeyApp, evtCtx.App,
 			KeyVirtualEnvironment, evtCtx.VirtualEnvironment,
+			KeyAppDeployment, evtCtx.AppDeployment,
+			KeyReleaseManifest, evtCtx.ReleaseManifest,
 			KeyTraceId, evt.TraceId(),
 			KeySpanId, evt.SpanId(),
 		)

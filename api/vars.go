@@ -17,7 +17,7 @@ import (
 
 // Misc
 const (
-	SecretToken              = "••••••"
+	SecretMask               = "••••••"
 	MaximumMaxEventSizeBytes = 16777216 // 16 MiB
 )
 
@@ -147,17 +147,22 @@ type ProblemType string
 
 const (
 	// ProblemTypeReleaseManifestInvalid     ProblemType = "ReleaseManifestInvalid"
-	ProblemTypeAdapterNotFound         ProblemType = "AdapterNotFound"
-	ProblemTypeAppDeploymentFailed     ProblemType = "AppDeploymentFailed"
-	ProblemTypeAppDeploymentNotFound   ProblemType = "AppDeploymentNotFound"
-	ProblemTypeDependencyInvalid       ProblemType = "DependencyInvalid"
-	ProblemTypeDependencyNotFound      ProblemType = "DependencyNotFound"
-	ProblemTypeParseError              ProblemType = "ParseError"
-	ProblemTypePolicyViolation         ProblemType = "PolicyViolation"
-	ProblemTypeReleaseManifestNotFound ProblemType = "ReleaseManifestNotFound"
-	ProblemTypeRouteConflict           ProblemType = "RouteConflict"
-	ProblemTypeVarNotFound             ProblemType = "VarNotFound"
-	ProblemTypeVarWrongType            ProblemType = "VarWrongType"
+	ProblemTypeAdapterNotFound            ProblemType = "AdapterNotFound"
+	ProblemTypeAppDeploymentFailed        ProblemType = "AppDeploymentFailed"
+	ProblemTypeAppDeploymentNotFound      ProblemType = "AppDeploymentNotFound"
+	ProblemTypeDependencyInvalid          ProblemType = "DependencyInvalid"
+	ProblemTypeDependencyNotFound         ProblemType = "DependencyNotFound"
+	ProblemTypeDeploymentFailed           ProblemType = "DeploymentFailed"
+	ProblemTypeDeploymentNotFound         ProblemType = "DeploymentNotFound"
+	ProblemTypeDeploymentUnavailable      ProblemType = "DeploymentUnavailable"
+	ProblemTypeParseError                 ProblemType = "ParseError"
+	ProblemTypePolicyViolation            ProblemType = "PolicyViolation"
+	ProblemTypeReleaseManifestFailed      ProblemType = "ReleaseManifestFailed"
+	ProblemTypeReleaseManifestNotFound    ProblemType = "ReleaseManifestNotFound"
+	ProblemTypeReleaseManifestUnavailable ProblemType = "ReleaseManifestUnavailable"
+	ProblemTypeRouteConflict              ProblemType = "RouteConflict"
+	ProblemTypeVarNotFound                ProblemType = "VarNotFound"
+	ProblemTypeVarWrongType               ProblemType = "VarWrongType"
 )
 
 type DataSourceKind string
@@ -171,6 +176,7 @@ type ProblemSourceKind string
 const (
 	ProblemSourceKindAppDeployment      ProblemSourceKind = "AppDeployment"
 	ProblemSourceKindComponent          ProblemSourceKind = "Component"
+	ProblemSourceKindDeployment         ProblemSourceKind = "Deployment"
 	ProblemSourceKindHTTPAdapter        ProblemSourceKind = "HTTPAdapter"
 	ProblemSourceKindReleaseManifest    ProblemSourceKind = "ReleaseManifest"
 	ProblemSourceKindVirtualEnvironment ProblemSourceKind = "VirtualEnvironment"

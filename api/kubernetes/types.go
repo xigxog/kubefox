@@ -15,6 +15,10 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+// Types in this file contain dependencies on Kubernetes packages. They are kept
+// out of the api package to prevent the Kubernetes packages from being pulled
+// in by Kit.
+
 // ObservedTime is added here instead of api package to prevent k8s.io
 // dependencies from getting pulled into Kit.
 type Problem struct {

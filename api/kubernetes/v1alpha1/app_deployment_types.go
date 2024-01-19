@@ -35,20 +35,17 @@ type AppDeploymentSpec struct {
 
 	// +kubebuilder:validation:Required
 
-	CommitTime metav1.Time `json:"commitTime"`
-	Branch     string      `json:"branch,omitempty"`
-	Tag        string      `json:"tag,omitempty"`
-
-	// +kubebuilder:validation:Format=uri
-
-	RepoURL             string `json:"repoURL,omitempty"`
-	ContainerRegistry   string `json:"containerRegistry,omitempty"`
-	ImagePullSecretName string `json:"imagePullSecretName,omitempty"`
+	CommitTime          metav1.Time `json:"commitTime"`
+	Branch              string      `json:"branch,omitempty"`
+	Tag                 string      `json:"tag,omitempty"`
+	RepoURL             string      `json:"repoURL,omitempty"`
+	ContainerRegistry   string      `json:"containerRegistry,omitempty"`
+	ImagePullSecretName string      `json:"imagePullSecretName,omitempty"`
 
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:MinProperties=1
 
-	Components map[string]*Component `json:"components"`
+	Components map[string]*api.ComponentDefinition `json:"components"`
 
 	// Specs of all Adapters defined as dependencies by the Components. This a
 	// read-only field and is set by the KubeFox Operator when a versioned
@@ -56,21 +53,8 @@ type AppDeploymentSpec struct {
 	Adapters *Adapters `json:"adapters,omitempty"`
 }
 
-type Component struct {
-	api.ComponentDefinition `json:",inline"`
-
-	// +kubebuilder:validation:Required
-	// +kubebuilder:validation:Pattern="^[a-z0-9]{40}$"
-	Commit string `json:"commit"`
-	Image  string `json:"image,omitempty"`
-}
-
 type Adapters struct {
 	HTTP map[string]HTTPAdapterSpec `json:"http"`
-}
-
-type AdapterSpec struct {
-	HTTPAdapterSpec `json:",inline"`
 }
 
 // AppDeploymentStatus defines the observed state of AppDeployment
@@ -120,17 +104,30 @@ type AppDeploymentList struct {
 	Items []AppDeployment `json:"items"`
 }
 
-func (appDep *AppDeployment) Validate(
-	data *api.Data,
-	getAdapter func(name string, typ api.ComponentType) (api.Adapter, error)) (api.Problems, error) {
+func (spec *AppDeploymentSpec) GetAppName() string {
+	return spec.AppName
+}
 
+func (spec *AppDeploymentSpec) GetVersion() string {
+	return spec.Version
+}
+
+func (spec *AppDeploymentSpec) GetCommit() string {
+	return spec.Commit
+}
+
+func (spec *AppDeploymentSpec) GetComponents() map[string]*api.ComponentDefinition {
+	return spec.Components
+}
+
+func (spec *AppDeploymentSpec) Validate(parent api.Object, data *api.Data, get api.GetAdapterFunc) (api.Problems, error) {
 	problems := api.Problems{}
-	for compName, comp := range appDep.Spec.Components {
+	for compName, comp := range spec.Components {
 		if data != nil {
 			problems = append(problems, comp.EnvVarSchema.Validate(data.Vars, &api.ProblemSource{
 				Kind:               api.ProblemSourceKindAppDeployment,
-				Name:               appDep.Name,
-				ObservedGeneration: appDep.Generation,
+				Name:               parent.GetName(),
+				ObservedGeneration: parent.GetGeneration(),
 				Path:               fmt.Sprintf("$.spec.components.%s.envVarSchema", compName),
 			})...)
 
@@ -141,8 +138,8 @@ func (appDep *AppDeployment) Validate(
 				}
 				problems = append(problems, route.EnvVarSchema.Validate(data.Vars, &api.ProblemSource{
 					Kind:               api.ProblemSourceKindAppDeployment,
-					Name:               appDep.Name,
-					ObservedGeneration: appDep.Generation,
+					Name:               parent.GetName(),
+					ObservedGeneration: parent.GetGeneration(),
 					Path:               fmt.Sprintf("$.spec.components.%s.routes[%d]", compName, i),
 				})...)
 			}
@@ -152,10 +149,10 @@ func (appDep *AppDeployment) Validate(
 			found := true
 			switch {
 			case dep.Type == api.ComponentTypeKubeFox:
-				_, found = appDep.Spec.Components[depName]
+				_, found = spec.Components[depName]
 
 			case dep.Type.IsAdapter():
-				adapter, err := getAdapter(depName, dep.Type)
+				adapter, err := get(depName, dep.Type)
 				switch {
 				case err == nil:
 					if data != nil {
@@ -178,8 +175,8 @@ func (appDep *AppDeployment) Validate(
 					Causes: []api.ProblemSource{
 						{
 							Kind:               api.ProblemSourceKindAppDeployment,
-							Name:               appDep.Name,
-							ObservedGeneration: appDep.Generation,
+							Name:               parent.GetName(),
+							ObservedGeneration: parent.GetGeneration(),
 							Path: fmt.Sprintf("$.spec.components.%s.dependencies.%s.type",
 								compName, depName),
 							Value: (*string)(&dep.Type),
@@ -196,8 +193,8 @@ func (appDep *AppDeployment) Validate(
 					Causes: []api.ProblemSource{
 						{
 							Kind:               api.ProblemSourceKindAppDeployment,
-							Name:               appDep.Name,
-							ObservedGeneration: appDep.Generation,
+							Name:               parent.GetName(),
+							ObservedGeneration: parent.GetGeneration(),
 							Path: fmt.Sprintf("$.spec.components.%s.dependencies.%s",
 								compName, depName),
 						},

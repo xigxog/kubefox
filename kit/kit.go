@@ -68,9 +68,9 @@ func New() Kit {
 	comp := &core.Component{Id: core.GenerateId(), Type: string(api.ComponentTypeKubeFox)}
 
 	var help bool
-	var platform, brokerAddr, healthAddr, logFormat, logLevel string
+	var platform, app, brokerAddr, healthAddr, logFormat, logLevel string
 	flag.StringVar(&platform, "platform", "", "KubeFox Platform name. (required)")
-	flag.StringVar(&comp.App, "app", "", "App name Component is part of. (required)")
+	flag.StringVar(&app, "app", "", "App name Component is part of. (required)")
 	flag.StringVar(&comp.Name, "name", "", "Component name. (required)")
 	flag.StringVar(&comp.Commit, "commit", "", "Commit the Component was built from. (required)")
 	flag.StringVar(&brokerAddr, "broker-addr", "127.0.0.1:6060", "Address of the Broker gRPC server.")
@@ -95,7 +95,7 @@ Flags:
 
 	if !svc.export {
 		utils.CheckRequiredFlag("platform", platform)
-		utils.CheckRequiredFlag("app", comp.App)
+		utils.CheckRequiredFlag("app", app)
 		utils.CheckRequiredFlag("name", comp.Name)
 		utils.CheckRequiredFlag("commit", comp.Commit)
 
@@ -117,6 +117,7 @@ Flags:
 
 	svc.brk = grpc.NewClient(grpc.ClientOpts{
 		Platform:      platform,
+		App:           app,
 		Component:     comp,
 		BrokerAddr:    brokerAddr,
 		HealthSrvAddr: healthAddr,

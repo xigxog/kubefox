@@ -8,7 +8,6 @@ kubefox.xigxog.io/platform-component: {{ . | cleanLabel | quote }}
   {{- end }}
   {{- with .Component.Commit }}
 kubefox.xigxog.io/component-commit: {{ . | cleanLabel | quote }}
-kubefox.xigxog.io/component-commit-short: {{ . | substr 0 7 | cleanLabel | quote }}
   {{- end }}
   {{- with .Component.Type }}
 kubefox.xigxog.io/component-type: {{ . | cleanLabel | quote }}
@@ -20,6 +19,9 @@ kubefox.xigxog.io/app-component: {{ . | cleanLabel | quote }}
   {{- with .Component.Type }}
 kubefox.xigxog.io/component-type: {{ . | cleanLabel | quote }}
   {{- end }}
+{{- end }}
+{{- with .Component.Commit }}
+kubefox.xigxog.io/component-commit-short: {{ . | substr 0 7 | cleanLabel | quote }}
 {{- end }}
 {{- with .Component.AppCommit }}
 kubefox.xigxog.io/app-commit: {{ . | cleanLabel | quote }}
@@ -53,7 +55,6 @@ app.kubernetes.io/component: {{ . | cleanLabel | quote }}
 {{- if not .Component.IsPlatformComponent }}
   {{- with .Component.Commit }}
 kubefox.xigxog.io/component-commit: {{ . | cleanLabel | quote }}
-kubefox.xigxog.io/component-commit-short: {{ . | substr 0 7 | cleanLabel | quote }}
   {{- end }}
 {{- end }}
 {{- end }}
@@ -230,7 +231,7 @@ env:
         fieldPath: status.podIP
 envFrom:
   - configMapRef:
-      name: {{ name }}-env
+      name: {{ .Platform.Name }}-env
 volumeMounts:
   - name: root-ca
     mountPath: {{ homePath }}/ca.crt

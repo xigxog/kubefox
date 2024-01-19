@@ -12,7 +12,6 @@
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
 | type | [string](#string) |  |  |
-| app | [string](#string) |  |  |
 | name | [string](#string) |  |  |
 | commit | [string](#string) |  |  |
 | id | [string](#string) |  |  |
@@ -91,8 +90,9 @@
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
 | platform | [string](#string) |  |  |
-| app_deployment | [string](#string) |  |  |
 | virtual_environment | [string](#string) |  |  |
+| app | [string](#string) |  |  |
+| app_deployment | [string](#string) |  |  |
 | release_manifest | [string](#string) |  |  |
 
 

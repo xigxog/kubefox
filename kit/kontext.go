@@ -98,7 +98,6 @@ func (k *kontext) Req(target ComponentDep) Req {
 			Source: k.kit.brk.Component,
 			Target: &core.Component{
 				Type: string(target.Type()),
-				App:  k.kit.brk.Component.App,
 				Name: target.Name(),
 			},
 		}),
@@ -113,7 +112,6 @@ func (k *kontext) Forward(target ComponentDep) Req {
 			Source: k.kit.brk.Component,
 			Target: &core.Component{
 				Type: string(target.Type()),
-				App:  k.kit.brk.Component.App,
 				Name: target.Name(),
 			},
 		}),
@@ -136,7 +134,6 @@ func (k *kontext) Transport(target ComponentDep) http.RoundTripper {
 				Source: k.kit.brk.Component,
 				Target: &core.Component{
 					Type: string(target.Type()),
-					App:  k.kit.brk.Component.App,
 					Name: target.Name(),
 				},
 			}),

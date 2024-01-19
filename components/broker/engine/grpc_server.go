@@ -42,6 +42,7 @@ type GRPCServer struct {
 type Metadata struct {
 	Component *core.Component
 	Platform  string
+	App       string
 	Token     string
 }
 
@@ -287,7 +288,7 @@ func parseMD(stream grpc.Broker_SubscribeServer) (*Metadata, error) {
 	if err != nil {
 		return nil, err
 	}
-	m.Component.App, err = getMD(md, api.GRPCKeyApp, false)
+	m.App, err = getMD(md, api.GRPCKeyApp, false)
 	if err != nil {
 		return nil, err
 	}

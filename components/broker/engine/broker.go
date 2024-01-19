@@ -223,7 +223,7 @@ func (brk *broker) AuthorizeComponent(ctx context.Context, meta *Metadata) error
 		}
 	}
 
-	if meta.Component.App == "" {
+	if meta.App == "" {
 		// Check if component is a Platform component.
 		p, err := brk.store.Platform(ctx)
 		if err != nil {
@@ -425,9 +425,12 @@ func (brk *broker) checkEvent(evt *BrokerEvent) error {
 
 		// If a valid context is not present reject.
 		if evt.Context == nil || evt.Context.Platform != config.Platform ||
-			(evt.Context.AppDeployment != "" && evt.Context.VirtualEnvironment == "") ||
-			(evt.Context.AppDeployment == "" && evt.Context.VirtualEnvironment != "") {
+			(evt.Context.VirtualEnvironment == "" &&
+				evt.Context.AppDeployment != "" && evt.Context.ReleaseManifest != "") ||
+			(evt.Context.VirtualEnvironment != "" &&
+				evt.Context.AppDeployment == "" && evt.Context.ReleaseManifest == "") {
 
+			brk.log.DebugInterface("invalid context:", evt.Context)
 			return core.ErrInvalid(fmt.Errorf("event context is invalid"))
 		}
 	}
@@ -464,7 +467,6 @@ func (brk *broker) findTarget(ctx context.Context, evt *BrokerEvent) error {
 			evt.Target = &core.Component{}
 		}
 		evt.Target.Type = route.Component.Type
-		evt.Target.App = route.Component.App
 		evt.Target.Name = route.Component.Name
 		evt.Target.Commit = route.Component.Commit
 		evt.SetContext(route.EventContext)
@@ -490,7 +492,7 @@ func (brk *broker) checkComponents(ctx context.Context, evt *BrokerEvent) error 
 		adapter, _ = evt.Adapters.GetByComponent(evt.Target)
 	}
 
-	depComp := evt.AppDep.Spec.Components[evt.Target.Name]
+	depComp := evt.Spec.Components[evt.Target.Name]
 	switch {
 	case depComp == nil && adapter == nil:
 		if !brk.store.IsGenesisAdapter(evt.Target) {
@@ -506,7 +508,7 @@ func (brk *broker) checkComponents(ctx context.Context, evt *BrokerEvent) error 
 
 	case evt.Target.Commit == "" && evt.RouteId == api.DefaultRouteId:
 		evt.Target.Commit = depComp.Commit
-		if !depComp.ComponentDefinition.DefaultHandler {
+		if !depComp.DefaultHandler {
 			return core.ErrRouteNotFound(fmt.Errorf("target component does not have default handler"))
 		}
 
@@ -518,7 +520,7 @@ func (brk *broker) checkComponents(ctx context.Context, evt *BrokerEvent) error 
 	if evt.Adapters != nil {
 		adapter, _ = evt.Adapters.GetByComponent(evt.Source)
 	}
-	depComp = evt.AppDep.Spec.Components[evt.Source.Name]
+	depComp = evt.Spec.Components[evt.Source.Name]
 	switch {
 	case depComp == nil && adapter == nil:
 		if !brk.store.IsGenesisAdapter(evt.Source) {

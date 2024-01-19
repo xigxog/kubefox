@@ -53,7 +53,7 @@ spec:
                   fieldPath: status.hostIP
           envFrom:
             - configMapRef:
-                name: {{ name }}-env
+                name: {{ .Platform.Name }}-env
           ports:
             - name: grpc
               containerPort: 6060
