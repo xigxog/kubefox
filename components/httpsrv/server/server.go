@@ -138,10 +138,10 @@ func (srv *Server) ServeHTTP(resWriter http.ResponseWriter, httpReq *http.Reques
 	if resp != nil && resp.Context != nil {
 		setHeader(resWriter, api.HeaderPlatform, resp.Context.Platform)
 		setHeader(resWriter, api.HeaderVirtualEnvironment, resp.Context.VirtualEnvironment)
+		setHeader(resWriter, api.HeaderApp, resp.Context.App)
 		setHeader(resWriter, api.HeaderAppDep, resp.Context.AppDeployment)
-		if resp.TraceId() != "" {
-			resWriter.Header().Set(api.HeaderTraceId, resp.TraceId())
-		}
+		setHeader(resWriter, api.HeaderReleaseManifest, resp.Context.ReleaseManifest)
+		setHeader(resWriter, api.HeaderTraceId, resp.TraceId())
 	}
 
 	switch {

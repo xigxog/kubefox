@@ -340,17 +340,16 @@ func (str *Store) OnDelete(obj interface{}) {
 func (str *Store) onChange(obj interface{}, op string) {
 	str.log.Debugf("%T %s", obj, op)
 
-	isAppDep := false
+	updateComps := false
 	switch obj.(type) {
-	case *v1alpha1.AppDeployment:
-		isAppDep = true
-
+	case *v1alpha1.AppDeployment, *v1alpha1.ReleaseManifest:
+		updateComps = true
 	case *v1alpha1.HTTPAdapter:
 		// Clear adapters to force reload on next use.
 		str.adapters = nil
 	}
 
-	go str.updateCaches(context.Background(), isAppDep)
+	go str.updateCaches(context.Background(), updateComps)
 }
 
 func (str *Store) updateCaches(ctx context.Context, updateComps bool) error {
@@ -381,12 +380,12 @@ func (str *Store) updateCaches(ctx context.Context, updateComps bool) error {
 func (str *Store) buildComponentCache(ctx context.Context) (cache.Cache[*api.ComponentDefinition], error) {
 	compCache := cache.New[*api.ComponentDefinition](time.Hour * 24)
 
-	list := &v1alpha1.AppDeploymentList{}
-	if err := str.resCache.List(ctx, list); err != nil {
+	appDepList := &v1alpha1.AppDeploymentList{}
+	if err := str.resCache.List(ctx, appDepList); err != nil {
 		return nil, err
 	}
 
-	for _, appDep := range list.Items {
+	for _, appDep := range appDepList.Items {
 		for compName, compSpec := range appDep.Spec.Components {
 			comp := &core.Component{
 				Type:   string(compSpec.Type),
@@ -394,6 +393,35 @@ func (str *Store) buildComponentCache(ctx context.Context) (cache.Cache[*api.Com
 				Commit: compSpec.Commit,
 			}
 			compCache.Set(comp.GroupKey(), compSpec)
+		}
+	}
+
+	envList := &v1alpha1.VirtualEnvironmentList{}
+	if err := str.resCache.List(ctx, envList); err != nil {
+		return nil, err
+	}
+
+	for _, env := range envList.Items {
+		active := env.Status.ActiveRelease
+		if active == nil {
+			continue
+		}
+
+		manifest := &v1alpha1.ReleaseManifest{}
+		if err := str.get(active.ReleaseManifest, manifest, true); err != nil {
+			str.log.Warn(err)
+			continue
+		}
+
+		for _, app := range manifest.Spec.Apps {
+			for compName, compSpec := range app.AppDeployment.Spec.Components {
+				comp := &core.Component{
+					Type:   string(compSpec.Type),
+					Name:   compName,
+					Commit: compSpec.Commit,
+				}
+				compCache.Set(comp.GroupKey(), compSpec)
+			}
 		}
 	}
 
@@ -455,18 +483,13 @@ func (str *Store) buildReleaseMatcher(ctx context.Context) (*matcher.EventMatche
 		}
 
 		for _, app := range manifest.Spec.Apps {
-			appDep, err := str.AppDeployment(ctx, app.AppDeployment.Name)
-			if err != nil {
-				str.log.Warn(err)
-				continue
-			}
 			data, err := str.Data(ctx, evtCtx)
 			if err != nil {
 				str.log.Warn(err)
 				continue
 			}
 
-			routes, err := str.buildRoutes(ctx, &appDep.Spec, data, evtCtx)
+			routes, err := str.buildRoutes(ctx, &app.AppDeployment.Spec, data, evtCtx)
 			if err != nil {
 				str.log.Warn(err)
 				continue
