@@ -430,7 +430,6 @@ func (brk *broker) checkEvent(evt *BrokerEvent) error {
 			(evt.Context.VirtualEnvironment != "" &&
 				evt.Context.AppDeployment == "" && evt.Context.ReleaseManifest == "") {
 
-			brk.log.DebugInterface("invalid context:", evt.Context)
 			return core.ErrInvalid(fmt.Errorf("event context is invalid"))
 		}
 	}
@@ -492,14 +491,14 @@ func (brk *broker) checkComponents(ctx context.Context, evt *BrokerEvent) error 
 		adapter, _ = evt.Adapters.GetByComponent(evt.Target)
 	}
 
-	depComp := evt.Spec.Components[evt.Target.Name]
+	appComp := evt.Spec.Components[evt.Target.Name]
 	switch {
-	case depComp == nil && adapter == nil:
+	case appComp == nil && adapter == nil:
 		if !brk.store.IsGenesisAdapter(evt.Target) {
 			return core.ErrComponentMismatch(fmt.Errorf("target component not part of app"))
 		}
 
-	case depComp == nil && adapter != nil:
+	case appComp == nil && adapter != nil:
 		if adapter.GetComponentType() != api.ComponentTypeHTTPAdapter {
 			return core.ErrUnsupportedAdapter(
 				fmt.Errorf("adapter type '%s' is not supported", adapter.GetComponentType()))
@@ -507,12 +506,12 @@ func (brk *broker) checkComponents(ctx context.Context, evt *BrokerEvent) error 
 		evt.TargetAdapter = adapter
 
 	case evt.Target.Commit == "" && evt.RouteId == api.DefaultRouteId:
-		evt.Target.Commit = depComp.Commit
-		if !depComp.DefaultHandler {
+		evt.Target.Commit = appComp.Commit
+		if !appComp.DefaultHandler {
 			return core.ErrRouteNotFound(fmt.Errorf("target component does not have default handler"))
 		}
 
-	case evt.Target.Commit != depComp.Commit:
+	case evt.Target.Commit != appComp.Commit:
 		return core.ErrComponentMismatch(fmt.Errorf("target component commit does not match app"))
 	}
 
@@ -520,19 +519,20 @@ func (brk *broker) checkComponents(ctx context.Context, evt *BrokerEvent) error 
 	if evt.Adapters != nil {
 		adapter, _ = evt.Adapters.GetByComponent(evt.Source)
 	}
-	depComp = evt.Spec.Components[evt.Source.Name]
+
+	appComp = evt.Spec.Components[evt.Source.Name]
 	switch {
-	case depComp == nil && adapter == nil:
+	case appComp == nil && adapter == nil:
 		if !brk.store.IsGenesisAdapter(evt.Source) {
 			return core.ErrComponentMismatch(fmt.Errorf("source component not part of app"))
 		}
 
-	case depComp == nil && adapter != nil:
+	case appComp == nil && adapter != nil:
 		if evt.Source.BrokerId != brk.comp.BrokerId {
 			return core.ErrBrokerMismatch(fmt.Errorf("source component is adapter but does not match broker"))
 		}
 
-	case evt.Source.Commit != depComp.Commit:
+	case evt.Source.Commit != appComp.Commit:
 		return core.ErrComponentMismatch(fmt.Errorf("source component commit does not match app"))
 	}
 

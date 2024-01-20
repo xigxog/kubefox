@@ -263,6 +263,7 @@ const (
 // Headers and query params.
 const (
 	HeaderAdapter                 = "kubefox-adapter"
+	HeaderApp                     = "kubefox-app"
 	HeaderAppDep                  = "kubefox-app-deployment"
 	HeaderAppDepAbbrv             = "kf-dep"
 	HeaderAppDepShort             = "kfd"
@@ -272,6 +273,7 @@ const (
 	HeaderEventTypeShort          = "kft"
 	HeaderHost                    = "Host"
 	HeaderPlatform                = "kubefox-platform"
+	HeaderReleaseManifest         = "kubefox-release-manifest"
 	HeaderTraceId                 = "kubefox-trace-id"
 	HeaderVirtualEnvironment      = "kubefox-virtual-environment"
 	HeaderVirtualEnvironmentAbbrv = "kf-env"

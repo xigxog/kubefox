@@ -483,6 +483,10 @@ func availableCondition(
 		condition.Status = metav1.ConditionTrue
 		condition.Reason = api.ConditionReasonComponentsAvailable
 		condition.Message = "Component Deployments have minimum required Pods available."
+	default:
+		condition.Status = metav1.ConditionFalse
+		condition.Reason = api.ConditionReasonProblemsFound
+		condition.Message = "One or more problems found, see `status.problems` for details."
 	}
 
 	return condition, problems
@@ -547,6 +551,10 @@ func progressingCondition(
 		condition.Status = metav1.ConditionFalse
 		condition.Reason = api.ConditionReasonComponentsDeployed
 		condition.Message = "Component Deployments completed successfully."
+	default:
+		condition.Status = metav1.ConditionFalse
+		condition.Reason = api.ConditionReasonProblemsFound
+		condition.Message = "One or more problems found, see `status.problems` for details."
 	}
 
 	return condition, problems
