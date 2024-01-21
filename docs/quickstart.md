@@ -37,10 +37,10 @@ Here are a few optional but recommended tools:
 - [Azure CLI](https://learn.microsoft.com/en-us/cli/azure/install-azure-cli) - CLI for communicating
   with the Azure control plane.  
 
-## Setup Kubernetes Infrastructure
+## Setup Kubernetes
 
 Let's kick things off by setting up our first Kubernetes cluster. Use
-the below set of commands depending on which Kubernetes provider you would like to use. 
+the below set of commands depending on which Kubernetes provider you would like to use.
 If you already have a Kubernetes Cluster provisioned, you can skip this step.
 
 === "Local (kind)"
@@ -73,35 +73,78 @@ If you already have a Kubernetes Cluster provisioned, you can skip this step.
 
 === "Azure (AKS)"
     Let's start with setting up a remote Kubernetes cluster using the Azure CLI. The following commands can be used to create and interact with the cluster.
-    First you need to login to Azure and select the proper Azure subscription where you want to deploy your Kubernetes cluster using the below commands.
+    First you need to login to Azure.
 
-    ```shell
+    ```{ .shell .copy }
     az login
-    az account show
-    az account set --subscription <subscription ID here>
     ```
+    If you have multiple Azure Subscriptions, you can use the below command to set the context to a specific subscription.
+    ```{ .shell .copy }
+    export AZ_SUBSCRIPTION_ID=<Your Subscription ID here> && az account set --subscription ${AZ_SUBSCRIPTION_ID}
+    ```
+    Lets set the other required variables for this quickstart on Azure. Make sure to modify the below accordingly.
+    ```{ .shell .copy }
+    export AZ_LOCATION=eastus2 && \
+    export AZ_RESOURCE_GROUP=kf-quickstart-infra-eus2-rg && \
+    export AZ_AKS_NAME=kf-quickstart-eus2-aks-01
+    ```
+    Next you need to create a Resource Group for the AKS cluster, and then deploy AKS within this Resource Group.
 
-    Next you need to create a Resource Group for the AKS cluster, and then deploy AKS. The below example is using EASTUS2 as the region and an example free tier AKS cluster.
-    *Note: This command will take > 5 minutes to complete.*
+    ```{ .shell .copy }
+    az group create --location ${AZ_LOCATION} --name ${AZ_RESOURCE_GROUP}
+    ```
+    ??? example "Output"
 
-    ```shell
-    az group create --location eastus2 --name kf-quickstart-infra-eus2-rg
+        ```text
+        $ az group create --location ${AZ_LOCATION} --name ${AZ_RESOURCE_GROUP}
+        {
+          "id": "/subscriptions/00000000-0000-0000-0000-00000000/resourceGroups/kf-quickstart-infra-eus2-rg",
+          "location": "eastus2",
+          "managedBy": null,
+          "name": "kf-quickstart-infra-eus2-rg",
+          "properties": {
+            "provisioningState": "Succeeded"
+          },
+          "tags": null,
+          "type": "Microsoft.Resources/resourceGroups"
+        }
+        ```
+    *Note: This command to create your AKS cluster will take > 5 minutes to complete.*
+    ```{ .shell .copy }
     az aks create \
-        --resource-group kf-quickstart-infra-eus2-rg \
+        --resource-group ${AZ_RESOURCE_GROUP} \
         --tier free \
-        --name kf-quickstart-eus2-aks-01 \
-        --location eastus2 \
+        --name ${AZ_AKS_NAME} \
+        --location ${AZ_LOCATION} \
         --node-count 1 \
         --node-vm-size "Standard_B2s"
     ```
-
     Once your AKS cluster is ready, you can use the below command to add the cluster to your kubectl configuration.
 
-    ```shell
+    ```{ .shell .copy }
     az aks get-credentials \
-    --resource-group kf-quickstart-infra-eus2-rg  \
-    --name kf-quickstart-eus2-aks-01 
+      --resource-group ${AZ_RESOURCE_GROUP}  \
+      --name ${AZ_AKS_NAME}
     ```
+
+    Please run the below command if you need to setup a container registry on Azure using ACR. If you already have a registry which is accessible from Azure, you can skip this step. Any OCI compliant container registry can be used here (ex DockerHub, GHCR, Harbor).
+
+    ??? "Create Container Registry on Azure (optional)"
+        Create your Azure Container Registry in the same resource group as your AKS cluster.
+        Please modify the below to set the name of your ACR in the AZ_ACR_NAME environment variable, otherwise it will auto-generate a random numeric string.
+    
+        ```{ .shell .copy }
+        export AZ_ACR_NAME="acr${RANDOM}" && \
+          az acr create --name ${AZ_ACR_NAME} --sku Basic --admin-enabled true --resource-group ${AZ_RESOURCE_GROUP}
+        ```
+        Run the below commands to set the endpoints and token required to access your registry. Save this output somewhere safe.
+        These environment variables will be used by the fox CLI later to configure your environment.
+        
+        ```{ .shell .copy }
+        FOX_REGISTRY_ADDRESS=$(az acr show-endpoints -n ${AZ_ACR_NAME} --resource-group ${AZ_RESOURCE_GROUP} --output tsv --query loginServer) && \
+          FOX_REGISTRY_TOKEN=$(az acr login --name ${AZ_ACR_NAME} --expose-token --output tsv --query accessToken) && \
+          echo -e "\n\nACR URL: ${FOX_REGISTRY_ADDRESS}\n\nACR TOKEN: ${FOX_REGISTRY_TOKEN}\n\n"
+        ```
 
 ## Install KubeFox Platform
 
@@ -133,27 +176,21 @@ helm upgrade kubefox kubefox \
     ```
 
 ## Setup Fox
+
 Here we will setup the Fox CLI.
 
-??? "Install using GO (Linux, MacOS, Windows)"
+??? "Install using Go (Linux, MacOS, WSL)"
 
-    ```shell
-    go install github.com/xigxog/fox@stable
+    ```{ .shell .copy }
+    go install github.com/xigxog/fox@alpha-v0.7.0
     ```
 
-??? "Install using Shell (Linux, MacOS)"
+??? "Install using Bash (Linux, MacOS)"
 
-    ```shell
-    latest=$(curl -s https://api.github.com/repos/xigxog/fox/releases/latest | jq -r '.name')
-    os=$(uname -s | tr '[:upper:]' '[:lower:]')
-
-    echo "Latest Fox CLI Version: ${latest}"
-    echo "OS: ${os}"
-
-    curl -s -L https://github.com/xigxog/fox/releases/download/${latest}/fox-${latest}-${os}-amd64.tar.gz \
-        | tar xvz - -C /tmp && \
-        sudo mv /tmp/fox /usr/local/bin/fox && \
-        echo "Fox CLI Successfuly installed"
+    ```{ .shell .copy }
+    curl -s -L "https://github.com/xigxog/fox/releases/download/$(curl -s https://api.github.com/repos/xigxog/fox/releases/latest | jq -r '.name')/fox-$(uname -s | tr 'A-Z' 'a-z')-amd64.tar.gz" | tar xvz - -C /tmp && \
+      sudo mv /tmp/fox /usr/local/bin/fox && \
+      echo "Fox CLI Successfully installed"
     ```
 
 To begin, create a new directory and use Fox to initialize the `hello-world` app. Run all subsequent
@@ -184,35 +221,51 @@ flag to use defaults and create a KubeFox platform named `demo` in the
 
 === "Azure (AKS)"
 
-    Please run the below command if you need to setup a container registry on Azure using ACR. If you already have a registry which is accessible from Azure, you can skip this step. Any OCI compliant container registry can be used here.
+    Ensure the following environment variables are set before running the quickstart:  FOX_REGISTRY_ADDRESS, FOX_REGISTRY_TOKEN, and FOX_REGISTRY_USERNAME 
 
-    ??? "(optional) Create Container Registry on Azure"
-        Create your Azure Container Registry in the same resource group as your AKS cluster.
-        
-        ```shell
-        az acr create --name <your ACR Name> --sku Basic --admin-enabled true --resource-group kf-quickstart-infra-eus2-rg
-        ```
-        
-        Run the below commands to get the endpoints and token required to access your registry.
-        
-        ```shell
-        az acr show-endpoints -n <your ACR Name> --resource-group kf-quickstart-infra-eus2-rg --query 'loginServer'
-
-        az acr token create --name MyTokenWildcard \
-          --registry <your ACR Name>  \
-          --resource-group kf-quickstart-infra-eus2-rg  \
-          --repository "*" \
-          content/write content/read \
-          --query "[credentials.username,credentials.passwords[0].value]"
-        ```
-    The fox command below will prompt you for your ACR endpoint and token which you generated above.
-
+    ```{ .shell .copy }
+    echo -e "\n\nACR URL: ${FOX_REGISTRY_ADDRESS}\n\nACR TOKEN: ${FOX_REGISTRY_TOKEN}\n\n"
+    ```
+    If you followed the steps in the Quickstart to use ACR, your Username will be "00000000-0000-0000-0000-000000000000" 
+    ```{ .shell .copy }
+    export FOX_REGISTRY_USERNAME="00000000-0000-0000-0000-000000000000"  
+    ```
+    When the CLI asks if you are planning to use kind for a local setup, you can say No (N). The fox will automatically register your Azure Container Registry.
     ```{ .shell .copy }
     export FOX_INFO=true && \
       mkdir kubefox-quickstart && \
       cd kubefox-quickstart && \
-      fox init --quickstart --remote-registry
+      fox init --quickstart 
     ```
+    ??? example "Output"
+
+        ```text
+        $ export FOX_INFO=true && \
+            mkdir kubefox-quickstart && \
+            cd kubefox-quickstart && \
+            fox init --quickstart
+        info  It looks like this is the first time you are using 🦊 Fox. Welcome!  
+        info  🦊 Fox needs some information from you to configure itself. The setup process only
+        info  needs to be run once, but if you ever want change things you can use the
+        info  command 'fox config setup'.  
+        info  Please make sure your workstation has Docker installed (https://docs.docker.com/engine/install)
+        info  and that KubeFox is installed (https://docs.kubefox.io/install) on your Kubernetes cluster.  
+        info  If you don't have a Kubernetes cluster you can run one locally with kind (https://kind.sigs.k8s.io)
+        info  to experiment with KubeFox.  
+        info  🦊 Fox needs a place to store the component images it will build, normally this is
+        info  a remote container registry. However, if you only want to use KubeFox locally
+        info  with kind you can skip this step.
+
+        Are you only using KubeFox with local kind cluster? [y/N] N  
+
+        info  Remote registry information provided. Setting the remote registry acr26417.azurecr.io  
+        info  Configuration successfully written to '/Users/bolb/.config/kubefox/config.yaml'.  
+        info  Congrats, you are ready to use KubeFox!
+        info  Check out the quickstart for next steps (https://docs.kubefox.io/quickstart/).
+        info  If you run into any problems please let us know on GitHub (https://github.com/xigxog/kubefox/issues).  
+        info  Waiting for KubeFox Platform 'demo' to be ready...
+        info  KubeFox initialized for the quickstart guide!
+        ```
 
 Notice the newly created directories and files. The `hello-world` app comprises
 two components and example environments. Fox also initialized a new Git repo for
@@ -901,9 +954,10 @@ Once you are done with the quickstart, you can optionally use the below commands
 
 === "Azure (AKS)"
 
-    ```shell
-    az aks delete -g kf-quickstart-infra-eus2-rg --name kf-quickstart-eus2-aks-01
-    az group delete -g kf-quickstart-infra-eus2-rg
+    ```{ .shell .copy }
+    yes | az aks delete -g ${AZ_RESOURCE_GROUP} --name ${AZ_AKS_NAME} && \
+      az acr delete -g ${AZ_RESOURCE_GROUP} --name ${AZ_ACR_NAME} && \
+      az group delete -g ${AZ_RESOURCE_GROUP} 
     ```
 
 ## Feedback
