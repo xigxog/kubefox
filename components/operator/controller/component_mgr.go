@@ -13,6 +13,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"strconv"
+	"strings"
 	"sync"
 
 	"github.com/mitchellh/hashstructure/v2"
@@ -135,41 +136,12 @@ func (cm *ComponentManager) ReconcileApps(ctx context.Context, namespace string)
 		logkf.KeyPlatform, platform.Name,
 	)
 
-	var appDepSpecs []*v1alpha1.AppDeploymentSpec
-
 	appDeps := &v1alpha1.AppDeploymentList{}
 	if err := cm.List(ctx, appDeps, client.InNamespace(platform.Namespace)); err != nil {
 		return false, err
 	}
-	for _, appDep := range appDeps.Items {
-		appDepSpecs = append(appDepSpecs, &appDep.Spec)
-	}
+
 	log.Debugf("found %d AppDeployments", len(appDeps.Items))
-
-	virtualEnvs := &v1alpha1.VirtualEnvironmentList{}
-	if err := cm.List(ctx, virtualEnvs, client.InNamespace(platform.Namespace)); err != nil {
-		return false, err
-	}
-
-	var manifests []*v1alpha1.ReleaseManifest
-	for _, ve := range virtualEnvs.Items {
-		if ve.Status.ActiveRelease != nil {
-			name := ve.Status.ActiveRelease.ReleaseManifest
-			manifest := &v1alpha1.ReleaseManifest{}
-			if err := cm.Get(ctx, k8s.Key(platform.Namespace, name), manifest); k8s.IgnoreNotFound(err) != nil {
-				return false, err
-			} else if k8s.IsNotFound(err) {
-				log.Debugf("ReleaseManifest '%s/%s' not found, skipping Component reconcile.", platform.Namespace, name)
-				continue
-			}
-			for _, app := range manifest.Spec.Apps {
-				appDepSpecs = append(appDepSpecs, &app.AppDeployment.Spec)
-			}
-			manifests = append(manifests, manifest)
-		}
-
-	}
-	log.Debugf("found %d active ReleaseManifests", len(manifests))
 
 	maxEventSize := platform.Spec.Events.MaxSize.Value()
 	if platform.Spec.Events.MaxSize.IsZero() {
@@ -194,20 +166,22 @@ func (cm *ComponentManager) ReconcileApps(ctx context.Context, namespace string)
 	}
 
 	compsTplData := map[string]*TemplateData{}
-	for _, spec := range appDepSpecs {
-		for compName, comp := range spec.Components {
+	for _, appDep := range appDeps.Items {
+		for compName, comp := range appDep.Spec.Components {
 			image := comp.Image
 			if image == "" {
-				image = fmt.Sprintf("%s/%s:%s", spec.ContainerRegistry, compName, comp.Commit)
+				reg := strings.TrimSuffix(appDep.Spec.ContainerRegistry, "/")
+				image = fmt.Sprintf("%s/%s:%s", reg, compName, comp.Commit)
 			}
 
 			compTd := td.ForComponent("component", &appsv1.Deployment{}, &defaults.Component, templates.Component{
-				Name:            compName,
-				Commit:          comp.Commit,
-				Type:            api.ComponentTypeKubeFox,
-				App:             spec.AppName,
+				Component: &core.Component{
+					Name:   compName,
+					Commit: comp.Commit,
+					Type:   string(api.ComponentTypeKubeFox),
+				},
 				Image:           image,
-				ImagePullPolicy: spec.ImagePullSecretName,
+				ImagePullSecret: appDep.Spec.ImagePullSecretName,
 			})
 			compTd.Values = map[string]any{api.ValKeyMaxEventSize: maxEventSize}
 
@@ -236,7 +210,7 @@ func (cm *ComponentManager) ReconcileApps(ctx context.Context, namespace string)
 	for _, appDep := range appDeps.Items {
 		curStatus := appDep.Status.DeepCopy()
 
-		problems, err := appDep.Spec.Validate(&appDep, nil,
+		problems, err := appDep.Validate(nil,
 			func(name string, typ api.ComponentType) (api.Adapter, error) {
 				switch typ {
 				case api.ComponentTypeHTTPAdapter:
@@ -294,74 +268,11 @@ func (cm *ComponentManager) ReconcileApps(ctx context.Context, namespace string)
 			appDep.Namespace, appDep.Name, available.Status, progressing.Status)
 	}
 
-	for _, manifest := range manifests {
-		if manifest.Status == nil {
-			manifest.Status = &v1alpha1.ReleaseManifestStatus{}
-		}
-		curStatus := manifest.Status.DeepCopy()
-
-		var (
-			available, progressing *metav1.Condition
-			problems               api.Problems
-		)
-		for _, app := range manifest.Spec.Apps {
-			appAvailable, appProblems := availableCondition(&app.AppDeployment.Spec, depMap)
-			problems = append(problems, appProblems...)
-			switch {
-			case available == nil:
-				available = appAvailable
-				available.ObservedGeneration = manifest.Generation
-
-			case appAvailable.Reason == api.ConditionReasonComponentUnavailable &&
-				available.Reason != api.ConditionReasonProblemsFound:
-				available = appAvailable
-				available.ObservedGeneration = manifest.Generation
-
-			case appAvailable.Reason == api.ConditionReasonProblemsFound:
-				available = appAvailable
-				available.ObservedGeneration = manifest.Generation
-			}
-
-			appProgressing, appProblems := progressingCondition(&app.AppDeployment.Spec, depMap)
-			problems = append(problems, appProblems...)
-			switch {
-			case progressing == nil:
-				progressing = appProgressing
-				progressing.ObservedGeneration = manifest.Generation
-
-			case appProgressing.Reason == api.ConditionReasonComponentDeploymentProgressing &&
-				progressing.Reason != api.ConditionReasonComponentDeploymentFailed &&
-				progressing.Reason != api.ConditionReasonProblemsFound:
-				progressing = appProgressing
-				progressing.ObservedGeneration = manifest.Generation
-
-			case appProgressing.Reason == api.ConditionReasonComponentDeploymentFailed &&
-				progressing.Reason != api.ConditionReasonProblemsFound:
-				progressing = appProgressing
-				progressing.ObservedGeneration = manifest.Generation
-
-			case appProgressing.Reason == api.ConditionReasonProblemsFound:
-				progressing = appProgressing
-				progressing.ObservedGeneration = manifest.Generation
-			}
-		}
-		manifest.Status.Conditions = k8s.UpdateConditions(now, manifest.Status.Conditions, available, progressing)
-		manifest.Status.Problems = problems
-
-		if !k8s.DeepEqual(&manifest.Status, curStatus) {
-			if err := cm.ApplyStatus(ctx, manifest); err != nil {
-				log.Error(err)
-			}
-		}
-
-		log.Debugf("ReleaseManifest '%s/%s'; available: %s, progressing: %s",
-			manifest.Namespace, manifest.Name, available.Status, progressing.Status)
-	}
-
 	compDeps := &appsv1.DeploymentList{}
 	if err := cm.List(ctx, compDeps,
 		client.InNamespace(platform.Namespace),
-		client.HasLabels{api.LabelK8sAppComponent, api.LabelK8sAppName}, // filter out Platform Components
+		// filter out Platform Components
+		client.MatchingLabels{api.LabelK8sComponentType: string(api.ComponentTypeKubeFox)},
 	); err != nil {
 		return false, err
 	}

@@ -35,14 +35,6 @@ spec:
     - jsonPath: .spec.logger.level
       name: Log Level
       type: string
-    - jsonPath: .details.title
-      name: Title
-      priority: 1
-      type: string
-    - jsonPath: .details.description
-      name: Description
-      priority: 1
-      type: string
     name: v1alpha1
     schema:
       openAPIV3Schema:

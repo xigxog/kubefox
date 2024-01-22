@@ -105,7 +105,8 @@ func First(strs ...string) string {
 }
 
 // CleanName returns name with all special characters replaced with dashes and
-// set to lowercase. If name is a path only the basename is used.
+// set to lowercase. The string is truncated if longer than 63 characters. If
+// name is a path only the basename is used.
 //
 // https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#dns-subdomain-names
 func CleanName(name string) string {
@@ -113,6 +114,10 @@ func CleanName(name string) string {
 	cleaned = strings.ToLower(cleaned)
 	cleaned = RegexpNameSpecialChar.ReplaceAllLiteralString(cleaned, "-")
 	cleaned = strings.TrimPrefix(strings.TrimSuffix(cleaned, "-"), "-")
+	if len(cleaned) > 63 {
+		cleaned = cleaned[:63]
+	}
+
 	return cleaned
 }
 

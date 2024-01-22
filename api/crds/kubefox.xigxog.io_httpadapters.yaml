@@ -25,14 +25,12 @@ spec:
   scope: Namespaced
   versions:
   - additionalPrinterColumns:
-    - jsonPath: .details.title
-      name: Title
-      priority: 1
+    - jsonPath: .spec.url
+      name: URL
       type: string
-    - jsonPath: .details.description
-      name: Description
-      priority: 1
-      type: string
+    - jsonPath: .spec.insecureSkipVerify
+      name: Insecure
+      type: boolean
     name: v1alpha1
     schema:
       openAPIV3Schema:

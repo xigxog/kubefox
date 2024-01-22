@@ -47,7 +47,6 @@ spec:
           {{- include "probes" . | nindent 10 }}
           args:
             - -platform={{ .Platform.Name }}
-            - -app={{ .Component.App }}
             - -name={{ .Component.Name }}
             - -commit={{ .Component.Commit }}
             - -broker-addr=$(KUBEFOX_HOST_IP):6060

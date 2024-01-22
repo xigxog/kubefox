@@ -3,29 +3,15 @@
 app.kubernetes.io/managed-by: {{ printf "%s-operator" .Instance.Name | cleanLabel | quote }}
 kubefox.xigxog.io/runtime-version: {{ .BuildInfo.Version | cleanLabel | quote }}
 {{- if .Component.IsPlatformComponent }}
-  {{- with .Component.Name }}
-kubefox.xigxog.io/platform-component: {{ . | cleanLabel | quote }}
-  {{- end }}
   {{- with .Component.Commit }}
 kubefox.xigxog.io/component-commit: {{ . | cleanLabel | quote }}
   {{- end }}
-  {{- with .Component.Type }}
+{{- end }}
+{{- with .Component.Type }}
 kubefox.xigxog.io/component-type: {{ . | cleanLabel | quote }}
-  {{- end }}
-{{- else }}
-    {{- with .Component.Name }}
-kubefox.xigxog.io/app-component: {{ . | cleanLabel | quote }}
-  {{- end }}
-  {{- with .Component.Type }}
-kubefox.xigxog.io/component-type: {{ . | cleanLabel | quote }}
-  {{- end }}
 {{- end }}
 {{- with .Component.Commit }}
 kubefox.xigxog.io/component-commit-short: {{ . | substr 0 7 | cleanLabel | quote }}
-{{- end }}
-{{- with .Component.AppCommit }}
-kubefox.xigxog.io/app-commit: {{ . | cleanLabel | quote }}
-kubefox.xigxog.io/app-commit-short: {{ . | substr 0 7 | cleanLabel | quote }}
 {{- end }}
 {{- range $k, $v := .Component.Labels }}
 {{ $k }}: {{ $v | cleanLabel | quote }}
@@ -45,9 +31,6 @@ kubefox.xigxog.io/template-data-hash: {{ . | quote }}
 app.kubernetes.io/instance: {{ .Instance.Name | cleanLabel | quote }}
 {{- with .Platform.Name }}
 kubefox.xigxog.io/platform: {{ . | cleanLabel | quote }}
-{{- end }}
-{{- with .Component.App }}
-app.kubernetes.io/name: {{ . | cleanLabel | quote }} 
 {{- end }}
 {{- with .Component.Name }}
 app.kubernetes.io/component: {{ . | cleanLabel | quote }}

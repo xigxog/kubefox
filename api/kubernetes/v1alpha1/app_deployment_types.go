@@ -78,11 +78,10 @@ type AppDeploymentDetails struct {
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:path=appdeployments,shortName=appdep;app
 // +kubebuilder:printcolumn:name="App",type=string,JSONPath=`.spec.appName`
+// +kubebuilder:printcolumn:name="Version",type=string,JSONPath=`.spec.Version`
 // +kubebuilder:printcolumn:name="Available",type=string,JSONPath=`.status.conditions[?(@.type=='Available')].status`
 // +kubebuilder:printcolumn:name="Reason",type=string,JSONPath=`.status.conditions[?(@.type=='Available')].reason`
 // +kubebuilder:printcolumn:name="Progressing",type=string,JSONPath=`.status.conditions[?(@.type=='Progressing')].status`
-// +kubebuilder:printcolumn:name="Title",type=string,JSONPath=`.details.title`,priority=1
-// +kubebuilder:printcolumn:name="Description",type=string,JSONPath=`.details.description`,priority=1
 
 // AppDeployment is the Schema for the AppDeployments API
 type AppDeployment struct {
@@ -104,30 +103,14 @@ type AppDeploymentList struct {
 	Items []AppDeployment `json:"items"`
 }
 
-func (spec *AppDeploymentSpec) GetAppName() string {
-	return spec.AppName
-}
-
-func (spec *AppDeploymentSpec) GetVersion() string {
-	return spec.Version
-}
-
-func (spec *AppDeploymentSpec) GetCommit() string {
-	return spec.Commit
-}
-
-func (spec *AppDeploymentSpec) GetComponents() map[string]*api.ComponentDefinition {
-	return spec.Components
-}
-
-func (spec *AppDeploymentSpec) Validate(parent api.Object, data *api.Data, get api.GetAdapterFunc) (api.Problems, error) {
+func (d *AppDeployment) Validate(data *api.Data, get api.GetAdapterFunc) (api.Problems, error) {
 	problems := api.Problems{}
-	for compName, comp := range spec.Components {
+	for compName, comp := range d.Spec.Components {
 		if data != nil {
 			problems = append(problems, comp.EnvVarSchema.Validate(data.Vars, &api.ProblemSource{
 				Kind:               api.ProblemSourceKindAppDeployment,
-				Name:               parent.GetName(),
-				ObservedGeneration: parent.GetGeneration(),
+				Name:               d.Name,
+				ObservedGeneration: d.Generation,
 				Path:               fmt.Sprintf("$.spec.components.%s.envVarSchema", compName),
 			})...)
 
@@ -138,8 +121,8 @@ func (spec *AppDeploymentSpec) Validate(parent api.Object, data *api.Data, get a
 				}
 				problems = append(problems, route.EnvVarSchema.Validate(data.Vars, &api.ProblemSource{
 					Kind:               api.ProblemSourceKindAppDeployment,
-					Name:               parent.GetName(),
-					ObservedGeneration: parent.GetGeneration(),
+					Name:               d.Name,
+					ObservedGeneration: d.Generation,
 					Path:               fmt.Sprintf("$.spec.components.%s.routes[%d]", compName, i),
 				})...)
 			}
@@ -149,7 +132,7 @@ func (spec *AppDeploymentSpec) Validate(parent api.Object, data *api.Data, get a
 			found := true
 			switch {
 			case dep.Type == api.ComponentTypeKubeFox:
-				_, found = spec.Components[depName]
+				_, found = d.Spec.Components[depName]
 
 			case dep.Type.IsAdapter():
 				adapter, err := get(depName, dep.Type)
@@ -175,8 +158,8 @@ func (spec *AppDeploymentSpec) Validate(parent api.Object, data *api.Data, get a
 					Causes: []api.ProblemSource{
 						{
 							Kind:               api.ProblemSourceKindAppDeployment,
-							Name:               parent.GetName(),
-							ObservedGeneration: parent.GetGeneration(),
+							Name:               d.Name,
+							ObservedGeneration: d.Generation,
 							Path: fmt.Sprintf("$.spec.components.%s.dependencies.%s.type",
 								compName, depName),
 							Value: (*string)(&dep.Type),
@@ -193,8 +176,8 @@ func (spec *AppDeploymentSpec) Validate(parent api.Object, data *api.Data, get a
 					Causes: []api.ProblemSource{
 						{
 							Kind:               api.ProblemSourceKindAppDeployment,
-							Name:               parent.GetName(),
-							ObservedGeneration: parent.GetGeneration(),
+							Name:               d.Name,
+							ObservedGeneration: d.Generation,
 							Path: fmt.Sprintf("$.spec.components.%s.dependencies.%s",
 								compName, depName),
 						},

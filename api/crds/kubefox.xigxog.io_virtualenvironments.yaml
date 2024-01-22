@@ -41,14 +41,6 @@ spec:
     - jsonPath: .status.conditions[?(@.type=='ReleasePending')].reason
       name: Pending Reason
       type: string
-    - jsonPath: .details.title
-      name: Title
-      priority: 1
-      type: string
-    - jsonPath: .details.description
-      name: Description
-      priority: 1
-      type: string
     name: v1alpha1
     schema:
       openAPIV3Schema:
@@ -178,6 +170,23 @@ spec:
                       the Release was never activated.
                     format: date-time
                     type: string
+                  apps:
+                    additionalProperties:
+                      properties:
+                        appDeployment:
+                          minLength: 1
+                          type: string
+                        version:
+                          description: Version of the App being released. Use of semantic
+                            versioning is recommended. If set the value is compared
+                            to the AppDeployment version. If the two versions do not
+                            match the release will fail.
+                          type: string
+                      required:
+                      - appDeployment
+                      type: object
+                    minProperties: 1
+                    type: object
                   archiveReason:
                     description: Reason Release was archived.
                     enum:
@@ -247,6 +256,7 @@ spec:
                     format: date-time
                     type: string
                 required:
+                - apps
                 - id
                 type: object
               conditions:
@@ -332,6 +342,23 @@ spec:
                       the Release was never activated.
                     format: date-time
                     type: string
+                  apps:
+                    additionalProperties:
+                      properties:
+                        appDeployment:
+                          minLength: 1
+                          type: string
+                        version:
+                          description: Version of the App being released. Use of semantic
+                            versioning is recommended. If set the value is compared
+                            to the AppDeployment version. If the two versions do not
+                            match the release will fail.
+                          type: string
+                      required:
+                      - appDeployment
+                      type: object
+                    minProperties: 1
+                    type: object
                   archiveReason:
                     description: Reason Release was archived.
                     enum:
@@ -401,6 +428,7 @@ spec:
                     format: date-time
                     type: string
                 required:
+                - apps
                 - id
                 type: object
               pendingReleaseFailed:
@@ -413,6 +441,23 @@ spec:
                         set the Release was never activated.
                       format: date-time
                       type: string
+                    apps:
+                      additionalProperties:
+                        properties:
+                          appDeployment:
+                            minLength: 1
+                            type: string
+                          version:
+                            description: Version of the App being released. Use of
+                              semantic versioning is recommended. If set the value
+                              is compared to the AppDeployment version. If the two
+                              versions do not match the release will fail.
+                            type: string
+                        required:
+                        - appDeployment
+                        type: object
+                      minProperties: 1
+                      type: object
                     archiveReason:
                       description: Reason Release was archived.
                       enum:
@@ -483,6 +528,7 @@ spec:
                       format: date-time
                       type: string
                   required:
+                  - apps
                   - id
                   type: object
                 type: array

@@ -16,6 +16,7 @@ import (
 	"text/template"
 
 	"github.com/Masterminds/sprig/v3"
+	"github.com/xigxog/kubefox/core"
 	"github.com/xigxog/kubefox/utils"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"sigs.k8s.io/yaml"
@@ -25,6 +26,13 @@ import (
 var EFS embed.FS
 
 func Render(name string, data *Data) ([]*unstructured.Unstructured, error) {
+	if data == nil {
+		return []*unstructured.Unstructured{}, nil
+	}
+	if data.Component.Component == nil {
+		data.Component.Component = &core.Component{}
+	}
+
 	rendered, err := renderStr("list.tpl", name+"/*", data)
 	if err != nil {
 		return nil, err

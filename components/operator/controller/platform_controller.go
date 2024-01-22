@@ -20,6 +20,8 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/selection"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -28,6 +30,7 @@ import (
 	"github.com/xigxog/kubefox/build"
 	"github.com/xigxog/kubefox/components/operator/defaults"
 	"github.com/xigxog/kubefox/components/operator/templates"
+	"github.com/xigxog/kubefox/core"
 	"github.com/xigxog/kubefox/k8s"
 	"github.com/xigxog/kubefox/logkf"
 )
@@ -188,8 +191,10 @@ func (r *PlatformReconciler) reconcile(ctx context.Context, platform *v1alpha1.P
 	}
 
 	td := baseTD.ForComponent(api.PlatformComponentNATS, &appsv1.StatefulSet{}, &defaults.NATS, templates.Component{
-		Name:                api.PlatformComponentNATS,
-		Type:                api.ComponentTypeNATS,
+		Component: &core.Component{
+			Type: string(api.ComponentTypeNATS),
+			Name: api.PlatformComponentNATS,
+		},
 		Image:               NATSImage,
 		PodSpec:             platform.Spec.NATS.PodSpec,
 		ContainerSpec:       platform.Spec.NATS.ContainerSpec,
@@ -210,9 +215,11 @@ func (r *PlatformReconciler) reconcile(ctx context.Context, platform *v1alpha1.P
 	}
 
 	td = baseTD.ForComponent(api.PlatformComponentBroker, &appsv1.DaemonSet{}, &defaults.Broker, templates.Component{
-		Name:                api.PlatformComponentBroker,
-		Type:                api.ComponentTypeBroker,
-		Commit:              build.Info.BrokerCommit,
+		Component: &core.Component{
+			Type:   string(api.ComponentTypeBroker),
+			Name:   api.PlatformComponentBroker,
+			Commit: build.Info.BrokerCommit,
+		},
 		Image:               BrokerImage,
 		PodSpec:             platform.Spec.Broker.PodSpec,
 		ContainerSpec:       platform.Spec.Broker.ContainerSpec,
@@ -233,9 +240,11 @@ func (r *PlatformReconciler) reconcile(ctx context.Context, platform *v1alpha1.P
 	}
 
 	td = baseTD.ForComponent(api.PlatformComponentHTTPSrv, &appsv1.Deployment{}, &defaults.HTTPSrv, templates.Component{
-		Name:                api.PlatformComponentHTTPSrv,
-		Type:                api.ComponentTypeHTTPAdapter,
-		Commit:              build.Info.HTTPSrvCommit,
+		Component: &core.Component{
+			Type:   string(api.ComponentTypeHTTPAdapter),
+			Name:   api.PlatformComponentHTTPSrv,
+			Commit: build.Info.HTTPSrvCommit,
+		},
 		Image:               HTTPSrvImage,
 		PodSpec:             platform.Spec.HTTPSrv.PodSpec,
 		ContainerSpec:       platform.Spec.HTTPSrv.ContainerSpec,
@@ -274,10 +283,16 @@ func (r *PlatformReconciler) reconcile(ctx context.Context, platform *v1alpha1.P
 func (r *PlatformReconciler) updateComponentsStatus(ctx context.Context, p *v1alpha1.Platform) error {
 	p.Status.Components = nil
 
+	req, err := labels.NewRequirement(api.LabelK8sComponentType,
+		selection.NotEquals, []string{string(api.ComponentTypeKubeFox)},
+	)
+	if err != nil {
+		return err
+	}
 	podList := &v1.PodList{}
 	if err := r.List(ctx, podList,
 		client.InNamespace(p.Namespace),
-		client.HasLabels{api.LabelK8sPlatformComponent},
+		client.MatchingLabelsSelector{Selector: labels.NewSelector().Add(*req)},
 	); err != nil {
 		return err
 	}
@@ -286,7 +301,7 @@ func (r *PlatformReconciler) updateComponentsStatus(ctx context.Context, p *v1al
 		cond := k8s.PodCondition(&pod, v1.PodReady)
 		p.Status.Components = append(p.Status.Components, v1alpha1.ComponentStatus{
 			Ready:    cond.Status == v1.ConditionTrue,
-			Name:     pod.Labels[api.LabelK8sPlatformComponent],
+			Name:     pod.Labels[api.LabelK8sComponent],
 			Commit:   pod.Labels[api.LabelK8sComponentCommit],
 			Type:     api.ComponentType(pod.Labels[api.LabelK8sComponentType]),
 			PodName:  pod.Name,

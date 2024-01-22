@@ -232,7 +232,6 @@ func (log *Logger) WithEvent(evt *core.Event) *Logger {
 			KeyEventId, evt.Id,
 			KeyEventType, evt.Type,
 			KeyEventCategory, evt.Category.String(),
-			KeyApp, evtCtx.App,
 			KeyVirtualEnvironment, evtCtx.VirtualEnvironment,
 			KeyAppDeployment, evtCtx.AppDeployment,
 			KeyReleaseManifest, evtCtx.ReleaseManifest,

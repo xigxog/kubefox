@@ -85,13 +85,9 @@ type VirtEnvHistoryLimits struct {
 }
 
 type ReleaseStatus struct {
-	// +kubebuilder:validation:Required
-	// +kubebuilder:validation:MinLength=1
-
-	Id string `json:"id"`
+	Release `json:",inline"`
 
 	ReleaseManifest string `json:"releaseManifest,omitempty"`
-
 	// Time at which the VirtualEnvironment was updated to use the Release.
 	RequestTime metav1.Time `json:"requestTime,omitempty"`
 	// Time at which the Release became active. If not set the Release was never
@@ -139,8 +135,6 @@ type VirtualEnvironmentStatus struct {
 // +kubebuilder:printcolumn:name="Reason",type=string,JSONPath=`.status.conditions[?(@.type=='ActiveReleaseAvailable')].reason`
 // +kubebuilder:printcolumn:name="Pending",type=string,JSONPath=`.status.conditions[?(@.type=='ReleasePending')].status`
 // +kubebuilder:printcolumn:name="Pending Reason",type=string,JSONPath=`.status.conditions[?(@.type=='ReleasePending')].reason`
-// +kubebuilder:printcolumn:name="Title",type=string,JSONPath=`.details.title`,priority=1
-// +kubebuilder:printcolumn:name="Description",type=string,JSONPath=`.details.description`,priority=1
 
 type VirtualEnvironment struct {
 	metav1.TypeMeta   `json:",inline"`
