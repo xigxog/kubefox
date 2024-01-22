@@ -12,9 +12,9 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/xigxog/kubefox/api"
 	common "github.com/xigxog/kubefox/api/kubernetes"
 	"github.com/xigxog/kubefox/build"
+	"github.com/xigxog/kubefox/core"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
@@ -47,17 +47,14 @@ type Platform struct {
 }
 
 type Component struct {
-	common.PodSpec
-	common.ContainerSpec
+	*core.Component      `json:",inline"`
+	common.PodSpec       `json:",inline"`
+	common.ContainerSpec `json:",inline"`
 
-	Name                string
-	Commit              string
-	Type                api.ComponentType
-	App                 string
-	AppCommit           string
-	Image               string
-	ImagePullPolicy     string
-	ImagePullSecret     string
+	Image           string
+	ImagePullPolicy string
+	ImagePullSecret string
+
 	IsPlatformComponent bool
 }
 
@@ -95,27 +92,16 @@ func (d Data) ComponentFullName() string {
 		return ""
 	}
 
-	var name string
+	name := d.Component.GroupKey()
 	if d.Component.IsPlatformComponent {
-		name = fmt.Sprintf("%s-%s", d.Platform.Name, d.Component.Name)
-	} else {
-		name = fmt.Sprintf("%s-%s", d.Component.Name, d.Component.Commit)
-	}
-
-	name = strings.TrimSuffix(name, "-")
-	if len(name) > 253 {
-		name = name[:253]
+		name = d.Component.Name
 	}
 
 	return name
 }
 
 func (d Data) ComponentVaultName() string {
-	if d.Component.App == "" {
-		return fmt.Sprintf("%s-%s", d.PlatformVaultName(), d.Component.Name)
-	} else {
-		return fmt.Sprintf("%s-%s-%s", d.PlatformVaultName(), d.Component.App, d.Component.Name)
-	}
+	return fmt.Sprintf("%s-%s", d.PlatformVaultName(), d.Component.Name)
 }
 
 func (d Data) HomePath() string {

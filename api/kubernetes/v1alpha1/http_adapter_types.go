@@ -39,8 +39,8 @@ type HTTPAdapterSpec struct {
 
 // +kubebuilder:object:root=true
 // +kubebuilder:resource:path=httpadapters,shortName=http
-// +kubebuilder:printcolumn:name="Title",type=string,JSONPath=`.details.title`,priority=1
-// +kubebuilder:printcolumn:name="Description",type=string,JSONPath=`.details.description`,priority=1
+// +kubebuilder:printcolumn:name="URL",type=string,JSONPath=`.spec.url`
+// +kubebuilder:printcolumn:name="Insecure",type=boolean,JSONPath=`.spec.insecureSkipVerify`
 
 type HTTPAdapter struct {
 	metav1.TypeMeta   `json:",inline"`

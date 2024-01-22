@@ -25,14 +25,12 @@ spec:
   scope: Cluster
   versions:
   - additionalPrinterColumns:
-    - jsonPath: .details.title
-      name: Title
-      priority: 1
-      type: string
-    - jsonPath: .details.description
-      name: Description
-      priority: 1
-      type: string
+    - jsonPath: .spec.releasePolicy.versionRequired
+      name: Version Required
+      type: boolean
+    - jsonPath: .spec.releasePolicy.pendingDeadlineSeconds
+      name: Pending Deadline
+      type: integer
     name: v1alpha1
     schema:
       openAPIV3Schema:

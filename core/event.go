@@ -138,7 +138,6 @@ func (evt *Event) SetContext(evtCtx *EventContext) {
 		evt.Context = &EventContext{}
 	}
 	evt.Context.Platform = evtCtx.Platform
-	evt.Context.App = evtCtx.App
 	evt.Context.VirtualEnvironment = evtCtx.VirtualEnvironment
 	evt.Context.AppDeployment = evtCtx.AppDeployment
 	evt.Context.ReleaseManifest = evtCtx.ReleaseManifest

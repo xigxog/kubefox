@@ -91,7 +91,6 @@
 | ----- | ---- | ----- | ----------- |
 | platform | [string](#string) |  |  |
 | virtual_environment | [string](#string) |  |  |
-| app | [string](#string) |  |  |
 | app_deployment | [string](#string) |  |  |
 | release_manifest | [string](#string) |  |  |
 

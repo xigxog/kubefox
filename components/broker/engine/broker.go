@@ -223,8 +223,21 @@ func (brk *broker) AuthorizeComponent(ctx context.Context, meta *Metadata) error
 		}
 	}
 
-	if meta.App == "" {
-		// Check if component is a Platform component.
+	switch api.ComponentType(meta.Component.Type) {
+	case api.ComponentTypeKubeFox:
+		if svcAccName != meta.Component.GroupKey() {
+			return fmt.Errorf("service account name does not match component")
+		}
+		if _, found := brk.store.ComponentDef(meta.Component); !found {
+			return fmt.Errorf("component not found")
+		}
+
+	// Platform Component.
+	default:
+		if svcAccName != meta.Component.Name {
+			return fmt.Errorf("service account name does not match component")
+		}
+
 		p, err := brk.store.Platform(ctx)
 		if err != nil {
 			return err
@@ -238,14 +251,6 @@ func (brk *broker) AuthorizeComponent(ctx context.Context, meta *Metadata) error
 			}
 		}
 		if !found {
-			return fmt.Errorf("component not found")
-		}
-
-	} else {
-		if svcAccName != meta.Component.GroupKey() {
-			return fmt.Errorf("service account name does not match component")
-		}
-		if _, found := brk.store.ComponentDef(meta.Component); !found {
 			return fmt.Errorf("component not found")
 		}
 	}

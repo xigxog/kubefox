@@ -227,9 +227,9 @@ func (str *Store) DeploymentMatcher(ctx context.Context, evt *BrokerEvent) (*mat
 	return depM, nil
 }
 
-// AttachEventContext gets the VirtualEnvironment, AppDeployment Spec, and
-// Adapters of the Event Context, attaches them to the BrokerEvent, and then
-// validates the Event Context. Problems found during validation are returned.
+// AttachEventContext gets the VirtualEnvironment, AppDeployment, and Adapters
+// of the Event Context, attaches them to the BrokerEvent, and then validates
+// the Event Context. Problems found during validation are returned.
 func (str *Store) AttachEventContext(ctx context.Context, evt *BrokerEvent) error {
 	var err error
 	if evt.Data, err = str.Data(ctx, evt.Context); err != nil {
@@ -238,37 +238,14 @@ func (str *Store) AttachEventContext(ctx context.Context, evt *BrokerEvent) erro
 	hash, _ := hashstructure.Hash(evt.Data, hashstructure.FormatV2, nil)
 	evt.DataChecksum = fmt.Sprint(hash)
 
-	var obj api.Object
-	switch {
-	case evt.Context.ReleaseManifest != "":
-		manifest := &v1alpha1.ReleaseManifest{}
-		if err := str.get(evt.Context.ReleaseManifest, manifest, true); err != nil {
-			return err
-		}
-		app, found := manifest.Spec.Apps[evt.Context.App]
-		if !found || app == nil {
-			return core.ErrNotFound()
-		}
-
-		evt.Spec = &app.AppDeployment.Spec
-		obj = manifest
-
-	case evt.Context.AppDeployment != "":
-		appDep := &v1alpha1.AppDeployment{}
-		if err := str.get(evt.Context.AppDeployment, appDep, true); err != nil {
-			return err
-		}
-
-		evt.Context.App = appDep.Spec.AppName
-		evt.Spec = &appDep.Spec
-		obj = appDep
-
-	default:
-		return core.ErrNotFound()
+	appDep := &v1alpha1.AppDeployment{}
+	if err := str.get(evt.Context.AppDeployment, appDep, true); err != nil {
+		return err
 	}
 
+	evt.Spec = &appDep.Spec
 	evt.ContextKey = fmt.Sprintf("%s-%d_%s-%s",
-		obj.GetName(), obj.GetGeneration(), evt.Context.VirtualEnvironment, evt.DataChecksum)
+		appDep.Name, appDep.Generation, evt.Context.VirtualEnvironment, evt.DataChecksum)
 
 	str.mutex.Lock()
 	defer str.mutex.Unlock()
@@ -300,7 +277,7 @@ func (str *Store) AttachEventContext(ctx context.Context, evt *BrokerEvent) erro
 	// Check validation cache.
 	problems, found := str.validCache.Get(evt.ContextKey)
 	if !found {
-		problems, err = evt.Spec.Validate(obj, evt.Data,
+		problems, err = appDep.Validate(evt.Data,
 			func(name string, typ api.ComponentType) (api.Adapter, error) {
 				a, found := evt.Adapters[name]
 				if !found {
@@ -342,7 +319,7 @@ func (str *Store) onChange(obj interface{}, op string) {
 
 	updateComps := false
 	switch obj.(type) {
-	case *v1alpha1.AppDeployment, *v1alpha1.ReleaseManifest:
+	case *v1alpha1.AppDeployment:
 		updateComps = true
 	case *v1alpha1.HTTPAdapter:
 		// Clear adapters to force reload on next use.
@@ -396,35 +373,6 @@ func (str *Store) buildComponentCache(ctx context.Context) (cache.Cache[*api.Com
 		}
 	}
 
-	envList := &v1alpha1.VirtualEnvironmentList{}
-	if err := str.resCache.List(ctx, envList); err != nil {
-		return nil, err
-	}
-
-	for _, env := range envList.Items {
-		active := env.Status.ActiveRelease
-		if active == nil {
-			continue
-		}
-
-		manifest := &v1alpha1.ReleaseManifest{}
-		if err := str.get(active.ReleaseManifest, manifest, true); err != nil {
-			str.log.Warn(err)
-			continue
-		}
-
-		for _, app := range manifest.Spec.Apps {
-			for compName, compSpec := range app.AppDeployment.Spec.Components {
-				comp := &core.Component{
-					Type:   string(compSpec.Type),
-					Name:   compName,
-					Commit: compSpec.Commit,
-				}
-				compCache.Set(comp.GroupKey(), compSpec)
-			}
-		}
-	}
-
 	p := &v1alpha1.Platform{}
 	if err := str.resCache.Get(ctx, k8s.Key(config.Namespace, config.Platform), p); err != nil {
 		return nil, err
@@ -450,46 +398,49 @@ func (str *Store) buildReleaseMatcher(ctx context.Context) (*matcher.EventMatche
 	ctx, cancel := context.WithTimeout(ctx, time.Minute)
 	defer cancel()
 
-	envList := &v1alpha1.VirtualEnvironmentList{}
-	if err := str.resCache.List(ctx, envList); err != nil {
+	veList := &v1alpha1.VirtualEnvironmentList{}
+	if err := str.resCache.List(ctx, veList); err != nil {
 		return nil, err
 	}
 
 	relM := matcher.New()
-	for _, env := range envList.Items {
-		release := env.Status.ActiveRelease
+	for _, ve := range veList.Items {
+		release := ve.Status.ActiveRelease
 		if release == nil {
-			str.log.Debugf("VirtualEnvironment '%s/%s' does not have an active Release", env.Namespace, env.Name)
+			str.log.Debugf("VirtualEnvironment '%s/%s' does not have an active Release", ve.Namespace, ve.Name)
 			continue
 		}
 
-		avail := k8s.Condition(env.Status.Conditions, api.ConditionTypeActiveReleaseAvailable)
-		if avail.Status == metav1.ConditionFalse {
-			str.log.Debugf("VirtualEnvironment '%s/%s' Release is not available, reason: '%s'",
-				env.Namespace, env.Name, avail.Reason)
-			continue
-		}
-
-		evtCtx := &core.EventContext{
+		data, err := str.Data(ctx, &core.EventContext{
 			Platform:           config.Platform,
-			VirtualEnvironment: env.Name,
+			VirtualEnvironment: ve.Name,
 			ReleaseManifest:    release.ReleaseManifest,
-		}
-
-		manifest := &v1alpha1.ReleaseManifest{}
-		if err := str.get(evtCtx.ReleaseManifest, manifest, true); err != nil {
+		})
+		if err != nil {
 			str.log.Warn(err)
 			continue
 		}
 
-		for _, app := range manifest.Spec.Apps {
-			data, err := str.Data(ctx, evtCtx)
-			if err != nil {
+		for appName, app := range release.Apps {
+			appDep := &v1alpha1.AppDeployment{}
+			if err := str.get(app.AppDeployment, appDep, true); err != nil {
 				str.log.Warn(err)
 				continue
 			}
 
-			routes, err := str.buildRoutes(ctx, &app.AppDeployment.Spec, data, evtCtx)
+			avail := k8s.Condition(appDep.Status.Conditions, api.ConditionTypeAvailable)
+			if avail.Status == metav1.ConditionFalse {
+				str.log.Debugf("AppDeployment '%s/%s' for App '%s' is not available, reason: '%s'",
+					appDep.Namespace, appDep.Name, appName, avail.Reason)
+				continue
+			}
+
+			routes, err := str.buildRoutes(ctx, &appDep.Spec, data, &core.EventContext{
+				Platform:           config.Platform,
+				VirtualEnvironment: ve.Name,
+				AppDeployment:      appDep.Name,
+				ReleaseManifest:    release.ReleaseManifest,
+			})
 			if err != nil {
 				str.log.Warn(err)
 				continue
@@ -504,11 +455,8 @@ func (str *Store) buildReleaseMatcher(ctx context.Context) (*matcher.EventMatche
 	return relM, nil
 }
 
-func (str *Store) buildRoutes(
-	ctx context.Context,
-	spec *v1alpha1.AppDeploymentSpec,
-	data *api.Data,
-	evtCtx *core.EventContext) ([]*core.Route, error) {
+func (str *Store) buildRoutes(ctx context.Context,
+	spec *v1alpha1.AppDeploymentSpec, data *api.Data, evtCtx *core.EventContext) ([]*core.Route, error) {
 
 	var routes []*core.Route
 	for compName, compSpec := range spec.Components {
@@ -525,7 +473,6 @@ func (str *Store) buildRoutes(
 			route.Component = comp
 			route.EventContext = &core.EventContext{
 				Platform:           evtCtx.Platform,
-				App:                spec.AppName,
 				VirtualEnvironment: evtCtx.VirtualEnvironment,
 				AppDeployment:      evtCtx.AppDeployment,
 				ReleaseManifest:    evtCtx.ReleaseManifest,
@@ -541,6 +488,7 @@ func (str *Store) buildRoutes(
 	return routes, nil
 }
 
+// TODO Remove this?
 func (str *Store) get(name string, obj client.Object, namespaced bool) error {
 	ctx, cancel := context.WithTimeout(str.ctx, time.Minute)
 	defer cancel()

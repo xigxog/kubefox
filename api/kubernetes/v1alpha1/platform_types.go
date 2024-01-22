@@ -116,8 +116,6 @@ type PlatformDetails struct {
 // +kubebuilder:printcolumn:name="Event Timeout",type=integer,JSONPath=`.spec.events.timeoutSeconds`
 // +kubebuilder:printcolumn:name="Event Max",type=string,JSONPath=`.spec.events.maxSize`
 // +kubebuilder:printcolumn:name="Log Level",type=string,JSONPath=`.spec.logger.level`
-// +kubebuilder:printcolumn:name="Title",type=string,JSONPath=`.details.title`,priority=1
-// +kubebuilder:printcolumn:name="Description",type=string,JSONPath=`.details.description`,priority=1
 
 // Platform is the Schema for the Platforms API
 type Platform struct {

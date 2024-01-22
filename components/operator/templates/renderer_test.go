@@ -14,13 +14,14 @@ import (
 	"github.com/xigxog/kubefox/api"
 	common "github.com/xigxog/kubefox/api/kubernetes"
 	"github.com/xigxog/kubefox/build"
+	"github.com/xigxog/kubefox/core"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
-func TestRenderInstace(t *testing.T) {
+func TestRenderInstance(t *testing.T) {
 	d := &Data{
 		Instance: Instance{
 			Name:      "kubefox",
@@ -75,9 +76,11 @@ func TestRenderNATS(t *testing.T) {
 			Namespace: "kubefox-platform",
 		},
 		Component: Component{
+			Component: &core.Component{
+				Name: "nats",
+				Type: string(api.ComponentTypeNATS),
+			},
 			IsPlatformComponent: true,
-			Name:                "nats",
-			Type:                api.ComponentTypeNATS,
 			Image:               "nats:2.9.21-alpine",
 			PodSpec: common.PodSpec{
 				Labels: map[string]string{
@@ -146,11 +149,14 @@ func TestRenderBroker(t *testing.T) {
 			Namespace: "kubefox-platform",
 		},
 		Component: Component{
+			Component: &core.Component{
+				Name: "broker",
+				Type: string(api.ComponentTypeBroker),
+
+				Commit: "aaaaaaa",
+			},
 			// IsPlatformComponent: true,
-			Name:   "broker",
-			Type:   api.ComponentTypeBroker,
-			Image:  "ghcr.io/xigxog/kubefox/broker:v0.0.1",
-			Commit: "aaaaaaa",
+			Image: "ghcr.io/xigxog/kubefox/broker:v0.0.1",
 		},
 		Owner: []*metav1.OwnerReference{
 			{
@@ -191,8 +197,10 @@ func TestRenderHTTPSrv(t *testing.T) {
 			Namespace: "kubefox-platform",
 		},
 		Component: Component{
-			Name:  "httpsrv",
-			Type:  api.ComponentTypeHTTPAdapter,
+			Component: &core.Component{
+				Name: "httpsrv",
+				Type: string(api.ComponentTypeHTTPAdapter),
+			},
 			Image: "ghcr.io/xigxog/kubefox/httpsrv:v0.0.1",
 			ContainerSpec: common.ContainerSpec{
 				Resources: &v1.ResourceRequirements{
@@ -248,8 +256,10 @@ func TestRenderComponent(t *testing.T) {
 			Namespace: "kubefox-platform",
 		},
 		Component: Component{
-			Name:  "hello",
-			Type:  api.ComponentTypeKubeFox,
+			Component: &core.Component{
+				Name: "hello",
+				Type: string(api.ComponentTypeKubeFox),
+			},
 			Image: "ghcr.io/xigxog/kubefox/hello:v0.0.1",
 		},
 		Owner: []*metav1.OwnerReference{

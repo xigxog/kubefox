@@ -44,8 +44,6 @@ const (
 	LabelK8sAppBranch            string = "kubefox.xigxog.io/app-branch"
 	LabelK8sAppCommit            string = "kubefox.xigxog.io/app-commit"
 	LabelK8sAppCommitShort       string = "kubefox.xigxog.io/app-commit-short"
-	LabelK8sAppComponent         string = "kubefox.xigxog.io/app-component"
-	LabelK8sAppDeployment        string = "kubefox.xigxog.io/app-deployment"
 	LabelK8sAppName              string = "app.kubernetes.io/name"
 	LabelK8sAppTag               string = "kubefox.xigxog.io/app-tag"
 	LabelK8sAppVersion           string = "kubefox.xigxog.io/app-version"
@@ -56,7 +54,6 @@ const (
 	LabelK8sEnvironment          string = "kubefox.xigxog.io/environment"
 	LabelK8sInstance             string = "app.kubernetes.io/instance"
 	LabelK8sPlatform             string = "kubefox.xigxog.io/platform"
-	LabelK8sPlatformComponent    string = "kubefox.xigxog.io/platform-component"
 	LabelK8sReleaseManifest      string = "kubefox.xigxog.io/release-manifest"
 	LabelK8sRuntimeVersion       string = "kubefox.xigxog.io/runtime-version"
 	LabelK8sVirtualEnvironment   string = "kubefox.xigxog.io/virtual-environment"
@@ -125,7 +122,6 @@ const (
 
 // gRPC metadata keys.
 const (
-	GRPCKeyApp       string = "app"
 	GRPCKeyCommit    string = "commit"
 	GRPCKeyComponent string = "component"
 	GRPCKeyId        string = "id"
@@ -146,7 +142,6 @@ const (
 type ProblemType string
 
 const (
-	// ProblemTypeReleaseManifestInvalid     ProblemType = "ReleaseManifestInvalid"
 	ProblemTypeAdapterNotFound            ProblemType = "AdapterNotFound"
 	ProblemTypeAppDeploymentFailed        ProblemType = "AppDeploymentFailed"
 	ProblemTypeAppDeploymentNotFound      ProblemType = "AppDeploymentNotFound"
@@ -163,6 +158,7 @@ const (
 	ProblemTypeRouteConflict              ProblemType = "RouteConflict"
 	ProblemTypeVarNotFound                ProblemType = "VarNotFound"
 	ProblemTypeVarWrongType               ProblemType = "VarWrongType"
+	ProblemTypeVersionConflict            ProblemType = "VersionConflict"
 )
 
 type DataSourceKind string
@@ -263,7 +259,6 @@ const (
 // Headers and query params.
 const (
 	HeaderAdapter                 = "kubefox-adapter"
-	HeaderApp                     = "kubefox-app"
 	HeaderAppDep                  = "kubefox-app-deployment"
 	HeaderAppDepAbbrv             = "kf-dep"
 	HeaderAppDepShort             = "kfd"

@@ -67,7 +67,7 @@ func (c *Component) Key() string {
 }
 
 func (c *Component) GroupKey() string {
-	return fmt.Sprintf("%s-%s", c.Name, c.Commit)
+	return utils.CleanName(fmt.Sprintf("%s-%s", c.Name, c.Commit))
 }
 
 func (c *Component) Subject() string {
@@ -81,17 +81,9 @@ func (c *Component) Subject() string {
 }
 
 func (c *Component) GroupSubject() string {
-	return fmt.Sprintf("evt.js.%s.%s", c.Name, c.Commit)
+	return utils.CleanName(fmt.Sprintf("evt.js.%s.%s", c.Name, c.Commit))
 }
 
 func (c *Component) BrokerSubject() string {
 	return fmt.Sprintf("evt.brk.%s", c.BrokerId)
-}
-
-func (c *Component) ShortCommit() string {
-	if len(c.Commit) >= 7 {
-		return c.Commit[:7]
-	}
-
-	return ""
 }

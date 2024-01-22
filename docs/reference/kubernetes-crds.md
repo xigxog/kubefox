@@ -133,8 +133,6 @@ Platform is the Schema for the Platforms API
 | `spec` | <div style="white-space:nowrap">[ReleaseManifestSpec](#releasemanifestspec)<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap">required</div> |
 | `data` | <div style="white-space:nowrap">[Data](#data)<div> | <div style="max-width:30rem">Data is the merged values of the Environment and VirtualEnvironment data objects.</div> | <div style="white-space:nowrap">required</div> |
 | `details` | <div style="white-space:nowrap">[DataDetails](#datadetails)<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
-| `status` | <div style="white-space:nowrap">[ReleaseManifestStatus](#releasemanifeststatus)<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
-
 
 
 
@@ -781,6 +779,7 @@ Used by:<br>
 <p style="font-size:.6rem;">
 Used by:<br>
 
+- <a href=#releasestatus>ReleaseStatus</a><br>
 - <a href=#virtualenvironmentspec>VirtualEnvironmentSpec</a><br>
 </p>
 
@@ -799,6 +798,7 @@ Used by:<br>
 Used by:<br>
 
 - <a href=#release>Release</a><br>
+- <a href=#releasestatus>ReleaseStatus</a><br>
 </p>
 
 | Field | Type | Description | Validation |
@@ -821,7 +821,7 @@ Used by:<br>
 
 | Field | Type | Description | Validation |
 | ----- | ---- | ----------- | ---------- |
-| `version` | <div style="white-space:nowrap">string<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
+| `version` | <div style="white-space:nowrap">string<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap">required, minLength: 1</div> |
 | `appDeployment` | <div style="white-space:nowrap">[ReleaseManifestAppDep](#releasemanifestappdep)<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap">required</div> |
 
 
@@ -838,6 +838,7 @@ Used by:<br>
 
 | Field | Type | Description | Validation |
 | ----- | ---- | ----------- | ---------- |
+| `uid` | <div style="white-space:nowrap">[UID](#uid)<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap">required</div> |
 | `name` | <div style="white-space:nowrap">string<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap">required, minLength: 1</div> |
 | `resourceVersion` | <div style="white-space:nowrap">string<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap">required, minLength: 1</div> |
 | `spec` | <div style="white-space:nowrap">[AppDeploymentSpec](#appdeploymentspec)<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap">required</div> |
@@ -856,9 +857,10 @@ Used by:<br>
 
 | Field | Type | Description | Validation |
 | ----- | ---- | ----------- | ---------- |
+| `uid` | <div style="white-space:nowrap">[UID](#uid)<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap">required</div> |
 | `name` | <div style="white-space:nowrap">string<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap">required, minLength: 1</div> |
-| `environment` | <div style="white-space:nowrap">string<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap">required, minLength: 1</div> |
 | `resourceVersion` | <div style="white-space:nowrap">string<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap">required, minLength: 1</div> |
+| `environment` | <div style="white-space:nowrap">string<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap">required, minLength: 1</div> |
 
 
 
@@ -877,23 +879,6 @@ Used by:<br>
 | `id` | <div style="white-space:nowrap">string<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap">required, minLength: 1</div> |
 | `virtualEnvironment` | <div style="white-space:nowrap">[ReleaseManifestEnv](#releasemanifestenv)<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap">required</div> |
 | `apps` | <div style="white-space:nowrap">map{string, [ReleaseManifestApp](#releasemanifestapp)}<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap">required</div> |
-
-
-
-### ReleaseManifestStatus
-
-
-
-<p style="font-size:.6rem;">
-Used by:<br>
-
-- <a href=#releasemanifest>ReleaseManifest</a><br>
-</p>
-
-| Field | Type | Description | Validation |
-| ----- | ---- | ----------- | ---------- |
-| `problems` | <div style="white-space:nowrap">[Problems](#problems)<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
-| `conditions` | <div style="white-space:nowrap">[Condition](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.28/#condition-v1-meta) array<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
 
 
 
@@ -928,6 +913,7 @@ Used by:<br>
 | Field | Type | Description | Validation |
 | ----- | ---- | ----------- | ---------- |
 | `id` | <div style="white-space:nowrap">string<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap">required, minLength: 1</div> |
+| `apps` | <div style="white-space:nowrap">map{string, [ReleaseApp](#releaseapp)}<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap">required</div> |
 | `releaseManifest` | <div style="white-space:nowrap">string<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
 | `requestTime` | <div style="white-space:nowrap">[Time](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.28/#time-v1-meta)<div> | <div style="max-width:30rem">Time at which the VirtualEnvironment was updated to use the Release.</div> | <div style="white-space:nowrap"></div> |
 | `activationTime` | <div style="white-space:nowrap">[Time](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.28/#time-v1-meta)<div> | <div style="max-width:30rem">Time at which the Release became active. If not set the Release was never activated.</div> | <div style="white-space:nowrap"></div> |

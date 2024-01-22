@@ -57,8 +57,8 @@ type EnvReleaseHistoryLimits struct {
 
 // +kubebuilder:object:root=true
 // +kubebuilder:resource:path=environments,scope=Cluster,shortName=env
-// +kubebuilder:printcolumn:name="Title",type=string,JSONPath=`.details.title`,priority=1
-// +kubebuilder:printcolumn:name="Description",type=string,JSONPath=`.details.description`,priority=1
+// +kubebuilder:printcolumn:name="Version Required",type=boolean,JSONPath=`.spec.releasePolicy.versionRequired`
+// +kubebuilder:printcolumn:name="Pending Deadline",type=integer,JSONPath=`.spec.releasePolicy.pendingDeadlineSeconds`
 
 type Environment struct {
 	metav1.TypeMeta   `json:",inline"`

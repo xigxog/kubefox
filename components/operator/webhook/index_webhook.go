@@ -44,11 +44,12 @@ func (r *IndexWebhook) Handle(ctx context.Context, req admission.Request) admiss
 		}
 		obj = appDep
 
-		k8s.UpdateLabel(appDep, api.LabelK8sAppVersion, appDep.Spec.Version)
+		k8s.UpdateLabel(appDep, api.LabelK8sAppBranch, appDep.Spec.Branch)
 		k8s.UpdateLabel(appDep, api.LabelK8sAppCommit, appDep.Spec.Commit)
 		k8s.UpdateLabel(appDep, api.LabelK8sAppCommitShort, utils.ShortCommit(appDep.Spec.Commit))
+		k8s.UpdateLabel(appDep, api.LabelK8sAppName, appDep.Spec.AppName)
 		k8s.UpdateLabel(appDep, api.LabelK8sAppTag, appDep.Spec.Tag)
-		k8s.UpdateLabel(appDep, api.LabelK8sAppBranch, appDep.Spec.Branch)
+		k8s.UpdateLabel(appDep, api.LabelK8sAppVersion, appDep.Spec.Version)
 
 	case "kubefox.xigxog.io/v1alpha1, Kind=Environment":
 		if req.Operation == admv1.Create {
@@ -68,8 +69,8 @@ func (r *IndexWebhook) Handle(ctx context.Context, req admission.Request) admiss
 		}
 		obj = manifest
 
-		k8s.UpdateLabel(manifest, api.LabelK8sVirtualEnvironment, string(manifest.Spec.VirtualEnvironment.Name))
 		k8s.UpdateLabel(manifest, api.LabelK8sEnvironment, manifest.Spec.VirtualEnvironment.Environment)
+		k8s.UpdateLabel(manifest, api.LabelK8sVirtualEnvironment, string(manifest.Spec.VirtualEnvironment.Name))
 
 	case "kubefox.xigxog.io/v1alpha1, Kind=VirtualEnvironment":
 		ve := &v1alpha1.VirtualEnvironment{}

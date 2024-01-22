@@ -11,6 +11,7 @@ package v1alpha1
 import (
 	"github.com/xigxog/kubefox/api"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 )
 
 type ReleaseManifestSpec struct {
@@ -31,6 +32,10 @@ type ReleaseManifestSpec struct {
 
 type ReleaseManifestEnv struct {
 	// +kubebuilder:validation:Required
+
+	UID types.UID `json:"uid"`
+
+	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:MinLength=1
 
 	Name string `json:"name"`
@@ -38,16 +43,18 @@ type ReleaseManifestEnv struct {
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:MinLength=1
 
-	Environment string `json:"environment"`
+	ResourceVersion string `json:"resourceVersion"`
 
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:MinLength=1
 
-	ResourceVersion string `json:"resourceVersion"`
+	Environment string `json:"environment"`
 }
 
 type ReleaseManifestApp struct {
-	Version string `json:"version,omitempty"`
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:MinLength=1
+	Version string `json:"version"`
 
 	// +kubebuilder:validation:Required
 
@@ -55,6 +62,10 @@ type ReleaseManifestApp struct {
 }
 
 type ReleaseManifestAppDep struct {
+	// +kubebuilder:validation:Required
+
+	UID types.UID `json:"uid"`
+
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:MinLength=1
 
@@ -70,27 +81,12 @@ type ReleaseManifestAppDep struct {
 	Spec AppDeploymentSpec `json:"spec"`
 }
 
-type ReleaseManifestStatus struct {
-	Problems api.Problems `json:"problems,omitempty"`
-
-	// +patchStrategy=merge
-	// +patchMergeKey=type
-	// +listType=map
-	// +listMapKey=type
-
-	Conditions []metav1.Condition `json:"conditions,omitempty" patchStrategy:"merge" patchMergeKey:"type"`
-}
-
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:path=releasemanifests,shortName=manifest;rm
+// +kubebuilder:printcolumn:name="Id",type=string,JSONPath=`.spec.id`
 // +kubebuilder:printcolumn:name="Environment",type=string,JSONPath=`.spec.virtualEnvironment.name`
 // +kubebuilder:printcolumn:name="VirtualEnvironment",type=string,JSONPath=`.spec.virtualEnvironment.environment`
-// +kubebuilder:printcolumn:name="Available",type=string,JSONPath=`.status.conditions[?(@.type=='Available')].status`
-// +kubebuilder:printcolumn:name="Reason",type=string,JSONPath=`.status.conditions[?(@.type=='Available')].reason`
-// +kubebuilder:printcolumn:name="Progressing",type=string,JSONPath=`.status.conditions[?(@.type=='Progressing')].status`
-// +kubebuilder:printcolumn:name="Title",type=string,JSONPath=`.details.title`,priority=1
-// +kubebuilder:printcolumn:name="Description",type=string,JSONPath=`.details.description`,priority=1
 
 type ReleaseManifest struct {
 	metav1.TypeMeta   `json:",inline"`
@@ -104,9 +100,8 @@ type ReleaseManifest struct {
 
 	// Data is the merged values of the Environment and VirtualEnvironment data
 	// objects.
-	Data    api.Data               `json:"data"`
-	Details api.DataDetails        `json:"details,omitempty"`
-	Status  *ReleaseManifestStatus `json:"status,omitempty"`
+	Data    api.Data        `json:"data"`
+	Details api.DataDetails `json:"details,omitempty"`
 }
 
 // +kubebuilder:object:root=true

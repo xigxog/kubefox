@@ -15,4 +15,6 @@ kind: VirtualEnvironment
 metadata:
   name: prod
 spec:
+  releasePolicy:
+    pendingDeadlineSeconds: 30
   environment: prod
