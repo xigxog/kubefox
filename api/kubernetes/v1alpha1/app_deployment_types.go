@@ -1,10 +1,10 @@
-/*
-Copyright © 2023 XigXog
-
-This Source Code Form is subject to the terms of the Mozilla Public License,
-v2.0. If a copy of the MPL was not distributed with this file, You can obtain
-one at https://mozilla.org/MPL/2.0/.
-*/
+// Copyright 2023 XigXog
+//
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
+//
+// SPDX-License-Identifier: MPL-2.0
 
 package v1alpha1
 
@@ -78,7 +78,7 @@ type AppDeploymentDetails struct {
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:path=appdeployments,shortName=appdep;app
 // +kubebuilder:printcolumn:name="App",type=string,JSONPath=`.spec.appName`
-// +kubebuilder:printcolumn:name="Version",type=string,JSONPath=`.spec.Version`
+// +kubebuilder:printcolumn:name="Version",type=string,JSONPath=`.spec.version`
 // +kubebuilder:printcolumn:name="Available",type=string,JSONPath=`.status.conditions[?(@.type=='Available')].status`
 // +kubebuilder:printcolumn:name="Reason",type=string,JSONPath=`.status.conditions[?(@.type=='Available')].reason`
 // +kubebuilder:printcolumn:name="Progressing",type=string,JSONPath=`.status.conditions[?(@.type=='Progressing')].status`

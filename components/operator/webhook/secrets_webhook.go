@@ -1,18 +1,10 @@
-/*
-Copyright 2018 The Kubernetes Authors.
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-*/
+// Copyright 2023 XigXog
+//
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
+//
+// SPDX-License-Identifier: MPL-2.0
 
 package webhook
 
@@ -24,6 +16,7 @@ import (
 	"github.com/xigxog/kubefox/api"
 	"github.com/xigxog/kubefox/api/kubernetes/v1alpha1"
 	"github.com/xigxog/kubefox/components/operator/vault"
+	"github.com/xigxog/kubefox/k8s"
 	"github.com/xigxog/kubefox/logkf"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
@@ -36,7 +29,7 @@ type SecretsWebhook struct {
 }
 
 func (r *SecretsWebhook) Handle(ctx context.Context, req admission.Request) admission.Response {
-	c, err := vault.Client()
+	vaultCli, err := vault.GetClient(ctx)
 	if err != nil {
 		logkf.Global.Error(err)
 		return admission.Errored(http.StatusInternalServerError, err)
@@ -58,8 +51,11 @@ func (r *SecretsWebhook) Handle(ctx context.Context, req admission.Request) admi
 		return admission.Errored(http.StatusBadRequest, err)
 	}
 
-	vaultData, err := c.GetData(ctx, dataProvider.GetDataKey())
-	if err != nil {
+	vaultData := &api.Data{
+		Vars:    map[string]*api.Val{},
+		Secrets: map[string]*api.Val{},
+	}
+	if err := vaultCli.GetData(ctx, dataProvider.GetDataKey(), vaultData); k8s.IgnoreNotFound(err) != nil {
 		logkf.Global.Error(err)
 		return admission.Errored(http.StatusInternalServerError, err)
 	}
@@ -80,8 +76,7 @@ func (r *SecretsWebhook) Handle(ctx context.Context, req admission.Request) admi
 			data.Secrets[k] = api.ValString(api.SecretMask)
 		}
 	}
-
-	if err := c.PutData(ctx, dataProvider.GetDataKey(), vaultData); err != nil {
+	if err := vaultCli.PutData(ctx, dataProvider.GetDataKey(), vaultData); err != nil {
 		logkf.Global.Error(err)
 		return admission.Errored(http.StatusInternalServerError, err)
 	}

@@ -4,7 +4,7 @@ metadata:
   name: prod
 spec:
   releasePolicy:
-    versionRequired: true
+    type: Stable
 data:
   vars:
     subPath: prod
@@ -15,6 +15,4 @@ kind: VirtualEnvironment
 metadata:
   name: prod
 spec:
-  releasePolicy:
-    pendingDeadlineSeconds: 30
   environment: prod

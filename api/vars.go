@@ -30,13 +30,13 @@ var (
 
 // Defaults
 const (
-	DefaultLogFormat                     = "json"
-	DefaultLogLevel                      = "info"
-	DefaultMaxEventSizeBytes             = 5242880 // 5 MiB
-	DefaultReleaseHistoryAgeLimit        = 0
-	DefaultReleaseHistoryCountLimit      = 10
-	DefaultReleasePendingDeadlineSeconds = 300 // 5 mins
-	DefaultTimeoutSeconds                = 30
+	DefaultLogFormat                        = "json"
+	DefaultLogLevel                         = "info"
+	DefaultMaxEventSizeBytes                = 5242880 // 5 MiB
+	DefaultReleaseActivationDeadlineSeconds = 300     // 5 mins
+	DefaultReleaseHistoryAgeLimit           = 0
+	DefaultReleaseHistoryCountLimit         = 10
+	DefaultTimeoutSeconds                   = 30
 )
 
 // Kubernetes Labels
@@ -205,6 +205,13 @@ func (c ComponentType) IsAdapter() bool {
 		return false
 	}
 }
+
+type ReleaseType string
+
+const (
+	ReleaseTypeStable  ReleaseType = "Stable"
+	ReleaseTypeTesting ReleaseType = "Testing"
+)
 
 type FollowRedirects string
 

@@ -1,22 +1,21 @@
-/*
-Copyright © 2023 XigXog
-
-This Source Code Form is subject to the terms of the Mozilla Public License,
-v2.0. If a copy of the MPL was not distributed with this file, You can obtain
-one at https://mozilla.org/MPL/2.0/.
-*/
+// Copyright 2023 XigXog
+//
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
+//
+// SPDX-License-Identifier: MPL-2.0
 
 package controller
 
 import (
 	"context"
 	"fmt"
-	"os"
+	"strings"
 	"sync"
 	"time"
 
 	vapi "github.com/hashicorp/vault/api"
-	vauth "github.com/hashicorp/vault/api/auth/kubernetes"
 	appsv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -30,9 +29,11 @@ import (
 	"github.com/xigxog/kubefox/build"
 	"github.com/xigxog/kubefox/components/operator/defaults"
 	"github.com/xigxog/kubefox/components/operator/templates"
+	opvault "github.com/xigxog/kubefox/components/operator/vault"
 	"github.com/xigxog/kubefox/core"
 	"github.com/xigxog/kubefox/k8s"
 	"github.com/xigxog/kubefox/logkf"
+	"github.com/xigxog/kubefox/vault"
 )
 
 const (
@@ -55,8 +56,7 @@ type PlatformReconciler struct {
 
 	setupMap map[string]bool
 
-	vClient *vapi.Client
-	log     *logkf.Logger
+	log *logkf.Logger
 
 	mutex sync.Mutex
 }
@@ -145,7 +145,7 @@ func (r *PlatformReconciler) reconcile(ctx context.Context, platform *v1alpha1.P
 	if platform.Spec.Events.MaxSize.IsZero() {
 		maxEventSize = api.DefaultMaxEventSizeBytes
 	}
-	baseTD := &TemplateData{
+	platformTD := &TemplateData{
 		Data: templates.Data{
 			Instance: templates.Instance{
 				Name:           r.Instance,
@@ -169,8 +169,7 @@ func (r *PlatformReconciler) reconcile(ctx context.Context, platform *v1alpha1.P
 		},
 	}
 
-	setup := r.isSetup(pKey)
-	if setup {
+	if r.isSetup(pKey) {
 		r.log.Debugf("Platform '%s' already setup ", pKey)
 
 	} else {
@@ -180,17 +179,17 @@ func (r *PlatformReconciler) reconcile(ctx context.Context, platform *v1alpha1.P
 			log.Error("broker or httpsrv commit from build info is invalid")
 			return nil
 		}
-		if err := r.setupVault(ctx, baseTD); err != nil {
+		if err := r.setupVaultPlatform(ctx, platform); err != nil {
 			return log.ErrorN("problem setting up vault: %w", err)
 		}
-		if err := r.ApplyTemplate(ctx, "platform", &baseTD.Data, log); err != nil {
+		if err := r.ApplyTemplate(ctx, "platform", &platformTD.Data, log); err != nil {
 			return log.ErrorN("problem setting up Platform: %w", err)
 		}
 
 		r.setSetup(pKey, true)
 	}
 
-	td := baseTD.ForComponent(api.PlatformComponentNATS, &appsv1.StatefulSet{}, &defaults.NATS, templates.Component{
+	td := platformTD.ForComponent(api.PlatformComponentNATS, &appsv1.StatefulSet{}, &defaults.NATS, templates.Component{
 		Component: &core.Component{
 			Type: string(api.ComponentTypeNATS),
 			Name: api.PlatformComponentNATS,
@@ -200,7 +199,7 @@ func (r *PlatformReconciler) reconcile(ctx context.Context, platform *v1alpha1.P
 		ContainerSpec:       platform.Spec.NATS.ContainerSpec,
 		IsPlatformComponent: true,
 	})
-	if err := r.setupPKI(ctx, td, ""); err != nil {
+	if err := r.setupVaultComponent(ctx, platform, api.PlatformComponentNATS, false); err != nil {
 		return err
 	}
 	if rdy, err := r.CompMgr.SetupComponent(ctx, td); !rdy || err != nil {
@@ -214,7 +213,7 @@ func (r *PlatformReconciler) reconcile(ctx context.Context, platform *v1alpha1.P
 		return chill(err)
 	}
 
-	td = baseTD.ForComponent(api.PlatformComponentBroker, &appsv1.DaemonSet{}, &defaults.Broker, templates.Component{
+	td = platformTD.ForComponent(api.PlatformComponentBroker, &appsv1.DaemonSet{}, &defaults.Broker, templates.Component{
 		Component: &core.Component{
 			Type:   string(api.ComponentTypeBroker),
 			Name:   api.PlatformComponentBroker,
@@ -225,7 +224,7 @@ func (r *PlatformReconciler) reconcile(ctx context.Context, platform *v1alpha1.P
 		ContainerSpec:       platform.Spec.Broker.ContainerSpec,
 		IsPlatformComponent: true,
 	})
-	if err := r.setupPKI(ctx, td, ""); err != nil {
+	if err := r.setupVaultComponent(ctx, platform, api.PlatformComponentBroker, true); err != nil {
 		return err
 	}
 	if rdy, err := r.CompMgr.SetupComponent(ctx, td); !rdy || err != nil {
@@ -239,7 +238,7 @@ func (r *PlatformReconciler) reconcile(ctx context.Context, platform *v1alpha1.P
 		return chill(err)
 	}
 
-	td = baseTD.ForComponent(api.PlatformComponentHTTPSrv, &appsv1.Deployment{}, &defaults.HTTPSrv, templates.Component{
+	td = platformTD.ForComponent(api.PlatformComponentHTTPSrv, &appsv1.Deployment{}, &defaults.HTTPSrv, templates.Component{
 		Component: &core.Component{
 			Type:   string(api.ComponentTypeHTTPAdapter),
 			Name:   api.PlatformComponentHTTPSrv,
@@ -255,7 +254,7 @@ func (r *PlatformReconciler) reconcile(ctx context.Context, platform *v1alpha1.P
 	td.Values["serviceType"] = platform.Spec.HTTPSrv.Service.Type
 	td.Values["httpPort"] = platform.Spec.HTTPSrv.Service.Ports.HTTP
 	td.Values["httpsPort"] = platform.Spec.HTTPSrv.Service.Ports.HTTPS
-	if err := r.setupPKI(ctx, td, ""); err != nil {
+	if err := r.setupVaultComponent(ctx, platform, api.PlatformComponentHTTPSrv, false); err != nil {
 		return err
 	}
 	if rdy, err := r.CompMgr.SetupComponent(ctx, td); !rdy || err != nil {
@@ -314,206 +313,157 @@ func (r *PlatformReconciler) updateComponentsStatus(ctx context.Context, p *v1al
 	return nil
 }
 
-func (r *PlatformReconciler) setupVault(ctx context.Context, td *TemplateData) error {
-	r.log.Debugf("setting up vault for Platform '%s'", td.PlatformFullName())
+func (r *PlatformReconciler) setupVaultPlatform(ctx context.Context, platform *v1alpha1.Platform) error {
+	r.log.Debugf("setting up Vault for Platform '%s'", platform.Name)
 
-	vault, err := r.vaultClient(ctx, r.VaultURL, []byte(td.Instance.RootCA))
+	vaultCli, err := opvault.GetClient(ctx)
 	if err != nil {
 		return err
 	}
 
-	// Setup KVs for secrets.
-	secretPath := fmt.Sprintf("kubefox/instance/%s/namespace/%s",
-		td.Instance.Name, td.Platform.Namespace)
-	if cfg, _ := vault.Sys().MountConfig(secretPath); cfg != nil {
-		r.log.Debugf("namespace kv store at path '%s' exists", secretPath)
-
-	} else {
-		r.log.Infof("creating namespace kv store at path '%s'", secretPath)
-		err = vault.Sys().Mount(secretPath, &vapi.MountInput{
-			Type: "kv",
-			Description: fmt.Sprintf("Namespace scoped KubeFox secret data store; instance: %s, namespace: %s",
-				td.Instance.Name, td.Platform.Namespace),
-			Options: map[string]string{
-				"version": "2", // Supports versioning and optimistic locking.
-			},
-		})
-		if err != nil {
-			return fmt.Errorf("error creating namespace kv store at path '%s': %w", secretPath, err)
-		}
+	rootKey := vault.Key{Instance: r.Instance}
+	key := vault.Key{
+		Instance:  r.Instance,
+		Namespace: platform.Namespace,
 	}
 
-	secretPath = fmt.Sprintf("kubefox/instance/%s/cluster", td.Instance.Name)
-	if cfg, _ := vault.Sys().MountConfig(secretPath); cfg != nil {
-		r.log.Debugf("cluster kv store at path '%s' exists", secretPath)
-
-	} else {
-		r.log.Infof("creating cluster kv store at path '%s'", secretPath)
-		err = vault.Sys().Mount(secretPath, &vapi.MountInput{
-			Type:        "kv",
-			Description: fmt.Sprintf("Cluster scoped KubeFox secret data store; instance: %s", td.Instance.Name),
-			Options: map[string]string{
-				"version": "2", // Supports versioning and optimistic locking.
-			},
-		})
-		if err != nil {
-			return fmt.Errorf("error creating cluster kv store at path '%s': %w", secretPath, err)
-		}
+	// Setup Env/VE Data stores.
+	if err := vaultCli.CreateDataStore(ctx, ""); err != nil {
+		return fmt.Errorf("error creating cluster data store: %w", err)
+	}
+	if err := vaultCli.CreateDataStore(ctx, platform.Namespace); err != nil {
+		return fmt.Errorf("error creating namespace data store: %w", err)
 	}
 
 	// Setup PKI.
-	pkiPath := fmt.Sprintf("pki/int/platform/%s", td.PlatformVaultName())
-	if cfg, _ := vault.Sys().MountConfig(pkiPath); cfg == nil {
-		err = vault.Sys().Mount(pkiPath, &vapi.MountInput{
-			Type: "pki",
+	// If cfg is non-nil then the mount already exists.
+	if cfg, _ := vaultCli.Sys().MountConfig(vault.PKIPath(key)); cfg == nil {
+		if err := vaultCli.Sys().Mount(vault.PKIPath(key), &vapi.MountInput{
+			Type:        "pki",
+			Description: "KubeFox Platform Intermediate CA",
 			Config: vapi.MountConfigInput{
 				MaxLeaseTTL: HundredYears,
 			},
-		})
+		}); err != nil {
+			return err
+		}
+		if _, err := vaultCli.Logical().Write(vault.PKISubPath(key, "config/urls"),
+			map[string]interface{}{
+				"issuing_certificates":    fmt.Sprintf("%s/v1/%s", r.VaultURL, vault.PKISubPath(key, "ca")),
+				"crl_distribution_points": fmt.Sprintf("%s/v1/%s", r.VaultURL, vault.PKISubPath(key, "crl")),
+			},
+		); err != nil {
+			return err
+		}
+
+		// Generate intermediate cert and use root certificate to sign.
+		intCert, err := vaultCli.Logical().Write(vault.PKISubPath(key, "intermediate/generate/internal"),
+			map[string]interface{}{
+				"common_name": "KubeFox Platform Intermediate CA",
+				"issuer_name": "kubefox-platform-intermediate",
+			},
+		)
 		if err != nil {
 			return err
 		}
-		_, err := vault.Logical().Write(pkiPath+"/config/urls", map[string]interface{}{
-			"issuing_certificates":    r.VaultURL + "/v1/" + pkiPath + "/ca",
-			"crl_distribution_points": r.VaultURL + "/v1/" + pkiPath + "/crl",
-		})
+		signedIntCert, err := vaultCli.Logical().Write(vault.PKISubPath(rootKey, "root/sign-intermediate"),
+			map[string]interface{}{
+				"csr":    intCert.Data["csr"],
+				"format": "pem_bundle",
+				"ttl":    HundredYears,
+			},
+		)
 		if err != nil {
 			return err
 		}
-		s, err := vault.Logical().Write(pkiPath+"/intermediate/generate/internal", map[string]interface{}{
-			"common_name": "KubeFox Platform " + td.PlatformFullName() + " Intermediate CA",
-			"issuer_name": td.PlatformFullName() + "-intermediate",
-		})
-		if err != nil {
-			return err
-		}
-		s, err = vault.Logical().Write("pki/root/root/sign-intermediate", map[string]interface{}{
-			"csr":    s.Data["csr"],
-			"format": "pem_bundle",
-			"ttl":    HundredYears,
-		})
-		if err != nil {
-			return err
-		}
-		_, err = vault.Logical().Write(pkiPath+"/intermediate/set-signed", map[string]interface{}{
-			"certificate": s.Data["certificate"],
-		})
-		if err != nil {
+		if _, err := vaultCli.Logical().Write(vault.PKISubPath(key, "intermediate/set-signed"),
+			map[string]interface{}{
+				"certificate": signedIntCert.Data["certificate"],
+			},
+		); err != nil {
 			return err
 		}
 	}
 
-	r.log.Debugf("vault successfully setup for Platform '%s'", td.Platform.Name)
+	r.log.Debugf("Vault successfully setup for Platform '%s'", platform.Name)
 
 	return nil
 }
 
-func (r *PlatformReconciler) setupPKI(ctx context.Context, td *TemplateData, additionalPolicies string) error {
-	setup := r.isSetup(td.ComponentFullName())
-	if setup {
-		r.log.Debugf("pki already setup for component '%s'", td.ComponentFullName())
+func (r *PlatformReconciler) setupVaultComponent(ctx context.Context,
+	platform *v1alpha1.Platform, component string, grantReadData bool) error {
+
+	if r.isSetup(component) {
+		r.log.Debugf("Vault already setup for Component '%s'", component)
 		return nil
 	}
-	r.log.Debugf("setting up pki for component '%s'", td.ComponentFullName())
+	r.log.Debugf("setting up Vault for Component '%s'", component)
 
-	vault, err := r.vaultClient(ctx, r.VaultURL, []byte(td.Instance.RootCA))
+	vaultCli, err := opvault.GetClient(ctx)
 	if err != nil {
 		return err
 	}
 
-	pkiPath := fmt.Sprintf("pki/int/platform/%s", td.PlatformVaultName())
+	key := vault.Key{
+		Instance:  r.Instance,
+		Namespace: platform.Namespace,
+		Component: component,
+	}
 
-	path := fmt.Sprintf("%s/roles/%s", pkiPath, td.ComponentVaultName())
-	svcName := fmt.Sprintf("%s.%s", td.ComponentFullName(), td.Platform.Namespace)
-	_, err = vault.Logical().Write(path, map[string]interface{}{
-		"issuer_ref":         "default",
-		"allowed_domains":    fmt.Sprintf("%s,%s.svc", svcName, svcName),
-		"allow_localhost":    true,
-		"allow_bare_domains": true,
-		"max_ttl":            TenYears,
-	})
-	if err != nil {
+	svcName := fmt.Sprintf("%s.%s", component, platform.Namespace)
+	if _, err := vaultCli.Logical().Write(vault.PKISubPath(key, "roles/"+vault.RoleName(key)),
+		map[string]interface{}{
+			"issuer_ref":         "default",
+			"allowed_domains":    fmt.Sprintf("%s,%s.svc", svcName, svcName),
+			"allow_localhost":    true,
+			"allow_bare_domains": true,
+			"max_ttl":            TenYears,
+		},
+	); err != nil {
 		return err
 	}
 
-	err = vault.Sys().PutPolicyWithContext(ctx, td.ComponentVaultName(), `
-	// issue certs
-	path "`+pkiPath+`/issue/`+td.ComponentVaultName()+`" {
-		capabilities = ["create", "update"]
+	var policies []string
+
+	issueCertsPolicy := vault.PolicyName(key, "issue-certs")
+	if err := vaultCli.Sys().PutPolicyWithContext(ctx, issueCertsPolicy, `
+		path "`+vault.PKISubPath(key, "issue/"+vault.RoleName(key))+`" {
+			capabilities = ["create", "update"]
+		}
+	`); err != nil {
+		return err
 	}
-		`)
-	if err != nil {
+	policies = append(policies, issueCertsPolicy)
+
+	if grantReadData {
+		readDataPolicy := vault.PolicyName(key, "read-data")
+		if err = vaultCli.Sys().PutPolicyWithContext(ctx, readDataPolicy, `
+			path "`+vault.DataPath(api.DataKey{Instance: r.Instance})+`" {
+				capabilities = ["read", "list"]
+			}
+			path "`+vault.DataPath(api.DataKey{Instance: r.Instance, Namespace: platform.Namespace})+`" {
+				capabilities = ["read", "list"]
+			}
+		`); err != nil {
+			return err
+		}
+		policies = append(policies, readDataPolicy)
+	}
+
+	if _, err = vaultCli.Logical().Write(vault.KubernetesRolePath(key),
+		map[string]interface{}{
+			"bound_service_account_names":      component,
+			"bound_service_account_namespaces": platform.Namespace,
+			"token_policies":                   strings.Join(policies, ","),
+		},
+	); err != nil {
 		return err
 	}
 
-	path = fmt.Sprintf("auth/kubernetes/role/%s", td.ComponentVaultName())
-	policy := td.ComponentVaultName()
-	if additionalPolicies != "" {
-		policy = fmt.Sprintf("%s,%s", policy, additionalPolicies)
-	}
-
-	r.log.Debugf("writing role; path: %s, sa: %s, policy: %s", path, td.ComponentFullName(), policy)
-	_, err = vault.Logical().Write(path, map[string]interface{}{
-		"bound_service_account_names":      td.ComponentFullName(),
-		"bound_service_account_namespaces": td.Platform.Namespace,
-		"token_policies":                   policy,
-	})
-	if err != nil {
-		return err
-	}
-
-	r.setSetup(td.ComponentFullName(), true)
-	r.log.Debugf("pki successfully setup for component '%s'", td.ComponentFullName())
+	r.setSetup(component, true)
+	r.log.Debugf("Vault successfully setup for Component '%s'", component)
 
 	return nil
-}
-
-func (r *PlatformReconciler) vaultClient(ctx context.Context, url string, caCert []byte) (*vapi.Client, error) {
-	r.mutex.Lock()
-	defer r.mutex.Unlock()
-
-	if r.vClient != nil {
-		return r.vClient, nil
-	}
-
-	cfg := vapi.DefaultConfig()
-	cfg.Address = url
-	cfg.MaxRetries = 3
-	cfg.HttpClient.Timeout = time.Second * 5
-	cfg.ConfigureTLS(&vapi.TLSConfig{
-		CACertBytes: caCert,
-	})
-
-	vault, err := vapi.NewClient(cfg)
-	if err != nil {
-		return nil, err
-	}
-
-	b, err := os.ReadFile(api.PathSvcAccToken)
-	if err != nil {
-		return nil, err
-	}
-	token := vauth.WithServiceAccountToken(string(b))
-	auth, err := vauth.NewKubernetesAuth("kubefox-operator", token)
-	if err != nil {
-		return nil, err
-	}
-	authInfo, err := vault.Auth().Login(ctx, auth)
-	if err != nil {
-		return nil, err
-	}
-	if authInfo == nil {
-		return nil, fmt.Errorf("error logging in with kubernetes auth: no auth info was returned")
-	}
-	r.vClient = vault
-
-	watcher, err := vault.NewLifetimeWatcher(&vapi.LifetimeWatcherInput{Secret: authInfo})
-	if err != nil {
-		return nil, fmt.Errorf("error starting Vault token renewer: %w", err)
-	}
-	go watcher.Start()
-
-	return vault, nil
 }
 
 func (r *PlatformReconciler) setSetup(key string, val bool) {

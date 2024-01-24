@@ -1,10 +1,10 @@
-/*
-Copyright © 2023 XigXog
-
-This Source Code Form is subject to the terms of the Mozilla Public License,
-v2.0. If a copy of the MPL was not distributed with this file, You can obtain
-one at https://mozilla.org/MPL/2.0/.
-*/
+// Copyright 2023 XigXog
+//
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
+//
+// SPDX-License-Identifier: MPL-2.0
 
 package v1alpha1
 
@@ -18,47 +18,43 @@ type EnvironmentSpec struct {
 }
 
 type EnvReleasePolicy struct {
+	// +kubebuilder:validation:Enum=Stable;Testing
+	// +kubebuilder:default=Stable
+
+	Type api.ReleaseType `json:"type,omitempty"`
+
 	// +kubebuilder:validation:Minimum=3
 	// +kubebuilder:default=300
 
-	// If the pending Request cannot be activated before the deadline it will be
-	// considered failed. If the Release becomes available for activation after
-	// the deadline has been exceeded, it will not be activated.
-	PendingDeadlineSeconds uint `json:"pendingDeadlineSeconds,omitempty"`
+	// If the pending Release cannot be activated before the activation deadline
+	// it will be considered failed and the Release will automatically rolled
+	// back to the current active Release. Pointer is used to distinguish
+	// between not set and false.
+	ActivationDeadlineSeconds *uint `json:"activationDeadlineSeconds,omitempty"`
 
-	// +kubebuilder:validation:Optional
-	// +kubebuilder:default=true
-
-	// If true '.spec.release.appDeployment.version' is required. Pointer is
-	// used to distinguish between not set and false.
-	VersionRequired *bool `json:"versionRequired"`
-
-	// +kubebuilder:validation:Optional
-
-	HistoryLimits EnvReleaseHistoryLimits `json:"historyLimits"`
+	HistoryLimits EnvHistoryLimits `json:"historyLimits,omitempty"`
 }
 
-type EnvReleaseHistoryLimits struct {
+type EnvHistoryLimits struct {
 	// +kubebuilder:validation:Minimum=0
 	// +kubebuilder:default=10
 
 	// Maximum number of Releases to keep in history. Once the limit is reached
 	// the oldest Release in history will be deleted. Age is based on
-	// archiveTime.
-	Count uint `json:"count,omitempty"`
+	// archiveTime. Pointer is used to distinguish between not set and false.
+	Count *uint `json:"count,omitempty"`
 
 	// +kubebuilder:validation:Minimum=0
 
 	// Maximum age of the Release to keep in history. Once the limit is reached
 	// the oldest Release in history will be deleted. Age is based on
-	// archiveTime. Set to 0 to disable.
-	AgeDays uint `json:"ageDays,omitempty"`
+	// archiveTime. Set to 0 to disable. Pointer is used to distinguish between
+	// not set and false.
+	AgeDays *uint `json:"ageDays,omitempty"`
 }
 
 // +kubebuilder:object:root=true
 // +kubebuilder:resource:path=environments,scope=Cluster,shortName=env
-// +kubebuilder:printcolumn:name="Version Required",type=boolean,JSONPath=`.spec.releasePolicy.versionRequired`
-// +kubebuilder:printcolumn:name="Pending Deadline",type=integer,JSONPath=`.spec.releasePolicy.pendingDeadlineSeconds`
 
 type Environment struct {
 	metav1.TypeMeta   `json:",inline"`

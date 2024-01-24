@@ -1,10 +1,10 @@
-/*
-Copyright © 2023 XigXog
-
-This Source Code Form is subject to the terms of the Mozilla Public License,
-v2.0. If a copy of the MPL was not distributed with this file, You can obtain
-one at https://mozilla.org/MPL/2.0/.
-*/
+// Copyright 2023 XigXog
+//
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
+//
+// SPDX-License-Identifier: MPL-2.0
 
 package v1alpha1
 
@@ -18,11 +18,15 @@ type ReleaseManifestSpec struct {
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:MinLength=1
 
-	Id string `json:"id"`
+	ReleaseId string `json:"releaseId"`
 
 	// +kubebuilder:validation:Required
 
-	VirtualEnvironment ReleaseManifestEnv `json:"virtualEnvironment"`
+	Environment ReleaseManifestRef `json:"environment"`
+
+	// +kubebuilder:validation:Required
+
+	VirtualEnvironment ReleaseManifestRef `json:"virtualEnvironment"`
 
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:MinProperties=1
@@ -30,7 +34,7 @@ type ReleaseManifestSpec struct {
 	Apps map[string]*ReleaseManifestApp `json:"apps"`
 }
 
-type ReleaseManifestEnv struct {
+type ReleaseManifestRef struct {
 	// +kubebuilder:validation:Required
 
 	UID types.UID `json:"uid"`
@@ -44,11 +48,6 @@ type ReleaseManifestEnv struct {
 	// +kubebuilder:validation:MinLength=1
 
 	ResourceVersion string `json:"resourceVersion"`
-
-	// +kubebuilder:validation:Required
-	// +kubebuilder:validation:MinLength=1
-
-	Environment string `json:"environment"`
 }
 
 type ReleaseManifestApp struct {
@@ -62,19 +61,7 @@ type ReleaseManifestApp struct {
 }
 
 type ReleaseManifestAppDep struct {
-	// +kubebuilder:validation:Required
-
-	UID types.UID `json:"uid"`
-
-	// +kubebuilder:validation:Required
-	// +kubebuilder:validation:MinLength=1
-
-	Name string `json:"name"`
-
-	// +kubebuilder:validation:Required
-	// +kubebuilder:validation:MinLength=1
-
-	ResourceVersion string `json:"resourceVersion"`
+	ReleaseManifestRef `json:",inline"`
 
 	// +kubebuilder:validation:Required
 
@@ -84,9 +71,9 @@ type ReleaseManifestAppDep struct {
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:path=releasemanifests,shortName=manifest;rm
-// +kubebuilder:printcolumn:name="Id",type=string,JSONPath=`.spec.id`
-// +kubebuilder:printcolumn:name="Environment",type=string,JSONPath=`.spec.virtualEnvironment.name`
-// +kubebuilder:printcolumn:name="VirtualEnvironment",type=string,JSONPath=`.spec.virtualEnvironment.environment`
+// +kubebuilder:printcolumn:name="Id",type=string,JSONPath=`.spec.releaseId`
+// +kubebuilder:printcolumn:name="Environment",type=string,JSONPath=`.spec.environment.name`
+// +kubebuilder:printcolumn:name="VirtualEnvironment",type=string,JSONPath=`.spec.virtualEnvironment.name`
 
 type ReleaseManifest struct {
 	metav1.TypeMeta   `json:",inline"`

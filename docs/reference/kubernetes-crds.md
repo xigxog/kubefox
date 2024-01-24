@@ -91,6 +91,7 @@ AppDeployment is the Schema for the AppDeployments API
 
 
 
+
 ### Platform
 
 Platform is the Schema for the Platforms API
@@ -426,7 +427,7 @@ Used by:<br>
 
 
 
-### EnvReleaseHistoryLimits
+### EnvHistoryLimits
 
 
 
@@ -438,8 +439,8 @@ Used by:<br>
 
 | Field | Type | Description | Validation |
 | ----- | ---- | ----------- | ---------- |
-| `count` | <div style="white-space:nowrap">integer<div> | <div style="max-width:30rem">Maximum number of Releases to keep in history. Once the limit is reached the oldest Release in history will be deleted. Age is based on archiveTime.</div> | <div style="white-space:nowrap">min: 0, default: 10</div> |
-| `ageDays` | <div style="white-space:nowrap">integer<div> | <div style="max-width:30rem">Maximum age of the Release to keep in history. Once the limit is reached the oldest Release in history will be deleted. Age is based on archiveTime. Set to 0 to disable.</div> | <div style="white-space:nowrap">min: 0</div> |
+| `count` | <div style="white-space:nowrap">integer<div> | <div style="max-width:30rem">Maximum number of Releases to keep in history. Once the limit is reached the oldest Release in history will be deleted. Age is based on archiveTime. Pointer is used to distinguish between not set and false.</div> | <div style="white-space:nowrap">min: 0, default: 10</div> |
+| `ageDays` | <div style="white-space:nowrap">integer<div> | <div style="max-width:30rem">Maximum age of the Release to keep in history. Once the limit is reached the oldest Release in history will be deleted. Age is based on archiveTime. Set to 0 to disable. Pointer is used to distinguish between not set and false.</div> | <div style="white-space:nowrap">min: 0</div> |
 
 
 
@@ -455,9 +456,9 @@ Used by:<br>
 
 | Field | Type | Description | Validation |
 | ----- | ---- | ----------- | ---------- |
-| `pendingDeadlineSeconds` | <div style="white-space:nowrap">integer<div> | <div style="max-width:30rem">If the pending Request cannot be activated before the deadline it will be considered failed. If the Release becomes available for activation after the deadline has been exceeded, it will not be activated.</div> | <div style="white-space:nowrap">min: 3, default: 300</div> |
-| `versionRequired` | <div style="white-space:nowrap">boolean<div> | <div style="max-width:30rem">If true '.spec.release.appDeployment.version' is required. Pointer is used to distinguish between not set and false.</div> | <div style="white-space:nowrap">default: true</div> |
-| `historyLimits` | <div style="white-space:nowrap">[EnvReleaseHistoryLimits](#envreleasehistorylimits)<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
+| `type` | <div style="white-space:nowrap">enum[`Stable`, `Testing`]<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap">default: Stable</div> |
+| `activationDeadlineSeconds` | <div style="white-space:nowrap">integer<div> | <div style="max-width:30rem">If the pending Release cannot be activated before the activation deadline it will be considered failed and the Release will automatically rolled back to the current active Release. Pointer is used to distinguish between not set and false.</div> | <div style="white-space:nowrap">min: 3, default: 300</div> |
+| `historyLimits` | <div style="white-space:nowrap">[EnvHistoryLimits](#envhistorylimits)<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
 
 
 
@@ -605,6 +606,23 @@ Used by:<br>
 | `podSpec` | <div style="white-space:nowrap">[PodSpec](#podspec)<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
 | `containerSpec` | <div style="white-space:nowrap">[ContainerSpec](#containerspec)<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
 | `service` | <div style="white-space:nowrap">[HTTPSrvService](#httpsrvservice)<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
+
+
+
+### HistoryLimits
+
+
+
+<p style="font-size:.6rem;">
+Used by:<br>
+
+- <a href=#releasepolicy>ReleasePolicy</a><br>
+</p>
+
+| Field | Type | Description | Validation |
+| ----- | ---- | ----------- | ---------- |
+| `count` | <div style="white-space:nowrap">integer<div> | <div style="max-width:30rem">Maximum number of Releases to keep in history. Once the limit is reached the oldest Release in history will be deleted. Age is based on archiveTime. Pointer is used to distinguish between not set and false.</div> | <div style="white-space:nowrap">min: 0</div> |
+| `ageDays` | <div style="white-space:nowrap">integer<div> | <div style="max-width:30rem">Maximum age of the Release to keep in history. Once the limit is reached the oldest Release in history will be deleted. Age is based on archiveTime. Set to 0 to disable. Pointer is used to distinguish between not set and false.</div> | <div style="white-space:nowrap">min: 0</div> |
 
 
 
@@ -785,7 +803,6 @@ Used by:<br>
 
 | Field | Type | Description | Validation |
 | ----- | ---- | ----------- | ---------- |
-| `id` | <div style="white-space:nowrap">string<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap">required, minLength: 1</div> |
 | `apps` | <div style="white-space:nowrap">map{string, [ReleaseApp](#releaseapp)}<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap">required</div> |
 
 
@@ -845,13 +862,14 @@ Used by:<br>
 
 
 
-### ReleaseManifestEnv
+### ReleaseManifestRef
 
 
 
 <p style="font-size:.6rem;">
 Used by:<br>
 
+- <a href=#releasemanifestappdep>ReleaseManifestAppDep</a><br>
 - <a href=#releasemanifestspec>ReleaseManifestSpec</a><br>
 </p>
 
@@ -860,7 +878,6 @@ Used by:<br>
 | `uid` | <div style="white-space:nowrap">[UID](#uid)<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap">required</div> |
 | `name` | <div style="white-space:nowrap">string<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap">required, minLength: 1</div> |
 | `resourceVersion` | <div style="white-space:nowrap">string<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap">required, minLength: 1</div> |
-| `environment` | <div style="white-space:nowrap">string<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap">required, minLength: 1</div> |
 
 
 
@@ -876,8 +893,9 @@ Used by:<br>
 
 | Field | Type | Description | Validation |
 | ----- | ---- | ----------- | ---------- |
-| `id` | <div style="white-space:nowrap">string<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap">required, minLength: 1</div> |
-| `virtualEnvironment` | <div style="white-space:nowrap">[ReleaseManifestEnv](#releasemanifestenv)<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap">required</div> |
+| `releaseId` | <div style="white-space:nowrap">string<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap">required, minLength: 1</div> |
+| `environment` | <div style="white-space:nowrap">[ReleaseManifestRef](#releasemanifestref)<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap">required</div> |
+| `virtualEnvironment` | <div style="white-space:nowrap">[ReleaseManifestRef](#releasemanifestref)<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap">required</div> |
 | `apps` | <div style="white-space:nowrap">map{string, [ReleaseManifestApp](#releasemanifestapp)}<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap">required</div> |
 
 
@@ -894,9 +912,9 @@ Used by:<br>
 
 | Field | Type | Description | Validation |
 | ----- | ---- | ----------- | ---------- |
-| `pendingDeadlineSeconds` | <div style="white-space:nowrap">integer<div> | <div style="max-width:30rem">If the pending Request cannot be activated before the deadline it will be considered failed. If the Release becomes available for activation after the deadline has been exceeded, it will not be activated. Pointer is used to distinguish between not set and false.</div> | <div style="white-space:nowrap">min: 3</div> |
-| `versionRequired` | <div style="white-space:nowrap">boolean<div> | <div style="max-width:30rem">If true '.spec.release.appDeployment.version' is required. Pointer is used to distinguish between not set and false.</div> | <div style="white-space:nowrap"></div> |
-| `historyLimits` | <div style="white-space:nowrap">[VirtEnvHistoryLimits](#virtenvhistorylimits)<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
+| `type` | <div style="white-space:nowrap">enum[`Stable`, `Testing`]<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
+| `activationDeadlineSeconds` | <div style="white-space:nowrap">integer<div> | <div style="max-width:30rem">If the pending Release cannot be activated before the activation deadline it will be considered failed and the Release will automatically rolled back to the current active Release. Pointer is used to distinguish between not set and false.</div> | <div style="white-space:nowrap">min: 3</div> |
+| `historyLimits` | <div style="white-space:nowrap">[HistoryLimits](#historylimits)<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
 
 
 
@@ -912,14 +930,17 @@ Used by:<br>
 
 | Field | Type | Description | Validation |
 | ----- | ---- | ----------- | ---------- |
-| `id` | <div style="white-space:nowrap">string<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap">required, minLength: 1</div> |
 | `apps` | <div style="white-space:nowrap">map{string, [ReleaseApp](#releaseapp)}<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap">required</div> |
+| `id` | <div style="white-space:nowrap">string<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap">required, minLength: 1</div> |
 | `releaseManifest` | <div style="white-space:nowrap">string<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
 | `requestTime` | <div style="white-space:nowrap">[Time](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.28/#time-v1-meta)<div> | <div style="max-width:30rem">Time at which the VirtualEnvironment was updated to use the Release.</div> | <div style="white-space:nowrap"></div> |
 | `activationTime` | <div style="white-space:nowrap">[Time](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.28/#time-v1-meta)<div> | <div style="max-width:30rem">Time at which the Release became active. If not set the Release was never activated.</div> | <div style="white-space:nowrap"></div> |
 | `archiveTime` | <div style="white-space:nowrap">[Time](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.28/#time-v1-meta)<div> | <div style="max-width:30rem">Time at which the Release was archived to history.</div> | <div style="white-space:nowrap"></div> |
 | `archiveReason` | <div style="white-space:nowrap">enum[`PendingDeadlineExceeded`, `RolledBack`, `Superseded`]<div> | <div style="max-width:30rem">Reason Release was archived.</div> | <div style="white-space:nowrap"></div> |
 | `problems` | <div style="white-space:nowrap">[Problem](#problem) array<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
+
+
+
 
 
 
@@ -955,23 +976,6 @@ Used by:<br>
 
 
 
-
-
-
-### VirtEnvHistoryLimits
-
-
-
-<p style="font-size:.6rem;">
-Used by:<br>
-
-- <a href=#releasepolicy>ReleasePolicy</a><br>
-</p>
-
-| Field | Type | Description | Validation |
-| ----- | ---- | ----------- | ---------- |
-| `count` | <div style="white-space:nowrap">integer<div> | <div style="max-width:30rem">Maximum number of Releases to keep in history. Once the limit is reached the oldest Release in history will be deleted. Age is based on archiveTime. Pointer is used to distinguish between not set and false.</div> | <div style="white-space:nowrap">min: 0</div> |
-| `ageDays` | <div style="white-space:nowrap">integer<div> | <div style="max-width:30rem">Maximum age of the Release to keep in history. Once the limit is reached the oldest Release in history will be deleted. Age is based on archiveTime. Set to 0 to disable. Pointer is used to distinguish between not set and false.</div> | <div style="white-space:nowrap">min: 0</div> |
 
 
 
