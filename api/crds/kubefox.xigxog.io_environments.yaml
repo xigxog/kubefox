@@ -24,14 +24,7 @@ spec:
     singular: environment
   scope: Cluster
   versions:
-  - additionalPrinterColumns:
-    - jsonPath: .spec.releasePolicy.versionRequired
-      name: Version Required
-      type: boolean
-    - jsonPath: .spec.releasePolicy.pendingDeadlineSeconds
-      name: Pending Deadline
-      type: integer
-    name: v1alpha1
+  - name: v1alpha1
     schema:
       openAPIV3Schema:
         properties:
@@ -85,40 +78,42 @@ spec:
             properties:
               releasePolicy:
                 properties:
+                  activationDeadlineSeconds:
+                    default: 300
+                    description: If the pending Release cannot be activated before
+                      the activation deadline it will be considered failed and the
+                      Release will automatically rolled back to the current active
+                      Release. Pointer is used to distinguish between not set and
+                      false.
+                    minimum: 3
+                    type: integer
                   historyLimits:
                     properties:
                       ageDays:
                         description: Maximum age of the Release to keep in history.
                           Once the limit is reached the oldest Release in history
                           will be deleted. Age is based on archiveTime. Set to 0 to
-                          disable.
+                          disable. Pointer is used to distinguish between not set
+                          and false.
                         minimum: 0
                         type: integer
                       count:
                         default: 10
                         description: Maximum number of Releases to keep in history.
                           Once the limit is reached the oldest Release in history
-                          will be deleted. Age is based on archiveTime.
+                          will be deleted. Age is based on archiveTime. Pointer is
+                          used to distinguish between not set and false.
                         minimum: 0
                         type: integer
                     type: object
-                  pendingDeadlineSeconds:
-                    default: 300
-                    description: If the pending Request cannot be activated before
-                      the deadline it will be considered failed. If the Release becomes
-                      available for activation after the deadline has been exceeded,
-                      it will not be activated.
-                    minimum: 3
-                    type: integer
-                  versionRequired:
-                    default: true
-                    description: If true '.spec.release.appDeployment.version' is
-                      required. Pointer is used to distinguish between not set and
-                      false.
-                    type: boolean
+                  type:
+                    default: Stable
+                    enum:
+                    - Stable
+                    - Testing
+                    type: string
                 type: object
             type: object
         type: object
     served: true
     storage: true
-    subresources: {}

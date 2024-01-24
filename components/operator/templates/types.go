@@ -79,14 +79,6 @@ func (d Data) PlatformFullName() string {
 	return fmt.Sprintf("%s-%s", d.Instance.Name, d.Platform.Name)
 }
 
-func (d Data) PlatformVaultName() string {
-	name := fmt.Sprintf("%s-%s", d.Platform.Namespace, d.Platform.Name)
-	if !strings.HasPrefix(name, "kubefox") {
-		name = "kubefox-" + name
-	}
-	return name
-}
-
 func (d Data) ComponentFullName() string {
 	if d.Component.Name == "" {
 		return ""
@@ -98,10 +90,6 @@ func (d Data) ComponentFullName() string {
 	}
 
 	return name
-}
-
-func (d Data) ComponentVaultName() string {
-	return fmt.Sprintf("%s-%s", d.PlatformVaultName(), d.Component.Name)
 }
 
 func (d Data) HomePath() string {

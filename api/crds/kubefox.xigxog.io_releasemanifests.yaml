@@ -26,13 +26,13 @@ spec:
   scope: Namespaced
   versions:
   - additionalPrinterColumns:
-    - jsonPath: .spec.id
+    - jsonPath: .spec.releaseId
       name: Id
       type: string
-    - jsonPath: .spec.virtualEnvironment.name
+    - jsonPath: .spec.environment.name
       name: Environment
       type: string
-    - jsonPath: .spec.virtualEnvironment.environment
+    - jsonPath: .spec.virtualEnvironment.name
       name: VirtualEnvironment
       type: string
     name: v1alpha1
@@ -277,14 +277,8 @@ spec:
                   type: object
                 minProperties: 1
                 type: object
-              id:
-                minLength: 1
-                type: string
-              virtualEnvironment:
+              environment:
                 properties:
-                  environment:
-                    minLength: 1
-                    type: string
                   name:
                     minLength: 1
                     type: string
@@ -298,14 +292,36 @@ spec:
                       UIDs and names do not get conflated.
                     type: string
                 required:
-                - environment
+                - name
+                - resourceVersion
+                - uid
+                type: object
+              releaseId:
+                minLength: 1
+                type: string
+              virtualEnvironment:
+                properties:
+                  name:
+                    minLength: 1
+                    type: string
+                  resourceVersion:
+                    minLength: 1
+                    type: string
+                  uid:
+                    description: UID is a type that holds unique ID values, including
+                      UUIDs.  Because we don't ONLY use UUIDs, this is an alias to
+                      string.  Being a type captures intent and helps make sure that
+                      UIDs and names do not get conflated.
+                    type: string
+                required:
                 - name
                 - resourceVersion
                 - uid
                 type: object
             required:
             - apps
-            - id
+            - environment
+            - releaseId
             - virtualEnvironment
             type: object
         required:

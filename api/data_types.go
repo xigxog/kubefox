@@ -8,8 +8,6 @@
 
 package api
 
-import "fmt"
-
 // +kubebuilder:object:generate=false
 type DataProvider interface {
 	Object
@@ -19,9 +17,10 @@ type DataProvider interface {
 }
 
 type DataKey struct {
+	Instance  string
+	Namespace string
 	Kind      string
 	Name      string
-	Namespace string
 }
 
 type Data struct {
@@ -63,12 +62,5 @@ func (lhs Data) MergeInto(rhs *Data) *Data {
 	return rhs
 }
 
-func (k DataKey) Path(instance string) string {
-	if k.Namespace == "" {
-		return fmt.Sprintf("kubefox/instance/%s/cluster/data/%s/%s",
-			instance, k.Kind, k.Name)
-	} else {
-		return fmt.Sprintf("kubefox/instance/%s/namespace/%s/data/%s/%s",
-			instance, k.Namespace, k.Kind, k.Name)
-	}
-}
+// POST	/:secret-mount-path/data/:path
+// DELETE	/:secret-mount-path/metadata/:path

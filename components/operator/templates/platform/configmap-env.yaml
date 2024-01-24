@@ -26,7 +26,6 @@ data:
   KUBEFOX_NAMESPACE: {{ namespace | quote }}
   KUBEFOX_PLATFORM_FULL_NAME: {{ platformFullName | quote }}
   KUBEFOX_PLATFORM_NAMESPACE: {{ .Platform.Namespace | quote }}
-  KUBEFOX_PLATFORM_VAULT_NAME: {{ platformVaultName | quote }}
   KUBEFOX_PLATFORM: {{ .Platform.Name | quote }}
   {{- with .Logger.Format }}
   KUBEFOX_LOG_FORMAT: {{ . | quote }}

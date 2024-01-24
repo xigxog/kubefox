@@ -1,10 +1,10 @@
-/*
-Copyright © 2023 XigXog
-
-This Source Code Form is subject to the terms of the Mozilla Public License,
-v2.0. If a copy of the MPL was not distributed with this file, You can obtain
-one at https://mozilla.org/MPL/2.0/.
-*/
+// Copyright 2023 XigXog
+//
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
+//
+// SPDX-License-Identifier: MPL-2.0
 
 package main
 
@@ -41,11 +41,12 @@ import (
 	"github.com/xigxog/kubefox/build"
 	"github.com/xigxog/kubefox/components/operator/controller"
 	"github.com/xigxog/kubefox/components/operator/templates"
-	"github.com/xigxog/kubefox/components/operator/vault"
+	opvault "github.com/xigxog/kubefox/components/operator/vault"
 	"github.com/xigxog/kubefox/components/operator/webhook"
 	"github.com/xigxog/kubefox/k8s"
 	"github.com/xigxog/kubefox/logkf"
 	"github.com/xigxog/kubefox/utils"
+	"github.com/xigxog/kubefox/vault"
 )
 
 var (
@@ -102,8 +103,8 @@ func main() {
 		LeaderElectionNamespace: namespace,
 		// In the default scaffold provided, the program ends immediately after
 		// the manager stops, so would be fine to enable this option. However,
-		// if you are doing or is intended to do any operation such as perform cleanups
-		// after the manager stops then its usage might be unsafe.
+		// if you are doing or is intended to do any operation such as perform
+		// cleanups after the manager stops then its usage might be unsafe.
 		LeaderElectionReleaseOnCancel: true,
 	})
 	if err != nil {
@@ -127,10 +128,14 @@ func main() {
 	}
 	cancel()
 
-	vault.Instance = instance
-	vault.Namespace = namespace
-	vault.URL = vaultURL
-	vault.K8sClient = ctrlClient.Client
+	opvault.Opts = vault.ClientOptions{
+		Instance:  instance,
+		Role:      fmt.Sprintf("%s-operator", instance),
+		URL:       vaultURL,
+		AutoRenew: true,
+	}
+	opvault.Namespace = namespace
+	opvault.K8sClient = ctrlClient.Client
 
 	// Register Controllers.
 	if err = (&controller.PlatformReconciler{

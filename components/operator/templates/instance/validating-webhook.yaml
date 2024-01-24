@@ -41,3 +41,4 @@ webhooks:
         resources:
           - appdeployments
           - releasemanifests
+          - virtualenvironments

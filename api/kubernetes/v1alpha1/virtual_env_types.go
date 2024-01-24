@@ -1,10 +1,10 @@
-/*
-Copyright © 2023 XigXog
-
-This Source Code Form is subject to the terms of the Mozilla Public License,
-v2.0. If a copy of the MPL was not distributed with this file, You can obtain
-one at https://mozilla.org/MPL/2.0/.
-*/
+// Copyright 2023 XigXog
+//
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
+//
+// SPDX-License-Identifier: MPL-2.0
 
 package v1alpha1
 
@@ -29,11 +29,6 @@ type VirtualEnvironmentSpec struct {
 
 type Release struct {
 	// +kubebuilder:validation:Required
-	// +kubebuilder:validation:MinLength=1
-
-	Id string `json:"id"`
-
-	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:MinProperties=1
 
 	Apps map[string]ReleaseApp `json:"apps"`
@@ -52,22 +47,22 @@ type ReleaseApp struct {
 }
 
 type ReleasePolicy struct {
+	// +kubebuilder:validation:Enum=Stable;Testing
+
+	Type api.ReleaseType `json:"type,omitempty"`
+
 	// +kubebuilder:validation:Minimum=3
 
-	// If the pending Request cannot be activated before the deadline it will be
-	// considered failed. If the Release becomes available for activation after
-	// the deadline has been exceeded, it will not be activated. Pointer is used
-	// to distinguish between not set and false.
-	PendingDeadlineSeconds *uint `json:"pendingDeadlineSeconds,omitempty"`
+	// If the pending Release cannot be activated before the activation deadline
+	// it will be considered failed and the Release will automatically rolled
+	// back to the current active Release. Pointer is used to distinguish
+	// between not set and false.
+	ActivationDeadlineSeconds *uint `json:"activationDeadlineSeconds,omitempty"`
 
-	// If true '.spec.release.appDeployment.version' is required. Pointer is
-	// used to distinguish between not set and false.
-	VersionRequired *bool `json:"versionRequired,omitempty"`
-
-	HistoryLimits *VirtEnvHistoryLimits `json:"historyLimits,omitempty"`
+	HistoryLimits *HistoryLimits `json:"historyLimits,omitempty"`
 }
 
-type VirtEnvHistoryLimits struct {
+type HistoryLimits struct {
 	// +kubebuilder:validation:Minimum=0
 
 	// Maximum number of Releases to keep in history. Once the limit is reached
@@ -86,6 +81,11 @@ type VirtEnvHistoryLimits struct {
 
 type ReleaseStatus struct {
 	Release `json:",inline"`
+
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:MinLength=1
+
+	Id string `json:"id"`
 
 	ReleaseManifest string `json:"releaseManifest,omitempty"`
 	// Time at which the VirtualEnvironment was updated to use the Release.
@@ -130,6 +130,7 @@ type VirtualEnvironmentStatus struct {
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:path=virtualenvironments,shortName=virtenv;ve
+// +kubebuilder:printcolumn:name="Environment",type=string,JSONPath=`.spec.environment`
 // +kubebuilder:printcolumn:name="Manifest",type=string,JSONPath=`.status.activeRelease.releaseManifest`
 // +kubebuilder:printcolumn:name="Available",type=string,JSONPath=`.status.conditions[?(@.type=='ActiveReleaseAvailable')].status`
 // +kubebuilder:printcolumn:name="Reason",type=string,JSONPath=`.status.conditions[?(@.type=='ActiveReleaseAvailable')].reason`
@@ -169,12 +170,12 @@ func (d *VirtualEnvironment) GetDataKey() api.DataKey {
 
 func (p *ReleasePolicy) GetPendingDeadline() time.Duration {
 	if p == nil {
-		return api.DefaultReleasePendingDeadlineSeconds * time.Second
+		return api.DefaultReleaseActivationDeadlineSeconds * time.Second
 	}
 
-	secs := p.PendingDeadlineSeconds
+	secs := p.ActivationDeadlineSeconds
 	if secs == nil || *secs == 0 {
-		return api.DefaultReleasePendingDeadlineSeconds * time.Second
+		return api.DefaultReleaseActivationDeadlineSeconds * time.Second
 	}
 
 	return time.Duration(*secs * uint(time.Second))
@@ -191,37 +192,52 @@ func (ve *VirtualEnvironment) GetReleasePendingDuration() time.Duration {
 }
 
 func (ve *VirtualEnvironment) GetReleasePolicy(env *Environment) *ReleasePolicy {
-	p := ve.Spec.ReleasePolicy.DeepCopy()
-	if p == nil {
-		p = &ReleasePolicy{}
+	envPol := env.Spec.ReleasePolicy
+	vePol := ve.Spec.ReleasePolicy.DeepCopy()
+	if vePol == nil {
+		vePol = &ReleasePolicy{}
 	}
 
-	if p.PendingDeadlineSeconds == nil {
-		p.PendingDeadlineSeconds =
-			&env.Spec.ReleasePolicy.PendingDeadlineSeconds
-	}
-	if p.VersionRequired == nil {
-		if env.Spec.ReleasePolicy.VersionRequired == nil {
-			p.VersionRequired = api.True
+	if vePol.ActivationDeadlineSeconds == nil {
+		if envPol.ActivationDeadlineSeconds == nil ||
+			*envPol.ActivationDeadlineSeconds == 0 {
+			i := uint(api.DefaultReleaseActivationDeadlineSeconds)
+			vePol.ActivationDeadlineSeconds = &i
 		} else {
-			p.VersionRequired =
-				env.Spec.ReleasePolicy.VersionRequired
+			vePol.ActivationDeadlineSeconds = envPol.ActivationDeadlineSeconds
+		}
+	}
+	if vePol.Type == "" {
+		if envPol.Type == "" {
+			vePol.Type = api.ReleaseTypeStable
+		} else {
+			vePol.Type = envPol.Type
 		}
 	}
 
-	if p.HistoryLimits == nil {
-		p.HistoryLimits = &VirtEnvHistoryLimits{}
+	if vePol.HistoryLimits == nil {
+		vePol.HistoryLimits = &HistoryLimits{}
 	}
-	if p.HistoryLimits.Count == nil {
-		p.HistoryLimits.Count =
-			&env.Spec.ReleasePolicy.HistoryLimits.Count
+	if vePol.HistoryLimits.Count == nil {
+		if envPol.HistoryLimits.Count == nil ||
+			*envPol.HistoryLimits.Count == 0 {
+			i := uint(api.DefaultReleaseHistoryCountLimit)
+			vePol.HistoryLimits.Count = &i
+		} else {
+			vePol.HistoryLimits.Count = envPol.HistoryLimits.Count
+		}
 	}
-	if p.HistoryLimits.AgeDays == nil {
-		p.HistoryLimits.AgeDays =
-			&env.Spec.ReleasePolicy.HistoryLimits.AgeDays
+	if vePol.HistoryLimits.AgeDays == nil {
+		if envPol.HistoryLimits.AgeDays == nil ||
+			*envPol.HistoryLimits.AgeDays == 0 {
+			i := uint(api.DefaultReleaseHistoryAgeLimit)
+			vePol.HistoryLimits.AgeDays = &i
+		} else {
+			vePol.HistoryLimits.AgeDays = envPol.HistoryLimits.AgeDays
+		}
 	}
 
-	return p
+	return vePol
 }
 
 func init() {

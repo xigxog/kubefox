@@ -199,8 +199,9 @@ image: {{ .Instance.BootstrapImage }}
 imagePullPolicy: {{ .Component.ImagePullPolicy | default "IfNotPresent" }}
 {{ include "securityContext" . }}
 args:
-  - -platform-vault-name={{ platformVaultName }}
-  - -component-vault-name={{ componentVaultName }}
+  - -instance={{ .Instance.Name }}
+  - -platform-namespace={{ .Platform.Namespace }}
+  - -component={{ componentFullName }}
   - -component-service-name={{ printf "%s.%s" componentFullName namespace }}
   - -component-ip=$(KUBEFOX_COMPONENT_IP)
   - -vault-url={{ .Values.vaultURL }}

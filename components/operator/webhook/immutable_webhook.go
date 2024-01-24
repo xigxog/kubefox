@@ -1,18 +1,10 @@
-/*
-Copyright 2018 The Kubernetes Authors.
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-*/
+// Copyright 2023 XigXog
+//
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
+//
+// SPDX-License-Identifier: MPL-2.0
 
 package webhook
 
@@ -53,7 +45,7 @@ func (r *ImmutableWebhook) Handle(ctx context.Context, req admission.Request) ad
 
 		if oldObj.Spec.Version != "" {
 			if !k8s.DeepEqual(&obj.Spec, &oldObj.Spec) {
-				return admission.Denied(fmt.Sprintf(notAllowedMsg, req.Kind.Kind))
+				return admission.Denied(fmt.Sprintf(notAllowedMsg, "AppDeployment with version"))
 			}
 		}
 
@@ -68,7 +60,7 @@ func (r *ImmutableWebhook) Handle(ctx context.Context, req admission.Request) ad
 		}
 
 		if !k8s.DeepEqual(&obj.Spec, &oldObj.Spec) || !k8s.DeepEqual(&obj.Data, &oldObj.Data) {
-			return admission.Denied(fmt.Sprintf(notAllowedMsg, req.Kind.Kind))
+			return admission.Denied(fmt.Sprintf(notAllowedMsg, "ReleaseManifest"))
 		}
 
 	case "kubefox.xigxog.io/v1alpha1, Kind=VirtualEnvironment":
@@ -83,13 +75,6 @@ func (r *ImmutableWebhook) Handle(ctx context.Context, req admission.Request) ad
 
 		if obj.Spec.Environment != oldObj.Spec.Environment {
 			return admission.Denied(fmt.Sprintf(notAllowedMsg, ".spec.environment"))
-		}
-
-		if obj.Spec.Release != nil && oldObj.Spec.Release != nil &&
-			obj.Spec.Release.Id == oldObj.Spec.Release.Id &&
-			!k8s.DeepEqual(obj.Spec.Release.Apps, oldObj.Spec.Release.Apps) {
-
-			return admission.Denied(".spec.release.Id but be updated if changes are made to .spec.release.apps")
 		}
 	}
 
