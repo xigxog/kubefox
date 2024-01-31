@@ -29,10 +29,10 @@ spec:
     - jsonPath: .spec.releaseId
       name: Id
       type: string
-    - jsonPath: .spec.environment.name
+    - jsonPath: .spec.environment.metadata.name
       name: Environment
       type: string
-    - jsonPath: .spec.virtualEnvironment.name
+    - jsonPath: .spec.virtualEnvironment.metadata.name
       name: VirtualEnvironment
       type: string
     name: v1alpha1
@@ -46,7 +46,7 @@ spec:
             type: string
           data:
             description: Data is the merged values of the Environment and VirtualEnvironment
-              data objects.
+              Data.
             properties:
               secrets:
                 type: object
@@ -54,31 +54,6 @@ spec:
               vars:
                 type: object
                 x-kubernetes-preserve-unknown-fields: true
-            type: object
-          details:
-            properties:
-              description:
-                type: string
-              secrets:
-                additionalProperties:
-                  properties:
-                    description:
-                      type: string
-                    title:
-                      type: string
-                  type: object
-                type: object
-              title:
-                type: string
-              vars:
-                additionalProperties:
-                  properties:
-                    description:
-                      type: string
-                    title:
-                      type: string
-                  type: object
-                type: object
             type: object
           kind:
             description: 'Kind is a string value representing the REST resource this
@@ -94,14 +69,49 @@ spec:
                   http:
                     items:
                       properties:
-                        generation:
-                          format: int64
-                          type: integer
-                        name:
+                        apiVersion:
+                          description: 'APIVersion defines the versioned schema of
+                            this representation of an object. Servers should convert
+                            recognized schemas to the latest internal value, and may
+                            reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
                           type: string
-                        resourceVersion:
-                          minLength: 1
+                        details:
+                          properties:
+                            description:
+                              type: string
+                            title:
+                              type: string
+                          type: object
+                        kind:
+                          description: 'Kind is a string value representing the REST
+                            resource this object represents. Servers may infer this
+                            from the endpoint the client submits requests to. Cannot
+                            be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
                           type: string
+                        metadata:
+                          properties:
+                            generation:
+                              format: int64
+                              type: integer
+                            name:
+                              type: string
+                            namespace:
+                              type: string
+                            resourceVersion:
+                              minLength: 1
+                              type: string
+                            uid:
+                              description: UID is a type that holds unique ID values,
+                                including UUIDs.  Because we don't ONLY use UUIDs,
+                                this is an alias to string.  Being a type captures
+                                intent and helps make sure that UIDs and names do
+                                not get conflated.
+                              type: string
+                          required:
+                          - generation
+                          - resourceVersion
+                          - uid
+                          type: object
                         spec:
                           properties:
                             followRedirects:
@@ -130,149 +140,57 @@ spec:
                           required:
                           - url
                           type: object
-                        uid:
-                          description: UID is a type that holds unique ID values,
-                            including UUIDs.  Because we don't ONLY use UUIDs, this
-                            is an alias to string.  Being a type captures intent and
-                            helps make sure that UIDs and names do not get conflated.
-                          type: string
                       required:
-                      - generation
-                      - resourceVersion
+                      - metadata
                       - spec
-                      - uid
                       type: object
                     type: array
                 type: object
-              apps:
-                additionalProperties:
+              appDeployments:
+                items:
                   properties:
-                    appDeployment:
+                    apiVersion:
+                      description: 'APIVersion defines the versioned schema of this
+                        representation of an object. Servers should convert recognized
+                        schemas to the latest internal value, and may reject unrecognized
+                        values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+                      type: string
+                    details:
+                      description: AppDeploymentDetails defines additional details
+                        of AppDeployment
+                      properties:
+                        components:
+                          additionalProperties:
+                            properties:
+                              description:
+                                type: string
+                              title:
+                                type: string
+                            type: object
+                          type: object
+                        description:
+                          type: string
+                        title:
+                          type: string
+                      type: object
+                    kind:
+                      description: 'Kind is a string value representing the REST resource
+                        this object represents. Servers may infer this from the endpoint
+                        the client submits requests to. Cannot be updated. In CamelCase.
+                        More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+                      type: string
+                    metadata:
                       properties:
                         generation:
                           format: int64
                           type: integer
                         name:
                           type: string
+                        namespace:
+                          type: string
                         resourceVersion:
                           minLength: 1
                           type: string
-                        spec:
-                          description: AppDeploymentSpec defines the desired state
-                            of AppDeployment
-                          properties:
-                            appName:
-                              type: string
-                            branch:
-                              type: string
-                            commit:
-                              pattern: ^[a-z0-9]{40}$
-                              type: string
-                            commitTime:
-                              format: date-time
-                              type: string
-                            components:
-                              additionalProperties:
-                                properties:
-                                  commit:
-                                    pattern: ^[a-z0-9]{40}$
-                                    type: string
-                                  defaultHandler:
-                                    type: boolean
-                                  dependencies:
-                                    additionalProperties:
-                                      properties:
-                                        type:
-                                          enum:
-                                          - DBAdapter
-                                          - KubeFox
-                                          - HTTPAdapter
-                                          type: string
-                                      required:
-                                      - type
-                                      type: object
-                                    type: object
-                                  envVarSchema:
-                                    additionalProperties:
-                                      properties:
-                                        required:
-                                          default: false
-                                          type: boolean
-                                        type:
-                                          enum:
-                                          - Array
-                                          - Boolean
-                                          - Number
-                                          - String
-                                          type: string
-                                      required:
-                                      - required
-                                      type: object
-                                    type: object
-                                  image:
-                                    type: string
-                                  routes:
-                                    items:
-                                      properties:
-                                        envVarSchema:
-                                          additionalProperties:
-                                            properties:
-                                              required:
-                                                default: false
-                                                type: boolean
-                                              type:
-                                                enum:
-                                                - Array
-                                                - Boolean
-                                                - Number
-                                                - String
-                                                type: string
-                                            required:
-                                            - required
-                                            type: object
-                                          type: object
-                                        id:
-                                          type: integer
-                                        priority:
-                                          type: integer
-                                        rule:
-                                          type: string
-                                      required:
-                                      - id
-                                      - rule
-                                      type: object
-                                    type: array
-                                  type:
-                                    enum:
-                                    - DBAdapter
-                                    - KubeFox
-                                    - HTTPAdapter
-                                    type: string
-                                required:
-                                - commit
-                                - type
-                                type: object
-                              minProperties: 1
-                              type: object
-                            containerRegistry:
-                              type: string
-                            imagePullSecretName:
-                              type: string
-                            repoURL:
-                              type: string
-                            tag:
-                              type: string
-                            version:
-                              description: Version of the defined App. Use of semantic
-                                versioning is recommended. Once set the AppDeployment
-                                spec becomes immutable.
-                              type: string
-                          required:
-                          - appName
-                          - commit
-                          - commitTime
-                          - components
-                          type: object
                         uid:
                           description: UID is a type that holds unique ID values,
                             including UUIDs.  Because we don't ONLY use UUIDs, this
@@ -282,65 +200,392 @@ spec:
                       required:
                       - generation
                       - resourceVersion
-                      - spec
                       - uid
                       type: object
-                    version:
-                      minLength: 1
-                      type: string
+                    spec:
+                      description: AppDeploymentSpec defines the desired state of
+                        AppDeployment
+                      properties:
+                        appName:
+                          type: string
+                        branch:
+                          type: string
+                        commit:
+                          pattern: ^[a-z0-9]{40}$
+                          type: string
+                        commitTime:
+                          format: date-time
+                          type: string
+                        components:
+                          additionalProperties:
+                            properties:
+                              commit:
+                                pattern: ^[a-z0-9]{40}$
+                                type: string
+                              defaultHandler:
+                                type: boolean
+                              dependencies:
+                                additionalProperties:
+                                  properties:
+                                    type:
+                                      enum:
+                                      - DBAdapter
+                                      - KubeFox
+                                      - HTTPAdapter
+                                      type: string
+                                  required:
+                                  - type
+                                  type: object
+                                type: object
+                              envVarSchema:
+                                additionalProperties:
+                                  properties:
+                                    required:
+                                      default: false
+                                      type: boolean
+                                    type:
+                                      enum:
+                                      - Array
+                                      - Boolean
+                                      - Number
+                                      - String
+                                      type: string
+                                  required:
+                                  - required
+                                  type: object
+                                type: object
+                              image:
+                                type: string
+                              routes:
+                                items:
+                                  properties:
+                                    envVarSchema:
+                                      additionalProperties:
+                                        properties:
+                                          required:
+                                            default: false
+                                            type: boolean
+                                          type:
+                                            enum:
+                                            - Array
+                                            - Boolean
+                                            - Number
+                                            - String
+                                            type: string
+                                        required:
+                                        - required
+                                        type: object
+                                      type: object
+                                    id:
+                                      type: integer
+                                    priority:
+                                      type: integer
+                                    rule:
+                                      type: string
+                                  required:
+                                  - id
+                                  - rule
+                                  type: object
+                                type: array
+                              type:
+                                enum:
+                                - DBAdapter
+                                - KubeFox
+                                - HTTPAdapter
+                                type: string
+                            required:
+                            - commit
+                            - type
+                            type: object
+                          minProperties: 1
+                          type: object
+                        containerRegistry:
+                          type: string
+                        imagePullSecretName:
+                          type: string
+                        repoURL:
+                          type: string
+                        tag:
+                          type: string
+                        version:
+                          description: Version of the defined App. Use of semantic
+                            versioning is recommended. Once set the AppDeployment
+                            spec becomes immutable.
+                          type: string
+                      required:
+                      - appName
+                      - commit
+                      - commitTime
+                      - components
+                      type: object
                   required:
-                  - appDeployment
-                  - version
+                  - metadata
+                  - spec
                   type: object
-                minProperties: 1
-                type: object
+                minItems: 1
+                type: array
               environment:
                 properties:
-                  generation:
-                    format: int64
-                    type: integer
-                  name:
+                  apiVersion:
+                    description: 'APIVersion defines the versioned schema of this
+                      representation of an object. Servers should convert recognized
+                      schemas to the latest internal value, and may reject unrecognized
+                      values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
                     type: string
-                  resourceVersion:
-                    minLength: 1
+                  data:
+                    properties:
+                      secrets:
+                        type: object
+                        x-kubernetes-preserve-unknown-fields: true
+                      vars:
+                        type: object
+                        x-kubernetes-preserve-unknown-fields: true
+                    type: object
+                  details:
+                    properties:
+                      description:
+                        type: string
+                      secrets:
+                        additionalProperties:
+                          properties:
+                            description:
+                              type: string
+                            title:
+                              type: string
+                          type: object
+                        type: object
+                      title:
+                        type: string
+                      vars:
+                        additionalProperties:
+                          properties:
+                            description:
+                              type: string
+                            title:
+                              type: string
+                          type: object
+                        type: object
+                    type: object
+                  kind:
+                    description: 'Kind is a string value representing the REST resource
+                      this object represents. Servers may infer this from the endpoint
+                      the client submits requests to. Cannot be updated. In CamelCase.
+                      More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
                     type: string
-                  uid:
-                    description: UID is a type that holds unique ID values, including
-                      UUIDs.  Because we don't ONLY use UUIDs, this is an alias to
-                      string.  Being a type captures intent and helps make sure that
-                      UIDs and names do not get conflated.
-                    type: string
+                  metadata:
+                    properties:
+                      generation:
+                        format: int64
+                        type: integer
+                      name:
+                        type: string
+                      namespace:
+                        type: string
+                      resourceVersion:
+                        minLength: 1
+                        type: string
+                      uid:
+                        description: UID is a type that holds unique ID values, including
+                          UUIDs.  Because we don't ONLY use UUIDs, this is an alias
+                          to string.  Being a type captures intent and helps make
+                          sure that UIDs and names do not get conflated.
+                        type: string
+                    required:
+                    - generation
+                    - resourceVersion
+                    - uid
+                    type: object
+                  spec:
+                    properties:
+                      releasePolicy:
+                        properties:
+                          activationDeadlineSeconds:
+                            default: 300
+                            description: If the pending Release cannot be activated
+                              before the activation deadline it will be considered
+                              failed and the Release will automatically rolled back
+                              to the current active Release. Pointer is used to distinguish
+                              between not set and false.
+                            minimum: 3
+                            type: integer
+                          historyLimits:
+                            properties:
+                              ageDays:
+                                description: Maximum age of the Release to keep in
+                                  history. Once the limit is reached the oldest Release
+                                  in history will be deleted. Age is based on archiveTime.
+                                  Set to 0 to disable. Pointer is used to distinguish
+                                  between not set and false.
+                                minimum: 0
+                                type: integer
+                              count:
+                                default: 10
+                                description: Maximum number of Releases to keep in
+                                  history. Once the limit is reached the oldest Release
+                                  in history will be deleted. Age is based on archiveTime.
+                                  Pointer is used to distinguish between not set and
+                                  false.
+                                minimum: 0
+                                type: integer
+                            type: object
+                          type:
+                            default: Stable
+                            enum:
+                            - Stable
+                            - Testing
+                            type: string
+                        type: object
+                    type: object
                 required:
-                - generation
-                - resourceVersion
-                - uid
+                - metadata
                 type: object
               releaseId:
                 minLength: 1
                 type: string
               virtualEnvironment:
                 properties:
-                  generation:
-                    format: int64
-                    type: integer
-                  name:
+                  apiVersion:
+                    description: 'APIVersion defines the versioned schema of this
+                      representation of an object. Servers should convert recognized
+                      schemas to the latest internal value, and may reject unrecognized
+                      values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
                     type: string
-                  resourceVersion:
-                    minLength: 1
+                  data:
+                    properties:
+                      secrets:
+                        type: object
+                        x-kubernetes-preserve-unknown-fields: true
+                      vars:
+                        type: object
+                        x-kubernetes-preserve-unknown-fields: true
+                    type: object
+                  details:
+                    properties:
+                      description:
+                        type: string
+                      secrets:
+                        additionalProperties:
+                          properties:
+                            description:
+                              type: string
+                            title:
+                              type: string
+                          type: object
+                        type: object
+                      title:
+                        type: string
+                      vars:
+                        additionalProperties:
+                          properties:
+                            description:
+                              type: string
+                            title:
+                              type: string
+                          type: object
+                        type: object
+                    type: object
+                  kind:
+                    description: 'Kind is a string value representing the REST resource
+                      this object represents. Servers may infer this from the endpoint
+                      the client submits requests to. Cannot be updated. In CamelCase.
+                      More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
                     type: string
-                  uid:
-                    description: UID is a type that holds unique ID values, including
-                      UUIDs.  Because we don't ONLY use UUIDs, this is an alias to
-                      string.  Being a type captures intent and helps make sure that
-                      UIDs and names do not get conflated.
-                    type: string
+                  metadata:
+                    properties:
+                      generation:
+                        format: int64
+                        type: integer
+                      name:
+                        type: string
+                      namespace:
+                        type: string
+                      resourceVersion:
+                        minLength: 1
+                        type: string
+                      uid:
+                        description: UID is a type that holds unique ID values, including
+                          UUIDs.  Because we don't ONLY use UUIDs, this is an alias
+                          to string.  Being a type captures intent and helps make
+                          sure that UIDs and names do not get conflated.
+                        type: string
+                    required:
+                    - generation
+                    - resourceVersion
+                    - uid
+                    type: object
+                  spec:
+                    properties:
+                      environment:
+                        description: Name of the Environment this VirtualEnvironment
+                          is part of. This field is immutable.
+                        minLength: 1
+                        type: string
+                      release:
+                        properties:
+                          apps:
+                            additionalProperties:
+                              properties:
+                                appDeployment:
+                                  minLength: 1
+                                  type: string
+                                version:
+                                  description: Version of the App being released.
+                                    Use of semantic versioning is recommended. If
+                                    set the value is compared to the AppDeployment
+                                    version. If the two versions do not match the
+                                    release will fail.
+                                  type: string
+                              required:
+                              - appDeployment
+                              type: object
+                            minProperties: 1
+                            type: object
+                        required:
+                        - apps
+                        type: object
+                      releasePolicy:
+                        properties:
+                          activationDeadlineSeconds:
+                            description: If the pending Release cannot be activated
+                              before the activation deadline it will be considered
+                              failed and the Release will automatically rolled back
+                              to the current active Release. Pointer is used to distinguish
+                              between not set and false.
+                            minimum: 3
+                            type: integer
+                          historyLimits:
+                            properties:
+                              ageDays:
+                                description: Maximum age of the Release to keep in
+                                  history. Once the limit is reached the oldest Release
+                                  in history will be deleted. Age is based on archiveTime.
+                                  Set to 0 to disable. Pointer is used to distinguish
+                                  between not set and false.
+                                minimum: 0
+                                type: integer
+                              count:
+                                description: Maximum number of Releases to keep in
+                                  history. Once the limit is reached the oldest Release
+                                  in history will be deleted. Age is based on archiveTime.
+                                  Pointer is used to distinguish between not set and
+                                  false.
+                                minimum: 0
+                                type: integer
+                            type: object
+                          type:
+                            enum:
+                            - Stable
+                            - Testing
+                            type: string
+                        type: object
+                    required:
+                    - environment
+                    type: object
                 required:
-                - generation
-                - resourceVersion
-                - uid
+                - metadata
                 type: object
             required:
-            - apps
+            - appDeployments
             - environment
             - releaseId
             - virtualEnvironment

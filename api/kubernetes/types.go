@@ -100,6 +100,9 @@ type LoggerSpec struct {
 }
 
 type ObjectRef struct {
+	Namespace string `json:"namespace,omitempty"`
+	Name      string `json:"name,omitempty"`
+
 	// +kubebuilder:validation:Required
 
 	UID types.UID `json:"uid"`
@@ -112,13 +115,22 @@ type ObjectRef struct {
 	// +kubebuilder:validation:Required
 
 	Generation int64 `json:"generation"`
+}
 
-	Name string `json:"name,omitempty"`
+func RefFromMeta(meta metav1.ObjectMeta) ObjectRef {
+	return ObjectRef{
+		Namespace:       meta.Namespace,
+		Name:            meta.Name,
+		UID:             meta.UID,
+		ResourceVersion: meta.ResourceVersion,
+		Generation:      meta.Generation,
+	}
 }
 
 func (r ObjectRef) ObjectMeta() metav1.ObjectMeta {
 	return metav1.ObjectMeta{
 		Name:            r.Name,
+		Namespace:       r.Namespace,
 		UID:             r.UID,
 		ResourceVersion: r.ResourceVersion,
 		Generation:      r.Generation,
@@ -128,6 +140,7 @@ func (r ObjectRef) ObjectMeta() metav1.ObjectMeta {
 func (r ObjectRef) ObjectMetaWithName(name string) metav1.ObjectMeta {
 	return metav1.ObjectMeta{
 		Name:            name,
+		Namespace:       r.Namespace,
 		UID:             r.UID,
 		ResourceVersion: r.ResourceVersion,
 		Generation:      r.Generation,

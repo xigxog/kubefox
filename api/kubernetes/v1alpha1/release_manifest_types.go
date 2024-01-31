@@ -23,56 +23,80 @@ type ReleaseManifestSpec struct {
 
 	// +kubebuilder:validation:Required
 
-	Environment common.ObjectRef `json:"environment"`
+	Environment EnvironmentManifest `json:"environment"`
 
 	// +kubebuilder:validation:Required
 
-	VirtualEnvironment common.ObjectRef `json:"virtualEnvironment"`
+	VirtualEnvironment VirtualEnvironmentManifest `json:"virtualEnvironment"`
 
 	// +kubebuilder:validation:Required
-	// +kubebuilder:validation:MinProperties=1
+	// +kubebuilder:validation:MinItems=1
 
-	Apps map[string]*ReleaseManifestApp `json:"apps"`
+	AppDeployments []AppDeploymentManifest `json:"appDeployments"`
 
 	Adapters *ReleaseManifestAdapters `json:"adapters,omitempty"`
 }
 
-type ReleaseManifestApp struct {
-	// +kubebuilder:validation:Required
-	// +kubebuilder:validation:MinLength=1
-	Version string `json:"version"`
+type EnvironmentManifest struct {
+	metav1.TypeMeta `json:",inline"`
 
 	// +kubebuilder:validation:Required
 
-	AppDeployment ReleaseManifestAppDep `json:"appDeployment"`
+	common.ObjectRef `json:"metadata"`
+
+	Spec    EnvironmentSpec `json:"spec,omitempty"`
+	Data    api.Data        `json:"data,omitempty"`
+	Details api.DataDetails `json:"details,omitempty"`
 }
 
-type ReleaseManifestAppDep struct {
-	common.ObjectRef `json:",inline"`
+type VirtualEnvironmentManifest struct {
+	metav1.TypeMeta `json:",inline"`
 
 	// +kubebuilder:validation:Required
 
-	Spec AppDeploymentSpec `json:"spec"`
+	common.ObjectRef `json:"metadata"`
+
+	Spec    VirtualEnvironmentSpec `json:"spec,omitempty"`
+	Data    api.Data               `json:"data,omitempty"`
+	Details api.DataDetails        `json:"details,omitempty"`
+}
+
+type AppDeploymentManifest struct {
+	metav1.TypeMeta `json:",inline"`
+
+	// +kubebuilder:validation:Required
+
+	common.ObjectRef `json:"metadata"`
+
+	// +kubebuilder:validation:Required
+
+	Spec    AppDeploymentSpec    `json:"spec"`
+	Details AppDeploymentDetails `json:"details,omitempty"`
 }
 
 type ReleaseManifestAdapters struct {
-	HTTPAdapters []ReleaseManifestHTTPAdapter `json:"http,omitempty"`
+	HTTPAdapters []HTTPAdapterManifest `json:"http,omitempty"`
 }
 
-type ReleaseManifestHTTPAdapter struct {
-	common.ObjectRef `json:",inline"`
+type HTTPAdapterManifest struct {
+	metav1.TypeMeta `json:",inline"`
 
 	// +kubebuilder:validation:Required
 
-	Spec HTTPAdapterSpec `json:"spec"`
+	common.ObjectRef `json:"metadata"`
+
+	// +kubebuilder:validation:Required
+
+	Spec    HTTPAdapterSpec `json:"spec"`
+	Details api.Details     `json:"details,omitempty"`
 }
 
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:path=releasemanifests,shortName=manifest;rm
 // +kubebuilder:printcolumn:name="Id",type=string,JSONPath=`.spec.releaseId`
-// +kubebuilder:printcolumn:name="Environment",type=string,JSONPath=`.spec.environment.name`
-// +kubebuilder:printcolumn:name="VirtualEnvironment",type=string,JSONPath=`.spec.virtualEnvironment.name`
+// +kubebuilder:printcolumn:name="Environment",type=string,JSONPath=`.spec.environment.metadata.name`
+// +kubebuilder:printcolumn:name="VirtualEnvironment",type=string,JSONPath=`.spec.virtualEnvironment.metadata.name`
 
 type ReleaseManifest struct {
 	metav1.TypeMeta   `json:",inline"`
@@ -84,10 +108,8 @@ type ReleaseManifest struct {
 
 	// +kubebuilder:validation:Required
 
-	// Data is the merged values of the Environment and VirtualEnvironment data
-	// objects.
-	Data    api.Data        `json:"data"`
-	Details api.DataDetails `json:"details,omitempty"`
+	// Data is the merged values of the Environment and VirtualEnvironment Data.
+	Data api.Data `json:"data"`
 }
 
 // +kubebuilder:object:root=true
@@ -110,28 +132,37 @@ func (d *ReleaseManifest) GetDataKey() api.DataKey {
 	}
 }
 
-func (d *ReleaseManifest) AddAdapter(adapter common.Adapter) {
-	if cur, _ := d.GetAdapter(adapter.GetName(), adapter.GetComponentType()); cur != nil {
+func (d *ReleaseManifest) GetAppDeployment(name string) (*AppDeployment, error) {
+	if d.Spec.AppDeployments == nil {
+		return nil, core.ErrNotFound()
+	}
+
+	for _, a := range d.Spec.AppDeployments {
+		if a.Name == name {
+			return &AppDeployment{
+				TypeMeta:   a.TypeMeta,
+				ObjectMeta: a.ObjectMeta(),
+				Spec:       a.Spec,
+				Details:    a.Details,
+			}, nil
+		}
+	}
+
+	return nil, core.ErrNotFound()
+}
+
+func (d *ReleaseManifest) AddAppDeployment(appDep *AppDeployment) {
+	if cur, _ := d.GetAppDeployment(appDep.Name); cur != nil {
 		// Adapter already present.
 		return
 	}
 
-	if d.Spec.Adapters == nil {
-		d.Spec.Adapters = &ReleaseManifestAdapters{}
-	}
-
-	switch adapter := adapter.(type) {
-	case *HTTPAdapter:
-		d.Spec.Adapters.HTTPAdapters = append(d.Spec.Adapters.HTTPAdapters, ReleaseManifestHTTPAdapter{
-			ObjectRef: common.ObjectRef{
-				UID:             adapter.UID,
-				ResourceVersion: adapter.ResourceVersion,
-				Generation:      adapter.Generation,
-				Name:            adapter.Name,
-			},
-			Spec: adapter.Spec,
-		})
-	}
+	d.Spec.AppDeployments = append(d.Spec.AppDeployments, AppDeploymentManifest{
+		TypeMeta:  appDep.TypeMeta,
+		ObjectRef: common.RefFromMeta(appDep.ObjectMeta),
+		Spec:      appDep.Spec,
+		Details:   appDep.Details,
+	})
 }
 
 func (d *ReleaseManifest) GetAdapter(name string, typ api.ComponentType) (common.Adapter, error) {
@@ -139,25 +170,36 @@ func (d *ReleaseManifest) GetAdapter(name string, typ api.ComponentType) (common
 		return nil, core.ErrNotFound()
 	}
 
-	var a common.Adapter
 	switch typ {
 	case api.ComponentTypeHTTPAdapter:
 		for _, h := range d.Spec.Adapters.HTTPAdapters {
 			if h.Name == name {
-				a = &HTTPAdapter{
+				return &HTTPAdapter{
 					ObjectMeta: h.ObjectMeta(),
 					Spec:       h.Spec,
-				}
-				break
+				}, nil
 			}
 		}
 	}
 
-	if a == nil {
-		return nil, core.ErrNotFound()
+	return nil, core.ErrNotFound()
+}
+
+func (d *ReleaseManifest) AddAdapter(adapter common.Adapter) {
+	if cur, _ := d.GetAdapter(adapter.GetName(), adapter.GetComponentType()); cur != nil {
+		// Adapter already present.
+		return
 	}
 
-	return a, nil
+	switch adapter := adapter.(type) {
+	case *HTTPAdapter:
+		d.Spec.Adapters.HTTPAdapters = append(d.Spec.Adapters.HTTPAdapters, HTTPAdapterManifest{
+			TypeMeta:  adapter.TypeMeta,
+			ObjectRef: common.RefFromMeta(adapter.ObjectMeta),
+			Spec:      adapter.Spec,
+			Details:   adapter.Details,
+		})
+	}
 }
 
 func init() {
