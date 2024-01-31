@@ -42,6 +42,7 @@ type VirtualEnvContext struct {
 	*v1alpha1.VirtualEnvironment
 
 	Environment *v1alpha1.Environment
+	Data        *api.Data
 	Policy      *v1alpha1.ReleasePolicy
 
 	EnvFound bool
@@ -91,12 +92,15 @@ func (r *VirtualEnvReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 	if err := r.Get(ctx, k8s.Key("", ve.Spec.Environment), env); k8s.IgnoreNotFound(err) != nil {
 		return ctrl.Result{}, err
 	}
-	ve.Data.Import(&env.Data)
+
+	data := ve.Data.DeepCopy()
+	data.Import(&env.Data)
 
 	veCtx := &VirtualEnvContext{
 		Context:            ctx,
 		VirtualEnvironment: ve,
 		Environment:        env,
+		Data:               data,
 		Policy:             ve.GetReleasePolicy(env),
 		EnvFound:           env.UID != "",
 		Now:                metav1.Now(),
@@ -401,10 +405,11 @@ func (r *VirtualEnvReconciler) createManifest(ctx *VirtualEnvContext) (*v1alpha1
 		return nil, err
 	}
 
-	if err := vaultCli.GetData(ctx, ctx.Environment.GetDataKey(), &ctx.Data); k8s.IgnoreNotFound(err) != nil {
+	data := ctx.Data.DeepCopy()
+	if err := vaultCli.GetData(ctx, ctx.Environment.GetDataKey(), data); k8s.IgnoreNotFound(err) != nil {
 		return nil, err
 	}
-	if err := vaultCli.GetData(ctx, ctx.GetDataKey(), &ctx.Data); k8s.IgnoreNotFound(err) != nil {
+	if err := vaultCli.GetData(ctx, ctx.GetDataKey(), data); k8s.IgnoreNotFound(err) != nil {
 		return nil, err
 	}
 
@@ -428,42 +433,35 @@ func (r *VirtualEnvReconciler) createManifest(ctx *VirtualEnvContext) (*v1alpha1
 		},
 		Spec: v1alpha1.ReleaseManifestSpec{
 			ReleaseId: ctx.Status.ActiveRelease.Id,
-			Environment: common.ObjectRef{
-				UID:             ctx.Environment.UID,
-				Name:            ctx.Environment.Name,
-				ResourceVersion: ctx.Environment.ResourceVersion,
-				Generation:      ctx.Generation,
+			Environment: v1alpha1.EnvironmentManifest{
+				TypeMeta:  ctx.Environment.TypeMeta,
+				ObjectRef: common.RefFromMeta(ctx.Environment.ObjectMeta),
+				Spec:      ctx.Environment.Spec,
+				Data:      ctx.Environment.Data,
+				Details:   ctx.Environment.Details,
 			},
-			VirtualEnvironment: common.ObjectRef{
-				UID:             ctx.UID,
-				Name:            ctx.Name,
-				ResourceVersion: ctx.ResourceVersion,
-				Generation:      ctx.Generation,
+			VirtualEnvironment: v1alpha1.VirtualEnvironmentManifest{
+				TypeMeta:  ctx.VirtualEnvironment.TypeMeta,
+				ObjectRef: common.RefFromMeta(ctx.VirtualEnvironment.ObjectMeta),
+				Spec:      ctx.VirtualEnvironment.Spec,
+				Data:      ctx.VirtualEnvironment.Data,
+				Details:   ctx.VirtualEnvironment.Details,
 			},
-			Apps: map[string]*v1alpha1.ReleaseManifestApp{},
 		},
-		Data:    ctx.Data,
-		Details: ctx.Details,
+		Data: *data,
 	}
 
-	for appName, app := range ctx.Spec.Release.Apps {
+	for _, app := range ctx.Spec.Release.Apps {
 		appDep := &v1alpha1.AppDeployment{}
 		if err := r.Get(ctx, k8s.Key(ctx.Namespace, app.AppDeployment), appDep); err != nil {
 			return nil, err
 		}
-
-		manifest.Spec.Apps[appName] = &v1alpha1.ReleaseManifestApp{
-			Version: app.Version,
-			AppDeployment: v1alpha1.ReleaseManifestAppDep{
-				ObjectRef: common.ObjectRef{
-					UID:             appDep.UID,
-					Name:            appDep.Name,
-					ResourceVersion: appDep.ResourceVersion,
-					Generation:      appDep.Generation,
-				},
-				Spec: appDep.Spec,
-			},
-		}
+		manifest.Spec.AppDeployments = append(manifest.Spec.AppDeployments, v1alpha1.AppDeploymentManifest{
+			TypeMeta:  appDep.TypeMeta,
+			ObjectRef: common.RefFromMeta(appDep.ObjectMeta),
+			Spec:      appDep.Spec,
+			Details:   appDep.Details,
+		})
 
 		for _, comp := range appDep.Spec.Components {
 			for depName, dep := range comp.Dependencies {
@@ -486,17 +484,18 @@ func (r *VirtualEnvReconciler) updateProblems(ctx *VirtualEnvContext, rel *v1alp
 	if rel == nil {
 		return nil
 	}
+
+	data := ctx.Data
 	rel.Problems = nil
 
 	var manifest *v1alpha1.ReleaseManifest
-	data := ctx.Data
 	if rel.ReleaseManifest != "" {
 		manifest = &v1alpha1.ReleaseManifest{}
 		err := r.Get(ctx, k8s.Key(ctx.Namespace, rel.ReleaseManifest), manifest)
 
 		switch {
 		case err == nil:
-			data = manifest.Data
+			data = &manifest.Data
 
 		case k8s.IsNotFound(err):
 			msg := fmt.Sprintf(`ReleaseManifest "%s" for active Release "%s" not found.`, rel.ReleaseManifest, rel.Id)
@@ -535,7 +534,7 @@ func (r *VirtualEnvReconciler) updateProblems(ctx *VirtualEnvContext, rel *v1alp
 			progressing := k8s.Condition(appDep.Status.Conditions, api.ConditionTypeProgressing)
 			available := k8s.Condition(appDep.Status.Conditions, api.ConditionTypeAvailable)
 
-			appDepProblems, err := appDep.Validate(&data,
+			appDepProblems, err := appDep.Validate(data,
 				func(name string, typ api.ComponentType) (common.Adapter, error) {
 					if manifest != nil {
 						return manifest.GetAdapter(name, typ)
