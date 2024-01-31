@@ -191,6 +191,10 @@ func (d *ReleaseManifest) AddAdapter(adapter common.Adapter) {
 		return
 	}
 
+	if d.Spec.Adapters == nil {
+		d.Spec.Adapters = &ReleaseManifestAdapters{}
+	}
+
 	switch adapter := adapter.(type) {
 	case *HTTPAdapter:
 		d.Spec.Adapters.HTTPAdapters = append(d.Spec.Adapters.HTTPAdapters, HTTPAdapterManifest{

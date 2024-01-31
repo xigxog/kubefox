@@ -17,6 +17,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/xigxog/kubefox/api"
+	common "github.com/xigxog/kubefox/api/kubernetes"
 	"github.com/xigxog/kubefox/api/kubernetes/v1alpha1"
 	"github.com/xigxog/kubefox/k8s"
 	"github.com/xigxog/kubefox/logkf"
@@ -36,6 +37,10 @@ func (r *AppDeploymentReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	r.log = logkf.Global.With(logkf.KeyController, "AppDeployment")
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&v1alpha1.AppDeployment{}).
+		Watches(
+			&v1alpha1.HTTPAdapter{},
+			handler.EnqueueRequestsFromMapFunc(r.watchAdapters),
+		).
 		Watches(
 			&v1alpha1.VirtualEnvironment{},
 			handler.EnqueueRequestsFromMapFunc(r.watchVE),
@@ -90,6 +95,27 @@ func (r *AppDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 	}
 
 	return ctrl.Result{}, nil
+}
+
+func (r *AppDeploymentReconciler) watchAdapters(ctx context.Context, obj client.Object) []reconcile.Request {
+	reqs := []reconcile.Request{}
+
+	appDepList := &v1alpha1.AppDeploymentList{}
+	if err := r.List(ctx, appDepList, client.InNamespace(obj.GetNamespace())); err != nil {
+		r.log.Error(err)
+		return reqs
+	}
+
+	adapter := obj.(common.Adapter)
+	for _, appDep := range appDepList.Items {
+		if appDep.HasDependency(adapter.GetName(), adapter.GetComponentType()) {
+			reqs = append(reqs, reconcile.Request{
+				NamespacedName: k8s.Key(appDep.Namespace, appDep.Name),
+			})
+		}
+	}
+
+	return reqs
 }
 
 func (r *AppDeploymentReconciler) watchVE(ctx context.Context, obj client.Object) []reconcile.Request {

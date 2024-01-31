@@ -45,6 +45,7 @@ AppDeployment is the Schema for the AppDeployments API
 
 
 
+
 ### Environment
 
 
@@ -67,6 +68,7 @@ AppDeployment is the Schema for the AppDeployments API
 
 
 
+
 ### HTTPAdapter
 
 
@@ -80,6 +82,7 @@ AppDeployment is the Schema for the AppDeployments API
 | `metadata` | <div style="white-space:nowrap">[ObjectMeta](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.28/#objectmeta-v1-meta)<div> | <div style="max-width:30rem">Refer to Kubernetes API documentation for fields of `metadata`.</div> | <div style="white-space:nowrap"></div> |
 | `spec` | <div style="white-space:nowrap">[HTTPAdapterSpec](#httpadapterspec)<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
 | `details` | <div style="white-space:nowrap">[Details](#details)<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
+
 
 
 
@@ -133,11 +136,7 @@ Platform is the Schema for the Platforms API
 | `kind` | string | `ReleaseManifest` | |
 | `metadata` | <div style="white-space:nowrap">[ObjectMeta](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.28/#objectmeta-v1-meta)<div> | <div style="max-width:30rem">Refer to Kubernetes API documentation for fields of `metadata`.</div> | <div style="white-space:nowrap"></div> |
 | `spec` | <div style="white-space:nowrap">[ReleaseManifestSpec](#releasemanifestspec)<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap">required</div> |
-| `data` | <div style="white-space:nowrap">[Data](#data)<div> | <div style="max-width:30rem">Data is the merged values of the Environment and VirtualEnvironment data objects.</div> | <div style="white-space:nowrap">required</div> |
-| `details` | <div style="white-space:nowrap">[DataDetails](#datadetails)<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
-
-
-
+| `data` | <div style="white-space:nowrap">[Data](#data)<div> | <div style="max-width:30rem">Data is the merged values of the Environment and VirtualEnvironment Data.</div> | <div style="white-space:nowrap">required</div> |
 
 
 
@@ -170,6 +169,7 @@ Platform is the Schema for the Platforms API
 
 
 
+
 ## Types
 
 
@@ -185,6 +185,7 @@ AppDeploymentDetails defines additional details of AppDeployment
 Used by:<br>
 
 - <a href=#appdeployment>AppDeployment</a><br>
+- <a href=#appdeploymentmanifest>AppDeploymentManifest</a><br>
 </p>
 
 | Field | Type | Description | Validation |
@@ -192,6 +193,24 @@ Used by:<br>
 | `title` | <div style="white-space:nowrap">string<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
 | `description` | <div style="white-space:nowrap">string<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
 | `components` | <div style="white-space:nowrap">map{string, [Details](#details)}<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
+
+
+
+### AppDeploymentManifest
+
+
+
+<p style="font-size:.6rem;">
+Used by:<br>
+
+- <a href=#releasemanifestspec>ReleaseManifestSpec</a><br>
+</p>
+
+| Field | Type | Description | Validation |
+| ----- | ---- | ----------- | ---------- |
+| `metadata` | <div style="white-space:nowrap">[ObjectRef](#objectref)<div> | <div style="max-width:30rem">Refer to Kubernetes API documentation for fields of `metadata`.</div> | <div style="white-space:nowrap">required</div> |
+| `spec` | <div style="white-space:nowrap">[AppDeploymentSpec](#appdeploymentspec)<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap">required</div> |
+| `details` | <div style="white-space:nowrap">[AppDeploymentDetails](#appdeploymentdetails)<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
 
 
 
@@ -203,7 +222,7 @@ AppDeploymentSpec defines the desired state of AppDeployment
 Used by:<br>
 
 - <a href=#appdeployment>AppDeployment</a><br>
-- <a href=#releasemanifestappdep>ReleaseManifestAppDep</a><br>
+- <a href=#appdeploymentmanifest>AppDeploymentManifest</a><br>
 </p>
 
 | Field | Type | Description | Validation |
@@ -335,8 +354,10 @@ Used by:<br>
 Used by:<br>
 
 - <a href=#environment>Environment</a><br>
+- <a href=#environmentmanifest>EnvironmentManifest</a><br>
 - <a href=#releasemanifest>ReleaseManifest</a><br>
 - <a href=#virtualenvironment>VirtualEnvironment</a><br>
+- <a href=#virtualenvironmentmanifest>VirtualEnvironmentManifest</a><br>
 </p>
 
 | Field | Type | Description | Validation |
@@ -354,8 +375,9 @@ Used by:<br>
 Used by:<br>
 
 - <a href=#environment>Environment</a><br>
-- <a href=#releasemanifest>ReleaseManifest</a><br>
+- <a href=#environmentmanifest>EnvironmentManifest</a><br>
 - <a href=#virtualenvironment>VirtualEnvironment</a><br>
+- <a href=#virtualenvironmentmanifest>VirtualEnvironmentManifest</a><br>
 </p>
 
 | Field | Type | Description | Validation |
@@ -402,6 +424,7 @@ Used by:<br>
 - <a href=#appdeploymentdetails>AppDeploymentDetails</a><br>
 - <a href=#datadetails>DataDetails</a><br>
 - <a href=#httpadapter>HTTPAdapter</a><br>
+- <a href=#httpadaptermanifest>HTTPAdapterManifest</a><br>
 - <a href=#platformdetails>PlatformDetails</a><br>
 </p>
 
@@ -493,6 +516,25 @@ Used by:<br>
 
 
 
+### EnvironmentManifest
+
+
+
+<p style="font-size:.6rem;">
+Used by:<br>
+
+- <a href=#releasemanifestspec>ReleaseManifestSpec</a><br>
+</p>
+
+| Field | Type | Description | Validation |
+| ----- | ---- | ----------- | ---------- |
+| `metadata` | <div style="white-space:nowrap">[ObjectRef](#objectref)<div> | <div style="max-width:30rem">Refer to Kubernetes API documentation for fields of `metadata`.</div> | <div style="white-space:nowrap">required</div> |
+| `spec` | <div style="white-space:nowrap">[EnvironmentSpec](#environmentspec)<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
+| `data` | <div style="white-space:nowrap">[Data](#data)<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
+| `details` | <div style="white-space:nowrap">[DataDetails](#datadetails)<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
+
+
+
 ### EnvironmentSpec
 
 
@@ -501,6 +543,7 @@ Used by:<br>
 Used by:<br>
 
 - <a href=#environment>Environment</a><br>
+- <a href=#environmentmanifest>EnvironmentManifest</a><br>
 </p>
 
 | Field | Type | Description | Validation |
@@ -536,6 +579,24 @@ Used by:<br>
 
 
 
+### HTTPAdapterManifest
+
+
+
+<p style="font-size:.6rem;">
+Used by:<br>
+
+- <a href=#releasemanifestadapters>ReleaseManifestAdapters</a><br>
+</p>
+
+| Field | Type | Description | Validation |
+| ----- | ---- | ----------- | ---------- |
+| `metadata` | <div style="white-space:nowrap">[ObjectRef](#objectref)<div> | <div style="max-width:30rem">Refer to Kubernetes API documentation for fields of `metadata`.</div> | <div style="white-space:nowrap">required</div> |
+| `spec` | <div style="white-space:nowrap">[HTTPAdapterSpec](#httpadapterspec)<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap">required</div> |
+| `details` | <div style="white-space:nowrap">[Details](#details)<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
+
+
+
 ### HTTPAdapterSpec
 
 
@@ -544,7 +605,7 @@ Used by:<br>
 Used by:<br>
 
 - <a href=#httpadapter>HTTPAdapter</a><br>
-- <a href=#releasemanifesthttpadapter>ReleaseManifestHTTPAdapter</a><br>
+- <a href=#httpadaptermanifest>HTTPAdapterManifest</a><br>
 </p>
 
 | Field | Type | Description | Validation |
@@ -613,20 +674,6 @@ Used by:<br>
 
 
 
-### HistoryLimits
-
-
-
-<p style="font-size:.6rem;">
-Used by:<br>
-
-- <a href=#releasepolicy>ReleasePolicy</a><br>
-</p>
-
-| Field | Type | Description | Validation |
-| ----- | ---- | ----------- | ---------- |
-| `count` | <div style="white-space:nowrap">integer<div> | <div style="max-width:30rem">Maximum number of Releases to keep in history. Once the limit is reached the oldest Release in history will be deleted. Age is based on archiveTime. Pointer is used to distinguish between not set and false.</div> | <div style="white-space:nowrap">min: 0</div> |
-| `ageDays` | <div style="white-space:nowrap">integer<div> | <div style="max-width:30rem">Maximum age of the Release to keep in history. Once the limit is reached the oldest Release in history will be deleted. Age is based on archiveTime. Set to 0 to disable. Pointer is used to distinguish between not set and false.</div> | <div style="white-space:nowrap">min: 0</div> |
 
 
 
@@ -674,17 +721,19 @@ Used by:<br>
 <p style="font-size:.6rem;">
 Used by:<br>
 
-- <a href=#releasemanifestappdep>ReleaseManifestAppDep</a><br>
-- <a href=#releasemanifesthttpadapter>ReleaseManifestHTTPAdapter</a><br>
-- <a href=#releasemanifestspec>ReleaseManifestSpec</a><br>
+- <a href=#appdeploymentmanifest>AppDeploymentManifest</a><br>
+- <a href=#environmentmanifest>EnvironmentManifest</a><br>
+- <a href=#httpadaptermanifest>HTTPAdapterManifest</a><br>
+- <a href=#virtualenvironmentmanifest>VirtualEnvironmentManifest</a><br>
 </p>
 
 | Field | Type | Description | Validation |
 | ----- | ---- | ----------- | ---------- |
+| `namespace` | <div style="white-space:nowrap">string<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
+| `name` | <div style="white-space:nowrap">string<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
 | `uid` | <div style="white-space:nowrap">[UID](#uid)<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap">required</div> |
 | `resourceVersion` | <div style="white-space:nowrap">string<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap">required, minLength: 1</div> |
 | `generation` | <div style="white-space:nowrap">integer<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap">required</div> |
-| `name` | <div style="white-space:nowrap">string<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
 
 
 
@@ -832,21 +881,6 @@ Used by:<br>
 
 
 
-### ReleaseApp
-
-
-
-<p style="font-size:.6rem;">
-Used by:<br>
-
-- <a href=#release>Release</a><br>
-- <a href=#releasestatus>ReleaseStatus</a><br>
-</p>
-
-| Field | Type | Description | Validation |
-| ----- | ---- | ----------- | ---------- |
-| `appDeployment` | <div style="white-space:nowrap">string<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap">required, minLength: 1</div> |
-| `version` | <div style="white-space:nowrap">string<div> | <div style="max-width:30rem">Version of the App being released. Use of semantic versioning is recommended. If set the value is compared to the AppDeployment version. If the two versions do not match the release will fail.</div> | <div style="white-space:nowrap"></div> |
 
 
 
@@ -863,64 +897,7 @@ Used by:<br>
 
 | Field | Type | Description | Validation |
 | ----- | ---- | ----------- | ---------- |
-| `http` | <div style="white-space:nowrap">[ReleaseManifestHTTPAdapter](#releasemanifesthttpadapter) array<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
-
-
-
-### ReleaseManifestApp
-
-
-
-<p style="font-size:.6rem;">
-Used by:<br>
-
-- <a href=#releasemanifestspec>ReleaseManifestSpec</a><br>
-</p>
-
-| Field | Type | Description | Validation |
-| ----- | ---- | ----------- | ---------- |
-| `version` | <div style="white-space:nowrap">string<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap">required, minLength: 1</div> |
-| `appDeployment` | <div style="white-space:nowrap">[ReleaseManifestAppDep](#releasemanifestappdep)<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap">required</div> |
-
-
-
-### ReleaseManifestAppDep
-
-
-
-<p style="font-size:.6rem;">
-Used by:<br>
-
-- <a href=#releasemanifestapp>ReleaseManifestApp</a><br>
-</p>
-
-| Field | Type | Description | Validation |
-| ----- | ---- | ----------- | ---------- |
-| `uid` | <div style="white-space:nowrap">[UID](#uid)<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap">required</div> |
-| `resourceVersion` | <div style="white-space:nowrap">string<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap">required, minLength: 1</div> |
-| `generation` | <div style="white-space:nowrap">integer<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap">required</div> |
-| `name` | <div style="white-space:nowrap">string<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
-| `spec` | <div style="white-space:nowrap">[AppDeploymentSpec](#appdeploymentspec)<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap">required</div> |
-
-
-
-### ReleaseManifestHTTPAdapter
-
-
-
-<p style="font-size:.6rem;">
-Used by:<br>
-
-- <a href=#releasemanifestadapters>ReleaseManifestAdapters</a><br>
-</p>
-
-| Field | Type | Description | Validation |
-| ----- | ---- | ----------- | ---------- |
-| `uid` | <div style="white-space:nowrap">[UID](#uid)<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap">required</div> |
-| `resourceVersion` | <div style="white-space:nowrap">string<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap">required, minLength: 1</div> |
-| `generation` | <div style="white-space:nowrap">integer<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap">required</div> |
-| `name` | <div style="white-space:nowrap">string<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
-| `spec` | <div style="white-space:nowrap">[HTTPAdapterSpec](#httpadapterspec)<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap">required</div> |
+| `http` | <div style="white-space:nowrap">[HTTPAdapterManifest](#httpadaptermanifest) array<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
 
 
 
@@ -937,9 +914,9 @@ Used by:<br>
 | Field | Type | Description | Validation |
 | ----- | ---- | ----------- | ---------- |
 | `releaseId` | <div style="white-space:nowrap">string<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap">required, minLength: 1</div> |
-| `environment` | <div style="white-space:nowrap">[ObjectRef](#objectref)<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap">required</div> |
-| `virtualEnvironment` | <div style="white-space:nowrap">[ObjectRef](#objectref)<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap">required</div> |
-| `apps` | <div style="white-space:nowrap">map{string, [ReleaseManifestApp](#releasemanifestapp)}<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap">required</div> |
+| `environment` | <div style="white-space:nowrap">[EnvironmentManifest](#environmentmanifest)<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap">required</div> |
+| `virtualEnvironment` | <div style="white-space:nowrap">[VirtualEnvironmentManifest](#virtualenvironmentmanifest)<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap">required</div> |
+| `appDeployments` | <div style="white-space:nowrap">[AppDeploymentManifest](#appdeploymentmanifest) array<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap">required</div> |
 | `adapters` | <div style="white-space:nowrap">[ReleaseManifestAdapters](#releasemanifestadapters)<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
 
 
@@ -1024,6 +1001,25 @@ Used by:<br>
 
 
 
+### VirtualEnvironmentManifest
+
+
+
+<p style="font-size:.6rem;">
+Used by:<br>
+
+- <a href=#releasemanifestspec>ReleaseManifestSpec</a><br>
+</p>
+
+| Field | Type | Description | Validation |
+| ----- | ---- | ----------- | ---------- |
+| `metadata` | <div style="white-space:nowrap">[ObjectRef](#objectref)<div> | <div style="max-width:30rem">Refer to Kubernetes API documentation for fields of `metadata`.</div> | <div style="white-space:nowrap">required</div> |
+| `spec` | <div style="white-space:nowrap">[VirtualEnvironmentSpec](#virtualenvironmentspec)<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
+| `data` | <div style="white-space:nowrap">[Data](#data)<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
+| `details` | <div style="white-space:nowrap">[DataDetails](#datadetails)<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
+
+
+
 ### VirtualEnvironmentSpec
 
 
@@ -1032,6 +1028,7 @@ Used by:<br>
 Used by:<br>
 
 - <a href=#virtualenvironment>VirtualEnvironment</a><br>
+- <a href=#virtualenvironmentmanifest>VirtualEnvironmentManifest</a><br>
 </p>
 
 | Field | Type | Description | Validation |
