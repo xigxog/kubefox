@@ -93,7 +93,7 @@ func NewHTTPClient(brk Broker) *HTTPClient {
 	}
 }
 
-func (c *HTTPClient) SendEvent(req *BrokerEvent) error {
+func (c *HTTPClient) SendEvent(req *BrokerEventContext) error {
 	if req.TargetAdapter == nil {
 		return core.ErrInvalid(fmt.Errorf("adapter is missing"))
 	}
@@ -145,10 +145,10 @@ func (c *HTTPClient) SendEvent(req *BrokerEvent) error {
 
 	resp := core.NewResp(core.EventOpts{
 		Parent: req.Event,
-		Target: req.Source,
+		Target: req.Event.Source,
 		Source: &core.Component{
 			Type:     string(api.ComponentTypeHTTPAdapter),
-			Name:     req.Target.Name,
+			Name:     req.Event.Target.Name,
 			Commit:   c.brk.Component().Commit,
 			Id:       c.brk.Component().Id,
 			BrokerId: c.brk.Component().Id,

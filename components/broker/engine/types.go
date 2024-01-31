@@ -9,13 +9,16 @@
 package engine
 
 import (
-	"fmt"
+	"context"
+	"errors"
 	"sync"
 	"time"
 
 	"github.com/xigxog/kubefox/api"
+	common "github.com/xigxog/kubefox/api/kubernetes"
 	"github.com/xigxog/kubefox/api/kubernetes/v1alpha1"
 	"github.com/xigxog/kubefox/core"
+	"github.com/xigxog/kubefox/logkf"
 	"google.golang.org/protobuf/types/known/structpb"
 )
 
@@ -28,86 +31,99 @@ const (
 	ReceiverHTTPClient
 )
 
-type SendEvent func(*BrokerEvent) error
+type SendEvent func(*BrokerEventContext) error
 
-type Adapters map[string]api.Adapter
+type BrokerEventContext struct {
+	context.Context
 
-type BrokerEvent struct {
-	*core.Event
-
-	ContextKey   string
-	Data         *api.Data
-	DataChecksum string
-	Spec         *v1alpha1.AppDeploymentSpec
-	RouteId      int64
-
-	TargetAdapter api.Adapter
-	Adapters      Adapters
+	Key string
 
 	Receiver   Receiver
 	ReceivedAt time.Time
-	DoneCh     chan *core.Err
+
+	Event           *core.Event
+	AppDeployment   *v1alpha1.AppDeployment
+	ReleaseManifest *v1alpha1.ReleaseManifest
+	VirtualEnv      *v1alpha1.VirtualEnvironment
+
+	Data *api.Data
+
+	RouteId int64
+
+	TargetAdapter common.Adapter
+
+	Log    *logkf.Logger
+	Cancel context.CancelCauseFunc
 
 	tick  time.Time
 	mutex sync.Mutex
 }
 
-func (evt *BrokerEvent) TTL() time.Duration {
-	evt.mutex.Lock()
-	defer evt.mutex.Unlock()
+func (ctx *BrokerEventContext) TTL() time.Duration {
+	ctx.mutex.Lock()
+	defer ctx.mutex.Unlock()
 
-	if evt.tick.Equal(time.Time{}) {
-		evt.tick = evt.ReceivedAt
+	if ctx.tick.Equal(time.Time{}) {
+		ctx.tick = ctx.ReceivedAt
 	}
 
-	evt.ReduceTTL(evt.tick)
-	evt.tick = time.Now()
+	ctx.Event.ReduceTTL(ctx.tick)
+	ctx.tick = time.Now()
 
-	return evt.Event.TTL()
+	return ctx.Event.TTL()
 }
 
-func (evt *BrokerEvent) Done() chan *core.Err {
-	return evt.DoneCh
-}
-
-func (evt *BrokerEvent) MatchedEvent() *core.MatchedEvent {
-	var env map[string]*structpb.Value
-	if evt.Data != nil && evt.Data.Vars != nil {
-		env = make(map[string]*structpb.Value, len(evt.Data.Vars))
-		for k, v := range evt.Data.Vars {
-			env[k] = v.Proto()
-		}
+func (ctx *BrokerEventContext) MatchedEvent() *core.MatchedEvent {
+	m := &core.MatchedEvent{
+		Event:   ctx.Event,
+		RouteId: ctx.RouteId,
 	}
 
-	return &core.MatchedEvent{
-		Event:   evt.Event,
-		RouteId: evt.RouteId,
-		Env:     env,
-	}
-}
-
-func (a Adapters) Set(val api.Adapter) {
-	if val == nil {
-		return
+	if ctx.Event == nil || ctx.AppDeployment == nil || ctx.Data == nil || ctx.Data.Vars == nil {
+		return m
 	}
 
-	key := fmt.Sprintf("%s-%s", val.GetName(), val.GetComponentType())
-	a[key] = val
-}
-
-func (a Adapters) Get(name string, typ api.ComponentType) (api.Adapter, bool) {
-	key := fmt.Sprintf("%s-%s", name, typ)
-	val, found := a[key]
-
-	return val, found
-}
-
-func (a Adapters) GetByComponent(c *core.Component) (api.Adapter, bool) {
-	if c == nil {
-		return nil, false
+	def, err := ctx.AppDeployment.GetDefinition(ctx.Event.Target)
+	if err != nil {
+		return m
 	}
 
-	return a.Get(c.Name, api.ComponentType(c.Type))
+	// Only include vars that target declared as dependencies.
+	m.Env = make(map[string]*structpb.Value, len(def.EnvVarSchema))
+	for k := range def.EnvVarSchema {
+		m.Env[k] = ctx.Data.Vars[k].Proto()
+	}
+
+	return m
+}
+
+func (ctx *BrokerEventContext) Value(key any) any {
+	return ctx.Context.Value(key)
+}
+
+func (ctx *BrokerEventContext) CoreErr() *core.Err {
+	err := ctx.Err()
+	if err == nil {
+		return nil
+	}
+
+	coreErr := &core.Err{}
+	if ok := errors.As(err, &coreErr); !ok {
+		return core.ErrUnexpected(err)
+	}
+
+	return coreErr
+}
+
+func (ctx *BrokerEventContext) Err() error {
+	cause := context.Cause(ctx)
+
+	// Canceled indicates routing completed without issue.
+	if errors.Is(cause, context.Canceled) {
+		return nil
+	}
+
+	return cause
 }
 
 func (r Receiver) String() string {

@@ -138,6 +138,18 @@ func main() {
 	opvault.K8sClient = ctrlClient.Client
 
 	// Register Controllers.
+
+	if err = (&controller.AppDeploymentReconciler{
+		Client:  ctrlClient,
+		CompMgr: compMgr,
+	}).SetupWithManager(mgr); err != nil {
+		log.Fatalf("unable to create AppDeployment controller: %v", err)
+	}
+	if err = (&controller.EnvironmentReconciler{
+		Client: ctrlClient,
+	}).SetupWithManager(mgr); err != nil {
+		log.Fatalf("unable to create Environment controller: %v", err)
+	}
 	if err = (&controller.PlatformReconciler{
 		Client:    ctrlClient,
 		Instance:  instance,
@@ -149,22 +161,16 @@ func main() {
 	}).SetupWithManager(mgr); err != nil {
 		log.Fatalf("unable to create Platform controller: %v", err)
 	}
-	if err = (&controller.EnvironmentReconciler{
+	if err = (&controller.ReleaseManifestReconciler{
 		Client: ctrlClient,
 	}).SetupWithManager(mgr); err != nil {
-		log.Fatalf("unable to create Environment controller: %v", err)
+		log.Fatalf("unable to create ReleaseManifest controller: %v", err)
 	}
 	if err = (&controller.VirtualEnvReconciler{
 		Client:  ctrlClient,
 		CompMgr: compMgr,
 	}).SetupWithManager(mgr); err != nil {
 		log.Fatalf("unable to create VirtualEnvironment controller: %v", err)
-	}
-	if err = (&controller.AppDeploymentReconciler{
-		Client:  ctrlClient,
-		CompMgr: compMgr,
-	}).SetupWithManager(mgr); err != nil {
-		log.Fatalf("unable to create AppDeployment controller: %v", err)
 	}
 
 	// Register Validating WebHooks.
@@ -175,12 +181,6 @@ func main() {
 	})
 
 	// Register Mutating WebHooks.
-	mgr.GetWebhookServer().Register("/v1alpha1/appdeployments/mutate", &kwebhook.Admission{
-		Handler: &webhook.AppDeploymentWebhook{
-			Client:  &ctrlClient.Client,
-			Decoder: admission.NewDecoder(scheme),
-		},
-	})
 	mgr.GetWebhookServer().Register("/index/mutate", &kwebhook.Admission{
 		Handler: &webhook.IndexWebhook{
 			Decoder: admission.NewDecoder(scheme),

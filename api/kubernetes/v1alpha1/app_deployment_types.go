@@ -13,6 +13,7 @@ import (
 	"fmt"
 
 	"github.com/xigxog/kubefox/api"
+	common "github.com/xigxog/kubefox/api/kubernetes"
 	"github.com/xigxog/kubefox/core"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -46,15 +47,6 @@ type AppDeploymentSpec struct {
 	// +kubebuilder:validation:MinProperties=1
 
 	Components map[string]*api.ComponentDefinition `json:"components"`
-
-	// Specs of all Adapters defined as dependencies by the Components. This a
-	// read-only field and is set by the KubeFox Operator when a versioned
-	// AppDeployment is created.
-	Adapters *Adapters `json:"adapters,omitempty"`
-}
-
-type Adapters struct {
-	HTTP map[string]HTTPAdapterSpec `json:"http"`
 }
 
 // AppDeploymentStatus defines the observed state of AppDeployment
@@ -103,28 +95,28 @@ type AppDeploymentList struct {
 	Items []AppDeployment `json:"items"`
 }
 
-func (d *AppDeployment) Validate(data *api.Data, get api.GetAdapterFunc) (api.Problems, error) {
+func (d *AppDeployment) Validate(data *api.Data, getAdapter common.GetAdapterFunc) (api.Problems, error) {
 	problems := api.Problems{}
 	for compName, comp := range d.Spec.Components {
 		if data != nil {
-			problems = append(problems, comp.EnvVarSchema.Validate(data.Vars, &api.ProblemSource{
+			problems = append(problems, comp.EnvVarSchema.Validate("Var", data.Vars, &api.ProblemSource{
 				Kind:               api.ProblemSourceKindAppDeployment,
 				Name:               d.Name,
 				ObservedGeneration: d.Generation,
 				Path:               fmt.Sprintf("$.spec.components.%s.envVarSchema", compName),
-			})...)
+			}, true)...)
 
 			for i, route := range comp.Routes {
 				// All route vars are required.
 				for _, d := range route.EnvVarSchema {
 					d.Required = true
 				}
-				problems = append(problems, route.EnvVarSchema.Validate(data.Vars, &api.ProblemSource{
+				problems = append(problems, route.EnvVarSchema.Validate("Var", data.Vars, &api.ProblemSource{
 					Kind:               api.ProblemSourceKindAppDeployment,
 					Name:               d.Name,
 					ObservedGeneration: d.Generation,
 					Path:               fmt.Sprintf("$.spec.components.%s.routes[%d]", compName, i),
-				})...)
+				}, true)...)
 			}
 		}
 
@@ -135,7 +127,7 @@ func (d *AppDeployment) Validate(data *api.Data, get api.GetAdapterFunc) (api.Pr
 				_, found = d.Spec.Components[depName]
 
 			case dep.Type.IsAdapter():
-				adapter, err := get(depName, dep.Type)
+				adapter, err := getAdapter(depName, dep.Type)
 				switch {
 				case err == nil:
 					if data != nil {
@@ -188,6 +180,37 @@ func (d *AppDeployment) Validate(data *api.Data, get api.GetAdapterFunc) (api.Pr
 	}
 
 	return problems, nil
+}
+
+func (a *AppDeployment) GetDefinition(comp *core.Component) (*api.ComponentDefinition, error) {
+	if comp == nil {
+		return nil, core.ErrComponentMismatch(fmt.Errorf("component not part of app"))
+	}
+
+	c, found := a.Spec.Components[comp.Name]
+	if !found {
+		return nil, core.ErrComponentMismatch(fmt.Errorf("component not part of app"))
+	}
+	if comp.Type != string(c.Type) {
+		return nil, core.ErrComponentMismatch(fmt.Errorf("component type does not match app"))
+	}
+	if comp.Commit != "" && comp.Commit != c.Commit {
+		return nil, core.ErrComponentMismatch(fmt.Errorf("component commit does not match app"))
+	}
+
+	return c, nil
+}
+
+func (a *AppDeployment) HasDependency(name string, typ api.ComponentType) bool {
+	for _, c := range a.Spec.Components {
+		for n, d := range c.Dependencies {
+			if name == n && typ == d.Type {
+				return true
+			}
+		}
+	}
+
+	return false
 }
 
 func init() {

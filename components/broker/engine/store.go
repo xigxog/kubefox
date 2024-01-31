@@ -11,11 +11,11 @@ package engine
 import (
 	"context"
 	"fmt"
-	"sync"
 	"time"
 
 	"github.com/mitchellh/hashstructure/v2"
 	"github.com/xigxog/kubefox/api"
+	common "github.com/xigxog/kubefox/api/kubernetes"
 	"github.com/xigxog/kubefox/api/kubernetes/v1alpha1"
 	"github.com/xigxog/kubefox/cache"
 	"github.com/xigxog/kubefox/components/broker/config"
@@ -23,44 +23,42 @@ import (
 	"github.com/xigxog/kubefox/k8s"
 	"github.com/xigxog/kubefox/logkf"
 	"github.com/xigxog/kubefox/matcher"
-	"sigs.k8s.io/yaml"
-
+	"github.com/xigxog/kubefox/vault"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes/scheme"
 	ctrl "sigs.k8s.io/controller-runtime"
 	ctrlcache "sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/yaml"
 )
 
 type Store struct {
-	namespace string
+	resCache ctrlcache.Cache
+	vaultCli *vault.Client
 
-	resCache   ctrlcache.Cache
-	compCache  cache.Cache[*api.ComponentDefinition]
-	validCache cache.Cache[api.Problems]
-	adapters   Adapters
+	validationCache cache.Cache[api.Problems]
+	depMatcherCache cache.Cache[*matcher.EventMatcher]
+	secretsCache    cache.Cache[*api.Data]
 
-	depMatchers cache.Cache[*matcher.EventMatcher]
-	relMatcher  *matcher.EventMatcher
+	compCache      map[string]*api.ComponentDefinition
+	releaseMatcher *matcher.EventMatcher
 
 	ctx    context.Context
 	cancel context.CancelFunc
 
-	mutex sync.RWMutex
-
 	log *logkf.Logger
 }
 
-func NewStore(namespace string) *Store {
+func NewStore() *Store {
 	ctx, cancel := context.WithCancel(context.Background())
 	return &Store{
-		namespace:   namespace,
-		validCache:  cache.New[api.Problems](time.Minute * 15),
-		depMatchers: cache.New[*matcher.EventMatcher](time.Minute * 15),
-		ctx:         ctx,
-		cancel:      cancel,
-		log:         logkf.Global,
+		validationCache: cache.New[api.Problems](time.Minute * 15),
+		depMatcherCache: cache.New[*matcher.EventMatcher](time.Minute * 15),
+		secretsCache:    cache.New[*api.Data](time.Minute * 15),
+		ctx:             ctx,
+		cancel:          cancel,
+		log:             logkf.Global,
 	}
 }
 
@@ -72,16 +70,33 @@ func (str *Store) Open() error {
 		return err
 	}
 
-	if err := str.updateCaches(ctx, true); err != nil {
+	if err := str.updateComponentCache(ctx); err != nil {
+		return err
+	}
+	if err := str.updateReleaseMatcher(ctx); err != nil {
 		return err
 	}
 
 	return nil
 }
 
-func (str *Store) init(ctx context.Context) error {
-	str.mutex.Lock()
-	defer str.mutex.Unlock()
+func (str *Store) init(initCtx context.Context) error {
+	key := vault.Key{
+		Instance:  config.Instance,
+		Namespace: config.Namespace,
+		Component: "broker",
+	}
+
+	vaultCli, err := vault.New(vault.ClientOptions{
+		Instance: config.Instance,
+		Role:     vault.RoleName(key),
+		URL:      config.VaultURL,
+		CACert:   api.PathCACert,
+	})
+	if err != nil {
+		return err
+	}
+	str.vaultCli = vaultCli
 
 	if err := v1alpha1.AddToScheme(scheme.Scheme); err != nil {
 		return str.log.ErrorN("adding KubeFox CRs to scheme failed: %v", err)
@@ -94,14 +109,14 @@ func (str *Store) init(ctx context.Context) error {
 
 	str.resCache, err = ctrlcache.New(cfg, ctrlcache.Options{
 		Scheme:                      scheme.Scheme,
-		DefaultNamespaces:           map[string]ctrlcache.Config{str.namespace: {}},
+		DefaultNamespaces:           map[string]ctrlcache.Config{config.Namespace: {}},
 		ReaderFailOnMissingInformer: true,
 	})
 	if err != nil {
 		return str.log.ErrorN("creating resource cache failed: %v", err)
 	}
 
-	err = str.initInformers(ctx,
+	err = str.initInformers(initCtx,
 		&v1alpha1.Environment{},
 		&v1alpha1.VirtualEnvironment{},
 		&v1alpha1.ReleaseManifest{},
@@ -118,7 +133,7 @@ func (str *Store) init(ctx context.Context) error {
 			str.log.Error(err)
 		}
 	}()
-	str.resCache.WaitForCacheSync(ctx)
+	str.resCache.WaitForCacheSync(initCtx)
 
 	return nil
 }
@@ -126,7 +141,7 @@ func (str *Store) init(ctx context.Context) error {
 func (str *Store) initInformers(ctx context.Context, objs ...client.Object) error {
 	for _, obj := range objs {
 		// Getting the informer adds it to the cache.
-		if inf, err := str.resCache.GetInformer(str.ctx, obj); err != nil {
+		if inf, err := str.resCache.GetInformer(ctx, obj); err != nil {
 			return err
 		} else {
 			inf.AddEventHandler(str)
@@ -139,81 +154,66 @@ func (str *Store) Close() {
 	str.cancel()
 }
 
-func (str *Store) ComponentDef(comp *core.Component) (*api.ComponentDefinition, bool) {
-	return str.compCache.Get(comp.GroupKey())
+func (str *Store) ComponentDef(ctx context.Context, comp *core.Component) (*api.ComponentDefinition, error) {
+	if str.compCache == nil {
+		if err := str.updateComponentCache(ctx); err != nil {
+			return nil, err
+		}
+	}
+
+	def, found := str.compCache[comp.GroupKey()]
+	if !found {
+		return nil, core.ErrNotFound()
+	}
+
+	return def, nil
 }
 
-func (str *Store) IsGenesisAdapter(comp *core.Component) bool {
-	r, found := str.ComponentDef(comp)
-	if !found {
+func (str *Store) IsGenesisAdapter(ctx context.Context, comp *core.Component) bool {
+	r, err := str.ComponentDef(ctx, comp)
+	if err != nil {
 		return false
 	}
 
 	switch r.Type {
 	case api.ComponentTypeHTTPAdapter:
 		return true
-	default:
-		return false
 	}
+
+	return false
 }
 
 func (str *Store) Platform(ctx context.Context) (*v1alpha1.Platform, error) {
 	obj := &v1alpha1.Platform{}
-	return obj, str.get(config.Platform, obj, true)
+	return obj, str.resCache.Get(ctx, str.key(config.Platform), obj)
 }
 
 func (str *Store) AppDeployment(ctx context.Context, name string) (*v1alpha1.AppDeployment, error) {
 	obj := &v1alpha1.AppDeployment{}
-	return obj, str.get(name, obj, true)
-}
-
-func (str *Store) Data(ctx context.Context, evtCtx *core.EventContext) (*api.Data, error) {
-	switch {
-	case evtCtx.ReleaseManifest != "":
-		manifest := &v1alpha1.ReleaseManifest{}
-		if err := str.get(evtCtx.ReleaseManifest, manifest, true); err != nil {
-			return nil, err
-		}
-		return &manifest.Data, nil
-
-	case evtCtx.VirtualEnvironment != "":
-		ve := &v1alpha1.VirtualEnvironment{}
-		if err := str.get(evtCtx.VirtualEnvironment, ve, true); err != nil {
-			return nil, err
-		}
-		env := &v1alpha1.Environment{}
-		if err := str.get(ve.Spec.Environment, env, false); err != nil {
-			return nil, err
-		}
-		return ve.Data.MergeInto(&env.Data), nil
-
-	default:
-		return nil, core.ErrNotFound()
-	}
+	return obj, str.resCache.Get(ctx, str.key(name), obj)
 }
 
 func (str *Store) ReleaseMatcher(ctx context.Context) (*matcher.EventMatcher, error) {
-	str.mutex.RLock()
-	if str.relMatcher != nil {
-		str.mutex.RUnlock()
-		return str.relMatcher, nil
+	if str.releaseMatcher != nil {
+		return str.releaseMatcher, nil
 	}
-	str.mutex.RUnlock()
 
 	// There are no matchers in cache, perform full reload.
-	str.updateCaches(ctx, false)
+	if err := str.updateReleaseMatcher(ctx); err != nil {
+		return nil, err
+	}
 
-	return str.relMatcher, nil
+	return str.releaseMatcher, nil
 }
 
-func (str *Store) DeploymentMatcher(ctx context.Context, evt *BrokerEvent) (*matcher.EventMatcher, error) {
+func (str *Store) DeploymentMatcher(ctx *BrokerEventContext) (*matcher.EventMatcher, error) {
 	// Check cache.
-	if depM, found := str.depMatchers.Get(evt.ContextKey); found {
-		str.log.Debugf("found cached matcher for event context key '%s'", evt.ContextKey)
+	if depM, found := str.depMatcherCache.Get(ctx.Key); found {
+		str.log.Debugf("found cached matcher for event context key '%s'", ctx.Key)
 		return depM, nil
 	}
 
-	routes, err := str.buildRoutes(ctx, evt.Spec, evt.Data, evt.Context)
+	routes, err := str.buildRoutes(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -222,78 +222,137 @@ func (str *Store) DeploymentMatcher(ctx context.Context, evt *BrokerEvent) (*mat
 	if err := depM.AddRoutes(routes...); err != nil {
 		return nil, err
 	}
-	str.depMatchers.Set(evt.ContextKey, depM)
+	str.depMatcherCache.Set(ctx.Key, depM)
 
 	return depM, nil
 }
 
-// AttachEventContext gets the VirtualEnvironment, AppDeployment, and Adapters
-// of the Event Context, attaches them to the BrokerEvent, and then validates
-// the Event Context. Problems found during validation are returned.
-func (str *Store) AttachEventContext(ctx context.Context, evt *BrokerEvent) error {
-	var err error
-	if evt.Data, err = str.Data(ctx, evt.Context); err != nil {
+// AttachEventContext gets the VirtualEnvironment, AppDeployment, and if
+// applicable, the ReleaseManifest of the Event Context and attaches them to the
+// BrokerEvent. Secrets are retrieved from Vault and included in the Data
+// member. The Event Context is then validated, problems found during validation
+// are returned.
+func (str *Store) AttachEventContext(ctx *BrokerEventContext) error {
+	var (
+		ve       = &v1alpha1.VirtualEnvironment{}
+		appDep   = &v1alpha1.AppDeployment{}
+		manifest *v1alpha1.ReleaseManifest
+		data     *api.Data
+		key      string
+	)
+
+	if err := str.resCache.Get(ctx, str.key(ctx.Event.Context.VirtualEnvironment), ve); err != nil {
 		return err
 	}
-	hash, _ := hashstructure.Hash(evt.Data, hashstructure.FormatV2, nil)
-	evt.DataChecksum = fmt.Sprint(hash)
-
-	appDep := &v1alpha1.AppDeployment{}
-	if err := str.get(evt.Context.AppDeployment, appDep, true); err != nil {
+	if err := str.resCache.Get(ctx, str.key(ctx.Event.Context.AppDeployment), appDep); err != nil {
 		return err
 	}
 
-	evt.Spec = &appDep.Spec
-	evt.ContextKey = fmt.Sprintf("%s-%d_%s-%s",
-		appDep.Name, appDep.Generation, evt.Context.VirtualEnvironment, evt.DataChecksum)
-
-	str.mutex.Lock()
-	defer str.mutex.Unlock()
-
-	allAdapters := str.adapters
-	if allAdapters == nil {
-		list := &v1alpha1.HTTPAdapterList{}
-		if err := str.resCache.List(ctx, list); err != nil {
+	var dataProviderUID types.UID
+	switch {
+	case ctx.Event.Context.ReleaseManifest != "":
+		manifest = &v1alpha1.ReleaseManifest{}
+		if err := str.resCache.Get(ctx, str.key(ctx.Event.Context.ReleaseManifest), manifest); err != nil {
 			return err
 		}
 
-		allAdapters = make(Adapters, len(list.Items))
-		for _, a := range list.Items {
-			allAdapters.Set(&a)
+		dataProviderUID = manifest.UID
+		data = manifest.Data.DeepCopy()
+
+		if err := str.mergeSecrets(ctx, manifest, data); err != nil {
+			return err
 		}
-		str.adapters = allAdapters
+
+	default:
+		env := &v1alpha1.Environment{}
+		if err := str.resCache.Get(ctx, k8s.Key("", ve.Spec.Environment), env); err != nil {
+			return err
+		}
+
+		dataProviderUID = ve.UID
+		data = ve.Data.DeepCopy()
+		data.Import(&env.Data)
+
+		if err := str.mergeSecrets(ctx, env, data); err != nil {
+			return err
+		}
+		if err := str.mergeSecrets(ctx, ve, data); err != nil {
+			return err
+		}
+
 	}
 
-	evt.Adapters = Adapters{}
-	for _, c := range evt.Spec.Components {
-		for name, d := range c.Dependencies {
-			if d.Type.IsAdapter() {
-				a, _ := allAdapters.Get(name, d.Type)
-				evt.Adapters.Set(a)
-			}
-		}
-	}
+	dataHash, _ := hashstructure.Hash(data, hashstructure.FormatV2, nil)
+	key = fmt.Sprintf("%s-%d_%s-%s",
+		appDep.UID, appDep.Generation, dataProviderUID, fmt.Sprint(dataHash))
 
-	// Check validation cache.
-	problems, found := str.validCache.Get(evt.ContextKey)
-	if !found {
-		problems, err = appDep.Validate(evt.Data,
-			func(name string, typ api.ComponentType) (api.Adapter, error) {
-				a, found := evt.Adapters[name]
-				if !found {
-					return nil, core.ErrNotFound()
-				}
-				return a, nil
+	ctx.VirtualEnv = ve
+	ctx.AppDeployment = appDep
+	ctx.ReleaseManifest = manifest
+	ctx.Data = data
+	ctx.Key = key
+
+	var problems, cached api.Problems
+	// Only check cache if context has ReleaseManifest.
+	if manifest != nil {
+		str.log.Debugf("using cached problems for '%s'", key)
+		cached, _ = str.validationCache.Get(key)
+		problems = cached
+	}
+	if problems == nil {
+		p, err := appDep.Validate(data,
+			func(name string, typ api.ComponentType) (common.Adapter, error) {
+				return str.Adapter(ctx, name, typ)
 			})
 		if err != nil {
 			return err
 		}
-		str.validCache.Set(evt.ContextKey, problems)
+		problems = p
 	}
+	// Only update cache if context has ReleaseManifest.
+	if manifest != nil && cached == nil {
+		str.validationCache.Set(key, problems)
+	}
+
 	if len(problems) > 0 {
 		b, _ := yaml.Marshal(problems)
 		return core.ErrInvalid(fmt.Errorf("event context is invalid\n%s", b))
 	}
+
+	return nil
+}
+
+func (str *Store) Adapter(ctx *BrokerEventContext, name string, typ api.ComponentType) (common.Adapter, error) {
+	if ctx.ReleaseManifest != nil {
+		return ctx.ReleaseManifest.GetAdapter(name, typ)
+	}
+
+	var a common.Adapter
+	switch typ {
+	case api.ComponentTypeHTTPAdapter:
+		a = &v1alpha1.HTTPAdapter{}
+
+	default:
+		return nil, core.ErrNotFound()
+	}
+
+	return a, str.resCache.Get(ctx, str.key(name), a)
+}
+
+func (str *Store) mergeSecrets(ctx context.Context, d api.DataProvider, data *api.Data) error {
+	key := fmt.Sprintf("%s-%s", d.GetDataKey(), d.GetResourceVersion())
+	if secs, _ := str.secretsCache.Get(key); secs != nil {
+		str.log.Debugf("using cached secrets for '%s'", key)
+		data.Merge(secs)
+		return nil
+	}
+
+	secs := &api.Data{}
+	if err := str.vaultCli.GetData(ctx, d.GetDataKey(), secs); k8s.IgnoreNotFound(err) != nil {
+		return err
+	}
+	str.secretsCache.Set(key, secs)
+	data.Merge(secs)
 
 	return nil
 }
@@ -319,47 +378,29 @@ func (str *Store) onChange(obj interface{}, op string) {
 
 	updateComps := false
 	switch obj.(type) {
-	case *v1alpha1.AppDeployment:
+	case *v1alpha1.AppDeployment, *v1alpha1.Platform:
 		updateComps = true
-	case *v1alpha1.HTTPAdapter:
-		// Clear adapters to force reload on next use.
-		str.adapters = nil
 	}
 
-	go str.updateCaches(context.Background(), updateComps)
-}
+	go func() {
+		ctx, cancel := context.WithTimeout(str.ctx, time.Minute)
+		defer cancel()
 
-func (str *Store) updateCaches(ctx context.Context, updateComps bool) error {
-	str.mutex.Lock()
-	defer str.mutex.Unlock()
-
-	if updateComps {
-		if compCache, err := str.buildComponentCache(ctx); err != nil {
-			return err
-		} else {
-			str.compCache = compCache
+		if updateComps {
+			str.updateComponentCache(ctx)
 		}
-	}
-
-	if relM, err := str.buildReleaseMatcher(ctx); err != nil {
-		// Clear releaseMatcher so it is updated again on next use.
-		str.relMatcher = nil
-		str.log.Error(err)
-		return err
-
-	} else {
-		str.relMatcher = relM
-	}
-
-	return nil
+		str.updateReleaseMatcher(ctx)
+	}()
 }
 
-func (str *Store) buildComponentCache(ctx context.Context) (cache.Cache[*api.ComponentDefinition], error) {
-	compCache := cache.New[*api.ComponentDefinition](time.Hour * 24)
+func (str *Store) updateComponentCache(ctx context.Context) error {
+	compCache := map[string]*api.ComponentDefinition{}
 
 	appDepList := &v1alpha1.AppDeploymentList{}
 	if err := str.resCache.List(ctx, appDepList); err != nil {
-		return nil, err
+		// Force rebuild on next used.
+		str.compCache = nil
+		return err
 	}
 
 	for _, appDep := range appDepList.Items {
@@ -369,13 +410,15 @@ func (str *Store) buildComponentCache(ctx context.Context) (cache.Cache[*api.Com
 				Name:   compName,
 				Commit: compSpec.Commit,
 			}
-			compCache.Set(comp.GroupKey(), compSpec)
+			compCache[comp.GroupKey()] = compSpec
 		}
 	}
 
 	p := &v1alpha1.Platform{}
-	if err := str.resCache.Get(ctx, k8s.Key(config.Namespace, config.Platform), p); err != nil {
-		return nil, err
+	if err := str.resCache.Get(ctx, str.key(config.Platform), p); err != nil {
+		// Force rebuild on next used.
+		str.compCache = nil
+		return err
 	}
 
 	for _, c := range p.Status.Components {
@@ -385,45 +428,55 @@ func (str *Store) buildComponentCache(ctx context.Context) (cache.Cache[*api.Com
 				Name:   c.Name,
 				Commit: c.Commit,
 			}
-			compCache.Set(comp.GroupKey(), &api.ComponentDefinition{
+			compCache[comp.GroupKey()] = &api.ComponentDefinition{
 				Type: c.Type,
-			})
+			}
 		}
 	}
 
-	return compCache, nil
+	str.compCache = compCache
+	return nil
 }
 
-func (str *Store) buildReleaseMatcher(ctx context.Context) (*matcher.EventMatcher, error) {
-	ctx, cancel := context.WithTimeout(ctx, time.Minute)
-	defer cancel()
-
+func (str *Store) updateReleaseMatcher(ctx context.Context) error {
 	veList := &v1alpha1.VirtualEnvironmentList{}
 	if err := str.resCache.List(ctx, veList); err != nil {
-		return nil, err
+		// Force rebuild on next use.
+		str.releaseMatcher = nil
+		return err
 	}
 
 	relM := matcher.New()
 	for _, ve := range veList.Items {
 		release := ve.Status.ActiveRelease
 		if release == nil {
-			str.log.Debugf("VirtualEnvironment '%s/%s' does not have an active Release", ve.Namespace, ve.Name)
+			str.log.Debugf("VirtualEnvironment '%s' does not have an active Release", ve.Name)
 			continue
 		}
 
-		data, err := str.Data(ctx, &core.EventContext{
-			Platform:           config.Platform,
-			VirtualEnvironment: ve.Name,
-			ReleaseManifest:    release.ReleaseManifest,
-		})
-		if err != nil {
-			str.log.Warn(err)
-			continue
+		var data *api.Data
+		switch {
+		case release.ReleaseManifest != "":
+			manifest := &v1alpha1.ReleaseManifest{}
+			if err := str.resCache.Get(ctx, str.key(release.ReleaseManifest), manifest); err != nil {
+				str.log.Warn(err)
+				continue
+			}
+			data = &manifest.Data
+
+		default:
+			env := &v1alpha1.Environment{}
+			if err := str.resCache.Get(ctx, k8s.Key("", ve.Spec.Environment), env); err != nil {
+				str.log.Warn(err)
+				continue
+			}
+			ve.Data.Import(&env.Data)
+			data = &ve.Data
 		}
 
 		for appName, app := range release.Apps {
 			appDep := &v1alpha1.AppDeployment{}
-			if err := str.get(app.AppDeployment, appDep, true); err != nil {
+			if err := str.resCache.Get(ctx, str.key(app.AppDeployment), appDep); err != nil {
 				str.log.Warn(err)
 				continue
 			}
@@ -435,12 +488,21 @@ func (str *Store) buildReleaseMatcher(ctx context.Context) (*matcher.EventMatche
 				continue
 			}
 
-			routes, err := str.buildRoutes(ctx, &appDep.Spec, data, &core.EventContext{
-				Platform:           config.Platform,
-				VirtualEnvironment: ve.Name,
-				AppDeployment:      appDep.Name,
-				ReleaseManifest:    release.ReleaseManifest,
-			})
+			brkCtx := &BrokerEventContext{
+				Context:       ctx,
+				AppDeployment: appDep,
+				Data:          data,
+				Event: &core.Event{
+					Context: &core.EventContext{
+						Platform:           config.Platform,
+						VirtualEnvironment: ve.Name,
+						AppDeployment:      appDep.Name,
+						ReleaseManifest:    release.ReleaseManifest,
+					},
+				},
+			}
+
+			routes, err := str.buildRoutes(brkCtx)
 			if err != nil {
 				str.log.Warn(err)
 				continue
@@ -452,14 +514,13 @@ func (str *Store) buildReleaseMatcher(ctx context.Context) (*matcher.EventMatche
 		}
 	}
 
-	return relM, nil
+	str.releaseMatcher = relM
+	return nil
 }
 
-func (str *Store) buildRoutes(ctx context.Context,
-	spec *v1alpha1.AppDeploymentSpec, data *api.Data, evtCtx *core.EventContext) ([]*core.Route, error) {
-
+func (str *Store) buildRoutes(ctx *BrokerEventContext) ([]*core.Route, error) {
 	var routes []*core.Route
-	for compName, compSpec := range spec.Components {
+	for compName, compSpec := range ctx.AppDeployment.Spec.Components {
 		comp := &core.Component{
 			Type:   string(compSpec.Type),
 			Name:   compName,
@@ -472,13 +533,13 @@ func (str *Store) buildRoutes(ctx context.Context,
 			}
 			route.Component = comp
 			route.EventContext = &core.EventContext{
-				Platform:           evtCtx.Platform,
-				VirtualEnvironment: evtCtx.VirtualEnvironment,
-				AppDeployment:      evtCtx.AppDeployment,
-				ReleaseManifest:    evtCtx.ReleaseManifest,
+				Platform:           ctx.Event.Context.Platform,
+				VirtualEnvironment: ctx.Event.Context.VirtualEnvironment,
+				AppDeployment:      ctx.Event.Context.AppDeployment,
+				ReleaseManifest:    ctx.Event.Context.ReleaseManifest,
 			}
 
-			if err := route.Resolve(data); err != nil {
+			if err := route.Resolve(ctx.Data); err != nil {
 				return nil, err
 			}
 			routes = append(routes, route)
@@ -488,15 +549,6 @@ func (str *Store) buildRoutes(ctx context.Context,
 	return routes, nil
 }
 
-// TODO Remove this?
-func (str *Store) get(name string, obj client.Object, namespaced bool) error {
-	ctx, cancel := context.WithTimeout(str.ctx, time.Minute)
-	defer cancel()
-
-	nn := types.NamespacedName{Name: name}
-	if namespaced {
-		nn.Namespace = str.namespace
-	}
-
-	return str.resCache.Get(ctx, nn, obj)
+func (str *Store) key(name string) types.NamespacedName {
+	return k8s.Key(config.Namespace, name)
 }

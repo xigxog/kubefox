@@ -80,26 +80,27 @@ func (r *PlatformReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		"namespace", req.Namespace,
 		"name", req.Name,
 	)
-	log.Debugf("reconciling Platform '%s/%s'", req.Namespace, req.Name)
-
-	pKey := fmt.Sprintf("%s/%s", req.Namespace, req.Name)
+	setupKey := fmt.Sprintf("%s/%s", req.Namespace, req.Name)
 
 	ns := &v1.Namespace{}
 	if err := r.Get(ctx, k8s.Key("", req.Namespace), ns); err != nil {
-		r.setSetup(pKey, false)
+		r.setSetup(setupKey, false)
 		return ctrl.Result{}, k8s.IgnoreNotFound(err)
 	}
 	if ns.Status.Phase == v1.NamespaceTerminating {
-		log.Debug("Namespace is terminating")
-		r.setSetup(pKey, false)
+		log.Debugf("Namespace '%s' is terminating", ns.Name)
+		r.setSetup(setupKey, false)
 		return ctrl.Result{}, nil
 	}
 
 	platform := &v1alpha1.Platform{}
 	if err := r.Get(ctx, req.NamespacedName, platform); err != nil {
-		r.setSetup(pKey, false)
+		r.setSetup(setupKey, false)
 		return ctrl.Result{}, k8s.IgnoreNotFound(err)
 	}
+
+	log.Debugf("reconciling '%s'", k8s.ToString(platform))
+	defer log.Debugf("reconciling '%s' complete", k8s.ToString(platform))
 
 	err := r.reconcile(ctx, platform, log)
 	if err != nil {
@@ -110,9 +111,8 @@ func (r *PlatformReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 			Reason:             api.ConditionReasonReconcileFailed,
 			Message:            err.Error(),
 		})
-	}
 
-	if err == nil {
+	} else {
 		if _, err := r.CompMgr.ReconcileApps(ctx, req.Namespace); err != nil {
 			r.log.Error(err)
 		}
@@ -122,22 +122,19 @@ func (r *PlatformReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		r.log.Error(err)
 	}
 
-	log.Debugf("updating Platform '%s/%s' status", req.Namespace, req.Name)
-	if err := r.ApplyStatus(ctx, platform); err != nil {
-		r.log.Error(err)
+	if err := r.Status().Update(ctx, platform); err != nil {
+		return RetryConflictWebhookErr(err)
 	}
-
-	log.Debugf("reconciling Platform '%s/%s' done", req.Namespace, req.Name)
 
 	return ctrl.Result{}, err
 }
 
 func (r *PlatformReconciler) reconcile(ctx context.Context, platform *v1alpha1.Platform, log *logkf.Logger) error {
-	pKey := fmt.Sprintf("%s/%s", platform.Namespace, platform.Name)
+	setupKey := k8s.ToString(platform)
 
 	cm := &v1.ConfigMap{}
 	if err := r.Get(ctx, k8s.Key(r.Namespace, r.Instance+"-root-ca"), cm); err != nil {
-		r.setSetup(pKey, false)
+		r.setSetup(setupKey, false)
 		return log.ErrorN("unable to fetch root CA configmap: %w", err)
 	}
 
@@ -169,8 +166,8 @@ func (r *PlatformReconciler) reconcile(ctx context.Context, platform *v1alpha1.P
 		},
 	}
 
-	if r.isSetup(pKey) {
-		r.log.Debugf("Platform '%s' already setup ", pKey)
+	if r.isSetup(setupKey) {
+		r.log.Debugf("Platform '%s' already setup ", setupKey)
 
 	} else {
 		// Ensure there are valid commits for Platform components.
@@ -186,7 +183,7 @@ func (r *PlatformReconciler) reconcile(ctx context.Context, platform *v1alpha1.P
 			return log.ErrorN("problem setting up Platform: %w", err)
 		}
 
-		r.setSetup(pKey, true)
+		r.setSetup(setupKey, true)
 	}
 
 	td := platformTD.ForComponent(api.PlatformComponentNATS, &appsv1.StatefulSet{}, &defaults.NATS, templates.Component{
@@ -438,10 +435,10 @@ func (r *PlatformReconciler) setupVaultComponent(ctx context.Context,
 	if grantReadData {
 		readDataPolicy := vault.PolicyName(key, "read-data")
 		if err = vaultCli.Sys().PutPolicyWithContext(ctx, readDataPolicy, `
-			path "`+vault.DataPath(api.DataKey{Instance: r.Instance})+`" {
+			path "`+vault.DataPath(api.DataKey{Instance: r.Instance})+`/*" {
 				capabilities = ["read", "list"]
 			}
-			path "`+vault.DataPath(api.DataKey{Instance: r.Instance, Namespace: platform.Namespace})+`" {
+			path "`+vault.DataPath(api.DataKey{Instance: r.Instance, Namespace: platform.Namespace})+`/*" {
 				capabilities = ["read", "list"]
 			}
 		`); err != nil {

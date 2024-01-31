@@ -26,5 +26,6 @@ var (
 	HealthSrvAddr string
 
 	NATSAddr      string
+	VaultURL      string
 	TelemetryAddr string
 )

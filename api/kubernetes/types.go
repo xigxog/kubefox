@@ -13,6 +13,8 @@ import (
 	"github.com/xigxog/kubefox/api"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 // Types in this file contain dependencies on Kubernetes packages. They are kept
@@ -27,6 +29,18 @@ type Problem struct {
 	// ObservedTime at which the problem was recorded.
 	ObservedTime metav1.Time `json:"observedTime"`
 }
+
+// +kubebuilder:object:generate=false
+type Adapter interface {
+	client.Object
+
+	GetComponentType() api.ComponentType
+	Validate(data *api.Data) api.Problems
+	Resolve(data *api.Data) error
+}
+
+// +kubebuilder:object:generate=false
+type GetAdapterFunc func(name string, typ api.ComponentType) (Adapter, error)
 
 type PodSpec struct {
 	// Map of string keys and values that can be used to organize and categorize
@@ -83,4 +97,39 @@ type LoggerSpec struct {
 	Level string `json:"level,omitempty"`
 	// +kubebuilder:validation:Enum=json;console
 	Format string `json:"format,omitempty"`
+}
+
+type ObjectRef struct {
+	// +kubebuilder:validation:Required
+
+	UID types.UID `json:"uid"`
+
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:MinLength=1
+
+	ResourceVersion string `json:"resourceVersion"`
+
+	// +kubebuilder:validation:Required
+
+	Generation int64 `json:"generation"`
+
+	Name string `json:"name,omitempty"`
+}
+
+func (r ObjectRef) ObjectMeta() metav1.ObjectMeta {
+	return metav1.ObjectMeta{
+		Name:            r.Name,
+		UID:             r.UID,
+		ResourceVersion: r.ResourceVersion,
+		Generation:      r.Generation,
+	}
+}
+
+func (r ObjectRef) ObjectMetaWithName(name string) metav1.ObjectMeta {
+	return metav1.ObjectMeta{
+		Name:            name,
+		UID:             r.UID,
+		ResourceVersion: r.ResourceVersion,
+		Generation:      r.Generation,
+	}
 }

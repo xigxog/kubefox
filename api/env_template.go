@@ -21,6 +21,8 @@ type EnvTemplate struct {
 	template  string
 	envSchema *EnvSchema
 	tree      *parse.Tree
+
+	parseErr error
 }
 
 type templateData struct {
@@ -35,12 +37,12 @@ type envVar struct {
 	Val *Val
 }
 
-func NewEnvTemplate(template string) (*EnvTemplate, error) {
+func NewEnvTemplate(name, template string) *EnvTemplate {
 	r := &EnvTemplate{
 		template: template,
 		envSchema: &EnvSchema{
-			Vars:    make(EnvVarSchema),
-			Secrets: make(EnvVarSchema),
+			Vars:    EnvVarSchema{},
+			Secrets: EnvVarSchema{},
 		},
 	}
 
@@ -49,7 +51,8 @@ func NewEnvTemplate(template string) (*EnvTemplate, error) {
 
 	r.tree = parse.New("route")
 	if _, err := r.tree.Parse(resolved, "{{", "}}", map[string]*parse.Tree{}); err != nil {
-		return nil, err
+		r.parseErr = err
+		return r
 	}
 
 	for _, n := range r.tree.Root.Nodes {
@@ -86,7 +89,7 @@ func NewEnvTemplate(template string) (*EnvTemplate, error) {
 		}
 	}
 
-	return r, nil
+	return r
 }
 
 func (r *EnvTemplate) Template() string {
@@ -97,23 +100,31 @@ func (r *EnvTemplate) EnvSchema() *EnvSchema {
 	return r.envSchema
 }
 
-func (r *EnvTemplate) Resolve(data *Data) (string, error) {
+func (r *EnvTemplate) ParseError() error {
+	return r.parseErr
+}
+
+// TODO allow use of event params in templates? be useful for passing things to adapters.
+func (r *EnvTemplate) Resolve(data *Data, includeSecrets bool) (string, error) {
 	if data == nil {
 		data = &Data{}
 	}
 
 	envVarData := &templateData{
-		Vars:    make(map[string]*envVar),
-		Secrets: make(map[string]*envVar),
+		Vars:    map[string]*envVar{},
+		Secrets: map[string]*envVar{},
 	}
 	for k, v := range data.Vars {
 		envVarData.Vars[k] = &envVar{Val: v}
 	}
-	for k, v := range data.ResolvedSecrets {
-		envVarData.Secrets[k] = &envVar{Val: v}
-	}
 	// Supports use of {{.Env.<NAME>}} or {{.Vars.<NAME>}}.
 	envVarData.Env = envVarData.Vars
+
+	if includeSecrets {
+		for k, v := range data.Secrets {
+			envVarData.Secrets[k] = &envVar{Val: v}
+		}
+	}
 
 	tpl := template.New("route").Option("missingkey=zero")
 	tpl.Tree = r.tree
@@ -128,17 +139,24 @@ func (r *EnvTemplate) Resolve(data *Data) (string, error) {
 	return strings.ReplaceAll(buf.String(), "<no value>", ""), nil
 }
 
-func (e EnvVarSchema) Validate(vars map[string]*Val, src *ProblemSource) []Problem {
+func (s *EnvSchema) Validate(data *Data, src *ProblemSource, appendName bool) []Problem {
+	problems := s.Vars.Validate("Var", data.Vars, src, appendName)
+	return append(problems, s.Secrets.Validate("Secret", data.Secrets, src, appendName)...)
+}
+
+func (e EnvVarSchema) Validate(typ string, vars map[string]*Val, src *ProblemSource, appendName bool) []Problem {
 	var problems []Problem
 	for varName, varDef := range e {
 		val, found := vars[varName]
 
 		if !found && varDef.Required {
 			src := *src
-			src.Path = fmt.Sprintf("%s.%s", src.Path, varName)
+			if appendName {
+				src.Path = fmt.Sprintf("%s.%s", src.Path, varName)
+			}
 			problems = append(problems, Problem{
 				Type:    ProblemTypeVarNotFound,
-				Message: fmt.Sprintf(`Variable "%s" not found but is required.`, varName),
+				Message: fmt.Sprintf(`%s "%s" not found but is required.`, typ, varName),
 				Causes:  []ProblemSource{src},
 			})
 		}
@@ -148,8 +166,8 @@ func (e EnvVarSchema) Validate(vars map[string]*Val, src *ProblemSource) []Probl
 			src.Value = (*string)(&varDef.Type)
 			problems = append(problems, Problem{
 				Type: ProblemTypeVarWrongType,
-				Message: fmt.Sprintf(`Variable "%s" has wrong type; wanted "%s" got "%s".`,
-					varName, varDef.Type, val.EnvVarType()),
+				Message: fmt.Sprintf(`%s "%s" has wrong type; wanted "%s" got "%s".`,
+					typ, varName, varDef.Type, val.EnvVarType()),
 				Causes: []ProblemSource{src},
 			})
 		}

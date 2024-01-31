@@ -37,6 +37,12 @@ type HTTPAdapterSpec struct {
 	FollowRedirects api.FollowRedirects `json:"followRedirects,omitempty"`
 }
 
+// +kubebuilder:object:generate=false
+type HTTPAdapterTemplate struct {
+	URL     *api.EnvTemplate
+	Headers map[string]*api.EnvTemplate
+}
+
 // +kubebuilder:object:root=true
 // +kubebuilder:resource:path=httpadapters,shortName=http
 // +kubebuilder:printcolumn:name="URL",type=string,JSONPath=`.spec.url`
@@ -63,6 +69,7 @@ func (a *HTTPAdapter) GetComponentType() api.ComponentType {
 }
 
 func (a *HTTPAdapter) Validate(data *api.Data) api.Problems {
+	tpl := a.getTemplate()
 	var problems api.Problems
 
 	src := api.ProblemSource{
@@ -72,38 +79,70 @@ func (a *HTTPAdapter) Validate(data *api.Data) api.Problems {
 		Path:               "$.spec.url",
 		Value:              &a.Spec.URL,
 	}
-	if t, err := api.NewEnvTemplate(a.Spec.URL); err != nil {
+	if t := tpl.URL; t.ParseError() != nil {
 		problems = append(problems, api.Problem{
 			Type:    api.ProblemTypeParseError,
-			Message: fmt.Sprintf(`Error parsing url "%s": %s`, a.Spec.URL, err.Error()),
+			Message: fmt.Sprintf(`Error parsing template "%s": %s`, a.Spec.URL, t.ParseError()),
 			Causes:  []api.ProblemSource{src},
 		})
 	} else {
-		problems = append(problems, t.EnvSchema().Vars.Validate(data.Vars, &src)...)
-		problems = append(problems, t.EnvSchema().Secrets.Validate(data.ResolvedSecrets, &src)...)
+		problems = append(problems, t.EnvSchema().Validate(data, &src, false)...)
 	}
 
 	for header, val := range a.Spec.Headers {
+		v := val
 		src := api.ProblemSource{
 			Kind:               api.ProblemSourceKindHTTPAdapter,
 			Name:               a.Name,
 			ObservedGeneration: a.Generation,
 			Path:               fmt.Sprintf("$.spec.headers.%s", header),
-			Value:              &val,
+			Value:              &v,
 		}
-		if t, err := api.NewEnvTemplate(val); err != nil {
+		if t := tpl.Headers[header]; t.ParseError() != nil {
 			problems = append(problems, api.Problem{
 				Type:    api.ProblemTypeParseError,
-				Message: fmt.Sprintf(`Error parsing header "%s": %s`, val, err.Error()),
+				Message: fmt.Sprintf(`Error parsing template "%s": %s`, val, t.ParseError()),
 				Causes:  []api.ProblemSource{src},
 			})
 		} else {
-			problems = append(problems, t.EnvSchema().Vars.Validate(data.Vars, &src)...)
-			problems = append(problems, t.EnvSchema().Secrets.Validate(data.ResolvedSecrets, &src)...)
+			problems = append(problems, t.EnvSchema().Validate(data, &src, false)...)
 		}
 	}
 
 	return problems
+}
+
+func (a *HTTPAdapter) Resolve(data *api.Data) error {
+	tpl := a.getTemplate()
+
+	url, err := tpl.URL.Resolve(data, true)
+	if err != nil {
+		return err
+	}
+
+	headers := make(map[string]string, len(tpl.Headers))
+	for k, v := range tpl.Headers {
+		if headers[k], err = v.Resolve(data, true); err != nil {
+			return err
+		}
+	}
+
+	a.Spec.URL = url
+	a.Spec.Headers = headers
+
+	return nil
+}
+
+func (a *HTTPAdapter) getTemplate() *HTTPAdapterTemplate {
+	tpl := &HTTPAdapterTemplate{
+		URL:     api.NewEnvTemplate("url", a.Spec.URL),
+		Headers: make(map[string]*api.EnvTemplate, len(a.Spec.Headers)),
+	}
+	for k, v := range a.Spec.Headers {
+		tpl.Headers[k] = api.NewEnvTemplate("header."+k, v)
+	}
+
+	return tpl
 }
 
 func init() {

@@ -154,7 +154,7 @@ func (srv *GRPCServer) subscribe(stream grpc.Broker_SubscribeServer) (ReplicaSub
 		return nil, core.ErrUnauthorized(err)
 	}
 
-	sendEvt := func(evt *BrokerEvent) error {
+	sendEvt := func(evt *BrokerEventContext) error {
 		// Protect the stream from being called by multiple threads.
 		sendMutex.Lock()
 		defer sendMutex.Unlock()
@@ -191,7 +191,7 @@ func (srv *GRPCServer) subscribe(stream grpc.Broker_SubscribeServer) (ReplicaSub
 		return nil, err
 	}
 
-	regResp := &BrokerEvent{
+	regResp := &BrokerEventContext{
 		Event: core.NewResp(core.EventOpts{
 			Type:   api.EventTypeRegister,
 			Parent: regEvt,
@@ -238,8 +238,11 @@ func (srv *GRPCServer) subscribe(stream grpc.Broker_SubscribeServer) (ReplicaSub
 			}
 			evt.Source.BrokerId = srv.brk.Component().Id
 
-			brkEvt := srv.brk.RecvEvent(evt, ReceiverGRPCServer)
-			if err := <-brkEvt.Done(); err != nil &&
+			ctx := srv.brk.RecvEvent(evt, ReceiverGRPCServer)
+
+			<-ctx.Done()
+
+			if err := ctx.CoreErr(); err != nil &&
 				evt.Category == core.Category_REQUEST &&
 				err.Code() != core.CodeTimeout {
 
@@ -249,7 +252,7 @@ func (srv *GRPCServer) subscribe(stream grpc.Broker_SubscribeServer) (ReplicaSub
 					Target: evt.Source,
 				})
 
-				if err := sendEvt(&BrokerEvent{Event: errResp}); err != nil {
+				if err := sendEvt(&BrokerEventContext{Event: errResp}); err != nil {
 					return sub, err
 				}
 			}

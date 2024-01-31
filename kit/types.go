@@ -335,7 +335,6 @@ type route struct {
 	api.RouteSpec
 
 	handler EventHandler
-	err     error
 }
 
 type dependency struct {

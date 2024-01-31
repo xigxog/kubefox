@@ -114,6 +114,8 @@ func (srv *Server) Shutdown() {
 	}
 }
 
+// TODO have `kubefox-set-cookie` which takes dynamic context and puts it into
+// cookie so do not have to set query params?
 func (srv *Server) ServeHTTP(resWriter http.ResponseWriter, httpReq *http.Request) {
 	ctx, cancel := context.WithTimeoutCause(httpReq.Context(), EventTimeout, core.ErrTimeout())
 	defer cancel()

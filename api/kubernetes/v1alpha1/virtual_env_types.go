@@ -168,19 +168,6 @@ func (d *VirtualEnvironment) GetDataKey() api.DataKey {
 	}
 }
 
-func (p *ReleasePolicy) GetPendingDeadline() time.Duration {
-	if p == nil {
-		return api.DefaultReleaseActivationDeadlineSeconds * time.Second
-	}
-
-	secs := p.ActivationDeadlineSeconds
-	if secs == nil || *secs == 0 {
-		return api.DefaultReleaseActivationDeadlineSeconds * time.Second
-	}
-
-	return time.Duration(*secs * uint(time.Second))
-}
-
 // GetReleasePendingDuration returns the current duration that the Release has
 // been pending. If there is no Release pending 0 is returned.
 func (ve *VirtualEnvironment) GetReleasePendingDuration() time.Duration {
@@ -238,6 +225,66 @@ func (ve *VirtualEnvironment) GetReleasePolicy(env *Environment) *ReleasePolicy 
 	}
 
 	return vePol
+}
+
+func (ve *VirtualEnvironment) UsesAppDeployment(name string) bool {
+	if ve.Status.ActiveRelease.ContainsAppDeployment(name) {
+		return true
+	}
+	if ve.Status.PendingRelease.ContainsAppDeployment(name) {
+		return true
+	}
+
+	return false
+}
+
+func (ve *VirtualEnvironment) UsesReleaseManifest(name string) bool {
+	if ve.Status.ActiveRelease.ContainsReleaseManifest(name) {
+		return true
+	}
+
+	for _, rel := range ve.Status.ReleaseHistory {
+		if rel.ContainsReleaseManifest(name) {
+			return true
+		}
+	}
+
+	return false
+}
+
+func (p *ReleasePolicy) GetPendingDeadline() time.Duration {
+	if p == nil {
+		return api.DefaultReleaseActivationDeadlineSeconds * time.Second
+	}
+
+	secs := p.ActivationDeadlineSeconds
+	if secs == nil || *secs == 0 {
+		return api.DefaultReleaseActivationDeadlineSeconds * time.Second
+	}
+
+	return time.Duration(*secs * uint(time.Second))
+}
+
+func (s *ReleaseStatus) ContainsAppDeployment(name string) bool {
+	if s == nil {
+		return false
+	}
+
+	for _, app := range s.Apps {
+		if app.AppDeployment == name {
+			return true
+		}
+	}
+
+	return false
+}
+
+func (s *ReleaseStatus) ContainsReleaseManifest(name string) bool {
+	if s == nil {
+		return false
+	}
+
+	return s.ReleaseManifest == name
 }
 
 func init() {

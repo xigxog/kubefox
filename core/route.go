@@ -30,9 +30,9 @@ type Route struct {
 }
 
 func NewRoute(id int, rule string) (*Route, error) {
-	tpl, err := api.NewEnvTemplate(rule)
-	if err != nil {
-		return nil, err
+	tpl := api.NewEnvTemplate("route", rule)
+	if tpl.ParseError() != nil {
+		return nil, tpl.ParseError()
 	}
 
 	return &Route{
@@ -42,7 +42,7 @@ func NewRoute(id int, rule string) (*Route, error) {
 }
 
 func (r *Route) Resolve(data *api.Data) (err error) {
-	if r.ResolvedRule, err = r.EnvTemplate.Resolve(data); err != nil {
+	if r.ResolvedRule, err = r.EnvTemplate.Resolve(data, false); err != nil {
 		return
 	}
 	// Normalize path args so they don't affect length.

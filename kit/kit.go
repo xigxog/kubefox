@@ -141,9 +141,9 @@ func (svc *kit) Description(description string) {
 }
 
 func (svc *kit) Route(rule string, handler EventHandler) {
-	r, err := api.NewEnvTemplate(rule)
-	if err != nil {
-		svc.log.Fatalf("error parsing route '%s': %v", rule, err)
+	r := api.NewEnvTemplate("route", rule)
+	if r.ParseError() != nil {
+		svc.log.Fatalf("error parsing route '%s': %v", rule, r.ParseError())
 	}
 	if len(r.EnvSchema().Secrets) > 0 {
 		svc.log.Fatalf("route '%s' uses env secrets", rule)
@@ -156,7 +156,6 @@ func (svc *kit) Route(rule string, handler EventHandler) {
 			EnvVarSchema: r.EnvSchema().Vars,
 		},
 		handler: handler,
-		err:     err,
 	}
 	svc.routes = append(svc.routes, kitRoute)
 	svc.compDef.Routes = append(svc.compDef.Routes, kitRoute.RouteSpec)

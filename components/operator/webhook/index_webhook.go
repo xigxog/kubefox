@@ -17,7 +17,6 @@ import (
 	"github.com/xigxog/kubefox/api/kubernetes/v1alpha1"
 	"github.com/xigxog/kubefox/k8s"
 	"github.com/xigxog/kubefox/utils"
-	admv1 "k8s.io/api/admission/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 )
@@ -42,17 +41,6 @@ func (r *IndexWebhook) Handle(ctx context.Context, req admission.Request) admiss
 		k8s.UpdateLabel(appDep, api.LabelK8sAppName, appDep.Spec.AppName)
 		k8s.UpdateLabel(appDep, api.LabelK8sAppTag, appDep.Spec.Tag)
 		k8s.UpdateLabel(appDep, api.LabelK8sAppVersion, appDep.Spec.Version)
-
-	case "kubefox.xigxog.io/v1alpha1, Kind=Environment":
-		if req.Operation == admv1.Create {
-			env := &v1alpha1.Environment{}
-			if err := r.DecodeRaw(req.Object, env); err != nil {
-				return admission.Errored(http.StatusBadRequest, err)
-			}
-			obj = env
-
-			k8s.AddFinalizer(env, api.FinalizerEnvironmentProtection)
-		}
 
 	case "kubefox.xigxog.io/v1alpha1, Kind=ReleaseManifest":
 		manifest := &v1alpha1.ReleaseManifest{}

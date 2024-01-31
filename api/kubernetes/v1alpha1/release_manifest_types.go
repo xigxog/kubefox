@@ -10,8 +10,9 @@ package v1alpha1
 
 import (
 	"github.com/xigxog/kubefox/api"
+	common "github.com/xigxog/kubefox/api/kubernetes"
+	"github.com/xigxog/kubefox/core"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
 )
 
 type ReleaseManifestSpec struct {
@@ -22,32 +23,18 @@ type ReleaseManifestSpec struct {
 
 	// +kubebuilder:validation:Required
 
-	Environment ReleaseManifestRef `json:"environment"`
+	Environment common.ObjectRef `json:"environment"`
 
 	// +kubebuilder:validation:Required
 
-	VirtualEnvironment ReleaseManifestRef `json:"virtualEnvironment"`
+	VirtualEnvironment common.ObjectRef `json:"virtualEnvironment"`
 
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:MinProperties=1
 
 	Apps map[string]*ReleaseManifestApp `json:"apps"`
-}
 
-type ReleaseManifestRef struct {
-	// +kubebuilder:validation:Required
-
-	UID types.UID `json:"uid"`
-
-	// +kubebuilder:validation:Required
-	// +kubebuilder:validation:MinLength=1
-
-	Name string `json:"name"`
-
-	// +kubebuilder:validation:Required
-	// +kubebuilder:validation:MinLength=1
-
-	ResourceVersion string `json:"resourceVersion"`
+	Adapters *ReleaseManifestAdapters `json:"adapters,omitempty"`
 }
 
 type ReleaseManifestApp struct {
@@ -61,11 +48,23 @@ type ReleaseManifestApp struct {
 }
 
 type ReleaseManifestAppDep struct {
-	ReleaseManifestRef `json:",inline"`
+	common.ObjectRef `json:",inline"`
 
 	// +kubebuilder:validation:Required
 
 	Spec AppDeploymentSpec `json:"spec"`
+}
+
+type ReleaseManifestAdapters struct {
+	HTTPAdapters []ReleaseManifestHTTPAdapter `json:"http,omitempty"`
+}
+
+type ReleaseManifestHTTPAdapter struct {
+	common.ObjectRef `json:",inline"`
+
+	// +kubebuilder:validation:Required
+
+	Spec HTTPAdapterSpec `json:"spec"`
 }
 
 // +kubebuilder:object:root=true
@@ -109,6 +108,56 @@ func (d *ReleaseManifest) GetDataKey() api.DataKey {
 		Name:      d.Name,
 		Namespace: d.Namespace,
 	}
+}
+
+func (d *ReleaseManifest) AddAdapter(adapter common.Adapter) {
+	if cur, _ := d.GetAdapter(adapter.GetName(), adapter.GetComponentType()); cur != nil {
+		// Adapter already present.
+		return
+	}
+
+	if d.Spec.Adapters == nil {
+		d.Spec.Adapters = &ReleaseManifestAdapters{}
+	}
+
+	switch adapter := adapter.(type) {
+	case *HTTPAdapter:
+		d.Spec.Adapters.HTTPAdapters = append(d.Spec.Adapters.HTTPAdapters, ReleaseManifestHTTPAdapter{
+			ObjectRef: common.ObjectRef{
+				UID:             adapter.UID,
+				ResourceVersion: adapter.ResourceVersion,
+				Generation:      adapter.Generation,
+				Name:            adapter.Name,
+			},
+			Spec: adapter.Spec,
+		})
+	}
+}
+
+func (d *ReleaseManifest) GetAdapter(name string, typ api.ComponentType) (common.Adapter, error) {
+	if d.Spec.Adapters == nil {
+		return nil, core.ErrNotFound()
+	}
+
+	var a common.Adapter
+	switch typ {
+	case api.ComponentTypeHTTPAdapter:
+		for _, h := range d.Spec.Adapters.HTTPAdapters {
+			if h.Name == name {
+				a = &HTTPAdapter{
+					ObjectMeta: h.ObjectMeta(),
+					Spec:       h.Spec,
+				}
+				break
+			}
+		}
+	}
+
+	if a == nil {
+		return nil, core.ErrNotFound()
+	}
+
+	return a, nil
 }
 
 func init() {

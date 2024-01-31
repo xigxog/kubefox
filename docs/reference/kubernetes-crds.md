@@ -5,7 +5,6 @@
 
 
 
-
 ### AppDeployment
 
 AppDeployment is the Schema for the AppDeployments API
@@ -92,6 +91,8 @@ AppDeployment is the Schema for the AppDeployments API
 
 
 
+
+
 ### Platform
 
 Platform is the Schema for the Platforms API
@@ -147,6 +148,7 @@ Platform is the Schema for the Platforms API
 
 
 
+
 ### VirtualEnvironment
 
 
@@ -171,22 +173,6 @@ Platform is the Schema for the Platforms API
 ## Types
 
 
-
-
-
-### Adapters
-
-
-
-<p style="font-size:.6rem;">
-Used by:<br>
-
-- <a href=#appdeploymentspec>AppDeploymentSpec</a><br>
-</p>
-
-| Field | Type | Description | Validation |
-| ----- | ---- | ----------- | ---------- |
-| `http` | <div style="white-space:nowrap">map{string, [HTTPAdapterSpec](#httpadapterspec)}<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
 
 
 
@@ -232,7 +218,6 @@ Used by:<br>
 | `containerRegistry` | <div style="white-space:nowrap">string<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
 | `imagePullSecretName` | <div style="white-space:nowrap">string<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
 | `components` | <div style="white-space:nowrap">map{string, ComponentDefinition}<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap">required</div> |
-| `adapters` | <div style="white-space:nowrap">[Adapters](#adapters)<div> | <div style="max-width:30rem">Specs of all Adapters defined as dependencies by the Components. This a read-only field and is set by the KubeFox Operator when a versioned AppDeployment is created.</div> | <div style="white-space:nowrap"></div> |
 
 
 
@@ -479,6 +464,22 @@ Used by:<br>
 
 
 
+### EnvTemplate
+
+
+
+<p style="font-size:.6rem;">
+Used by:<br>
+
+- <a href=#httpadaptertemplate>HTTPAdapterTemplate</a><br>
+</p>
+
+| Field | Type | Description | Validation |
+| ----- | ---- | ----------- | ---------- |
+| `template` | <div style="white-space:nowrap">string<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
+| `envSchema` | <div style="white-space:nowrap">[EnvSchema](#envschema)<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
+| `tree` | <div style="white-space:nowrap">[Tree](#tree)<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
+| `parseErr` | <div style="white-space:nowrap">[error](#error)<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
 
 
 
@@ -542,8 +543,8 @@ Used by:<br>
 <p style="font-size:.6rem;">
 Used by:<br>
 
-- <a href=#adapters>Adapters</a><br>
 - <a href=#httpadapter>HTTPAdapter</a><br>
+- <a href=#releasemanifesthttpadapter>ReleaseManifestHTTPAdapter</a><br>
 </p>
 
 | Field | Type | Description | Validation |
@@ -552,6 +553,9 @@ Used by:<br>
 | `headers` | <div style="white-space:nowrap">map{string, string}<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
 | `insecureSkipVerify` | <div style="white-space:nowrap">boolean<div> | <div style="max-width:30rem">InsecureSkipVerify controls whether the Adapter verifies the server's certificate chain and host name. If InsecureSkipVerify is true, any certificate presented by the server and any host name in that certificate is accepted. In this mode, TLS is susceptible to machine-in-the-middle attacks.</div> | <div style="white-space:nowrap">default: false</div> |
 | `followRedirects` | <div style="white-space:nowrap">enum[`Never`, `Always`, `SameHost`]<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap">default: Never</div> |
+
+
+
 
 
 
@@ -660,6 +664,27 @@ Used by:<br>
 
 
 
+
+
+
+### ObjectRef
+
+
+
+<p style="font-size:.6rem;">
+Used by:<br>
+
+- <a href=#releasemanifestappdep>ReleaseManifestAppDep</a><br>
+- <a href=#releasemanifesthttpadapter>ReleaseManifestHTTPAdapter</a><br>
+- <a href=#releasemanifestspec>ReleaseManifestSpec</a><br>
+</p>
+
+| Field | Type | Description | Validation |
+| ----- | ---- | ----------- | ---------- |
+| `uid` | <div style="white-space:nowrap">[UID](#uid)<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap">required</div> |
+| `resourceVersion` | <div style="white-space:nowrap">string<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap">required, minLength: 1</div> |
+| `generation` | <div style="white-space:nowrap">integer<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap">required</div> |
+| `name` | <div style="white-space:nowrap">string<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
 
 
 
@@ -826,6 +851,22 @@ Used by:<br>
 
 
 
+### ReleaseManifestAdapters
+
+
+
+<p style="font-size:.6rem;">
+Used by:<br>
+
+- <a href=#releasemanifestspec>ReleaseManifestSpec</a><br>
+</p>
+
+| Field | Type | Description | Validation |
+| ----- | ---- | ----------- | ---------- |
+| `http` | <div style="white-space:nowrap">[ReleaseManifestHTTPAdapter](#releasemanifesthttpadapter) array<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
+
+
+
 ### ReleaseManifestApp
 
 
@@ -856,28 +897,30 @@ Used by:<br>
 | Field | Type | Description | Validation |
 | ----- | ---- | ----------- | ---------- |
 | `uid` | <div style="white-space:nowrap">[UID](#uid)<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap">required</div> |
-| `name` | <div style="white-space:nowrap">string<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap">required, minLength: 1</div> |
 | `resourceVersion` | <div style="white-space:nowrap">string<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap">required, minLength: 1</div> |
+| `generation` | <div style="white-space:nowrap">integer<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap">required</div> |
+| `name` | <div style="white-space:nowrap">string<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
 | `spec` | <div style="white-space:nowrap">[AppDeploymentSpec](#appdeploymentspec)<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap">required</div> |
 
 
 
-### ReleaseManifestRef
+### ReleaseManifestHTTPAdapter
 
 
 
 <p style="font-size:.6rem;">
 Used by:<br>
 
-- <a href=#releasemanifestappdep>ReleaseManifestAppDep</a><br>
-- <a href=#releasemanifestspec>ReleaseManifestSpec</a><br>
+- <a href=#releasemanifestadapters>ReleaseManifestAdapters</a><br>
 </p>
 
 | Field | Type | Description | Validation |
 | ----- | ---- | ----------- | ---------- |
 | `uid` | <div style="white-space:nowrap">[UID](#uid)<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap">required</div> |
-| `name` | <div style="white-space:nowrap">string<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap">required, minLength: 1</div> |
 | `resourceVersion` | <div style="white-space:nowrap">string<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap">required, minLength: 1</div> |
+| `generation` | <div style="white-space:nowrap">integer<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap">required</div> |
+| `name` | <div style="white-space:nowrap">string<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
+| `spec` | <div style="white-space:nowrap">[HTTPAdapterSpec](#httpadapterspec)<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap">required</div> |
 
 
 
@@ -894,9 +937,10 @@ Used by:<br>
 | Field | Type | Description | Validation |
 | ----- | ---- | ----------- | ---------- |
 | `releaseId` | <div style="white-space:nowrap">string<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap">required, minLength: 1</div> |
-| `environment` | <div style="white-space:nowrap">[ReleaseManifestRef](#releasemanifestref)<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap">required</div> |
-| `virtualEnvironment` | <div style="white-space:nowrap">[ReleaseManifestRef](#releasemanifestref)<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap">required</div> |
+| `environment` | <div style="white-space:nowrap">[ObjectRef](#objectref)<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap">required</div> |
+| `virtualEnvironment` | <div style="white-space:nowrap">[ObjectRef](#objectref)<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap">required</div> |
 | `apps` | <div style="white-space:nowrap">map{string, [ReleaseManifestApp](#releasemanifestapp)}<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap">required</div> |
+| `adapters` | <div style="white-space:nowrap">[ReleaseManifestAdapters](#releasemanifestadapters)<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
 
 
 
