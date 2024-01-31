@@ -16,8 +16,8 @@ import (
 	"github.com/xigxog/kubefox/api"
 	"github.com/xigxog/kubefox/api/kubernetes/v1alpha1"
 	"github.com/xigxog/kubefox/components/operator/vault"
+	"github.com/xigxog/kubefox/core"
 	"github.com/xigxog/kubefox/k8s"
-	"github.com/xigxog/kubefox/logkf"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 )
@@ -29,39 +29,44 @@ type SecretsWebhook struct {
 }
 
 func (r *SecretsWebhook) Handle(ctx context.Context, req admission.Request) admission.Response {
-	vaultCli, err := vault.GetClient(ctx)
-	if err != nil {
-		logkf.Global.Error(err)
-		return admission.Errored(http.StatusInternalServerError, err)
-	}
-
-	var dataProvider api.DataProvider
+	var obj client.Object
 	switch req.Kind.String() {
 	case "kubefox.xigxog.io/v1alpha1, Kind=Environment":
-		dataProvider = &v1alpha1.Environment{}
+		obj = &v1alpha1.Environment{}
 	case "kubefox.xigxog.io/v1alpha1, Kind=ReleaseManifest":
-		dataProvider = &v1alpha1.ReleaseManifest{}
+		obj = &v1alpha1.ReleaseManifest{}
 	case "kubefox.xigxog.io/v1alpha1, Kind=VirtualEnvironment":
-		dataProvider = &v1alpha1.VirtualEnvironment{}
+		obj = &v1alpha1.VirtualEnvironment{}
 	default:
 		return admission.Allowed("🦊")
 	}
-	if err := r.DecodeRaw(req.Object, dataProvider.(client.Object)); err != nil {
-		logkf.Global.Error(err)
+
+	if err := r.DecodeRaw(req.Object, obj); err != nil {
 		return admission.Errored(http.StatusBadRequest, err)
 	}
 
-	vaultData := &api.Data{
-		Vars:    map[string]*api.Val{},
-		Secrets: map[string]*api.Val{},
+	var (
+		data    *api.Data
+		dataKey api.DataKey
+	)
+	if dataProvider, ok := obj.(api.DataProvider); ok {
+		data = dataProvider.GetData()
+		dataKey = dataProvider.GetDataKey()
+	} else {
+		return admission.Errored(http.StatusBadRequest, core.ErrInvalid())
 	}
-	if err := vaultCli.GetData(ctx, dataProvider.GetDataKey(), vaultData); k8s.IgnoreNotFound(err) != nil {
-		logkf.Global.Error(err)
+
+	vaultCli, err := vault.GetClient(ctx)
+	if err != nil {
 		return admission.Errored(http.StatusInternalServerError, err)
 	}
 
-	data := dataProvider.GetData()
-	vaultData.Vars = data.Vars
+	vaultData := &api.Data{
+		Secrets: map[string]*api.Val{},
+	}
+	if err := vaultCli.GetData(ctx, dataKey, vaultData); k8s.IgnoreNotFound(err) != nil {
+		return admission.Errored(http.StatusInternalServerError, err)
+	}
 
 	// Remove any keys currently in Vault but not in Data.
 	for k := range vaultData.Secrets {
@@ -76,14 +81,28 @@ func (r *SecretsWebhook) Handle(ctx context.Context, req admission.Request) admi
 			data.Secrets[k] = api.ValString(api.SecretMask)
 		}
 	}
-	if err := vaultCli.PutData(ctx, dataProvider.GetDataKey(), vaultData); err != nil {
-		logkf.Global.Error(err)
-		return admission.Errored(http.StatusInternalServerError, err)
+
+	// Do not write to Vault if obj was deleted.
+	if obj.GetDeletionTimestamp().IsZero() {
+		if err := vaultCli.PutData(ctx, dataKey, vaultData); err != nil {
+			return admission.Errored(http.StatusInternalServerError, err)
+		}
 	}
 
-	current, err := json.Marshal(dataProvider)
+	// kubectl places secrets into the annotation
+	// 'kubectl.kubernetes.io/last-applied-configuration'. If present override
+	// it with updated obj and re-marshal.
+	if last, found := obj.GetAnnotations()[api.AnnotationLastApplied]; found {
+		lastObj := map[string]any{}
+		json.Unmarshal([]byte(last), &lastObj)
+		lastObj["data"] = data
+		cleaned, _ := json.Marshal(lastObj)
+
+		obj.GetAnnotations()[api.AnnotationLastApplied] = string(cleaned)
+	}
+
+	current, err := json.Marshal(obj)
 	if err != nil {
-		logkf.Global.Error(err)
 		return admission.Errored(http.StatusInternalServerError, err)
 	}
 

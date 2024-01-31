@@ -142,3 +142,28 @@ func CleanLabel(value any) string {
 	cleaned = RegexpLabelSuffix.ReplaceAllLiteralString(cleaned, "")
 	return cleaned
 }
+
+// Join concatenates the elements of its second argument to create a single
+// string. The separator string sep is placed between elements in the resulting
+// string. Empty elements are ignored.
+func Join(sep string, elems ...string) string {
+	switch len(elems) {
+	case 0:
+		return ""
+	case 1:
+		return elems[0]
+	}
+
+	var b strings.Builder
+	for _, s := range elems {
+		if s != "" {
+			b.WriteString(sep)
+			b.WriteString(s)
+		}
+	}
+	if b.Len() == 0 {
+		return ""
+	}
+
+	return b.String()[1:]
+}

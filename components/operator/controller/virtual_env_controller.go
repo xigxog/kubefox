@@ -41,10 +41,7 @@ type VirtualEnvContext struct {
 	context.Context
 	*v1alpha1.VirtualEnvironment
 
-	Original *v1alpha1.VirtualEnvironment
-
 	Environment *v1alpha1.Environment
-	Data        *api.Data
 	Policy      *v1alpha1.ReleasePolicy
 
 	EnvFound bool
@@ -52,15 +49,17 @@ type VirtualEnvContext struct {
 	Now metav1.Time
 }
 
-var (
-	failedWebhookRequeueDuration = time.Second * 15
-)
+type NeedsReconcileFunc func(app v1alpha1.ReleaseApp) bool
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *VirtualEnvReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	r.log = logkf.Global.With(logkf.KeyController, "VirtualEnvironment")
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&v1alpha1.VirtualEnvironment{}).
+		Watches(
+			&v1alpha1.HTTPAdapter{},
+			handler.EnqueueRequestsFromMapFunc(r.watchHTTPAdapters),
+		).
 		Watches(
 			&v1alpha1.AppDeployment{},
 			handler.EnqueueRequestsFromMapFunc(r.watchAppDeployments),
@@ -79,43 +78,51 @@ func (r *VirtualEnvReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 		"namespace", req.Namespace,
 		"name", req.Name,
 	)
-	log.Debugf("reconciling VirtualEnvironment '%s/%s'", req.Namespace, req.Name)
-	defer log.Debugf("reconciling VirtualEnvironment '%s/%s' done", req.Namespace, req.Name)
 
 	ve := &v1alpha1.VirtualEnvironment{}
 	if err := r.Get(ctx, req.NamespacedName, ve); err != nil {
 		return ctrl.Result{}, k8s.IgnoreNotFound(err)
 	}
 
+	log.Debugf("reconciling '%s'", k8s.ToString(ve))
+	defer log.Debugf("reconciling '%s' complete", k8s.ToString(ve))
+
 	env := &v1alpha1.Environment{}
 	if err := r.Get(ctx, k8s.Key("", ve.Spec.Environment), env); k8s.IgnoreNotFound(err) != nil {
 		return ctrl.Result{}, err
 	}
+	ve.Data.Import(&env.Data)
 
 	veCtx := &VirtualEnvContext{
 		Context:            ctx,
 		VirtualEnvironment: ve,
-		Original:           ve.DeepCopy(),
 		Environment:        env,
-		Data:               ve.Data.MergeInto(&env.Data),
 		Policy:             ve.GetReleasePolicy(env),
 		EnvFound:           env.UID != "",
 		Now:                metav1.Now(),
 	}
 
-	if ve.DeletionTimestamp == nil {
-		if err := r.reconcile(veCtx, log); err != nil {
-			if IsFailedWebhookErr(err) {
-				log.Debug("reconcile failed because of webhook, retrying in 15 seconds")
-				return reconcile.Result{RequeueAfter: failedWebhookRequeueDuration}, nil
+	if ve.DeletionTimestamp.IsZero() {
+		if err := r.AddFinalizer(ctx, ve, api.FinalizerEnvironmentProtection); err != nil {
+			return RetryConflictWebhookErr(k8s.IgnoreNotFound(err))
+		}
+	} else {
+		if k8s.ContainsFinalizer(ve, api.FinalizerEnvironmentProtection) && ve.Status.ActiveRelease == nil {
+			vaultCli, err := vault.GetClient(ctx)
+			if err != nil {
+				return ctrl.Result{}, err
+			}
+			if err := vaultCli.DeleteData(ctx, ve.GetDataKey()); err != nil {
+				return ctrl.Result{}, err
 			}
 
-			return ctrl.Result{}, err
+			err = r.RemoveFinalizer(ctx, ve, api.FinalizerEnvironmentProtection)
+			return RetryConflictWebhookErr(k8s.IgnoreNotFound(err))
 		}
+	}
 
-	} else {
-		// VE was deleted, clear status to force cleanup.
-		ve.Status = v1alpha1.VirtualEnvironmentStatus{}
+	if err := r.reconcile(veCtx, log); err != nil {
+		return RetryConflictWebhookErr(err)
 	}
 
 	// Sort and prune Release history based on limits. Most recently archived
@@ -156,27 +163,12 @@ func (r *VirtualEnvReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 		}
 	}
 
-	// Update status if changed.
-	if !k8s.DeepEqual(&ve.Status, &veCtx.Original.Status) {
-		log.Debug("VirtualEnvironment status modified, updating")
-
-		err := r.MergeStatus(ctx, ve, veCtx.Original)
-		if IsFailedWebhookErr(err) {
-			log.Debug("reconcile failed because of webhook, retrying in 15 seconds")
-			return reconcile.Result{RequeueAfter: failedWebhookRequeueDuration}, nil
-		}
-		if k8s.IgnoreNotFound(err) != nil {
-			return ctrl.Result{}, err
-		}
+	if err := r.Status().Update(ctx, ve); err != nil {
+		return RetryConflictWebhookErr(k8s.IgnoreNotFound(err))
 	}
 
-	// Delete any unused ReleaseManifests.
-	if err := r.cleanupManifests(ctx, ve); IgnoreFailedWebhookErr(err) != nil {
+	if err := r.cleanupManifests(ctx, ve); err != nil {
 		return ctrl.Result{}, err
-
-	} else if IsFailedWebhookErr(err) {
-		log.Debug("reconcile failed because of webhook, retrying in 15 seconds")
-		return reconcile.Result{RequeueAfter: failedWebhookRequeueDuration}, nil
 	}
 
 	var requeueDuration time.Duration
@@ -203,7 +195,7 @@ func (r *VirtualEnvReconciler) reconcile(ctx *VirtualEnvContext, log *logkf.Logg
 			ctx.Spec.Release = nil
 		}
 
-		if err := r.Merge(ctx, ctx.VirtualEnvironment, ctx.Original); k8s.IgnoreNotFound(err) == nil {
+		if err := r.Update(ctx, ctx.VirtualEnvironment); k8s.IgnoreNotFound(err) == nil {
 			return err
 		}
 
@@ -409,15 +401,12 @@ func (r *VirtualEnvReconciler) createManifest(ctx *VirtualEnvContext) (*v1alpha1
 		return nil, err
 	}
 
-	envVaultData := &api.Data{}
-	if err := vaultCli.GetData(ctx, ctx.Environment.GetDataKey(), envVaultData); err != nil {
+	if err := vaultCli.GetData(ctx, ctx.Environment.GetDataKey(), &ctx.Data); k8s.IgnoreNotFound(err) != nil {
 		return nil, err
 	}
-	veVaultData := &api.Data{}
-	if err := vaultCli.GetData(ctx, ctx.GetDataKey(), veVaultData); err != nil {
+	if err := vaultCli.GetData(ctx, ctx.GetDataKey(), &ctx.Data); k8s.IgnoreNotFound(err) != nil {
 		return nil, err
 	}
-	data := veVaultData.MergeInto(envVaultData)
 
 	manifest := &v1alpha1.ReleaseManifest{
 		TypeMeta: metav1.TypeMeta{
@@ -436,23 +425,24 @@ func (r *VirtualEnvReconciler) createManifest(ctx *VirtualEnvContext) (*v1alpha1
 					UID:        ctx.UID,
 				},
 			},
-			Finalizers: []string{api.FinalizerReleaseProtection},
 		},
 		Spec: v1alpha1.ReleaseManifestSpec{
 			ReleaseId: ctx.Status.ActiveRelease.Id,
-			Environment: v1alpha1.ReleaseManifestRef{
+			Environment: common.ObjectRef{
 				UID:             ctx.Environment.UID,
 				Name:            ctx.Environment.Name,
 				ResourceVersion: ctx.Environment.ResourceVersion,
+				Generation:      ctx.Generation,
 			},
-			VirtualEnvironment: v1alpha1.ReleaseManifestRef{
+			VirtualEnvironment: common.ObjectRef{
 				UID:             ctx.UID,
 				Name:            ctx.Name,
 				ResourceVersion: ctx.ResourceVersion,
+				Generation:      ctx.Generation,
 			},
 			Apps: map[string]*v1alpha1.ReleaseManifestApp{},
 		},
-		Data:    *data,
+		Data:    ctx.Data,
 		Details: ctx.Details,
 	}
 
@@ -465,13 +455,27 @@ func (r *VirtualEnvReconciler) createManifest(ctx *VirtualEnvContext) (*v1alpha1
 		manifest.Spec.Apps[appName] = &v1alpha1.ReleaseManifestApp{
 			Version: app.Version,
 			AppDeployment: v1alpha1.ReleaseManifestAppDep{
-				ReleaseManifestRef: v1alpha1.ReleaseManifestRef{
+				ObjectRef: common.ObjectRef{
 					UID:             appDep.UID,
 					Name:            appDep.Name,
 					ResourceVersion: appDep.ResourceVersion,
+					Generation:      appDep.Generation,
 				},
 				Spec: appDep.Spec,
 			},
+		}
+
+		for _, comp := range appDep.Spec.Components {
+			for depName, dep := range comp.Dependencies {
+				switch dep.Type {
+				case api.ComponentTypeHTTPAdapter:
+					a := &v1alpha1.HTTPAdapter{}
+					if err := r.Get(ctx, k8s.Key(ctx.Namespace, depName), a); err != nil {
+						return nil, err
+					}
+					manifest.AddAdapter(a)
+				}
+			}
 		}
 	}
 
@@ -484,14 +488,15 @@ func (r *VirtualEnvReconciler) updateProblems(ctx *VirtualEnvContext, rel *v1alp
 	}
 	rel.Problems = nil
 
+	var manifest *v1alpha1.ReleaseManifest
 	data := ctx.Data
 	if rel.ReleaseManifest != "" {
-		manifest := &v1alpha1.ReleaseManifest{}
+		manifest = &v1alpha1.ReleaseManifest{}
 		err := r.Get(ctx, k8s.Key(ctx.Namespace, rel.ReleaseManifest), manifest)
 
 		switch {
 		case err == nil:
-			data = &manifest.Data
+			data = manifest.Data
 
 		case k8s.IsNotFound(err):
 			msg := fmt.Sprintf(`ReleaseManifest "%s" for active Release "%s" not found.`, rel.ReleaseManifest, rel.Id)
@@ -530,19 +535,19 @@ func (r *VirtualEnvReconciler) updateProblems(ctx *VirtualEnvContext, rel *v1alp
 			progressing := k8s.Condition(appDep.Status.Conditions, api.ConditionTypeProgressing)
 			available := k8s.Condition(appDep.Status.Conditions, api.ConditionTypeAvailable)
 
-			appDepProblems, err := appDep.Validate(data,
-				func(name string, typ api.ComponentType) (api.Adapter, error) {
+			appDepProblems, err := appDep.Validate(&data,
+				func(name string, typ api.ComponentType) (common.Adapter, error) {
+					if manifest != nil {
+						return manifest.GetAdapter(name, typ)
+					}
+
 					switch typ {
 					case api.ComponentTypeHTTPAdapter:
 						a := &v1alpha1.HTTPAdapter{}
-						if err := r.Get(ctx, k8s.Key(appDep.Namespace, name), a); err != nil {
-							return nil, err
-						}
-						return a, nil
-
-					default:
-						return nil, core.ErrNotFound()
+						return a, r.Get(ctx, k8s.Key(appDep.Namespace, name), a)
 					}
+
+					return nil, core.ErrNotFound()
 				})
 			if err != nil {
 				return err
@@ -689,46 +694,20 @@ func (r *VirtualEnvReconciler) updateProblems(ctx *VirtualEnvContext, rel *v1alp
 }
 
 func (r *VirtualEnvReconciler) cleanupManifests(ctx context.Context, ve *v1alpha1.VirtualEnvironment) error {
-	vaultCli, err := vault.GetClient(ctx)
+	list := &v1alpha1.ReleaseManifestList{}
+	err := r.List(ctx, list,
+		client.InNamespace(ve.Namespace),
+		client.MatchingLabels{api.LabelK8sVirtualEnvironment: ve.Name})
 	if err != nil {
 		return err
 	}
 
-	list := &v1alpha1.ReleaseManifestList{}
-	if err := r.List(ctx, list, client.InNamespace(ve.Namespace), client.MatchingLabels{
-		api.LabelK8sVirtualEnvironment: ve.Name,
-	}); err != nil {
-		return err
-	}
+	r.log.Debugf("found %d ReleaseManifests using VirtualEnvironment '%s'", len(list.Items), k8s.ToString(ve))
 
-	r.log.Debugf("found %d ReleaseManifests using VirtualEnvironment '%s'", len(list.Items), ve.Name)
-
-	for _, manifest := range list.Items {
-		if ve.Status.ActiveRelease != nil &&
-			manifest.Name == ve.Status.ActiveRelease.ReleaseManifest {
-			continue
-		}
-
-		// Check if ReleaseManifest is present in history.
-		var found bool
-		for _, rel := range ve.Status.ReleaseHistory {
-			if manifest.Name == rel.ReleaseManifest {
-				found = true
-				break
-			}
-		}
-
-		if !found {
-			r.log.Debugf("deleting unused ReleaseManifest '%s'", manifest.Name)
-			if k8s.RemoveFinalizer(&manifest, api.FinalizerReleaseProtection) {
-				if err := r.Update(ctx, &manifest); err != nil {
-					return err
-				}
-			}
-			if err := r.Delete(ctx, &manifest); k8s.IgnoreNotFound(err) != nil {
-				return err
-			}
-			if err := vaultCli.DeleteData(ctx, manifest.GetDataKey()); err != nil {
+	for _, m := range list.Items {
+		if !ve.UsesReleaseManifest(m.Name) && m.DeletionTimestamp.IsZero() {
+			r.log.Debugf("Deleting unused ReleaseManifest '%s'", k8s.ToString(&m))
+			if err := r.Delete(ctx, &m); k8s.IgnoreNotFound(err) != nil {
 				return err
 			}
 		}
@@ -737,7 +716,29 @@ func (r *VirtualEnvReconciler) cleanupManifests(ctx context.Context, ve *v1alpha
 	return nil
 }
 
+func (r *VirtualEnvReconciler) watchHTTPAdapters(ctx context.Context, obj client.Object) []reconcile.Request {
+	return r.watchAdapters(ctx, obj.(common.Adapter))
+}
+
+func (r *VirtualEnvReconciler) watchAdapters(ctx context.Context, adapter common.Adapter) []reconcile.Request {
+	return r.reconcileVE(ctx, func(app v1alpha1.ReleaseApp) bool {
+		appDep := &v1alpha1.AppDeployment{}
+		if err := r.Get(ctx, k8s.Key(adapter.GetNamespace(), app.AppDeployment), appDep); err != nil {
+			r.log.Error(err)
+			return true
+		}
+
+		return appDep.HasDependency(adapter.GetName(), adapter.GetComponentType())
+	})
+}
+
 func (r *VirtualEnvReconciler) watchAppDeployments(ctx context.Context, obj client.Object) []reconcile.Request {
+	return r.reconcileVE(ctx, func(app v1alpha1.ReleaseApp) bool {
+		return app.AppDeployment == obj.GetName()
+	})
+}
+
+func (r *VirtualEnvReconciler) reconcileVE(ctx context.Context, needsReconcile NeedsReconcileFunc) []reconcile.Request {
 	veList := &v1alpha1.VirtualEnvironmentList{}
 	if err := r.List(ctx, veList); err != nil {
 		r.log.Error(err)
@@ -746,21 +747,21 @@ func (r *VirtualEnvReconciler) watchAppDeployments(ctx context.Context, obj clie
 
 	var reqs []reconcile.Request
 	for _, ve := range veList.Items {
-		reqs = append(reqs, filterRelease(obj.GetName(), &ve, ve.Status.ActiveRelease)...)
-		reqs = append(reqs, filterRelease(obj.GetName(), &ve, ve.Status.PendingRelease)...)
+		reqs = append(reqs, filter(needsReconcile, &ve, ve.Status.ActiveRelease)...)
+		reqs = append(reqs, filter(needsReconcile, &ve, ve.Status.PendingRelease)...)
 	}
 
 	return reqs
 }
 
-func filterRelease(appDep string, ve *v1alpha1.VirtualEnvironment, rel *v1alpha1.ReleaseStatus) []reconcile.Request {
+func filter(needsReconcile NeedsReconcileFunc, ve *v1alpha1.VirtualEnvironment, rel *v1alpha1.ReleaseStatus) []reconcile.Request {
 	if rel == nil {
 		return nil
 	}
 
-	var reqs []reconcile.Request
+	reqs := []reconcile.Request{}
 	for _, app := range rel.Apps {
-		if app.AppDeployment == appDep {
+		if needsReconcile(app) {
 			reqs = append(reqs, reconcile.Request{
 				NamespacedName: k8s.Key(ve.Namespace, ve.Name),
 			})

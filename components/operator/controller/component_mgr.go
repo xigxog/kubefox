@@ -208,17 +208,12 @@ func (cm *ComponentManager) ReconcileApps(ctx context.Context, namespace string)
 
 	now := metav1.Now()
 	for _, appDep := range appDeps.Items {
-		curStatus := appDep.Status.DeepCopy()
-
 		problems, err := appDep.Validate(nil,
-			func(name string, typ api.ComponentType) (api.Adapter, error) {
+			func(name string, typ api.ComponentType) (common.Adapter, error) {
 				switch typ {
 				case api.ComponentTypeHTTPAdapter:
 					a := &v1alpha1.HTTPAdapter{}
-					if err := cm.Get(ctx, k8s.Key(appDep.Namespace, name), a); err != nil {
-						return nil, err
-					}
-					return a, nil
+					return a, cm.Get(ctx, k8s.Key(appDep.Namespace, name), a)
 
 				default:
 					return nil, core.ErrNotFound()
@@ -258,14 +253,11 @@ func (cm *ComponentManager) ReconcileApps(ctx context.Context, namespace string)
 		appDep.Status.Conditions = k8s.UpdateConditions(now, appDep.Status.Conditions, available, progressing)
 		appDep.Status.Problems = problems
 
-		if !k8s.DeepEqual(&appDep.Status, curStatus) {
-			if err := cm.ApplyStatus(ctx, &appDep); err != nil {
-				log.Error(err)
-			}
+		if err := cm.Status().Update(ctx, &appDep); err != nil {
+			return false, err
 		}
 
-		log.Debugf("AppDeployment '%s/%s'; available: %s, progressing: %s",
-			appDep.Namespace, appDep.Name, available.Status, progressing.Status)
+		log.Debugf("%s; available: %s, progressing: %s", k8s.ToString(&appDep), available.Status, progressing.Status)
 	}
 
 	compDeps := &appsv1.DeploymentList{}

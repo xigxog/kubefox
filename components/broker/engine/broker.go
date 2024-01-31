@@ -25,10 +25,9 @@ import (
 	"github.com/xigxog/kubefox/components/broker/config"
 	"github.com/xigxog/kubefox/components/broker/telemetry"
 	"github.com/xigxog/kubefox/core"
-	"github.com/xigxog/kubefox/k8s"
 	"github.com/xigxog/kubefox/logkf"
-	"github.com/xigxog/kubefox/matcher"
 	authv1 "k8s.io/api/authentication/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -58,7 +57,7 @@ type Engine interface {
 type Broker interface {
 	AuthorizeComponent(context.Context, *Metadata) error
 	Subscribe(context.Context, *SubscriptionConf) (ReplicaSubscription, error)
-	RecvEvent(evt *core.Event, receiver Receiver) *BrokerEvent
+	RecvEvent(evt *core.Event, receiver Receiver) *BrokerEventContext
 	Component() *core.Component
 }
 
@@ -75,7 +74,7 @@ type broker struct {
 	telClient *telemetry.Client
 
 	subMgr SubscriptionMgr
-	recvCh chan *BrokerEvent
+	recvCh chan *BrokerEventContext
 
 	store *Store
 
@@ -106,8 +105,8 @@ func New() Engine {
 		healthSrv: telemetry.NewHealthServer(),
 		telClient: telemetry.NewClient(),
 		subMgr:    NewManager(),
-		recvCh:    make(chan *BrokerEvent),
-		store:     NewStore(config.Namespace),
+		recvCh:    make(chan *BrokerEventContext),
+		store:     NewStore(),
 		ctx:       ctx,
 		cancel:    cancel,
 		log:       logkf.Global,
@@ -223,12 +222,14 @@ func (brk *broker) AuthorizeComponent(ctx context.Context, meta *Metadata) error
 		}
 	}
 
-	switch api.ComponentType(meta.Component.Type) {
+	switch typ := api.ComponentType(meta.Component.Type); typ {
 	case api.ComponentTypeKubeFox:
 		if svcAccName != meta.Component.GroupKey() {
 			return fmt.Errorf("service account name does not match component")
 		}
-		if _, found := brk.store.ComponentDef(meta.Component); !found {
+
+		def, err := brk.store.ComponentDef(ctx, meta.Component)
+		if err != nil || typ != def.Type || meta.Component.Commit != def.Commit {
 			return fmt.Errorf("component not found")
 		}
 
@@ -273,19 +274,23 @@ func (brk *broker) AuthorizeComponent(ctx context.Context, meta *Metadata) error
 	return nil
 }
 
-func (brk *broker) RecvEvent(evt *core.Event, receiver Receiver) *BrokerEvent {
-	brkEvt := &BrokerEvent{
+func (brk *broker) RecvEvent(evt *core.Event, receiver Receiver) *BrokerEventContext {
+	parentCtx, cancel := context.WithCancelCause(context.Background())
+	ctx, _ := context.WithTimeoutCause(parentCtx, evt.TTL(), core.ErrTimeout())
+
+	evtCtx := &BrokerEventContext{
+		Context:    ctx,
+		Cancel:     cancel,
 		Event:      evt,
 		Receiver:   receiver,
 		ReceivedAt: time.Now(),
-		DoneCh:     make(chan *core.Err),
 	}
 
 	go func() {
-		brk.recvCh <- brkEvt
+		brk.recvCh <- evtCtx
 	}()
 
-	return brkEvt
+	return evtCtx
 }
 
 func (brk *broker) startWorker(id int) {
@@ -297,9 +302,13 @@ func (brk *broker) startWorker(id int) {
 
 	for {
 		select {
-		case evt := <-brk.recvCh:
-			if err := brk.routeEvent(log, evt); err != nil {
-				l := log.WithEvent(evt.Event)
+		case ctx := <-brk.recvCh:
+			ctx.Log = log
+
+			if err := brk.routeEvent(ctx); err != nil {
+				if apierrors.IsNotFound(err) {
+					err = core.ErrNotFound(err)
+				}
 
 				kfErr := &core.Err{}
 				if ok := errors.As(err, &kfErr); !ok {
@@ -308,21 +317,21 @@ func (brk *broker) startWorker(id int) {
 
 				switch kfErr.Code() {
 				case core.CodeUnexpected:
-					l.Error(err)
+					ctx.Log.Error(err)
 				case core.CodeBrokerMismatch:
-					l.Warn(err)
+					ctx.Log.Warn(err)
 				case core.CodeUnauthorized:
-					l.Warn(err)
+					ctx.Log.Warn(err)
 				default:
-					l.Debug(err)
+					ctx.Log.Debug(err)
 				}
 
 				go func() {
-					evt.DoneCh <- kfErr
+					ctx.Cancel(kfErr)
 				}()
 
 			} else {
-				close(evt.DoneCh)
+				ctx.Cancel(nil)
 			}
 
 		case <-brk.ctx.Done():
@@ -331,109 +340,75 @@ func (brk *broker) startWorker(id int) {
 	}
 }
 
-func (brk *broker) routeEvent(log *logkf.Logger, evt *BrokerEvent) error {
-	log.WithEvent(evt.Event).Debugf("routing event from receiver '%s'", evt.Receiver)
+func (brk *broker) routeEvent(ctx *BrokerEventContext) error {
+	ctx.Log.Debugf("routing event from receiver '%s'", ctx.Receiver)
 
-	ctx, cancel := context.WithTimeout(context.Background(), evt.TTL())
-	defer cancel()
-
-	if err := brk.checkEvent(evt); err != nil {
+	if err := brk.validateEvent(ctx); err != nil {
 		return err
 	}
-
-	ctxAttached := false
-	if evt.HasContext() {
-		if err := brk.store.AttachEventContext(ctx, evt); err != nil {
-			return err
-		}
-		ctxAttached = true
-	}
-
-	if err := brk.findTarget(ctx, evt); err != nil {
+	if err := brk.findTarget(ctx); err != nil {
 		return err
-	}
-
-	if !ctxAttached && evt.HasContext() {
-		if err := brk.store.AttachEventContext(ctx, evt); err != nil {
-			return err
-		}
 	}
 
 	// Set log attributes after matching.
-	log = log.WithEvent(evt.Event)
-	if evt.Target != nil {
-		log.Debugf("matched event to target '%s'", evt.Target)
+	ctx.Log = ctx.Log.WithEvent(ctx.Event)
+	ctx.Log.Debugf("matched event to target '%s'", ctx.Event.Target)
+
+	// TODO move http client to adapter
+	if ctx.TargetAdapter != nil {
+		return brk.httpClient.SendEvent(ctx)
 	}
 
-	if err := brk.checkComponents(ctx, evt); err != nil {
-		return err
-	}
-
-	var sub Subscription
-	if evt.TargetAdapter == nil {
-		switch {
-		case evt.Target.Id != "":
-			sub, _ = brk.subMgr.ReplicaSubscription(evt.Target)
-
-		case evt.Target.Id == "":
-			sub, _ = brk.subMgr.GroupSubscription(evt.Target)
-		}
-	}
-
+	sub, found := brk.subMgr.Subscription(ctx.Event.Target)
 	switch {
-	case evt.TargetAdapter != nil:
-		// Target is a local adapter.
-		log.Debugf("sending event with adapter of type '%s'", evt.TargetAdapter.GetComponentType())
-		return brk.httpClient.SendEvent(evt)
-
-	case sub != nil:
+	case found:
 		// Found component subscribed via gRPC.
-		log.Debug("subscription found, sending event with gRPC")
-		return sub.SendEvent(evt)
+		ctx.Log.Debug("subscription found, sending event with gRPC")
+		return sub.SendEvent(ctx)
 
-	case evt.Receiver != ReceiverNATS && evt.Target.BrokerId != brk.comp.Id:
+	case ctx.Receiver != ReceiverNATS && ctx.Event.Target.BrokerId != brk.comp.Id:
 		// Component not found locally, send via NATS.
-		log.Debug("subscription not found, sending event with nats")
-		return brk.natsClient.Publish(evt.Target.Subject(), evt.Event)
+		ctx.Log.Debug("subscription not found, sending event with nats")
+		return brk.natsClient.Publish(ctx.Event.Target.Subject(), ctx.Event)
 
 	default:
 		return core.ErrComponentGone()
 	}
 }
 
-func (brk *broker) checkEvent(evt *BrokerEvent) error {
-	if evt.TTL() <= 0 {
+func (brk *broker) validateEvent(ctx *BrokerEventContext) error {
+	if ctx.TTL() <= 0 {
 		return core.ErrTimeout()
 	}
 
-	if evt.Source == nil || !evt.Source.IsComplete() {
+	if ctx.Event.Source == nil || !ctx.Event.Source.IsComplete() {
 		return core.ErrInvalid(fmt.Errorf("event source is invalid"))
 	}
 
-	if evt.Category == core.Category_RESPONSE && (evt.Target == nil || !evt.Target.IsComplete()) {
+	if ctx.Event.Category == core.Category_RESPONSE && (ctx.Event.Target == nil || !ctx.Event.Target.IsComplete()) {
 		return core.ErrInvalid(fmt.Errorf("response target is missing required attribute"))
 	}
 
-	switch evt.Receiver {
+	switch ctx.Receiver {
 	case ReceiverNATS:
-		if evt.Target != nil &&
-			evt.Target.BrokerId != "" &&
-			evt.Target.BrokerId != brk.comp.Id {
+		if ctx.Event.Target != nil &&
+			ctx.Event.Target.BrokerId != "" &&
+			ctx.Event.Target.BrokerId != brk.comp.Id {
 
-			return core.ErrBrokerMismatch(fmt.Errorf("event target broker id is %s", evt.Target.BrokerId))
+			return core.ErrBrokerMismatch(fmt.Errorf("event target broker id is %s", ctx.Event.Target.BrokerId))
 		}
 
 	case ReceiverGRPCServer:
-		if evt.Target != nil && !evt.Target.IsComplete() && !evt.Target.IsNameOnly() {
+		if ctx.Event.Target != nil && !ctx.Event.Target.IsComplete() && !ctx.Event.Target.IsNameOnly() {
 			return core.ErrInvalid(fmt.Errorf("event target is invalid"))
 		}
 
 		// If a valid context is not present reject.
-		if evt.Context == nil || evt.Context.Platform != config.Platform ||
-			(evt.Context.VirtualEnvironment == "" &&
-				evt.Context.AppDeployment != "" && evt.Context.ReleaseManifest != "") ||
-			(evt.Context.VirtualEnvironment != "" &&
-				evt.Context.AppDeployment == "" && evt.Context.ReleaseManifest == "") {
+		if ctx.Context == nil || ctx.Event.Context.Platform != config.Platform ||
+			(ctx.Event.Context.VirtualEnvironment == "" && ctx.Event.Context.AppDeployment != "") ||
+			(ctx.Event.Context.VirtualEnvironment != "" && ctx.Event.Context.AppDeployment == "") ||
+			(ctx.Event.Context.VirtualEnvironment == "" && ctx.Event.Context.AppDeployment == "" &&
+				ctx.Event.Context.ReleaseManifest != "") {
 
 			return core.ErrInvalid(fmt.Errorf("event context is invalid"))
 		}
@@ -442,103 +417,97 @@ func (brk *broker) checkEvent(evt *BrokerEvent) error {
 	return nil
 }
 
-func (brk *broker) findTarget(ctx context.Context, evt *BrokerEvent) error {
-	if evt.Target != nil && evt.Target.IsComplete() {
-		return nil
-	}
+func (brk *broker) findTarget(ctx *BrokerEventContext) (err error) {
+	if ctx.Event.HasContext() {
+		if err := brk.store.AttachEventContext(ctx); err != nil {
+			return err
+		}
 
-	var (
-		matcher *matcher.EventMatcher
-		err     error
-	)
-	if evt.HasContext() {
-		matcher, err = brk.store.DeploymentMatcher(ctx, evt)
+		if ctx.Event.Target != nil {
+			if ctx.Event.Category == core.Category_RESPONSE && ctx.Event.Target.IsComplete() {
+				_, err := ctx.AppDeployment.GetDefinition(ctx.Event.Target)
+				if err != nil && !brk.store.IsGenesisAdapter(ctx, ctx.Event.Target) {
+					return err
+				}
+
+				return nil
+			}
+
+			if typ := api.ComponentType(ctx.Event.Target.Type); typ.IsAdapter() {
+				if !ctx.AppDeployment.HasDependency(ctx.Event.Target.Name, typ) {
+					return core.ErrComponentMismatch(fmt.Errorf("target adapter not declared as dependency"))
+				}
+				if ctx.TargetAdapter, err = brk.store.Adapter(ctx, ctx.Event.Target.Name, typ); err != nil {
+					return err
+				}
+				if err := ctx.TargetAdapter.Resolve(ctx.Data); err != nil {
+					return err
+				}
+
+				return nil
+			}
+		}
+
+		matcher, err := brk.store.DeploymentMatcher(ctx)
+		if err != nil {
+			return err
+		}
+
+		route, matched := matcher.Match(ctx.Event)
+		switch {
+		case matched:
+			ctx.RouteId = int64(route.Id)
+			ctx.Event.SetRoute(route)
+
+		case ctx.Event.Target != nil && ctx.Event.Target.Type == string(api.ComponentTypeKubeFox):
+			if ctx.Event.Target.Commit == "" {
+				def, err := ctx.AppDeployment.GetDefinition(ctx.Event.Target)
+				if err != nil {
+					return err
+				}
+
+				ctx.Event.Target.Commit = def.Commit
+			}
+			ctx.RouteId = api.DefaultRouteId
+
+		default:
+			return core.ErrRouteNotFound()
+		}
+
 	} else {
-		matcher, err = brk.store.ReleaseMatcher(ctx)
-	}
-	if err != nil {
-		if k8s.IsNotFound(err) {
-			return core.ErrNotFound(err)
+		// Genesis event for Release.
+		if ctx.Event.Target != nil {
+			return core.ErrInvalid(fmt.Errorf("genesis event target is set"))
 		}
-		return core.ErrUnexpected(err)
-	}
-
-	route, matched := matcher.Match(evt.Event)
-	switch {
-	case matched:
-		evt.RouteId = int64(route.Id)
-		if evt.Target == nil {
-			evt.Target = &core.Component{}
-		}
-		evt.Target.Type = route.Component.Type
-		evt.Target.Name = route.Component.Name
-		evt.Target.Commit = route.Component.Commit
-		evt.SetContext(route.EventContext)
-
-	case evt.Target != nil && evt.Target.Type == string(api.ComponentTypeKubeFox):
-		evt.RouteId = api.DefaultRouteId
-
-	default:
-		return core.ErrRouteNotFound()
-	}
-
-	return nil
-}
-
-func (brk *broker) checkComponents(ctx context.Context, evt *BrokerEvent) error {
-	if evt.Context == nil || evt.Target == nil || evt.Target.Name == "" {
-		return core.ErrComponentMismatch()
-	}
-
-	// Check if target is adapter or part of deployment spec.
-	var adapter api.Adapter
-	if evt.Adapters != nil {
-		adapter, _ = evt.Adapters.GetByComponent(evt.Target)
-	}
-
-	appComp := evt.Spec.Components[evt.Target.Name]
-	switch {
-	case appComp == nil && adapter == nil:
-		if !brk.store.IsGenesisAdapter(evt.Target) {
-			return core.ErrComponentMismatch(fmt.Errorf("target component not part of app"))
+		if !brk.store.IsGenesisAdapter(ctx, ctx.Event.Source) {
+			return core.ErrInvalid(fmt.Errorf("genesis event source is not a genesis adapter"))
 		}
 
-	case appComp == nil && adapter != nil:
-		if adapter.GetComponentType() != api.ComponentTypeHTTPAdapter {
-			return core.ErrUnsupportedAdapter(
-				fmt.Errorf("adapter type '%s' is not supported", adapter.GetComponentType()))
-		}
-		evt.TargetAdapter = adapter
-
-	case evt.Target.Commit == "" && evt.RouteId == api.DefaultRouteId:
-		evt.Target.Commit = appComp.Commit
-		if !appComp.DefaultHandler {
-			return core.ErrRouteNotFound(fmt.Errorf("target component does not have default handler"))
+		matcher, err := brk.store.ReleaseMatcher(ctx)
+		if err != nil {
+			return err
 		}
 
-	case evt.Target.Commit != appComp.Commit:
-		return core.ErrComponentMismatch(fmt.Errorf("target component commit does not match app"))
+		route, matched := matcher.Match(ctx.Event)
+		if !matched {
+			return core.ErrRouteNotFound()
+		}
+
+		ctx.RouteId = int64(route.Id)
+		ctx.Event.SetRoute(route)
+		if err := brk.store.AttachEventContext(ctx); err != nil {
+			return err
+		}
 	}
 
-	// Check if source is part of deployment spec.
-	if evt.Adapters != nil {
-		adapter, _ = evt.Adapters.GetByComponent(evt.Source)
+	_, err = ctx.AppDeployment.GetDefinition(ctx.Event.Target)
+	if err != nil && !brk.store.IsGenesisAdapter(ctx, ctx.Event.Target) {
+		return err
 	}
 
-	appComp = evt.Spec.Components[evt.Source.Name]
-	switch {
-	case appComp == nil && adapter == nil:
-		if !brk.store.IsGenesisAdapter(evt.Source) {
-			return core.ErrComponentMismatch(fmt.Errorf("source component not part of app"))
-		}
-
-	case appComp == nil && adapter != nil:
-		if evt.Source.BrokerId != brk.comp.BrokerId {
-			return core.ErrBrokerMismatch(fmt.Errorf("source component is adapter but does not match broker"))
-		}
-
-	case evt.Source.Commit != appComp.Commit:
-		return core.ErrComponentMismatch(fmt.Errorf("source component commit does not match app"))
+	_, err = ctx.AppDeployment.GetDefinition(ctx.Event.Source)
+	if err != nil && !brk.store.IsGenesisAdapter(ctx, ctx.Event.Source) {
+		return err
 	}
 
 	return nil

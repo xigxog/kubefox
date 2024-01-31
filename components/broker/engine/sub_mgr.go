@@ -20,7 +20,7 @@ import (
 )
 
 type SubscriptionMgr interface {
-	Create(ctx context.Context, cfg *SubscriptionConf, recvCh chan *BrokerEvent) (ReplicaSubscription, GroupSubscription, error)
+	Create(ctx context.Context, cfg *SubscriptionConf, recvCh chan *BrokerEventContext) (ReplicaSubscription, GroupSubscription, error)
 	Subscription(comp *core.Component) (Subscription, bool)
 	ReplicaSubscription(comp *core.Component) (ReplicaSubscription, bool)
 	GroupSubscription(comp *core.Component) (GroupSubscription, bool)
@@ -29,7 +29,7 @@ type SubscriptionMgr interface {
 }
 
 type Subscription interface {
-	SendEvent(evt *BrokerEvent) error
+	SendEvent(evt *BrokerEventContext) error
 	IsActive() bool
 	Context() context.Context
 }
@@ -77,7 +77,7 @@ type subscription struct {
 	mgr     *subscriptionMgr
 
 	sendFunc   SendEvent
-	recvCh     chan *BrokerEvent
+	recvCh     chan *BrokerEventContext
 	sendCh     chan *evtRespCh
 	grpEnabled bool
 
@@ -87,7 +87,7 @@ type subscription struct {
 }
 
 type evtRespCh struct {
-	mEvt   *BrokerEvent
+	mEvt   *BrokerEventContext
 	respCh chan *sendResp
 }
 
@@ -103,7 +103,7 @@ func NewManager() SubscriptionMgr {
 	}
 }
 
-func (mgr *subscriptionMgr) Create(ctx context.Context, cfg *SubscriptionConf, recvCh chan *BrokerEvent) (ReplicaSubscription, GroupSubscription, error) {
+func (mgr *subscriptionMgr) Create(ctx context.Context, cfg *SubscriptionConf, recvCh chan *BrokerEventContext) (ReplicaSubscription, GroupSubscription, error) {
 	if err := checkComp(cfg.Component); err != nil {
 		return nil, nil, err
 	}
@@ -154,6 +154,10 @@ func (mgr *subscriptionMgr) Create(ctx context.Context, cfg *SubscriptionConf, r
 }
 
 func (mgr *subscriptionMgr) Subscription(comp *core.Component) (Subscription, bool) {
+	if comp == nil {
+		return nil, false
+	}
+
 	if sub, found := mgr.ReplicaSubscription(comp); found {
 		return sub, true
 	}
@@ -162,6 +166,10 @@ func (mgr *subscriptionMgr) Subscription(comp *core.Component) (Subscription, bo
 }
 
 func (mgr *subscriptionMgr) ReplicaSubscription(comp *core.Component) (ReplicaSubscription, bool) {
+	if comp == nil || comp.Id == "" {
+		return nil, false
+	}
+
 	mgr.mutex.RLock()
 	defer mgr.mutex.RUnlock()
 
@@ -174,6 +182,10 @@ func (mgr *subscriptionMgr) ReplicaSubscription(comp *core.Component) (ReplicaSu
 }
 
 func (mgr *subscriptionMgr) GroupSubscription(comp *core.Component) (GroupSubscription, bool) {
+	if comp == nil || comp.Name == "" || comp.Commit == "" {
+		return nil, false
+	}
+
 	mgr.mutex.RLock()
 	defer mgr.mutex.RUnlock()
 
@@ -227,7 +239,7 @@ func (mgr *subscriptionMgr) cancel(sub *subscription, err error) {
 	delete(mgr.subMap, sub.comp.Id)
 }
 
-func (grp *subscriptionGroup) SendEvent(evt *BrokerEvent) error {
+func (grp *subscriptionGroup) SendEvent(evt *BrokerEventContext) error {
 	respCh := make(chan *sendResp)
 	grp.sendCh <- &evtRespCh{mEvt: evt, respCh: respCh}
 	resp := <-respCh
@@ -243,7 +255,7 @@ func (sub *subscriptionGroup) Context() context.Context {
 	return sub.ctx
 }
 
-func (sub *subscription) SendEvent(evt *BrokerEvent) error {
+func (sub *subscription) SendEvent(evt *BrokerEventContext) error {
 	if err := sub.sendFunc(evt); err != nil {
 		return err
 	}

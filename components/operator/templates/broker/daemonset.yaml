@@ -40,6 +40,7 @@ spec:
             - -namespace={{ namespace }}
             - -grpc-addr=$(KUBEFOX_COMPONENT_IP):6060
             - -nats-addr=nats.{{ .Platform.Namespace }}
+            - -vault-url={{ .Values.vaultURL }}
             - -telemetry-addr=false
             - -health-addr=0.0.0.0:1111
             - -max-event-size={{ .Values.maxEventSize }}

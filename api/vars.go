@@ -61,6 +61,7 @@ const (
 
 // Kubernetes Annotations
 const (
+	AnnotationLastApplied      string = "kubectl.kubernetes.io/last-applied-configuration"
 	AnnotationTemplateData     string = "kubefox.xigxog.io/template-data"
 	AnnotationTemplateDataHash string = "kubefox.xigxog.io/template-data-hash"
 )
@@ -190,16 +191,16 @@ const (
 type ComponentType string
 
 const (
-	ComponentTypeBroker          ComponentType = "Broker"
-	ComponentTypeDatabaseAdapter ComponentType = "DBAdapter"
-	ComponentTypeHTTPAdapter     ComponentType = "HTTPAdapter"
-	ComponentTypeKubeFox         ComponentType = "KubeFox"
-	ComponentTypeNATS            ComponentType = "NATS"
+	ComponentTypeBroker ComponentType = "Broker"
+	// ComponentTypeDatabaseAdapter ComponentType = "DBAdapter"
+	ComponentTypeHTTPAdapter ComponentType = "HTTPAdapter"
+	ComponentTypeKubeFox     ComponentType = "KubeFox"
+	ComponentTypeNATS        ComponentType = "NATS"
 )
 
 func (c ComponentType) IsAdapter() bool {
 	switch c {
-	case ComponentTypeBroker, ComponentTypeHTTPAdapter:
+	case ComponentTypeHTTPAdapter:
 		return true
 	default:
 		return false

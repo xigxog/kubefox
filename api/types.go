@@ -17,17 +17,6 @@ type Object interface {
 	GetGeneration() int64
 }
 
-// +kubebuilder:object:generate=false
-type Adapter interface {
-	Object
-
-	GetComponentType() ComponentType
-	Validate(data *Data) Problems
-}
-
-// +kubebuilder:object:generate=false
-type GetAdapterFunc func(name string, typ ComponentType) (Adapter, error)
-
 type EnvVarSchema map[string]*EnvVarDefinition
 
 type EnvSchema struct {

@@ -127,7 +127,7 @@ func (evt *Event) HasContext() bool {
 	}
 	return evt.Context.Platform != "" &&
 		evt.Context.VirtualEnvironment != "" &&
-		(evt.Context.AppDeployment != "" || evt.Context.ReleaseManifest != "")
+		evt.Context.AppDeployment != ""
 }
 
 func (evt *Event) SetContext(evtCtx *EventContext) {
@@ -141,6 +141,20 @@ func (evt *Event) SetContext(evtCtx *EventContext) {
 	evt.Context.VirtualEnvironment = evtCtx.VirtualEnvironment
 	evt.Context.AppDeployment = evtCtx.AppDeployment
 	evt.Context.ReleaseManifest = evtCtx.ReleaseManifest
+}
+
+func (evt *Event) SetRoute(route *Route) {
+	if route == nil {
+		return
+	}
+
+	if evt.Target == nil {
+		evt.Target = &Component{}
+	}
+	evt.Target.Type = route.Component.Type
+	evt.Target.Name = route.Component.Name
+	evt.Target.Commit = route.Component.Commit
+	evt.SetContext(route.EventContext)
 }
 
 func (evt *Event) EventType() api.EventType {

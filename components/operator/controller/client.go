@@ -13,6 +13,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/xigxog/kubefox/api/kubernetes/v1alpha1"
 	"github.com/xigxog/kubefox/components/operator/templates"
@@ -20,6 +21,7 @@ import (
 	"github.com/xigxog/kubefox/k8s"
 	"github.com/xigxog/kubefox/logkf"
 	v1 "k8s.io/api/core/v1"
+	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -86,6 +88,25 @@ func (r *Client) GetPlatform(ctx context.Context, namespace string) (*v1alpha1.P
 	}
 }
 
+func (r *Client) AddFinalizer(ctx context.Context, obj client.Object, finalizer string) error {
+	if k8s.AddFinalizer(obj, finalizer) {
+		logkf.Global.Debugf("adding finalizer '%s' from '%s'", finalizer, k8s.ToString(obj))
+		return r.Update(ctx, obj)
+	}
+
+	return nil
+}
+
+func (r *Client) RemoveFinalizer(ctx context.Context, obj client.Object, finalizer string) error {
+	logkf.Global.Debugf("%s: delTS: %s, uid: %s", k8s.ToString(obj), obj.GetDeletionTimestamp(), obj.GetUID())
+	if k8s.RemoveFinalizer(obj, finalizer) {
+		logkf.Global.Debugf("removing finalizer '%s' from '%s'", finalizer, k8s.ToString(obj))
+		return r.Update(ctx, obj)
+	}
+
+	return nil
+}
+
 // IsFailedWebhookErr will return true if error indicates it was caused by
 // calling a webhook. This is useful during operator startup when the Pod is not
 // marked ready which causes the webhooks to fail.
@@ -101,4 +122,18 @@ func IgnoreFailedWebhookErr(err error) error {
 		return nil
 	}
 	return err
+}
+
+func RetryConflictWebhookErr(err error) (ctrl.Result, error) {
+	if IsFailedWebhookErr(err) {
+		logkf.Global.Debugf("operation failed calling webhook, retrying in 15 secs: %v", err)
+		return ctrl.Result{RequeueAfter: time.Second * 15}, nil
+	}
+
+	if k8s.IsConflict(err) {
+		logkf.Global.Debugf("operation failed because of conflict, retrying: %v", err)
+		return ctrl.Result{Requeue: true}, nil
+	}
+
+	return ctrl.Result{}, err
 }

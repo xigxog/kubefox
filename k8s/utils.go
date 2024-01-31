@@ -10,7 +10,6 @@ package k8s
 
 import (
 	"errors"
-	"fmt"
 
 	"github.com/xigxog/kubefox/api"
 	"github.com/xigxog/kubefox/core"
@@ -129,7 +128,8 @@ func ToString(obj client.Object) string {
 	if grp == "" {
 		grp = "core"
 	}
-	return fmt.Sprintf("%s/%s/%s/%s/%s", obj.GetNamespace(), grp, gvk.Version, gvk.Kind, obj.GetName())
+
+	return utils.Join("/", obj.GetNamespace(), grp, gvk.Version, gvk.Kind, obj.GetName())
 }
 
 func PodCondition(pod *v1.Pod, typ v1.PodConditionType) v1.PodCondition {
