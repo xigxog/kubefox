@@ -129,7 +129,7 @@ type VirtualEnvironmentStatus struct {
 
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
-// +kubebuilder:resource:path=virtualenvironments,shortName=virtenv;ve
+// +kubebuilder:resource:path=virtualenvironments,shortName=virtenv;virtenvs;ve;ves
 // +kubebuilder:printcolumn:name="Environment",type=string,JSONPath=`.spec.environment`
 // +kubebuilder:printcolumn:name="Manifest",type=string,JSONPath=`.status.activeRelease.releaseManifest`
 // +kubebuilder:printcolumn:name="Available",type=string,JSONPath=`.status.conditions[?(@.type=='ActiveReleaseAvailable')].status`

@@ -44,7 +44,7 @@ type HTTPAdapterTemplate struct {
 }
 
 // +kubebuilder:object:root=true
-// +kubebuilder:resource:path=httpadapters,shortName=http
+// +kubebuilder:resource:path=httpadapters,shortName=http;https
 // +kubebuilder:printcolumn:name="URL",type=string,JSONPath=`.spec.url`
 // +kubebuilder:printcolumn:name="Insecure",type=boolean,JSONPath=`.spec.insecureSkipVerify`
 

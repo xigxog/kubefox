@@ -1,8 +1,8 @@
 # Quickstart
 
 Welcome to the world of KubeFox! This technical guide will walk you through the
-process of setting up a local Kubernetes cluster using kind and deploying your
-inaugural KubeFox app. From crafting environments and deploying apps to testing
+process of setting up a local Kubernetes Cluster using kind and deploying your
+inaugural KubeFox App. From crafting Environments and deploying Apps to testing
 and version control, we'll cover it all. Whether you're a seasoned developer or
 just getting started, this guide will help you navigate the fundamentals of a
 comprehensive software development lifecycle leveraging KubeFox. Let's dive in!
@@ -12,33 +12,34 @@ comprehensive software development lifecycle leveraging KubeFox. Let's dive in!
 Ensure that the following tools are installed for this quickstart:
 
 - [Docker](https://docs.docker.com/engine/install/) - A container toolset and
-  runtime used to build KubeFox components' OCI images and run a local
-  Kubernetes cluster via kind.
+  runtime used to build KubeFox Components' OCI images and run a local
+  Kubernetes Cluster via kind.
 - [Fox](https://github.com/xigxog/kubefox-cli/releases/) - A CLI for
-  communicating with the KubeFox platform. Download the latest release and add
-  the binary to your system's path. Or, if Go is installed, use `go install github.com/xigxog/fox@v0.7.0-alpha`.
+  communicating with the KubeFox Platform. Download the latest release and add
+  the binary to your system's path. Or, if Go is installed, use `go install
+  github.com/xigxog/fox@v0.8.0-alpha`.
 - [Git](https://github.com/git-guides/install-git) - A distributed version
   control system.
 - [Helm](https://helm.sh/docs/intro/install/) - Package manager for Kubernetes
-  used to install the KubeFox platform on Kubernetes.
+  used to install the KubeFox Operator on Kubernetes.
 - [Kind](https://kind.sigs.k8s.io/docs/user/quick-start/) - **K**uberentes
-  **in** **D**ocker. A tool for running local Kubernetes clusters using Docker
+  **in** **D**ocker. A tool for running local Kubernetes Clusters using Docker
   container "nodes".
 - [Kubectl](https://kubernetes.io/docs/tasks/tools/) - CLI for communicating
-  with a Kubernetes cluster's control plane, using the Kubernetes API.
+  with a Kubernetes Cluster's control plane, using the Kubernetes API.
 
 Here are a few optional but recommended tools:
 
 - [Go](https://go.dev/doc/install) - A programming language. The `hello-world`
-  sample app is written in Go, but Fox is able to compile it even without Go
+  example App is written in Go, but Fox is able to compile it even without Go
   installed.
 - [VS Code](https://code.visualstudio.com/download) - A lightweight but powerful
-  source code editor. Helpful if you want to explore the `hello-world` app.
+  source code editor. Helpful if you want to explore the `hello-world` App.
 
 ## Install KubeFox
 
-Let's kick things off by setting up a local Kubernetes cluster using kind. Use
-the following command to create the cluster.
+Let's kick things off by setting up a local Kubernetes Cluster using kind. Use
+the following command to create the Cluster.
 
 ```{ .shell .copy }
 kind create cluster --wait 5m
@@ -47,7 +48,6 @@ kind create cluster --wait 5m
 ??? example "Output"
 
     ```text
-    $ kind create cluster --wait 5m
     Creating cluster "kind" ...
     ✓ Ensuring node image (kindest/node:v1.27.3) 🖼
     ✓ Preparing nodes 📦
@@ -65,8 +65,8 @@ kind create cluster --wait 5m
     Have a nice day! 👋
     ```
 
-Now, install the KubeFox Helm Chart to initiate the KubeFox operator on your
-Kubernetes cluster. The operator manages KubeFox platforms and apps.
+Now, install the KubeFox Helm Chart to initiate the KubeFox Operator on your
+Kubernetes Cluster. The Operator manages KubeFox Platforms and Apps.
 
 ```{ .shell .copy }
 helm upgrade kubefox kubefox \
@@ -78,11 +78,6 @@ helm upgrade kubefox kubefox \
 ??? example "Output"
 
     ```text
-    $ helm upgrade kubefox kubefox \
-        --repo https://xigxog.github.io/helm-charts \
-        --create-namespace --namespace kubefox-system \
-        --install --wait
-
     Release "kubefox" does not exist. Installing it now.
     NAME: kubefox
     LAST DEPLOYED: Thu Jan  1 00:00:00 1970
@@ -94,13 +89,13 @@ helm upgrade kubefox kubefox \
 
 ## Deploy
 
-Awesome! You're all set to create your first KubeFox app and deploy it to a
-KubeFox platform running on the local kind cluster. To begin, create a new
-directory and use Fox to initialize the `hello-world` app. Run all subsequent
-commands from this directory. The environment variable `FOX_INFO` tells Fox to
-to provide additional output about what is going on. Employ the `--quickstart`
-flag to use defaults and create a KubeFox platform named `demo` in the
-`kubefox-demo` namespace.
+Awesome! You're all set to start the KubeFox Platform on the local kind Cluster
+and deploy your first App. To begin, create a new directory and use Fox to
+initialize the `hello-world` App. Run all subsequent commands from this
+directory. The environment variable `FOX_INFO` tells Fox to to provide
+additional output about what is going on. Employ the `--quickstart` flag to use
+defaults and create a KubeFox Platform named `demo` in the `kubefox-demo`
+Namespace.
 
 ```{ .shell .copy }
 export FOX_INFO=true && \
@@ -112,29 +107,29 @@ export FOX_INFO=true && \
 ??? example "Output"
 
     ```text
-    $ export FOX_INFO=true && \
-        mkdir kubefox-quickstart && \
-        cd kubefox-quickstart && \
-        fox init --quickstart
     info    Waiting for KubeFox Platform 'demo' to be ready...
     info    KubeFox initialized for the quickstart guide!
     ```
 
-Notice the newly created directories and files. The `hello-world` app comprises
-two components and example environments. Fox also initialized a new Git repo for
-you. Take a look around!
+Notice the newly created directories and files. The `hello-world` App comprises
+two Components, `frontend` and `backend`. There are also two example
+Environments and VirtualEnvironments in the `hack/environments` directory.
+Finally, Fox initialized a new Git repo for you. Take a look around!
 
-Now, let's create some environments. Two example environments are available in
-the `hack` directory. The `subPath` variable ensures unique routes between
-environments, as demonstrated in the frontend component's `main.go` line 17.
+Now, let's create some Environments and VirtualEnvironments. A
+VirtualEnvironment inherits all specifications and data from its parent
+Environment, but values can be overridden or added in the VirtualEnvironment. In
+the provided examples the `subPath` variable is used to ensure unique routes
+between contexts, as demonstrated in the `frontend` Component's `main.go` line
+`17`.
 
 ```{ .go .no-copy linenums="17" }
-k.Route("Path(`/{{.Env.subPath}}/hello`)", sayHello)
+k.Route("Path(`/{{.Vars.subPath}}/hello`)", sayHello)
 ```
 
-Run the following command to examine the environments and apply them to
-Kubernetes using `kubectl`. Note the differences between the two environments'
-variables on lines numbered 11,12 and 23,24.
+Run the following command to examine the Environments and VirtualEnvironments
+and apply them to Kubernetes using `kubectl`. Note the differences between the
+two Environments' variables on lines numbered `11-12` and `30-31`.
 
 ```{ .shell .copy }
 cat -b hack/environments/* && \
@@ -143,109 +138,138 @@ cat -b hack/environments/* && \
 
 ??? example "Output"
 
-    ```text hl_lines="13 14 26 27"
-    $ cat -b hack/environments/* && \
-        kubectl apply --namespace kubefox-demo --filename hack/environments/
-     1  apiVersion: kubefox.xigxog.io/v1alpha1
-     2  kind: VirtualEnv
-     3  metadata:
-     4    name: prod
-     5  spec:
-     6    releasePolicy:
-     7      appDeploymentPolicy: VersionRequired
-     8      virtualEnvPolicy: SnapshotRequired
-     9  data:
-    10    vars:
-    11      subPath: prod
-    12      who: Universe
-
-    13  apiVersion: kubefox.xigxog.io/v1alpha1
-    14  kind: VirtualEnv
-    15  metadata:
-    16    name: qa
-    17  spec:
-    18    releasePolicy:
-    19      appDeploymentPolicy: VersionOptional
-    20      virtualEnvPolicy: SnapshotOptional
-    21  data:
-    22    vars:
-    23      subPath: qa
-    24      who: World
-
-    virtualenv.kubefox.xigxog.io/prod created
-    virtualenv.kubefox.xigxog.io/qa created
+    ```text hl_lines="11 12 30 31"
+        1 ---
+        2 apiVersion: kubefox.xigxog.io/v1alpha1
+        3 kind: Environment
+        4 metadata:
+        5   name: prod
+        6 spec:
+        7   releasePolicy:
+        8     type: Stable
+        9 data:
+       10   vars:
+       11     who: Universe
+       12     subPath: prod
+       13 ---
+       14 apiVersion: kubefox.xigxog.io/v1alpha1
+       15 kind: VirtualEnvironment
+       16 metadata:
+       17   name: prod
+       18 spec:
+       19   environment: prod
+       20 ---
+       21 apiVersion: kubefox.xigxog.io/v1alpha1
+       22 kind: Environment
+       23 metadata:
+       24   name: qa
+       25 spec:
+       26   releasePolicy:
+       27     type: Testing
+       28 data:
+       29   vars:
+       30     who: World
+       31     subPath: qa
+       32 ---
+       33 apiVersion: kubefox.xigxog.io/v1alpha1
+       34 kind: VirtualEnvironment
+       35 metadata:
+       36   name: qa
+       37 spec:
+       38   environment: qa
+    environment.kubefox.xigxog.io/prod created
+    virtualenvironment.kubefox.xigxog.io/prod created
+    environment.kubefox.xigxog.io/qa created
+    virtualenvironment.kubefox.xigxog.io/qa created
     ```
 
-Next, deploy the `hello-world` app. The `publish` command builds the component's
-OCI images, loads them onto the kind cluster, and deploys the app to the KubeFox
-platform. The initial run might take some time as it downloads dependencies, but
-subsequent runs will be faster. Optionally add the the `--verbose` flag for
-extra output.
+Next deploy the `hello-world` App. Simply use the `publish` command, which not
+only builds the OCI images for the Components but also loads them onto the kind
+Cluster and deploys the App to the KubeFox Platform. You have the flexibility to
+specify the name and version of the AppDeployment you're creating. We'll delve
+into AppDeployment version later in this tutorial, so there's no need to worry
+about it right now. If you don't provide a name, KubeFox defaults it to `<APP
+NAME>-<GIT REF>`. In our case, it becomes `hello-world-main`. The initial run
+might take a bit of time as it downloads dependencies, but subsequent runs will
+be faster. If you want more detailed feedback, consider adding the `--verbose`
+flag.
 
 ```{ .shell .copy }
-fox publish main --wait 5m
+fox publish --wait 5m
 ```
 
 ??? example "Output"
 
     ```text
-    $ fox publish main --wait 5m
-    info    Building component image 'localhost/kubefox/hello-world/backend:bb702a1'.
-    info    Loading component image 'localhost/kubefox/hello-world/backend:bb702a1' into kind cluster 'kind'.
+    info    Building Component image 'localhost/kubefox/backend:8bdd108ba636353020b95b75764b5edb18d5f914'.
+    info    Loading Component image 'localhost/kubefox/backend:8bdd108ba636353020b95b75764b5edb18d5f914' into kind cluster 'kind'.
 
-    info    Building component image 'localhost/kubefox/hello-world/frontend:bb702a1'.
-    info    Loading component image 'localhost/kubefox/hello-world/frontend:bb702a1' into kind cluster 'kind'.
+    info    Building Component image 'localhost/kubefox/frontend:8bdd108ba636353020b95b75764b5edb18d5f914'.
+    info    Loading Component image 'localhost/kubefox/frontend:8bdd108ba636353020b95b75764b5edb18d5f914' into kind cluster 'kind'.
 
-    info    Waiting for KubeFox platform 'demo' to be ready.
-    info    Waiting for component 'backend' to be ready.
-    info    Waiting for component 'frontend' to be ready.
+    info    Waiting for KubeFox Platform 'demo' to be ready.
+    info    Waiting for Component 'backend' to be ready.
+    info    Waiting for Component 'frontend' to be ready.
 
     apiVersion: kubefox.xigxog.io/v1alpha1
     kind: AppDeployment
     metadata:
       creationTimestamp: "1970-01-01T00:00:00Z"
+      finalizers:
+      - kubefox.xigxog.io/release-protection
       generation: 1
-      name: main
+      labels:
+        app.kubernetes.io/name: hello-world
+        kubefox.xigxog.io/app-branch: main
+        kubefox.xigxog.io/app-commit: 8bdd108ba636353020b95b75764b5edb18d5f914
+        kubefox.xigxog.io/app-commit-short: 8bdd108
+      name: hello-world-main
       namespace: kubefox-demo
       resourceVersion: "13326"
       uid: 5ad9a257-01c0-43e0-b6be-92757a47ba7c
     details:
-      app:
-        description: A simple app demonstrating the use of KubeFox.
-        title: Hello World
+      description: A simple App demonstrating the use of KubeFox.
+      title: Hello World
     spec:
-      app:
-        branch: refs/heads/main
-        commit: bb702a1
-        commitTime: "1970-01-01T00:00:00Z"
-        containerRegistry: localhost/kubefox/hello-world
-        name: hello-world
+      appName: hello-world
+      branch: refs/heads/main
+      commit: 8bdd108ba636353020b95b75764b5edb18d5f914
+      commitTime: "1970-01-01T00:00:00Z"
       components:
         backend:
-          type: kubefox
-          commit: bb702a1
+          commit: 8bdd108ba636353020b95b75764b5edb18d5f914
           defaultHandler: true
-          envSchema:
+          envVarSchema:
             who:
               required: true
-              type: string
-              unique: false
+          type: KubeFox
         frontend:
-          type: kubefox
-          commit: bb702a1
+          commit: 8bdd108ba636353020b95b75764b5edb18d5f914
           dependencies:
             backend:
-              type: kubefox
-          envSchema:
-            subPath:
-              required: true
-              type: string
-              unique: true
+              type: KubeFox
           routes:
-          - id: 0
-            rule: Path(`/{{.Env.subpath}}/hello`)
+          - envVarSchema:
+              subPath:
+                required: true
+            id: 0
+            rule: Path(`/{{.Vars.subPath}}/hello`)
+          type: KubeFox
+      containerRegistry: localhost/kubefox
     status:
-      available: false
+      conditions:
+      - lastTransitionTime: "1970-01-01T00:00:00Z"
+        message: Component Deployments have minimum required Pods available.
+        observedGeneration: 1
+        reason: ComponentsAvailable
+        status: "True"
+        type: Available
+      - lastTransitionTime: "1970-01-01T00:00:00Z"
+        message: Component Deployments completed successfully.
+        observedGeneration: 1
+        reason: ComponentsDeployed
+        status: "False"
+        type: Progressing
     ```
 
 Inspect what's running on Kubernetes.
@@ -257,20 +281,19 @@ kubectl get pods --namespace kubefox-demo
 ??? example "Output"
 
     ```text
-    $ kubectl get pods --namespace kubefox-demo
-    NAME                                            READY   STATUS    RESTARTS   AGE
-    demo-broker-grkcn                               1/1     Running   0          12s
-    demo-httpsrv-7d8d946c57-rlt55                   1/1     Running   0          10s
-    demo-nats-0                                     1/1     Running   0          18s
-    hello-world-backend-bb702a1-8577fc876-bpf4j     1/1     Running   0          2s
-    hello-world-frontend-bb702a1-5d998f5cb-t9qp6    1/1     Running   0          2s
+    NAME                                                                 READY   STATUS    RESTARTS   AGE
+    backend-8bdd108ba636353020b95b75764b5edb18d5f914-774c4c9cfx84hn      1/1     Running   0          2s
+    broker-grkcn                                                         1/1     Running   0          12s
+    frontend-8bdd108ba636353020b95b75764b5edb18d5f914-794bb8944k477      1/1     Running   0          2s
+    httpsrv-7d8d946c57-rlt55                                             1/1     Running   0          10s
+    nats-0                                                               1/1     Running   0          18s
     ```
 
-The pods for two components you deployed were created, `hello-world-backend` and
-`hello-world-frontend`. The `broker`, `httpsrv`, and `nats` pods are part of the
-KubeFox platform initiated by the operator during platform creation.
+The Pods for two Components you deployed were created, `backend` and `frontend`.
+The `broker`, `httpsrv`, and `nats` Pods are part of the KubeFox Platform
+initiated by the Operator during Platform creation.
 
-Typically, connections to KubeFox apps are made through a public-facing load
+Typically, connections to KubeFox Apps are made through a public-facing load
 balancer. For the simplicity of this guide use Fox to create a local proxy
 instead. In a new terminal run the following command.
 
@@ -292,146 +315,187 @@ fox proxy 8080
 ??? example "Output"
 
     ```text
-    $ fox proxy 8080
     HTTP proxy started on http://127.0.0.1:8080
     ```
 
-Now, back in the original terminal, test the deployment. KubeFox won't route
-requests to the app until it's released, but you can still test deployments by
-manually providing context. KubeFox needs two pieces of information to route an
-event, the deployment to use and the environment to inject. These can be passed
-as headers or query parameters.
+Now, back in the original terminal, test the AppDeployment. KubeFox won't route
+requests to the App until it's released, but you can still test AppDeployments
+by manually providing context. KubeFox needs two pieces of information to route
+an event, the AppDeployment to use and the VirtualEnvironment to inject. These
+can be passed as headers or query parameters for HTTP requests.
 
 ```{ .shell .copy }
-curl "http://localhost:8080/qa/hello?kf-dep=main&kf-env=qa"
+curl "http://localhost:8080/qa/hello?kf-dep=hello-world-main&kf-env=qa"
 ```
 
 ??? example "Output"
 
     ```text
-    $ curl "http://localhost:8080/qa/hello?kf-dep=main&kf-env=qa"
     👋 Hello World!
     ```
 
-Try switching to the `prod` environment — this can be done seamlessly with
-KubeFox without creating another deployment. This is possible because KubeFox
-injects context at request time instead of at deployment. Adding environments
-has nearly zero overhead! Be sure to change the `subPath` from `qa` to `prod` to
-reflect the change of environment.
+Try switching to the `prod` VirtualEnvironment — this can be done seamlessly
+with KubeFox without creating another AppDeployment. This is possible because
+KubeFox injects context at request time instead of at deployment. Adding
+VirtualEnvironments has nearly zero overhead! Be sure to change the URL path
+from `/qa/hello` to `/prod/hello` to reflect the change of the `subPath`
+variable.
 
 ```{ .shell .copy }
-curl "http://localhost:8080/prod/hello?kf-dep=main&kf-env=prod"
+curl "http://localhost:8080/prod/hello?kf-dep=hello-world-main&kf-env=prod"
 ```
 
 ??? example "Output"
 
     ```text
-    $ curl "http://localhost:8080/prod/hello?kf-dep=main&kf-env=prod"
     👋 Hello Universe!
     ```
 
 ## Release
 
-To have KubeFox automatically route requests without specifying context you need
-to create a release. Once a deployment is released, KubeFox will match requests
-to components' routes and automatically inject context. Before creating a
-release it is recommended to publish a versioned deployment and tag the Git
-repo. Unlike normal deployments, which can be updated freely, versioned
-deployments are immutable. They provide a stable deployment that can be promoted
-to higher environments.
+To have KubeFox automatically route requests without manually specifying context
+you need to create a Release. Once a AppDeployment is released, KubeFox will
+match requests to Components' routes and automatically inject context. Before
+creating a Release it is recommended to publish a versioned AppDeployment and
+tag the Git repo. Unlike normal AppDeployments, which can be updated freely,
+versioned AppDeployments are immutable. They provide a stable deployment that
+can be promoted to higher VirtualEnvironments.
 
-Tag the Git repo, publish the versioned deployment, and release it to the `qa`
-environment with this command.
+Tag the Git repo, publish the versioned AppDeployment, and release it to the
+`qa` Environment with this command.
 
 ```{ .shell .copy }
-fox publish --version v0.1.0 --create-tag && \
-  fox release v0.1.0 --virtual-env qa --wait 5m
+fox publish --version v1 --create-tag && \
+  fox release v1 --virtual-env qa
 ```
 
 ??? example "Output"
 
     ```text
-    $ fox publish --version v0.1.0 --create-tag && \
-        fox release v0.1.0 --virtual-env qa --wait 5m
-    info    Component image 'localhost/kubefox/hello-world/backend:bb702a1' exists, skipping build.
-    info    Loading component image 'localhost/kubefox/hello-world/backend:bb702a1' into kind cluster 'kind'.
+    info    Component image 'localhost/kubefox/backend:8bdd108ba636353020b95b75764b5edb18d5f914' exists, skipping build.
+    info    Loading Component image 'localhost/kubefox/backend:8bdd108ba636353020b95b75764b5edb18d5f914' into kind cluster 'kind'.
 
-    info    Component image 'localhost/kubefox/hello-world/frontend:bb702a1' exists, skipping build.
-    info    Loading component image 'localhost/kubefox/hello-world/frontend:bb702a1' into kind cluster 'kind'.
+    info    Component image 'localhost/kubefox/frontend:8bdd108ba636353020b95b75764b5edb18d5f914' exists, skipping build.
+    info    Loading Component image 'localhost/kubefox/frontend:8bdd108ba636353020b95b75764b5edb18d5f914' into kind cluster 'kind'.
 
-    info    Creating tag 'v0.1.0'.
+    info    Creating tag 'v1'.
 
     apiVersion: kubefox.xigxog.io/v1alpha1
     kind: AppDeployment
     metadata:
       creationTimestamp: "1970-01-01T00:00:00Z"
+      finalizers:
+      - kubefox.xigxog.io/release-protection
       generation: 1
-      name: v0-1-0
+      labels:
+        app.kubernetes.io/name: hello-world
+        kubefox.xigxog.io/app-branch: main
+        kubefox.xigxog.io/app-commit: 8bdd108ba636353020b95b75764b5edb18d5f914
+        kubefox.xigxog.io/app-commit-short: 8bdd108
+        kubefox.xigxog.io/app-tag: v1
+        kubefox.xigxog.io/app-version: v1
+      name: hello-world-v1
       namespace: kubefox-demo
       resourceVersion: "2257050"
       uid: 782a0938-7f9d-4bae-a6b5-900499fca6f7
     details:
-      app:
-        description: A simple app demonstrating the use of KubeFox.
-        title: Hello World
+      description: A simple App demonstrating the use of KubeFox.
+      title: Hello World
     spec:
-      app:
-        branch: refs/heads/main
-        commit: bb702a1
-        commitTime: "1970-01-01T00:00:00Z"
-        containerRegistry: localhost/kubefox/hello-world
-        name: hello-world
-        tag: refs/tags/v0.1.0
+      appName: hello-world
+      branch: refs/heads/main
+      commit: 8bdd108ba636353020b95b75764b5edb18d5f914
+      commitTime: "1970-01-01T00:00:00Z"
       components:
         backend:
-          type: kubefox
-          commit: bb702a1
+          commit: 8bdd108ba636353020b95b75764b5edb18d5f914
           defaultHandler: true
-          envSchema:
+          envVarSchema:
             who:
               required: true
-              type: string
-              unique: false
+          type: KubeFox
         frontend:
-          type: kubefox
-          commit: bb702a1
+          commit: 8bdd108ba636353020b95b75764b5edb18d5f914
           dependencies:
             backend:
-              type: kubefox
-          envSchema:
-            subPath:
-              required: true
-              type: string
-              unique: true
+              type: KubeFox
           routes:
-          - id: 0
-            rule: Path(`/{{.Env.subpath}}/hello`)
+          - envVarSchema:
+              subPath:
+                required: true
+            id: 0
+            rule: Path(`/{{.Vars.subPath}}/hello`)
+          type: KubeFox
+      containerRegistry: localhost/kubefox
+      tag: refs/tags/v1
+      version: v1
     status:
-      available: false
+      conditions:
+      - lastTransitionTime: "1970-01-01T00:00:00Z"
+        message: Component Deployments have minimum required Pods available.
+        observedGeneration: 1
+        reason: ComponentsAvailable
+        status: "True"
+        type: Available
+      - lastTransitionTime: "1970-01-01T00:00:00Z"
+        message: Component Deployments completed successfully.
+        observedGeneration: 1
+        reason: ComponentsDeployed
+        status: "False"
+        type: Progressing
+
 
     info    Waiting for KubeFox Platform 'demo' to be ready...
-    info    Waiting for component 'backend' to be ready...
-    info    Waiting for component 'frontend' to be ready...
+    info    Waiting for Component 'backend' to be ready...
+    info    Waiting for Component 'frontend' to be ready...
 
     apiVersion: kubefox.xigxog.io/v1alpha1
-    kind: Release
+    kind: VirtualEnvironment
     metadata:
       creationTimestamp: "1970-01-01T00:00:00Z"
-      generation: 1
+      finalizers:
+      - kubefox.xigxog.io/environment-protection
+      generation: 2
+      labels:
+        kubefox.xigxog.io/environment: qa
       name: qa
       namespace: kubefox-demo
-      resourceVersion: "4369"
-      uid: 43b96900-72fc-4499-af10-fc87103d99da
+      resourceVersion: "5643"
+      uid: f7d7a42f-bc3f-46f3-8ec4-c557e1a84fe3
     spec:
-      appDeployment:
-        name: v0-1-0
-        version: v0.1.0
+      environment: qa
+      release:
+        apps:
+          hello-world:
+            appDeployment: hello-world-v1
+            version: v1
     status:
-      current: null
+      activeRelease:
+        activationTime: "1970-01-01T00:00:00Z"
+        apps:
+          hello-world:
+            appDeployment: hello-world-v1
+            version: v1
+        id: 011aa5fd-0ed3-4920-8564-bb793435e97c
+        requestTime: "1970-01-01T00:00:00Z"
+      conditions:
+      - lastTransitionTime: "1970-01-01T00:00:00Z"
+        message: Release AppDeployments are available, Routes and Adapters are valid and
+          compatible with the VirtualEnv.
+        observedGeneration: 2
+        reason: ContextAvailable
+        status: "True"
+        type: ActiveReleaseAvailable
+      - lastTransitionTime: "1970-01-01T00:00:00Z"
+        message: Release was activated.
+        observedGeneration: 2
+        reason: ReleaseActivated
+        status: "False"
+        type: ReleasePending
     ```
 
 Test the same request as before, but this time without specifying context. Since
-the app has been released, the request is matched by the component's route, and
+the App has been released, the request is matched by the Component's route, and
 context information is automatically applied.
 
 ```{ .shell .copy }
@@ -441,12 +505,11 @@ curl "http://localhost:8080/qa/hello"
 ??? example "Output"
 
     ```text
-    $ curl "http://localhost:8080/qa/hello"
     👋 Hello World!
     ```
 
-Inspect the pods running on Kubernetes now that you performed another deployment
-and release.
+Inspect the Pods running on Kubernetes now that you created another
+AppDeployment and Release.
 
 ```{ .shell .copy }
 kubectl get pods --namespace kubefox-demo
@@ -455,24 +518,23 @@ kubectl get pods --namespace kubefox-demo
 ??? example "Output"
 
     ```text
-    $ kubectl get pods --namespace kubefox-demo
-    NAME                                            READY   STATUS    RESTARTS   AGE
-    demo-broker-grkcn                               1/1     Running   0          6m11s
-    demo-httpsrv-7d8d946c57-rlt55                   1/1     Running   0          6m9s
-    demo-nats-0                                     1/1     Running   0          6m17s
-    hello-world-backend-bb702a1-8577fc876-bpf4j     1/1     Running   0          6m1s
-    hello-world-frontend-bb702a1-5d998f5cb-t9qp6    1/1     Running   0          6m1s
+    NAME                                                                 READY   STATUS    RESTARTS   AGE
+    backend-8bdd108ba636353020b95b75764b5edb18d5f914-774c4c9cfx84hn      1/1     Running   0          6m1s
+    broker-grkcn                                                         1/1     Running   0          6m11s
+    frontend-8bdd108ba636353020b95b75764b5edb18d5f914-794bb8944k477      1/1     Running   0          6m1s
+    httpsrv-7d8d946c57-rlt55                                             1/1     Running   0          6m9s
+    nats-0                                                               1/1     Running   0          6m17s
     ```
 
-Surprisingly, nothing has changed in the pods running on Kubernetes. KubeFox
-dynamically injects context per request, just like when you changed environments
-earlier with the query parameters.
+Surprisingly, nothing has changed in the Pods running on Kubernetes. KubeFox
+dynamically injects context per request, just like when you changed
+VirtualEnvironments earlier with the query parameters.
 
 ## Update
 
-Next, make a modification to the `frontend` component, commit the changes, and
+Next, make a modification to the `frontend` Component, commit the changes, and
 deploy. Open up `components/frontend/main.go` in your favorite editor and update
-line 28 in the `sayHello` function to say something new.
+line `28` in the `sayHello` function to say something new.
 
 ```go linenums="22" hl_lines="7"
 func sayHello(k kit.Kontext) error {
@@ -493,121 +555,115 @@ func sayHello(k kit.Kontext) error {
 1. Update me to say `Hey` instead of `Hello`.
 
 Fox operates against the current commit of the Git repo when deploying
-components. That means before deploying you need to commit the changes to record
-them. You can then re-deploy the `main` deployment and test. Take note of the
-commit hash, in the example output below it is `780e2db`. Commit hashes are used
-to version components.
+Components. That means before deploying you need to commit the changes to record
+them. You can then re-deploy the `main` AppDeployment and test. Check out how
+the new commit hash is used to provide unique identifiers for Components. The
+applicable lines are highlighted in the output below.
 
 ```{ .shell .copy }
 git add . && \
   git commit -m "updated frontend to say Hey" && \
-  fox publish main --wait 5m
+  fox publish --wait 5m
 ```
 
 ??? example "Output"
 
-    ```text hl_lines="4 10 49"
-    $ git add . && \
-        git commit -m "updated frontend to say Hey" && \
-        fox publish main --wait 5m
-    [main 780e2db] updated frontend to say Hey
+    ```text hl_lines="1 7 8 34 45"
+    [main 6dcc993] updated frontend to say Hey
     1 file changed, 1 insertion(+)
 
-    info    Component image 'localhost/kubefox/hello-world/backend:bb702a1' exists, skipping build.
-    info    Loading component image 'localhost/kubefox/hello-world/backend:bb702a1' into kind cluster 'kind'.
+    info    Component image 'localhost/kubefox/backend:8bdd108ba636353020b95b75764b5edb18d5f914' exists, skipping build.
+    info    Loading Component image 'localhost/kubefox/backend:8bdd108ba636353020b95b75764b5edb18d5f914' into kind cluster 'kind'.
 
-    info    Building component image 'localhost/kubefox/hello-world/frontend:780e2db'.
-    info    Loading component image 'localhost/kubefox/hello-world/frontend:780e2db' into kind cluster 'kind'.
+    info    Building Component image 'localhost/kubefox/frontend:6dcc9937126fccaf119acae8785e3ab90808a998'.
+    info    Loading Component image 'localhost/kubefox/frontend:6dcc9937126fccaf119acae8785e3ab90808a998' into kind cluster 'kind'.
 
-    info    Waiting for KubeFox platform 'demo' to be ready...
-    info    Waiting for component 'backend' to be ready...
-    info    Waiting for component 'frontend' to be ready...
+    info    Waiting for KubeFox Platform 'demo' to be ready...
+    info    Waiting for Component 'backend' to be ready...
+    info    Waiting for Component 'frontend' to be ready...
 
     apiVersion: kubefox.xigxog.io/v1alpha1
     kind: AppDeployment
     metadata:
       creationTimestamp: "1970-01-01T00:00:00Z"
-      generation: 1
-      name: main
+      generation: 2
+      labels:
+        app.kubernetes.io/name: hello-world
+        kubefox.xigxog.io/app-branch: main
+        kubefox.xigxog.io/app-commit: 6dcc9937126fccaf119acae8785e3ab90808a998
+        kubefox.xigxog.io/app-commit-short: 6dcc993
+      name: hello-world-main
       namespace: kubefox-demo
       resourceVersion: "2258944"
       uid: 5ad9a257-01c0-43e0-b6be-92757a47ba7c
     details:
-      app:
-        description: A simple app demonstrating the use of KubeFox.
-        title: Hello World
+      description: A simple App demonstrating the use of KubeFox.
+      title: Hello World
     spec:
-      app:
-        branch: refs/heads/main
-        commit: 780e2db
-        commitTime: "1970-01-01T00:00:00Z"
-        containerRegistry: localhost/kubefox/hello-world
-        name: hello-world
+      appName: hello-world
+      branch: refs/heads/main
+      commit: 6dcc9937126fccaf119acae8785e3ab90808a998
+      commitTime: "1970-01-01T00:00:00Z"
       components:
         backend:
-          type: kubefox
-          commit: bb702a1
+          commit: 8bdd108ba636353020b95b75764b5edb18d5f914
           defaultHandler: true
-          envSchema:
+          envVarSchema:
             who:
               required: true
-              type: string
-              unique: false
+          type: KubeFox
         frontend:
-          type: kubefox
-          commit: 780e2db
+          commit: 6dcc9937126fccaf119acae8785e3ab90808a998
           dependencies:
             backend:
-              type: kubefox
-          envSchema:
-            subPath:
-              required: true
-              type: string
-              unique: true
+              type: KubeFox
           routes:
-          - id: 0
-            rule: Path(`/{{.Env.subpath}}/hello`)
+          - envVarSchema:
+              subPath:
+                required: true
+            id: 0
+            rule: Path(`/{{.Vars.subPath}}/hello`)
+          type: KubeFox
+      containerRegistry: localhost/kubefox
     status:
-      available: true
+      conditions:
+      - lastTransitionTime: "1970-01-01T00:00:00Z"
+        message: Component Deployments have minimum required Pods available.
+        observedGeneration: 2
+        reason: ComponentsAvailable
+        status: "True"
+        type: Available
+      - lastTransitionTime: "1970-01-01T00:00:00Z"
+        message: Component Deployments completed successfully.
+        observedGeneration: 2
+        reason: ComponentsDeployed
+        status: "False"
+        type: Progressing
     ```
 
-Fox didn't rebuild the `backend` component as no changes were made. Try testing
-out the updated deployment and current release.
+Fox didn't rebuild the `backend` Component as no changes were made. Try testing
+out the current Release and latest AppDeployment.
 
 ```{ .shell .copy }
-curl "http://localhost:8080/qa/hello?kf-dep=main&kf-env=qa"
+echo -ne "VERSION\tVIRTENV\tOUTPUT" && \
+  echo -ne "\nv1\tqa\t"; curl "http://localhost:8080/qa/hello" && \
+  echo -ne "\nv1\tprod\t"; curl "http://localhost:8080/prod/hello?kf-dep=hello-world-v1&kf-env=prod" && \
+  echo -ne "\nlatest\tqa\t"; curl "http://localhost:8080/qa/hello?kf-dep=hello-world-main&kf-env=qa" && \
+  echo -ne "\nlatest\tprod\t"; curl "http://localhost:8080/prod/hello?kf-dep=hello-world-main&kf-env=prod"
 ```
 
 ??? example "Output"
 
     ```text
-    $ curl "http://localhost:8080/qa/hello?kf-dep=main&kf-env=qa"
-    👋 Hey World!
+    VERSION VIRTENV OUTPUT
+    v1      qa      👋 Hello World!
+    v1      prod    👋 Hello Universe!
+    latest  qa      👋 Hey World!
+    latest  prod    👋 Hey Universe!
     ```
 
-```{ .shell .copy }
-curl "http://localhost:8080/prod/hello?kf-dep=main&kf-env=prod"
-```
-
-??? example "Output"
-
-    ```text
-    $ curl "http://localhost:8080/prod/hello?kf-dep=main&kf-env=prod"
-    👋 Hey Universe!
-    ```
-
-```{ .shell .copy }
-curl "http://localhost:8080/qa/hello"
-```
-
-??? example "Output"
-
-    ```text
-    $ curl "http://localhost:8080/qa/hello"
-    👋 Hello World!
-    ```
-
-Inspect the pods running on Kubernetes with the new deployment.
+Now that you've created a new AppDeployment, take another look at the Pods
+running on Kubernetes.
 
 ```{ .shell .copy }
 kubectl get pods --namespace kubefox-demo
@@ -616,178 +672,276 @@ kubectl get pods --namespace kubefox-demo
 ??? example "Output"
 
     ```text
-    $ kubectl get pods --namespace kubefox-demo
-    NAME                                             READY   STATUS    RESTARTS   AGE
-    demo-broker-pkw8s                                1/1     Running   0          13m
-    demo-httpsrv-7d8d946c57-rlt55                    1/1     Running   0          13m
-    demo-nats-0                                      1/1     Running   0          14m
-    hello-world-backend-bb702a1-54bcbf6648-5hb9r     1/1     Running   0          12m
-    hello-world-frontend-780e2db-59ffcbc668-h7sk9    1/1     Running   0          18s
-    hello-world-frontend-bb702a1-584cd8dbdd-lm6ww    1/1     Running   0          12m
+    NAME                                                                 READY   STATUS    RESTARTS   AGE
+    backend-8bdd108ba636353020b95b75764b5edb18d5f914-774c4c9cfx84hn      1/1     Running   0          6m1s
+    broker-grkcn                                                         1/1     Running   0          6m11s
+    frontend-6dcc9937126fccaf119acae8785e3ab90808a998-6d8ff7c7tgvsg      1/1     Running   0          18s
+    frontend-8bdd108ba636353020b95b75764b5edb18d5f914-794bb8944k477      1/1     Running   0          6m1s
+    httpsrv-7d8d946c57-rlt55                                             1/1     Running   0          6m9s
+    nats-0                                                               1/1     Running   0          6m17s
     ```
 
-You might be surprised to find only three component pods running to support the
-two deployments and release. Because the `backend` component did not change
-between deployments, KubeFox shares a single pod. Based on the context applied
-at request time, routing to the correct component versions is dynamically
+You might be surprised to find only three Component Pods running to support the
+two AppDeployments and Release. Because the `backend` Component did not change
+between AppDeployments, KubeFox shares a single Pod. Based on the context
+applied at request time, routing to the correct Component version is dynamically
 performed.
 
 ## Promote
 
-Finally, publish the new version of the app, release it to the `qa`
-environment, and then promote version `v0.1.0` to the `prod` environment.
-Stricter policies of the `prod` environment require an environment snapshot to
-exist for a release. Similar to a versioned deployment, an environment snapshot
-is immutable ensuring a stable release even if the source environment is
-changed.
+Finally, publish the new version of the App, release it to the `qa`
+VirtualEnvironment, and then promote version `v1` to the `prod`
+VirtualEnvironment. Stricter policies of the `prod` VirtualEnvironment require
+the Release to be stable. To achieve this, the Operator creates a
+ReleaseManifest when it activates the Release. A ReleaseManifest is an immutable
+snapshot of all constituents of the Release; the Environment,
+VirtualEnvironment, Adapters, and AppDeployments. This ensures any changes made
+to these resources after the Release is activated do not affect the Release.
 
-Release the new version to `qa`.
+Release the new version to `qa` and promote `v1` to `prod`.
 
 ```{ .shell .copy }
-fox publish --version v0.1.1 --create-tag && \
-  fox release v0.1.1 --virtual-env qa --wait 5m
+fox publish --version v2 --create-tag && \
+  fox release v2 --virtual-env qa && \
+  fox release v1 --virtual-env prod
 ```
 
 ??? example "Output"
 
     ```text
-    $ fox publish --version v0.1.1 --create-tag && \
-        fox release v0.1.1 --virtual-env qa --wait 5m
-    info    Component image 'localhost/kubefox/hello-world/backend:bb702a1' exists.
-    info    Loading component image 'localhost/kubefox/hello-world/backend:bb702a1' into kind cluster 'kind'.
+    info    Component image 'localhost/kubefox/backend:8bdd108ba636353020b95b75764b5edb18d5f914' exists.
+    info    Loading Component image 'localhost/kubefox/backend:8bdd108ba636353020b95b75764b5edb18d5f914' into kind cluster 'kind'.
 
-    info    Component image 'localhost/kubefox/hello-world/frontend:780e2db' exists.
-    info    Loading component image 'localhost/kubefox/hello-world/frontend:780e2db' into kind cluster 'kind'.
+    info    Component image 'localhost/kubefox/frontend:6dcc9937126fccaf119acae8785e3ab90808a998' exists.
+    info    Loading Component image 'localhost/kubefox/frontend:6dcc9937126fccaf119acae8785e3ab90808a998' into kind cluster 'kind'.
 
-    info    Creating tag 'v0.1.1'.
+    info    Creating tag 'v2'.
 
     apiVersion: kubefox.xigxog.io/v1alpha1
     kind: AppDeployment
     metadata:
       creationTimestamp: "1970-01-01T00:00:00Z"
+      finalizers:
+      - kubefox.xigxog.io/release-protection
       generation: 1
-      name: v0-1-1
+      labels:
+        app.kubernetes.io/name: hello-world
+        kubefox.xigxog.io/app-branch: main
+        kubefox.xigxog.io/app-commit: 6dcc9937126fccaf119acae8785e3ab90808a998
+        kubefox.xigxog.io/app-commit-short: 6dcc993
+        kubefox.xigxog.io/app-tag: v2
+        kubefox.xigxog.io/app-version: v2
+      name: hello-world-v2
       namespace: kubefox-demo
       resourceVersion: "2259758"
       uid: 7d3e6c48-71bd-428f-bd3a-245f73344538
     details:
-      app:
-        description: A simple app demonstrating the use of KubeFox.
-        title: Hello World
+      description: A simple App demonstrating the use of KubeFox.
+      title: Hello World
     spec:
-      app:
-        branch: refs/heads/main
-        commit: 780e2db
-        commitTime: "1970-01-01T00:00:00Z"
-        containerRegistry: localhost/kubefox/hello-world
-        name: hello-world
-        tag: refs/tags/v0.1.1
+      appName: hello-world
+      branch: refs/heads/main
+      commit: 6dcc9937126fccaf119acae8785e3ab90808a998
+      commitTime: "1970-01-01T00:00:00Z"
       components:
         backend:
-          type: kubefox
-          commit: bb702a1
+          commit: 8bdd108ba636353020b95b75764b5edb18d5f914
           defaultHandler: true
-          envSchema:
+          envVarSchema:
             who:
               required: true
-              type: string
-              unique: false
+          type: KubeFox
         frontend:
-          type: kubefox
-          commit: 780e2db
+          commit: 6dcc9937126fccaf119acae8785e3ab90808a998
           dependencies:
             backend:
-              type: kubefox
-          envSchema:
-            subPath:
-              required: true
-              type: string
-              unique: true
+              type: KubeFox
           routes:
-          - id: 0
-            rule: Path(`/{{.Env.subpath}}/hello`)
+          - envVarSchema:
+              subPath:
+                required: true
+            id: 0
+            rule: Path(`/{{.Vars.subPath}}/hello`)
+          type: KubeFox
+      containerRegistry: localhost/kubefox
+      tag: refs/tags/v2
+      version: v2
     status:
-      available: false
-    info    Waiting for KubeFox Platform 'demo' to be ready...
-    info    Waiting for component 'backend' to be ready...
-    info    Waiting for component 'frontend' to be ready...
+      conditions:
+      - lastTransitionTime: "1970-01-01T00:00:00Z"
+        message: Component Deployments have minimum required Pods available.
+        observedGeneration: 1
+        reason: ComponentsAvailable
+        status: "True"
+        type: Available
+      - lastTransitionTime: "1970-01-01T00:00:00Z"
+        message: Component Deployments completed successfully.
+        observedGeneration: 1
+        reason: ComponentsDeployed
+        status: "False"
+        type: Progressing
 
     apiVersion: kubefox.xigxog.io/v1alpha1
-    kind: Release
+    kind: VirtualEnvironment
     metadata:
       creationTimestamp: "1970-01-01T00:00:00Z"
-      generation: 1
+      finalizers:
+      - kubefox.xigxog.io/environment-protection
+      generation: 3
+      labels:
+        kubefox.xigxog.io/environment: qa
       name: qa
       namespace: kubefox-demo
-      resourceVersion: "2259782"
-      uid: 43b96900-72fc-4499-af10-fc87103d99da
+      resourceVersion: "5643"
+      uid: f7d7a42f-bc3f-46f3-8ec4-c557e1a84fe3
     spec:
-      appDeployment:
-        name: v0-1-1
-        version: v0.1.1
+      environment: qa
+      release:
+        apps:
+          hello-world:
+            appDeployment: hello-world-v2
+            version: v2
     status:
-      current:
-        appDeployment:
-          name: v0-1-0
-          version: v0.1.0
-        requestTime: "2023-11-29T18:10:16Z"
-    ```
+      activeRelease:
+        activationTime: "1970-01-01T00:00:00Z"
+        apps:
+          hello-world:
+            appDeployment: hello-world-v2
+            version: v2
+        id: 41d473dc-ccff-4878-9daa-abaf2db8d104
+        requestTime: "1970-01-01T00:00:00Z"
+      conditions:
+      - lastTransitionTime: "1970-01-01T00:00:00Z"
+        message: Release AppDeployments are available, Routes and Adapters are valid and
+          compatible with the VirtualEnv.
+        observedGeneration: 3
+        reason: ContextAvailable
+        status: "True"
+        type: ActiveReleaseAvailable
+      - lastTransitionTime: "1970-01-01T00:00:00Z"
+        message: Release was activated.
+        observedGeneration: 3
+        reason: ReleaseActivated
+        status: "False"
+        type: ReleasePending
+      releaseHistory:
+      - activationTime: "1970-01-01T00:00:00Z"
+        apps:
+          hello-world:
+            appDeployment: hello-world-v1
+            version: v1
+        archiveReason: Superseded
+        archiveTime: "1970-01-01T00:00:00Z"
+        id: 011aa5fd-0ed3-4920-8564-bb793435e97c
+        requestTime: "1970-01-01T00:00:00Z"
 
-Test the release. You should see the output from the updated `frontend`
-component.
-
-```{ .shell .copy }
-curl "http://localhost:8080/qa/hello"
-```
-
-??? example "Output"
-
-    ```text
-    $ curl "http://localhost:8080/qa/hello"
-    👋 Hey World!
-    ```
-
-Now, release the original version `v0.1.0` to the `prod` environment and create
-the required environment snapshot.
-
-```{ .shell .copy }
-fox release v0.1.0 --virtual-env prod --create-snapshot
-```
-
-??? example "Output"
-
-    ```text
-    $ fox release v0.1.0 --virtual-env prod --create-snapshot
+    info    Waiting for KubeFox Platform 'demo' to be ready...
+    info    Waiting for Component 'backend' to be ready...
+    info    Waiting for Component 'frontend' to be ready...
 
     apiVersion: kubefox.xigxog.io/v1alpha1
-    kind: Release
+    kind: VirtualEnvironment
     metadata:
       creationTimestamp: "1970-01-01T00:00:00Z"
-      generation: 1
+      finalizers:
+      - kubefox.xigxog.io/environment-protection
+      generation: 2
+      labels:
+        kubefox.xigxog.io/environment: prod
       name: prod
       namespace: kubefox-demo
-      resourceVersion: "2259824"
-      uid: c047e0af-9621-4b88-b659-53e4b4e02cf0
+      resourceVersion: "5750"
+      uid: 4980c5d9-208d-420b-9133-9ff3468eb7e6
     spec:
-      appDeployment:
-        name: v0-1-0
-        version: v0.1.0
-      virtualEnvSnapshot: prod-1520-19700101-000000
+      environment: prod
+      release:
+        apps:
+          hello-world:
+            appDeployment: hello-world-v1
+            version: v1
     status:
-      current: null
+      activeRelease:
+        activationTime: "1970-01-01T00:00:00Z"
+        apps:
+          hello-world:
+            appDeployment: hello-world-v1
+            version: v1
+        id: 18875dc4-d347-45be-8221-c0dbc0c1b2e5
+        releaseManifest: prod-5747-20240201-162421
+        requestTime: "1970-01-01T00:00:00Z"
+      conditions:
+      - lastTransitionTime: "1970-01-01T00:00:00Z"
+        message: Release AppDeployments are available, Routes and Adapters are valid and
+          compatible with the VirtualEnv.
+        observedGeneration: 2
+        reason: ContextAvailable
+        status: "True"
+        type: ActiveReleaseAvailable
+      - lastTransitionTime: "1970-01-01T00:00:00Z"
+        message: Release was activated.
+        observedGeneration: 2
+        reason: ReleaseActivated
+        status: "False"
+        type: ReleasePending
     ```
 
-Send a request to see it working.
+Give the new Releases a spin! Notice the new output from the updated `frontend`
+Component in `qa`, while `prod` still displays the original output from
+`v1`. With Releases in both VirtualEnvironments there's no need to manually
+specify the context.
 
 ```{ .shell .copy }
-curl "http://localhost:8080/prod/hello"
+echo -ne "VERSION\tVIRTENV\tOUTPUT" && \
+  echo -ne "\nv1\tprod\t"; curl "http://localhost:8080/prod/hello" && \
+  echo -ne "\nv2\tqa\t"; curl "http://localhost:8080/qa/hello"
 ```
 
 ??? example "Output"
 
     ```text
-    $ curl "http://localhost:8080/prod/hello"
-    👋 Hello Universe!
+    VERSION VIRTENV OUTPUT
+    v1      prod    👋 Hello Universe!
+    v2      qa      👋 Hey World!
+    ```
+
+Just for fun take one final look at all that you've created.
+
+```{ .shell .copy}
+kubectl api-resources --output name | \
+  grep -e kubefox -e pods | \
+  xargs -I % sh -c 'echo; kubectl get --show-kind --ignore-not-found --namespace kubefox-demo %'
+```
+
+??? example "Output"
+
+    ```text
+    NAME                                                                  READY   STATUS    RESTARTS   AGE
+    pod/backend-8bdd108ba636353020b95b75764b5edb18d5f914-774c4c9cfx84hn   1/1     Running   0          6m11s
+    pod/broker-grkcn                                                      1/1     Running   0          6m21s
+    pod/frontend-6dcc9937126fccaf119acae8785e3ab90808a998-6d8ff7c7tgvsg   1/1     Running   0          28s
+    pod/frontend-8bdd108ba636353020b95b75764b5edb18d5f914-794bb8944k477   1/1     Running   0          6m10s
+    pod/httpsrv-7d8d946c57-rlt55                                          1/1     Running   0          6m19s
+    pod/nats-0                                                            1/1     Running   0          6m27s
+
+    NAME                                                 APP           VERSION   AVAILABLE   REASON                PROGRESSING
+    appdeployment.kubefox.xigxog.io/hello-world-main     hello-world             True        ComponentsAvailable   False
+    appdeployment.kubefox.xigxog.io/hello-world-v1       hello-world   v1        True        ComponentsAvailable   False
+    appdeployment.kubefox.xigxog.io/hello-world-v2       hello-world   v2        True        ComponentsAvailable   False
+
+    NAME                                 AGE
+    environment.kubefox.xigxog.io/prod   54m
+    environment.kubefox.xigxog.io/qa     54m
+
+
+    NAME                              AVAILABLE   EVENT TIMEOUT   EVENT MAX   LOG LEVEL
+    platform.kubefox.xigxog.io/demo   True        30              5242880     info
+
+    NAME                                                          ID                                     ENVIRONMENT   VIRTUALENVIRONMENT
+    releasemanifest.kubefox.xigxog.io/prod-5747-20240201-162421   18875dc4-d347-45be-8221-c0dbc0c1b2e5   prod          prod
+
+    NAME                                        ENVIRONMENT   MANIFEST                    AVAILABLE   REASON             PENDING   PENDING REASON
+    virtualenvironment.kubefox.xigxog.io/prod   prod          prod-5747-20240201-162421   True        ContextAvailable   False     ReleaseActivated
+    virtualenvironment.kubefox.xigxog.io/qa     qa                                        True        ContextAvailable   False     ReleaseActivated
     ```
 
 Explore the rest of the documentation for more details. If you encounter any

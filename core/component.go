@@ -66,6 +66,8 @@ func (c *Component) Key() string {
 	return fmt.Sprintf("%s-%s", c.GroupKey(), c.Id)
 }
 
+// TODO add back app as part of comp id
+
 func (c *Component) GroupKey() string {
 	return utils.CleanName(fmt.Sprintf("%s-%s", c.Name, c.Commit))
 }

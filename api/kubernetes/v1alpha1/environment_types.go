@@ -54,7 +54,7 @@ type EnvHistoryLimits struct {
 }
 
 // +kubebuilder:object:root=true
-// +kubebuilder:resource:path=environments,scope=Cluster,shortName=env
+// +kubebuilder:resource:path=environments,scope=Cluster,shortName=env;envs
 
 type Environment struct {
 	metav1.TypeMeta   `json:",inline"`

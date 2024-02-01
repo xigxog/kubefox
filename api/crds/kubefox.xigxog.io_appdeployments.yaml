@@ -21,7 +21,9 @@ spec:
     plural: appdeployments
     shortNames:
     - appdep
+    - appdeps
     - app
+    - apps
     singular: appdeployment
   scope: Namespaced
   versions:

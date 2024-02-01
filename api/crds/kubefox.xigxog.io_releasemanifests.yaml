@@ -21,13 +21,15 @@ spec:
     plural: releasemanifests
     shortNames:
     - manifest
+    - manifests
     - rm
+    - rms
     singular: releasemanifest
   scope: Namespaced
   versions:
   - additionalPrinterColumns:
     - jsonPath: .spec.releaseId
-      name: Id
+      name: Release Id
       type: string
     - jsonPath: .spec.environment.metadata.name
       name: Environment

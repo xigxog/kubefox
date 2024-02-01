@@ -68,7 +68,7 @@ type AppDeploymentDetails struct {
 
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
-// +kubebuilder:resource:path=appdeployments,shortName=appdep;app
+// +kubebuilder:resource:path=appdeployments,shortName=appdep;appdeps;app;apps
 // +kubebuilder:printcolumn:name="App",type=string,JSONPath=`.spec.appName`
 // +kubebuilder:printcolumn:name="Version",type=string,JSONPath=`.spec.version`
 // +kubebuilder:printcolumn:name="Available",type=string,JSONPath=`.status.conditions[?(@.type=='Available')].status`
