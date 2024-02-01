@@ -21,6 +21,7 @@ spec:
     plural: httpadapters
     shortNames:
     - http
+    - https
     singular: httpadapter
   scope: Namespaced
   versions:

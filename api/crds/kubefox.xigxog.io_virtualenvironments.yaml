@@ -21,7 +21,9 @@ spec:
     plural: virtualenvironments
     shortNames:
     - virtenv
+    - virtenvs
     - ve
+    - ves
     singular: virtualenvironment
   scope: Namespaced
   versions:

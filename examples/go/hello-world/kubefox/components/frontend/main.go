@@ -14,7 +14,7 @@ func main() {
 	k := kit.New()
 
 	backend = k.Component("backend")
-	k.Route("Path(`/{{.Env.subPath}}/hello`)", sayHello)
+	k.Route("Path(`/{{.Vars.subPath}}/hello`)", sayHello)
 
 	k.Start()
 }

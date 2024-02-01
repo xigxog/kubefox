@@ -93,8 +93,8 @@ type HTTPAdapterManifest struct {
 
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
-// +kubebuilder:resource:path=releasemanifests,shortName=manifest;rm
-// +kubebuilder:printcolumn:name="Id",type=string,JSONPath=`.spec.releaseId`
+// +kubebuilder:resource:path=releasemanifests,shortName=manifest;manifests;rm;rms
+// +kubebuilder:printcolumn:name="Release Id",type=string,JSONPath=`.spec.releaseId`
 // +kubebuilder:printcolumn:name="Environment",type=string,JSONPath=`.spec.environment.metadata.name`
 // +kubebuilder:printcolumn:name="VirtualEnvironment",type=string,JSONPath=`.spec.virtualEnvironment.metadata.name`
 

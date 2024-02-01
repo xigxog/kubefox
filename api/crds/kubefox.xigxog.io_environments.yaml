@@ -21,6 +21,7 @@ spec:
     plural: environments
     shortNames:
     - env
+    - envs
     singular: environment
   scope: Cluster
   versions:
