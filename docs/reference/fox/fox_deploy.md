@@ -3,7 +3,7 @@
 Deploy KubeFox App using the component code from the currently checked out Git commit
 
 ```
-fox deploy [NAME] [flags]
+fox deploy [flags]
 ```
 
 ### Options
@@ -12,6 +12,7 @@ fox deploy [NAME] [flags]
   -t, --create-tag         create Git tag using the AppDeployment version
       --dry-run            submit server-side request without persisting the resource
   -h, --help               help for deploy
+  -d, --name string        name to use for AppDeployment, defaults to <APP NAME>-<VERSION | GIT REF | GIT COMMIT>
   -n, --namespace string   namespace of KubeFox Platform
   -p, --platform string    name of KubeFox Platform to utilize
   -s, --version string     version to assign to the AppDeployment, making it immutable
