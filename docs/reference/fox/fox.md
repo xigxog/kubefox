@@ -28,7 +28,7 @@ and release your KubeFox Apps.
 * [fox docs](fox_docs.md)	 - Generate docs for 🦊 Fox
 * [fox init](fox_init.md)	 - Initialize a KubeFox App
 * [fox proxy](fox_proxy.md)	 - Port forward local port to broker's HTTP server adapter
-* [fox publish](fox_publish.md)	 - Builds, pushes, and deploys KubeFox Apps using the version of the currently checked out Git commit
+* [fox publish](fox_publish.md)	 - Builds, pushes, and deploys KubeFox Apps using the component code from the currently checked out Git commit
 * [fox release](fox_release.md)	 - Release specified AppDeployment and VirtualEnvironment
 * [fox version](fox_version.md)	 - Show version information of 🦊 Fox
 

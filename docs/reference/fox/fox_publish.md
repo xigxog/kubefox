@@ -1,9 +1,9 @@
 ## fox publish
 
-Builds, pushes, and deploys KubeFox Apps using the version of the currently checked out Git commit
+Builds, pushes, and deploys KubeFox Apps using the component code from the currently checked out Git commit
 
 ```
-fox publish [NAME] [flags]
+fox publish [flags]
 ```
 
 ### Options
@@ -14,6 +14,7 @@ fox publish [NAME] [flags]
       --force              force build even if component image exists
   -h, --help               help for publish
   -k, --kind string        if provided the built image will be loaded into the kind cluster
+  -d, --name string        name to use for AppDeployment, defaults to <APP NAME>-<VERSION | GIT REF | GIT COMMIT>
   -n, --namespace string   namespace of KubeFox Platform
       --no-cache           do not use cache when building image
   -p, --platform string    name of KubeFox Platform to utilize
