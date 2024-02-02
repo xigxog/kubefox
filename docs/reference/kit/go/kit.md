@@ -24,13 +24,14 @@ import "github.com/xigxog/kubefox/kit"
 
 
 <a name="ComponentDep"></a>
-## type [ComponentDep](<https://github.com/xigxog/kubefox/blob/main/kit/types.go#L328-L332>)
+## type [ComponentDep](<https://github.com/xigxog/kubefox/blob/main/kit/types.go#L328-L333>)
 
 
 
 ```go
 type ComponentDep interface {
     Name() string
+    App() string
     Type() api.ComponentType
     EventType() api.EventType
 }

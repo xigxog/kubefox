@@ -35,11 +35,12 @@ type Server struct {
 	log *logkf.Logger
 }
 
-func New() *Server {
+func New(comp *core.Component, pod string) *Server {
 	return &Server{
 		brk: grpc.NewClient(grpc.ClientOpts{
 			Platform:      Platform,
-			Component:     Component,
+			Component:     comp,
+			Pod:           pod,
 			BrokerAddr:    BrokerAddr,
 			HealthSrvAddr: HealthSrvAddr,
 		}),
@@ -96,7 +97,7 @@ func (srv *Server) Run() error {
 		srv.log.Info("https server started")
 	}
 
-	go srv.brk.Start(ComponentDef, maxAttempts)
+	go srv.brk.Start(&api.ComponentDefinition{Type: api.ComponentTypeHTTPAdapter}, maxAttempts)
 
 	return <-srv.brk.Err()
 }
@@ -120,10 +121,10 @@ func (srv *Server) ServeHTTP(resWriter http.ResponseWriter, httpReq *http.Reques
 	ctx, cancel := context.WithTimeoutCause(httpReq.Context(), EventTimeout, core.ErrTimeout())
 	defer cancel()
 
-	resWriter.Header().Set(api.HeaderAdapter, Component.Key())
+	resWriter.Header().Set(api.HeaderAdapter, srv.brk.Component.Key())
 
 	req := core.NewReq(core.EventOpts{
-		Source: Component,
+		Source: srv.brk.Component,
 	})
 	req.SetTTL(EventTimeout)
 	if err := req.SetHTTPRequest(httpReq, MaxEventSize); err != nil {

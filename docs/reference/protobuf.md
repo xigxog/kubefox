@@ -12,6 +12,7 @@
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
 | type | [string](#string) |  |  |
+| app | [string](#string) |  |  |
 | name | [string](#string) |  |  |
 | commit | [string](#string) |  |  |
 | id | [string](#string) |  |  |

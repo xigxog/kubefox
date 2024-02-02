@@ -84,10 +84,13 @@ func main() {
 		BuildLoggerOrDie(logFormat, logLevel).
 		WithPlatformComponent(api.PlatformComponentOperator)
 	defer logkf.Global.Sync()
+
 	ctrl.SetLogger(zapr.NewLogger(logkf.Global.Unwrap().Desugar()))
 	klog.SetLogger(zapr.NewLogger(logkf.Global.Unwrap().Desugar()))
 
 	log := logkf.Global
+
+	log.DebugInterface("build info:", build.Info)
 
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
 		Scheme: scheme,

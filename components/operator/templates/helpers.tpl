@@ -44,8 +44,8 @@ kubefox.xigxog.io/component-commit: {{ . | cleanLabel | quote }}
 
 {{- define "metadata" -}}
 metadata:
-  name: {{ componentFullName }}
-  namespace: {{ namespace }}
+  name: {{ name }}
+  namespace: {{ .Platform.Namespace }}
   labels:
     {{- include "labels" . | nindent 4 }}
   annotations:
@@ -63,11 +63,11 @@ kind: RoleBinding
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: Role
-  name: {{ componentFullName }}
+  name: {{ name }}
 subjects:
   - kind: ServiceAccount
-    name: {{ componentFullName }}
-    namespace: {{ namespace }}
+    name: {{ name }}
+    namespace: {{ .Platform.Namespace }}
 {{- end }}
 
 {{- define "clusterRoleBinding" -}}
@@ -77,11 +77,11 @@ kind: ClusterRoleBinding
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
-  name: {{ componentFullName }}
+  name: {{ name }}
 subjects:
   - kind: ServiceAccount
-    name: {{ componentFullName }}
-    namespace: {{ namespace }}
+    name: {{ name }}
+    namespace: {{ .Platform.Namespace }}
 {{- end }}
 
 {{- define "serviceAccount" -}}
@@ -130,7 +130,7 @@ kind: ServiceAccount
 {{- end }}
 
 {{- define "podSpec" -}}
-serviceAccountName: {{ componentFullName }}
+serviceAccountName: {{ name }}
 securityContext:
   runAsNonRoot: true
   runAsUser: 100
@@ -201,8 +201,8 @@ imagePullPolicy: {{ .Component.ImagePullPolicy | default "IfNotPresent" }}
 args:
   - -instance={{ .Instance.Name }}
   - -platform-namespace={{ .Platform.Namespace }}
-  - -component={{ componentFullName }}
-  - -component-service-name={{ printf "%s.%s" componentFullName namespace }}
+  - -component={{ .Component.Name }}
+  - -component-service-name={{ printf "%s.%s" name .Platform.Namespace }}
   - -component-ip=$(KUBEFOX_COMPONENT_IP)
   - -vault-url={{ .Values.vaultURL }}
   - -log-format={{ .Logger.Format | default "json" }}

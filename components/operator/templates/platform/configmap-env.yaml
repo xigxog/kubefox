@@ -10,7 +10,7 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: {{ .Platform.Name }}-env
-  namespace: {{ namespace }}
+  namespace: {{ .Platform.Namespace }}
   labels:
     {{- include "labels" . | nindent 4 }}
   annotations:
@@ -23,8 +23,7 @@ data:
   KUBEFOX_HOME: {{ homePath | quote }}
   KUBEFOX_INSTANCE_NAMESPACE: {{ .Instance.Namespace | quote }}
   KUBEFOX_INSTANCE: {{ .Instance.Name  | quote }}
-  KUBEFOX_NAMESPACE: {{ namespace | quote }}
-  KUBEFOX_PLATFORM_FULL_NAME: {{ platformFullName | quote }}
+  KUBEFOX_NAMESPACE: {{ .Platform.Namespace | quote }}
   KUBEFOX_PLATFORM_NAMESPACE: {{ .Platform.Namespace | quote }}
   KUBEFOX_PLATFORM: {{ .Platform.Name | quote }}
   {{- with .Logger.Format }}

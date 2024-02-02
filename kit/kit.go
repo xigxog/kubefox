@@ -65,13 +65,13 @@ func New() Kit {
 		},
 	}
 
-	comp := &core.Component{Id: core.GenerateId(), Type: string(api.ComponentTypeKubeFox)}
-
 	var help bool
-	var platform, brokerAddr, healthAddr, logFormat, logLevel string
+	var platform, app, name, commit string
+	var brokerAddr, healthAddr, logFormat, logLevel string
 	flag.StringVar(&platform, "platform", "", "KubeFox Platform name. (required)")
-	flag.StringVar(&comp.Name, "name", "", "Component name. (required)")
-	flag.StringVar(&comp.Commit, "commit", "", "Commit the Component was built from. (required)")
+	flag.StringVar(&app, "app", "", "App name. (required)")
+	flag.StringVar(&name, "name", "", "Component name. (required)")
+	flag.StringVar(&commit, "commit", "", "Commit the Component was built from. (required)")
 	flag.StringVar(&brokerAddr, "broker-addr", "127.0.0.1:6060", "Address of the Broker gRPC server.")
 	flag.StringVar(&healthAddr, "health-addr", "127.0.0.1:1111", `Address and port the HTTP health server should bind to, set to "false" to disable.`)
 	flag.Int64Var(&svc.maxEventSize, "max-event-size", api.DefaultMaxEventSizeBytes, "Maximum size of event in bytes.")
@@ -94,16 +94,20 @@ Flags:
 
 	if !svc.export {
 		utils.CheckRequiredFlag("platform", platform)
-		utils.CheckRequiredFlag("name", comp.Name)
-		utils.CheckRequiredFlag("commit", comp.Commit)
+		utils.CheckRequiredFlag("app", app)
+		utils.CheckRequiredFlag("name", name)
+		utils.CheckRequiredFlag("commit", commit)
 
-		if comp.Commit != build.Info.Commit {
-			fmt.Fprintf(os.Stderr, "commit '%s' does not match build info commit '%s'", comp.Commit, build.Info.Commit)
+		if commit != build.Info.Commit {
+			fmt.Fprintf(os.Stderr, "commit '%s' does not match build info commit '%s'", commit, build.Info.Commit)
 			os.Exit(1)
 		}
 	} else {
 		logLevel = "error"
 	}
+
+	comp := core.NewComponent(api.ComponentTypeKubeFox, app, name, commit)
+	comp.Id = core.GenerateId()
 
 	logkf.Global = logkf.
 		BuildLoggerOrDie(logFormat, logLevel).
@@ -191,6 +195,7 @@ func (svc *kit) HTTPAdapter(name string) ComponentDep {
 func (svc *kit) dependency(name string, typ api.ComponentType) ComponentDep {
 	c := &dependency{
 		typ:  typ,
+		app:  svc.brk.Component.App,
 		name: name,
 	}
 	svc.compDef.Dependencies[name] = &api.Dependency{Type: typ}

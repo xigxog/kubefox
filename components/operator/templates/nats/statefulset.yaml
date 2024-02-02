@@ -10,7 +10,7 @@ apiVersion: apps/v1
 kind: StatefulSet
 {{ include "metadata" . }}
 spec:
-  serviceName: {{ componentFullName }}
+  serviceName: {{ name }}
   replicas: 1
   podManagementPolicy: Parallel
   selector:
@@ -75,7 +75,7 @@ spec:
       volumes:
         - name: config
           configMap:
-            name: {{ componentFullName }}-config
+            name: {{ name }}-config
         - name: pid
           emptyDir: {}
         - name: root-ca

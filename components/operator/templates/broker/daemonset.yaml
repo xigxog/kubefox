@@ -37,9 +37,9 @@ spec:
           args:
             - -instance={{ .Instance.Name }}
             - -platform={{ .Platform.Name }}
-            - -namespace={{ namespace }}
+            - -namespace={{ .Platform.Namespace }}
             - -grpc-addr=$(KUBEFOX_COMPONENT_IP):6060
-            - -nats-addr=nats.{{ .Platform.Namespace }}
+            - -nats-addr={{ .Platform.Name }}-nats.{{ .Platform.Namespace }}
             - -vault-url={{ .Values.vaultURL }}
             - -telemetry-addr=false
             - -health-addr=0.0.0.0:1111

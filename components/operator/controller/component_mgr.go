@@ -61,11 +61,7 @@ func (cm *ComponentManager) SetupComponent(ctx context.Context, td *TemplateData
 	log := cm.log.
 		WithInstance(td.Instance.Name).
 		WithPlatform(td.Platform.Name).
-		WithComponent(&core.Component{
-			Type:   string(td.Component.Type),
-			Name:   td.Component.Name,
-			Commit: td.Component.Commit,
-		})
+		WithComponent(td.Component.Component)
 
 	hash, err := hashstructure.Hash(td.Data, hashstructure.FormatV2, nil)
 	if err != nil {
@@ -73,9 +69,9 @@ func (cm *ComponentManager) SetupComponent(ctx context.Context, td *TemplateData
 	}
 	td.Data.Hash = strconv.Itoa(int(hash))
 
-	log.Debugf("setting up Component '%s'", td.ComponentFullName())
+	log.Debugf("setting up Component '%s'", td.Name())
 
-	name := k8s.Key(td.Namespace(), td.ComponentFullName())
+	name := k8s.Key(td.Platform.Namespace, td.Name())
 	if err := cm.Get(ctx, name, td.Obj); client.IgnoreNotFound(err) != nil {
 		return false, log.ErrorN("unable to fetch Component workload: %w", err)
 	}
@@ -114,7 +110,7 @@ func (cm *ComponentManager) SetupComponent(ctx context.Context, td *TemplateData
 		return false, cm.ApplyTemplate(ctx, td.Template, &td.Data, log)
 	}
 
-	log.Debugf("Component '%s' available", td.ComponentFullName())
+	log.Debugf("Component '%s' available", td.Name())
 	return true, nil
 }
 
@@ -175,11 +171,12 @@ func (cm *ComponentManager) ReconcileApps(ctx context.Context, namespace string)
 			}
 
 			compTd := td.ForComponent("component", &appsv1.Deployment{}, &defaults.Component, templates.Component{
-				Component: &core.Component{
-					Name:   compName,
-					Commit: comp.Commit,
-					Type:   string(api.ComponentTypeKubeFox),
-				},
+				Component: core.NewComponent(
+					api.ComponentTypeKubeFox,
+					appDep.Spec.AppName,
+					compName,
+					comp.Commit,
+				),
 				Image:           image,
 				ImagePullSecret: appDep.Spec.ImagePullSecretName,
 			})

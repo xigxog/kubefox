@@ -17,15 +17,18 @@ import (
 	"github.com/xigxog/kubefox/api"
 	"github.com/xigxog/kubefox/build"
 	"github.com/xigxog/kubefox/components/httpsrv/server"
+	"github.com/xigxog/kubefox/core"
 	"github.com/xigxog/kubefox/logkf"
 	"github.com/xigxog/kubefox/utils"
 )
 
 func main() {
+	var name, commit, pod string
 	var logFormat, logLevel string
 	flag.StringVar(&server.Platform, "platform", "", "KubeFox Platform name. (required)")
-	flag.StringVar(&server.Component.Name, "name", "", `Component name. (required)`)
-	flag.StringVar(&server.Component.Commit, "commit", "", `Commit the Component was built from. (required)`)
+	flag.StringVar(&name, "name", "", `Component name. (required)`)
+	flag.StringVar(&commit, "commit", "", `Commit the Component was built from. (required)`)
+	flag.StringVar(&pod, "pod", "", `Component pod. (required)`)
 	flag.StringVar(&server.HTTPAddr, "http-addr", "127.0.0.1:8080", `Address and port the HTTP server should bind to, set to "false" to disable.`)
 	flag.StringVar(&server.HTTPSAddr, "https-addr", "127.0.0.1:8443", `Address and port the HTTPS server should bind to, set to "false" to disable.`)
 	flag.StringVar(&server.BrokerAddr, "broker-addr", "127.0.0.1:6060", "Address and port of the Broker gRPC server.")
@@ -37,20 +40,28 @@ func main() {
 	flag.Parse()
 
 	utils.CheckRequiredFlag("platform", server.Platform)
-	utils.CheckRequiredFlag("name", server.Component.Name)
-	utils.CheckRequiredFlag("commit", server.Component.Commit)
+	utils.CheckRequiredFlag("name", name)
+	utils.CheckRequiredFlag("commit", commit)
+	utils.CheckRequiredFlag("pod", pod)
 
-	if server.Component.Commit != build.Info.Commit {
-		fmt.Fprintf(os.Stderr, "commit '%s' does not match build info commit '%s'", server.Component.Commit, build.Info.Commit)
+	if commit != build.Info.Commit {
+		fmt.Fprintf(os.Stderr, "commit '%s' does not match build info commit '%s'", commit, build.Info.Commit)
 		os.Exit(1)
 	}
 
+	comp := core.NewPlatformComponent(
+		api.ComponentTypeHTTPAdapter,
+		name,
+		commit,
+	)
+	comp.Id = core.GenerateId()
+
 	logkf.Global = logkf.
 		BuildLoggerOrDie(logFormat, logLevel).
-		WithComponent(server.Component)
+		WithComponent(comp)
 	defer logkf.Global.Sync()
 
-	srv := server.New()
+	srv := server.New(comp, pod)
 	defer srv.Shutdown()
 
 	if err := srv.Run(); err != nil {

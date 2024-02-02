@@ -9,8 +9,8 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ componentFullName }}
-  namespace: {{ namespace }}
+  name: {{ name }}
+  namespace: {{ .Platform.Namespace }}
   labels:
     {{- include "labels" . | nindent 4 }}
     {{- range $k, $v := .Values.serviceLabels }}

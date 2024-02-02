@@ -39,6 +39,7 @@ spec:
             - -platform={{ .Platform.Name }}
             - -name={{ .Component.Name }}
             - -commit={{ .BuildInfo.HTTPSrvCommit }}
+            - -pod=$(KUBEFOX_COMPONENT_POD)
             - -http-addr=0.0.0.0:8080
             - -https-addr=0.0.0.0:8443
             - -broker-addr=$(KUBEFOX_HOST_IP):6060
@@ -48,6 +49,10 @@ spec:
             - -log-level={{ .Logger.Level | default "info" }}
           env:
           {{- include "env" . | nindent 12 }}
+            - name: KUBEFOX_COMPONENT_POD
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
             - name: KUBEFOX_COMPONENT_IP
               valueFrom:
                 fieldRef:

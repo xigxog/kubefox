@@ -9,8 +9,8 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ componentFullName }}
-  namespace: {{ namespace }}
+  name: {{ name }}
+  namespace: {{ .Platform.Namespace }}
   labels:
     {{- include "labels" . | nindent 4 }}
   annotations:
@@ -47,6 +47,7 @@ spec:
           {{- include "probes" . | nindent 10 }}
           args:
             - -platform={{ .Platform.Name }}
+            - -app={{ .Component.App }}
             - -name={{ .Component.Name }}
             - -commit={{ .Component.Commit }}
             - -broker-addr=$(KUBEFOX_HOST_IP):6060
