@@ -295,7 +295,7 @@ func parseMD(stream grpc.Broker_SubscribeServer) (*Metadata, error) {
 	if err != nil {
 		return nil, err
 	}
-	pod, err := getMD(md, api.GRPCKeyPod, true)
+	pod, err := getMD(md, api.GRPCKeyPod, false)
 	if err != nil {
 		return nil, err
 	}

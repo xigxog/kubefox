@@ -26,6 +26,13 @@ func NewComponent(typ api.ComponentType, app, name, commit string) *Component {
 	}
 }
 
+func NewTargetComponent(typ api.ComponentType, name string) *Component {
+	return &Component{
+		Type: string(typ),
+		Name: utils.CleanName(name),
+	}
+}
+
 func NewPlatformComponent(typ api.ComponentType, name, commit string) *Component {
 	return &Component{
 		Type:   string(typ),
@@ -44,15 +51,11 @@ func GenerateId() string {
 }
 
 func (c *Component) IsComplete() bool {
-	return c.IsGroupComplete() && c.Id != "" && c.BrokerId != ""
-}
-
-func (c *Component) IsGroupComplete() bool {
-	return c.Type != "" && c.App != "" && c.Name != "" && c.Commit != ""
+	return c.Type != "" && c.Name != "" && c.Commit != "" && c.Id != "" && c.BrokerId != ""
 }
 
 func (c *Component) IsNameOnly() bool {
-	return c.Type != "" && c.App != "" && c.Name != "" && c.Commit == "" && c.Id == "" && c.BrokerId == ""
+	return c.Type != "" && c.Name != "" && c.Commit == "" && c.Id == "" && c.BrokerId == ""
 }
 
 func (lhs *Component) Equal(rhs *Component) bool {

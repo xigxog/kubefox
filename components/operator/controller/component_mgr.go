@@ -170,7 +170,7 @@ func (cm *ComponentManager) ReconcileApps(ctx context.Context, namespace string)
 				image = fmt.Sprintf("%s/%s:%s", reg, compName, comp.Commit)
 			}
 
-			compTd := td.ForComponent("component", &appsv1.Deployment{}, &defaults.Component, templates.Component{
+			compTD := td.ForComponent("component", &appsv1.Deployment{}, &defaults.Component, templates.Component{
 				Component: core.NewComponent(
 					api.ComponentTypeKubeFox,
 					appDep.Spec.AppName,
@@ -180,10 +180,9 @@ func (cm *ComponentManager) ReconcileApps(ctx context.Context, namespace string)
 				Image:           image,
 				ImagePullSecret: appDep.Spec.ImagePullSecretName,
 			})
-			compTd.Values = map[string]any{api.ValKeyMaxEventSize: maxEventSize}
+			compTD.Values = map[string]any{api.ValKeyMaxEventSize: maxEventSize}
 
-			key := componentKey(compName, comp.Commit)
-			compsTplData[key] = compTd
+			compsTplData[compTD.Component.GroupKey()] = compTD
 		}
 	}
 	log.Debugf("found %d unique Components", len(compsTplData))
@@ -199,8 +198,7 @@ func (cm *ComponentManager) ReconcileApps(ctx context.Context, namespace string)
 			allAvailable = false
 		}
 
-		key := componentKey(compTD.Component.Name, compTD.Component.Commit)
-		depMap[key] = compTD.Obj.(*appsv1.Deployment)
+		depMap[compTD.Component.GroupKey()] = compTD.Obj.(*appsv1.Deployment)
 	}
 
 	now := metav1.Now()
@@ -257,17 +255,17 @@ func (cm *ComponentManager) ReconcileApps(ctx context.Context, namespace string)
 		log.Debugf("%s; available: %s, progressing: %s", k8s.ToString(&appDep), available.Status, progressing.Status)
 	}
 
-	compDeps := &appsv1.DeploymentList{}
-	if err := cm.List(ctx, compDeps,
+	depList := &appsv1.DeploymentList{}
+	if err := cm.List(ctx, depList,
 		client.InNamespace(platform.Namespace),
 		// filter out Platform Components
 		client.MatchingLabels{api.LabelK8sComponentType: string(api.ComponentTypeKubeFox)},
 	); err != nil {
 		return false, err
 	}
-	log.Debugf("found %d existing Component Deployments", len(compDeps.Items))
+	log.Debugf("found %d existing Component Deployments", len(depList.Items))
 
-	for _, d := range compDeps.Items {
+	for _, d := range depList.Items {
 		if _, found := compsTplData[d.Name]; !found {
 			log.Debugf("deleting Component Deployment '%s'", d.Name)
 
@@ -331,7 +329,13 @@ func availableCondition(
 		problems    api.Problems
 	)
 	for name, c := range spec.Components {
-		dep, found := deployments[componentKey(name, c.Commit)]
+		comp := core.NewComponent(
+			api.ComponentTypeKubeFox,
+			spec.AppName,
+			name,
+			c.Commit,
+		)
+		dep, found := deployments[comp.GroupKey()]
 		if !found || dep == nil {
 			problems = append(problems,
 				api.Problem{
@@ -403,7 +407,13 @@ func progressingCondition(
 		problems    api.Problems
 	)
 	for name, c := range spec.Components {
-		dep, found := deployments[componentKey(name, c.Commit)]
+		comp := core.NewComponent(
+			api.ComponentTypeKubeFox,
+			spec.AppName,
+			name,
+			c.Commit,
+		)
+		dep, found := deployments[comp.GroupKey()]
 		if !found || dep == nil {
 			// availableCondition adds the ProblemTypeDeploymentNotFound
 			// problem, do not need to add again.
@@ -470,6 +480,6 @@ func findCondition(status appsv1.DeploymentStatus, condType appsv1.DeploymentCon
 	return appsv1.DeploymentCondition{Type: condType, Status: corev1.ConditionUnknown}
 }
 
-func componentKey(name, commit string) string {
-	return fmt.Sprintf("%s-%s", name, commit)
-}
+// func componentKey(name, commit string) string {
+// 	return fmt.Sprintf("%s-%s", name, commit)
+// }
