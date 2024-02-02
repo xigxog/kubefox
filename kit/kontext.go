@@ -96,11 +96,9 @@ func (k *kontext) Req(target ComponentDep) Req {
 			Type:   target.EventType(),
 			Parent: k.Event,
 			Source: k.kit.brk.Component,
-			Target: core.NewComponent(
+			Target: core.NewTargetComponent(
 				target.Type(),
-				target.App(),
 				target.Name(),
-				"",
 			),
 		}),
 		ktx: k,
@@ -112,11 +110,9 @@ func (k *kontext) Forward(target ComponentDep) Req {
 		Event: core.CloneToReq(k.Event, core.EventOpts{
 			Parent: k.Event,
 			Source: k.kit.brk.Component,
-			Target: core.NewComponent(
+			Target: core.NewTargetComponent(
 				target.Type(),
-				target.App(),
 				target.Name(),
-				"",
 			),
 		}),
 		ktx: k,
@@ -136,11 +132,9 @@ func (k *kontext) Transport(target ComponentDep) http.RoundTripper {
 				Type:   target.EventType(),
 				Parent: k.Event,
 				Source: k.kit.brk.Component,
-				Target: core.NewComponent(
+				Target: core.NewTargetComponent(
 					target.Type(),
-					target.App(),
 					target.Name(),
-					"",
 				),
 			}),
 			ktx: k,
