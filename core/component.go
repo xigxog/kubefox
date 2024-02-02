@@ -51,10 +51,18 @@ func GenerateId() string {
 }
 
 func (c *Component) IsComplete() bool {
+	if c == nil {
+		return false
+	}
+
 	return c.Type != "" && c.Name != "" && c.Commit != "" && c.Id != "" && c.BrokerId != ""
 }
 
 func (c *Component) IsNameOnly() bool {
+	if c == nil {
+		return false
+	}
+
 	return c.Type != "" && c.Name != "" && c.Commit == "" && c.Id == "" && c.BrokerId == ""
 }
 
@@ -75,7 +83,7 @@ func (c *Component) Key() string {
 }
 
 func (c *Component) GroupKey() string {
-	return utils.Join("-", c.App, c.Name, c.Commit)
+	return utils.Join("-", c.App, c.Name, c.ShortCommit())
 }
 
 func (c *Component) Subject() string {

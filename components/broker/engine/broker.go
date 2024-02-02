@@ -387,7 +387,7 @@ func (brk *broker) validateEvent(ctx *BrokerEventContext) error {
 		return core.ErrInvalid(fmt.Errorf("event source is invalid"))
 	}
 
-	if ctx.Event.Category == core.Category_RESPONSE && (ctx.Event.Target == nil || !ctx.Event.Target.IsComplete()) {
+	if ctx.Event.Category == core.Category_RESPONSE && !ctx.Event.Target.IsComplete() {
 		return core.ErrInvalid(fmt.Errorf("response target is missing required attribute"))
 	}
 
@@ -462,14 +462,16 @@ func (brk *broker) findTarget(ctx *BrokerEventContext) (err error) {
 			ctx.Event.SetRoute(route)
 
 		case ctx.Event.Target != nil && ctx.Event.Target.Type == string(api.ComponentTypeKubeFox):
-			if ctx.Event.Target.Commit == "" {
+			if ctx.Event.Target.Commit == "" || ctx.Event.Target.App == "" {
 				def, err := ctx.AppDeployment.GetDefinition(ctx.Event.Target)
 				if err != nil {
 					return err
 				}
 
 				ctx.Event.Target.Commit = def.Commit
+				ctx.Event.Target.App = ctx.AppDeployment.Spec.AppName
 			}
+
 			ctx.RouteId = api.DefaultRouteId
 
 		default:
@@ -497,6 +499,7 @@ func (brk *broker) findTarget(ctx *BrokerEventContext) (err error) {
 
 		ctx.RouteId = int64(route.Id)
 		ctx.Event.SetRoute(route)
+		ctx.Log.DebugInterface("route:", route)
 		if err := brk.store.AttachEventContext(ctx); err != nil {
 			return err
 		}

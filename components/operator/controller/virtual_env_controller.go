@@ -246,6 +246,9 @@ func (r *VirtualEnvReconciler) reconcile(ctx *VirtualEnvContext, log *logkf.Logg
 		return nil
 	}
 
+	// TODO need a way to trigger release after updates to Env, VE, or Adapters
+	// and release manifest is being used.
+
 	if releaseEqual(ctx.Status.ActiveRelease, ctx.Spec.Release) {
 		// Current release is active, clear pending.
 		ctx.Status.PendingRelease = nil

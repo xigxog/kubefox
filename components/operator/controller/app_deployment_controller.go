@@ -57,8 +57,15 @@ func (r *AppDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 	)
 
 	appDep := &v1alpha1.AppDeployment{}
-	if err := r.Get(ctx, k8s.Key(req.Namespace, req.Name), appDep); err != nil {
-		return ctrl.Result{}, k8s.IgnoreNotFound(err)
+	if err := r.Get(ctx, k8s.Key(req.Namespace, req.Name), appDep); k8s.IgnoreNotFound(err) != nil {
+		return ctrl.Result{}, err
+
+	} else if k8s.IsNotFound(err) {
+		if _, err := r.CompMgr.ReconcileApps(ctx, req.Namespace); err != nil {
+			return RetryConflictWebhookErr(err)
+		}
+
+		return ctrl.Result{}, nil
 	}
 
 	log.Debugf("reconciling '%s'", k8s.ToString(appDep))
@@ -91,7 +98,7 @@ func (r *AppDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 	}
 
 	if _, err := r.CompMgr.ReconcileApps(ctx, req.Namespace); err != nil {
-		return ctrl.Result{}, err
+		return RetryConflictWebhookErr(err)
 	}
 
 	return ctrl.Result{}, nil
