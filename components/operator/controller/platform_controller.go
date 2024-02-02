@@ -102,31 +102,37 @@ func (r *PlatformReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	log.Debugf("reconciling '%s'", k8s.ToString(platform))
 	defer log.Debugf("reconciling '%s' complete", k8s.ToString(platform))
 
-	err := r.reconcile(ctx, platform, log)
-	if err != nil {
+	reconcileErr := r.reconcile(ctx, platform, log)
+	if reconcileErr != nil {
 		platform.Status.Conditions = k8s.UpdateConditions(metav1.Now(), platform.Status.Conditions, &metav1.Condition{
 			Type:               api.ConditionTypeAvailable,
 			Status:             metav1.ConditionUnknown,
 			ObservedGeneration: platform.ObjectMeta.Generation,
 			Reason:             api.ConditionReasonReconcileFailed,
-			Message:            err.Error(),
+			Message:            reconcileErr.Error(),
 		})
 
 	} else {
 		if _, err := r.CompMgr.ReconcileApps(ctx, req.Namespace); err != nil {
-			r.log.Error(err)
+			if reconcileErr == nil {
+				reconcileErr = err
+			}
 		}
 	}
 
 	if err := r.updateComponentsStatus(ctx, platform); err != nil {
-		r.log.Error(err)
+		if reconcileErr == nil {
+			reconcileErr = err
+		}
 	}
 
 	if err := r.Status().Update(ctx, platform); err != nil {
-		return RetryConflictWebhookErr(err)
+		if reconcileErr == nil {
+			reconcileErr = err
+		}
 	}
 
-	return ctrl.Result{}, err
+	return RetryConflictWebhookErr(reconcileErr)
 }
 
 func (r *PlatformReconciler) reconcile(ctx context.Context, platform *v1alpha1.Platform, log *logkf.Logger) error {

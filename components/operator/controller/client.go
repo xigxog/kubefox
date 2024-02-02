@@ -98,7 +98,6 @@ func (r *Client) AddFinalizer(ctx context.Context, obj client.Object, finalizer 
 }
 
 func (r *Client) RemoveFinalizer(ctx context.Context, obj client.Object, finalizer string) error {
-	logkf.Global.Debugf("%s: delTS: %s, uid: %s", k8s.ToString(obj), obj.GetDeletionTimestamp(), obj.GetUID())
 	if k8s.RemoveFinalizer(obj, finalizer) {
 		logkf.Global.Debugf("removing finalizer '%s' from '%s'", finalizer, k8s.ToString(obj))
 		return r.Update(ctx, obj)

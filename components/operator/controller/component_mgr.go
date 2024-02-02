@@ -167,7 +167,7 @@ func (cm *ComponentManager) ReconcileApps(ctx context.Context, namespace string)
 			image := comp.Image
 			if image == "" {
 				reg := strings.TrimSuffix(appDep.Spec.ContainerRegistry, "/")
-				image = fmt.Sprintf("%s/%s:%s", reg, compName, comp.Commit)
+				image = fmt.Sprintf("%s/%s/%s:%s", reg, appDep.Spec.AppName, compName, comp.Commit)
 			}
 
 			compTD := td.ForComponent("component", &appsv1.Deployment{}, &defaults.Component, templates.Component{

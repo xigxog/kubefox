@@ -186,6 +186,9 @@ func (a *AppDeployment) GetDefinition(comp *core.Component) (*api.ComponentDefin
 	if comp == nil {
 		return nil, core.ErrComponentMismatch(fmt.Errorf("component not part of app"))
 	}
+	if comp.App != "" && comp.App != a.Spec.AppName {
+		return nil, core.ErrComponentMismatch(fmt.Errorf("component not part of app"))
+	}
 
 	c, found := a.Spec.Components[comp.Name]
 	if !found {
