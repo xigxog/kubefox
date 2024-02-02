@@ -123,26 +123,23 @@ If you already have a Kubernetes Cluster provisioned, you can skip this step.
       --name ${AZ_AKS_NAME}
     ```
 
-    Please run the below command if you need to setup a container registry on Azure using ACR. If you already have a registry which is accessible from Azure, you can skip this step. Any OCI compliant container registry can be used here (ex DockerHub, GHCR, Harbor).
-
-    ??? "Create Container Registry on Azure (optional)"
-        Create your Azure Container Registry in the same resource group as your AKS cluster.
-        Please modify the below to set the name of your ACR in the AZ_ACR_NAME environment variable, otherwise it will auto-generate a random numeric string.
+    Create your Azure Container Registry in the same resource group as your AKS cluster.
+    Please modify the below to set the name of your ACR in the AZ_ACR_NAME environment variable, otherwise it will auto-generate a random numeric string.
     
-        ```{ .shell .copy }
-        export AZ_ACR_NAME="acr${RANDOM}" && \
-          az acr create --name ${AZ_ACR_NAME} --sku Basic --admin-enabled true --resource-group ${AZ_RESOURCE_GROUP}
-        ```
-        Run the below commands to set the endpoints and token required to access your registry. Save this output somewhere safe.
-        These environment variables will be used by the fox CLI later to configure your environment.
-        
-        ```{ .shell .copy }
-        FOX_REGISTRY_ADDRESS=$(az acr show-endpoints -n ${AZ_ACR_NAME} --resource-group ${AZ_RESOURCE_GROUP} --output tsv --query loginServer) && \
-          FOX_REGISTRY_TOKEN=$(az acr login --name ${AZ_ACR_NAME} --expose-token --output tsv --query accessToken) && \
-          FOX_REGISTRY_USERNAME="00000000-0000-0000-0000-000000000000"  
-        ```
+    ```{ .shell .copy }
+    export AZ_ACR_NAME="acr${RANDOM}" && \
+      az acr create --name ${AZ_ACR_NAME} --sku Basic --admin-enabled true --resource-group ${AZ_RESOURCE_GROUP}
+    ```
+    Run the below commands to set the endpoints and token required to access your registry. Save this output somewhere safe.
+    These environment variables will be used by the fox CLI later to configure your environment.
+    
+    ```{ .shell .copy }
+    FOX_REGISTRY_ADDRESS=$(az acr show-endpoints -n ${AZ_ACR_NAME} --resource-group ${AZ_RESOURCE_GROUP} --output tsv --query loginServer) && \
+      FOX_REGISTRY_TOKEN=$(az acr login --name ${AZ_ACR_NAME} --expose-token --output tsv --query accessToken) && \
+      FOX_REGISTRY_USERNAME="00000000-0000-0000-0000-000000000000"  
+    ```
 
-## Install KubeFox Platform
+## Setup KubeFox
 
 Now, install the KubeFox Helm Chart to initiate the KubeFox operator on your
 Kubernetes cluster. The operator manages KubeFox platforms and apps.
@@ -171,8 +168,6 @@ helm upgrade kubefox kubefox \
     TEST SUITE: None
     ```
 
-## Setup Fox
-
 Here we will setup the Fox CLI.
 
 === "Install using Go"
@@ -187,7 +182,11 @@ Here we will setup the Fox CLI.
     curl -sL "https://github.com/xigxog/fox/releases/latest/download/fox-$(uname -s | tr 'A-Z' 'a-z')-amd64.tar.gz" | tar xvz - -C /tmp && sudo mv /tmp/fox /usr/local/bin/fox 
     ```
 
-  To begin, create a new directory and use Fox to initialize the `hello-world` app. Run all subsequent
+=== "Install Manually"
+
+    Go to the [GitHub release page](https://github.com/xigxog/fox/releases) and download the latest Fox binary for your OS.
+
+To begin, create a new directory and use Fox to initialize the `hello-world` app. Run all subsequent
 commands from this directory. The environment variable `FOX_INFO` tells Fox to
 to provide additional output about what is going on. Employ the `--quickstart`
 flag to use defaults and create a KubeFox platform named `demo` in the
