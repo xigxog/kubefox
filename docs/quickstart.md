@@ -78,11 +78,7 @@ If you already have a Kubernetes Cluster provisioned, you can skip this step.
     ```{ .shell .copy }
     az login
     ```
-    If you have multiple Azure Subscriptions, you can use the below command to set the context to a specific subscription.
-    ```{ .shell .copy }
-    export AZ_SUBSCRIPTION_ID=<Your Subscription ID here> && az account set --subscription ${AZ_SUBSCRIPTION_ID}
-    ```
-    Lets set the other required variables for this quickstart on Azure. Make sure to modify the below accordingly.
+    Lets set the other required variables for this quickstart on Azure. Make sure to modify the below accordingly before pasting into your terminal.
     ```{ .shell .copy }
     export AZ_LOCATION=eastus2 && \
     export AZ_RESOURCE_GROUP=kf-quickstart-infra-eus2-rg && \
@@ -143,7 +139,7 @@ If you already have a Kubernetes Cluster provisioned, you can skip this step.
         ```{ .shell .copy }
         FOX_REGISTRY_ADDRESS=$(az acr show-endpoints -n ${AZ_ACR_NAME} --resource-group ${AZ_RESOURCE_GROUP} --output tsv --query loginServer) && \
           FOX_REGISTRY_TOKEN=$(az acr login --name ${AZ_ACR_NAME} --expose-token --output tsv --query accessToken) && \
-          echo -e "\n\nACR URL: ${FOX_REGISTRY_ADDRESS}\n\nACR TOKEN: ${FOX_REGISTRY_TOKEN}\n\n"
+          FOX_REGISTRY_USERNAME="00000000-0000-0000-0000-000000000000"  
         ```
 
 ## Install KubeFox Platform
@@ -179,93 +175,45 @@ helm upgrade kubefox kubefox \
 
 Here we will setup the Fox CLI.
 
-??? "Install using Go (Linux, MacOS, WSL)"
+=== "Install using Go"
 
     ```{ .shell .copy }
-    go install github.com/xigxog/fox@alpha-v0.7.0
+    go install github.com/xigxog/fox@alpha-v0.8.0
     ```
 
-??? "Install using Bash (Linux, MacOS)"
+=== "Install using Bash"
 
     ```{ .shell .copy }
-    curl -s -L "https://github.com/xigxog/fox/releases/download/$(curl -s https://api.github.com/repos/xigxog/fox/releases/latest | jq -r '.name')/fox-$(uname -s | tr 'A-Z' 'a-z')-amd64.tar.gz" | tar xvz - -C /tmp && \
-      sudo mv /tmp/fox /usr/local/bin/fox && \
-      echo "Fox CLI Successfully installed"
+    curl -sL "https://github.com/xigxog/fox/releases/latest/download/fox-$(uname -s | tr 'A-Z' 'a-z')-amd64.tar.gz" | tar xvz - -C /tmp && sudo mv /tmp/fox /usr/local/bin/fox 
     ```
 
-To begin, create a new directory and use Fox to initialize the `hello-world` app. Run all subsequent
+  To begin, create a new directory and use Fox to initialize the `hello-world` app. Run all subsequent
 commands from this directory. The environment variable `FOX_INFO` tells Fox to
 to provide additional output about what is going on. Employ the `--quickstart`
 flag to use defaults and create a KubeFox platform named `demo` in the
 `kubefox-demo` namespace.
 
-=== "Local (kind)"
+??? "Remote Registry Note"
+    If you are using a remote registry, please ensure the following environment variables are set before running the quickstart:  FOX_REGISTRY_ADDRESS, FOX_REGISTRY_TOKEN, and FOX_REGISTRY_USERNAME. If you setup the Azure Container Registry as a part of this quickstart, these variables will already be set.
 
-    ```{ .shell .copy }
-    export FOX_INFO=true && \
-      mkdir kubefox-quickstart && \
-      cd kubefox-quickstart && \
-      fox init --quickstart
+```{ .shell .copy }
+export FOX_INFO=true && \
+  mkdir kubefox-quickstart && \
+  cd kubefox-quickstart && \
+  fox init --quickstart
+```
+
+??? example "Output"
+
+    ```text
+    $ export FOX_INFO=true && \
+        mkdir kubefox-quickstart && \
+        cd kubefox-quickstart && \
+        fox init --quickstart
+    info    Waiting for KubeFox Platform 'demo' to be ready...
+    info    KubeFox initialized for the quickstart guide!
     ```
 
-    ??? example "Output"
-
-        ```text
-        $ export FOX_INFO=true && \
-            mkdir kubefox-quickstart && \
-            cd kubefox-quickstart && \
-            fox init --quickstart
-        info    Waiting for KubeFox Platform 'demo' to be ready...
-        info    KubeFox initialized for the quickstart guide!
-        ```
-
-=== "Azure (AKS)"
-
-    Ensure the following environment variables are set before running the quickstart:  FOX_REGISTRY_ADDRESS, FOX_REGISTRY_TOKEN, and FOX_REGISTRY_USERNAME 
-
-    ```{ .shell .copy }
-    echo -e "\n\nACR URL: ${FOX_REGISTRY_ADDRESS}\n\nACR TOKEN: ${FOX_REGISTRY_TOKEN}\n\n"
-    ```
-    If you followed the steps in the Quickstart to use ACR, your Username will be "00000000-0000-0000-0000-000000000000" 
-    ```{ .shell .copy }
-    export FOX_REGISTRY_USERNAME="00000000-0000-0000-0000-000000000000"  
-    ```
-    When the CLI asks if you are planning to use kind for a local setup, you can say No (N). The fox will automatically register your Azure Container Registry.
-    ```{ .shell .copy }
-    export FOX_INFO=true && \
-      mkdir kubefox-quickstart && \
-      cd kubefox-quickstart && \
-      fox init --quickstart 
-    ```
-    ??? example "Output"
-
-        ```text
-        $ export FOX_INFO=true && \
-            mkdir kubefox-quickstart && \
-            cd kubefox-quickstart && \
-            fox init --quickstart
-        info  It looks like this is the first time you are using 🦊 Fox. Welcome!  
-        info  🦊 Fox needs some information from you to configure itself. The setup process only
-        info  needs to be run once, but if you ever want change things you can use the
-        info  command 'fox config setup'.  
-        info  Please make sure your workstation has Docker installed (https://docs.docker.com/engine/install)
-        info  and that KubeFox is installed (https://docs.kubefox.io/install) on your Kubernetes cluster.  
-        info  If you don't have a Kubernetes cluster you can run one locally with kind (https://kind.sigs.k8s.io)
-        info  to experiment with KubeFox.  
-        info  🦊 Fox needs a place to store the component images it will build, normally this is
-        info  a remote container registry. However, if you only want to use KubeFox locally
-        info  with kind you can skip this step.
-
-        Are you only using KubeFox with local kind cluster? [y/N] N  
-
-        info  Remote registry information provided. Setting the remote registry acr26417.azurecr.io  
-        info  Configuration successfully written to '/Users/bolb/.config/kubefox/config.yaml'.  
-        info  Congrats, you are ready to use KubeFox!
-        info  Check out the quickstart for next steps (https://docs.kubefox.io/quickstart/).
-        info  If you run into any problems please let us know on GitHub (https://github.com/xigxog/kubefox/issues).  
-        info  Waiting for KubeFox Platform 'demo' to be ready...
-        info  KubeFox initialized for the quickstart guide!
-        ```
 
 Notice the newly created directories and files. The `hello-world` app comprises
 two components and example environments. Fox also initialized a new Git repo for
@@ -955,7 +903,7 @@ Once you are done with the quickstart, you can optionally use the below commands
 === "Azure (AKS)"
 
     ```{ .shell .copy }
-    yes | az aks delete -g ${AZ_RESOURCE_GROUP} --name ${AZ_AKS_NAME} && \
+    az aks delete -g ${AZ_RESOURCE_GROUP} --name ${AZ_AKS_NAME} && \
       az acr delete -g ${AZ_RESOURCE_GROUP} --name ${AZ_ACR_NAME} && \
       az group delete -g ${AZ_RESOURCE_GROUP} 
     ```
