@@ -22,6 +22,7 @@ import (
 	vauth "github.com/hashicorp/vault/api/auth/kubernetes"
 	"github.com/xigxog/kubefox/api"
 	"github.com/xigxog/kubefox/core"
+	"github.com/xigxog/kubefox/utils"
 )
 
 type Client struct {
@@ -198,19 +199,7 @@ func PolicyName(key Key, policy string) string {
 		key.Instance = "kubefox-" + key.Instance
 	}
 
-	var parts []string
-	parts = append(parts, key.Instance)
-	if key.Namespace != "" {
-		parts = append(parts, key.Namespace)
-	}
-	if key.Component != "" {
-		parts = append(parts, key.Component)
-	}
-	if policy != "" {
-		parts = append(parts, policy)
-	}
-
-	return strings.Join(parts, "-")
+	return utils.Join("-", key.Instance, key.Namespace, key.Component, policy)
 }
 
 func KubernetesRolePath(key Key) string {

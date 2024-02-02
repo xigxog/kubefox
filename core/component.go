@@ -9,34 +9,38 @@
 package core
 
 import (
-	"fmt"
-	"os"
-	"strings"
+	"math/rand"
 
-	"github.com/google/uuid"
 	"github.com/xigxog/kubefox/api"
 	"github.com/xigxog/kubefox/utils"
 )
 
-func GenerateId() string {
-	_, id := GenerateNameAndId()
-	return id
+var idChars = []rune("abcdefghijklmnopqrstuvwxyz0123456789")
+
+func NewComponent(typ api.ComponentType, app, name, commit string) *Component {
+	return &Component{
+		Type:   string(typ),
+		App:    utils.CleanName(app),
+		Name:   utils.CleanName(name),
+		Commit: commit,
+	}
 }
 
-func GenerateNameAndId() (string, string) {
-	id := uuid.NewString()
-	name := id
-	if p, _ := os.LookupEnv(api.EnvPodName); p != "" {
-		name = p
-		s := strings.Split(p, "-")
-		if len(s) > 1 {
-			id = s[len(s)-1]
-		}
-	} else if h, _ := os.Hostname(); h != "" {
-		name = h
+func NewPlatformComponent(typ api.ComponentType, name, commit string) *Component {
+	return &Component{
+		Type:   string(typ),
+		Name:   utils.CleanName(name),
+		Commit: commit,
+	}
+}
+
+func GenerateId() string {
+	b := make([]rune, 10)
+	for i := range b {
+		b[i] = idChars[rand.Intn(len(idChars))]
 	}
 
-	return utils.CleanName(name), id
+	return string(b)
 }
 
 func (c *Component) IsComplete() bool {
@@ -44,11 +48,11 @@ func (c *Component) IsComplete() bool {
 }
 
 func (c *Component) IsGroupComplete() bool {
-	return c.Type != "" && c.Name != "" && c.Commit != ""
+	return c.Type != "" && c.App != "" && c.Name != "" && c.Commit != ""
 }
 
 func (c *Component) IsNameOnly() bool {
-	return c.Type != "" && c.Name != "" && c.Commit == "" && c.Id == "" && c.BrokerId == ""
+	return c.Type != "" && c.App != "" && c.Name != "" && c.Commit == "" && c.Id == "" && c.BrokerId == ""
 }
 
 func (lhs *Component) Equal(rhs *Component) bool {
@@ -56,6 +60,7 @@ func (lhs *Component) Equal(rhs *Component) bool {
 		return false
 	}
 	return lhs.Type == rhs.Type &&
+		lhs.App == rhs.App &&
 		lhs.Name == rhs.Name &&
 		lhs.Commit == rhs.Commit &&
 		lhs.Id == rhs.Id &&
@@ -63,29 +68,33 @@ func (lhs *Component) Equal(rhs *Component) bool {
 }
 
 func (c *Component) Key() string {
-	return fmt.Sprintf("%s-%s", c.GroupKey(), c.Id)
+	return c.GroupKey() + "-" + c.Id
 }
 
-// TODO add back app as part of comp id
-
 func (c *Component) GroupKey() string {
-	return utils.CleanName(fmt.Sprintf("%s-%s", c.Name, c.Commit))
+	return utils.Join("-", c.App, c.Name, c.Commit)
 }
 
 func (c *Component) Subject() string {
 	if c.BrokerId != "" {
 		return c.BrokerSubject()
 	}
-	if c.Id == "" {
-		return c.GroupSubject()
-	}
-	return fmt.Sprintf("evt.js.%s.%s.%s", c.Name, c.Commit, c.Id)
+
+	return utils.Join(".", c.GroupSubject(), c.Id)
 }
 
 func (c *Component) GroupSubject() string {
-	return utils.CleanName(fmt.Sprintf("evt.js.%s.%s", c.Name, c.Commit))
+	return utils.Join(".", "evt.cmp", c.App, c.Name, c.ShortCommit())
 }
 
 func (c *Component) BrokerSubject() string {
-	return fmt.Sprintf("evt.brk.%s", c.BrokerId)
+	return utils.Join(".", "evt.brk", c.BrokerId)
+}
+
+func (c *Component) ShortCommit() string {
+	if len(c.Commit) <= 7 {
+		return c.Commit
+	}
+
+	return c.Commit[:7]
 }

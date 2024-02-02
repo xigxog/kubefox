@@ -26,6 +26,7 @@ import (
 	"github.com/xigxog/kubefox/components/broker/telemetry"
 	"github.com/xigxog/kubefox/core"
 	"github.com/xigxog/kubefox/logkf"
+	"github.com/xigxog/kubefox/utils"
 	authv1 "k8s.io/api/authentication/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -87,21 +88,19 @@ type broker struct {
 }
 
 func New() Engine {
-	name, id := core.GenerateNameAndId()
+	comp := core.NewPlatformComponent(api.ComponentTypeBroker, api.PlatformComponentBroker, build.Info.Commit)
+
+	id := core.GenerateId()
+	comp.Id, comp.BrokerId = id, id
+
 	logkf.Global = logkf.Global.
-		With(logkf.KeyBrokerId, id).
-		With(logkf.KeyBrokerName, name)
+		With(logkf.KeyBrokerId, comp.Id).
+		With(logkf.KeyBrokerName, comp.Name)
 	ctrl.SetLogger(zapr.NewLogger(logkf.Global.Unwrap().Desugar()))
 
 	ctx, cancel := context.WithCancel(context.Background())
 	brk := &broker{
-		comp: &core.Component{
-			Type:     string(api.ComponentTypeBroker),
-			Name:     name,
-			Commit:   build.Info.Commit,
-			Id:       id,
-			BrokerId: id,
-		},
+		comp:      comp,
 		healthSrv: telemetry.NewHealthServer(),
 		telClient: telemetry.NewClient(),
 		subMgr:    NewManager(),
@@ -235,7 +234,7 @@ func (brk *broker) AuthorizeComponent(ctx context.Context, meta *Metadata) error
 
 	// Platform Component.
 	default:
-		if svcAccName != meta.Component.Name {
+		if svcAccName != utils.Join("-", meta.Platform, meta.Component.Name) {
 			return fmt.Errorf("service account name does not match component")
 		}
 
@@ -246,7 +245,10 @@ func (brk *broker) AuthorizeComponent(ctx context.Context, meta *Metadata) error
 
 		found := false
 		for _, c := range p.Status.Components {
-			if c.Name == meta.Component.Name && c.Commit == meta.Component.Commit {
+			if c.Name == meta.Component.Name &&
+				c.Commit == meta.Component.Commit &&
+				c.PodName == meta.Pod {
+
 				found = true
 				break
 			}

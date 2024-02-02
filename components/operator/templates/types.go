@@ -9,12 +9,10 @@
 package templates
 
 import (
-	"fmt"
-	"strings"
-
 	common "github.com/xigxog/kubefox/api/kubernetes"
 	"github.com/xigxog/kubefox/build"
 	"github.com/xigxog/kubefox/core"
+	"github.com/xigxog/kubefox/utils"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
@@ -62,34 +60,15 @@ type ResourceList struct {
 	Items []*unstructured.Unstructured `json:"items,omitempty"`
 }
 
-func (d Data) Namespace() string {
-	if d.Platform.Namespace != "" {
-		return d.Platform.Namespace
-	}
-	return d.Instance.Namespace
-}
-
-func (d Data) PlatformFullName() string {
-	if d.Platform.Name == "" {
-		return d.Instance.Name
-	}
-	if strings.HasPrefix(d.Platform.Name, d.Instance.Name) {
-		return d.Platform.Name
-	}
-	return fmt.Sprintf("%s-%s", d.Instance.Name, d.Platform.Name)
-}
-
-func (d Data) ComponentFullName() string {
+func (d Data) Name() string {
 	if d.Component.Name == "" {
 		return ""
 	}
-
-	name := d.Component.GroupKey()
 	if d.Component.IsPlatformComponent {
-		name = d.Component.Name
+		return utils.Join("-", d.Platform.Name, d.Component.Name)
 	}
 
-	return name
+	return d.Component.GroupKey()
 }
 
 func (d Data) HomePath() string {

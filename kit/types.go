@@ -327,6 +327,7 @@ type EnvVarDep interface {
 
 type ComponentDep interface {
 	Name() string
+	App() string
 	Type() api.ComponentType
 	EventType() api.EventType
 }
@@ -339,11 +340,16 @@ type route struct {
 
 type dependency struct {
 	typ  api.ComponentType
+	app  string
 	name string
 }
 
 func (c *dependency) Name() string {
 	return c.name
+}
+
+func (c *dependency) App() string {
+	return c.app
 }
 
 func (c *dependency) Type() api.ComponentType {

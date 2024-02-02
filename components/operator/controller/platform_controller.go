@@ -187,16 +187,17 @@ func (r *PlatformReconciler) reconcile(ctx context.Context, platform *v1alpha1.P
 	}
 
 	td := platformTD.ForComponent(api.PlatformComponentNATS, &appsv1.StatefulSet{}, &defaults.NATS, templates.Component{
-		Component: &core.Component{
-			Type: string(api.ComponentTypeNATS),
-			Name: api.PlatformComponentNATS,
-		},
+		Component: core.NewPlatformComponent(
+			api.ComponentTypeNATS,
+			api.PlatformComponentNATS,
+			"",
+		),
 		Image:               NATSImage,
 		PodSpec:             platform.Spec.NATS.PodSpec,
 		ContainerSpec:       platform.Spec.NATS.ContainerSpec,
 		IsPlatformComponent: true,
 	})
-	if err := r.setupVaultComponent(ctx, platform, api.PlatformComponentNATS, false); err != nil {
+	if err := r.setupVaultComponent(ctx, td, false); err != nil {
 		return err
 	}
 	if rdy, err := r.CompMgr.SetupComponent(ctx, td); !rdy || err != nil {
@@ -211,17 +212,17 @@ func (r *PlatformReconciler) reconcile(ctx context.Context, platform *v1alpha1.P
 	}
 
 	td = platformTD.ForComponent(api.PlatformComponentBroker, &appsv1.DaemonSet{}, &defaults.Broker, templates.Component{
-		Component: &core.Component{
-			Type:   string(api.ComponentTypeBroker),
-			Name:   api.PlatformComponentBroker,
-			Commit: build.Info.BrokerCommit,
-		},
+		Component: core.NewPlatformComponent(
+			api.ComponentTypeBroker,
+			api.PlatformComponentBroker,
+			build.Info.BrokerCommit,
+		),
 		Image:               BrokerImage,
 		PodSpec:             platform.Spec.Broker.PodSpec,
 		ContainerSpec:       platform.Spec.Broker.ContainerSpec,
 		IsPlatformComponent: true,
 	})
-	if err := r.setupVaultComponent(ctx, platform, api.PlatformComponentBroker, true); err != nil {
+	if err := r.setupVaultComponent(ctx, td, true); err != nil {
 		return err
 	}
 	if rdy, err := r.CompMgr.SetupComponent(ctx, td); !rdy || err != nil {
@@ -236,11 +237,11 @@ func (r *PlatformReconciler) reconcile(ctx context.Context, platform *v1alpha1.P
 	}
 
 	td = platformTD.ForComponent(api.PlatformComponentHTTPSrv, &appsv1.Deployment{}, &defaults.HTTPSrv, templates.Component{
-		Component: &core.Component{
-			Type:   string(api.ComponentTypeHTTPAdapter),
-			Name:   api.PlatformComponentHTTPSrv,
-			Commit: build.Info.HTTPSrvCommit,
-		},
+		Component: core.NewPlatformComponent(
+			api.ComponentTypeHTTPAdapter,
+			api.PlatformComponentHTTPSrv,
+			build.Info.HTTPSrvCommit,
+		),
 		Image:               HTTPSrvImage,
 		PodSpec:             platform.Spec.HTTPSrv.PodSpec,
 		ContainerSpec:       platform.Spec.HTTPSrv.ContainerSpec,
@@ -251,7 +252,7 @@ func (r *PlatformReconciler) reconcile(ctx context.Context, platform *v1alpha1.P
 	td.Values["serviceType"] = platform.Spec.HTTPSrv.Service.Type
 	td.Values["httpPort"] = platform.Spec.HTTPSrv.Service.Ports.HTTP
 	td.Values["httpsPort"] = platform.Spec.HTTPSrv.Service.Ports.HTTPS
-	if err := r.setupVaultComponent(ctx, platform, api.PlatformComponentHTTPSrv, false); err != nil {
+	if err := r.setupVaultComponent(ctx, td, false); err != nil {
 		return err
 	}
 	if rdy, err := r.CompMgr.SetupComponent(ctx, td); !rdy || err != nil {
@@ -387,14 +388,12 @@ func (r *PlatformReconciler) setupVaultPlatform(ctx context.Context, platform *v
 	return nil
 }
 
-func (r *PlatformReconciler) setupVaultComponent(ctx context.Context,
-	platform *v1alpha1.Platform, component string, grantReadData bool) error {
+func (r *PlatformReconciler) setupVaultComponent(ctx context.Context, td *TemplateData, grantReadData bool) error {
 
-	if r.isSetup(component) {
-		r.log.Debugf("Vault already setup for Component '%s'", component)
+	if r.isSetup(td.Name()) {
+		r.log.Debugf("Vault already setup for Component '%s'", td.Component.Name)
 		return nil
 	}
-	r.log.Debugf("setting up Vault for Component '%s'", component)
 
 	vaultCli, err := opvault.GetClient(ctx)
 	if err != nil {
@@ -403,11 +402,13 @@ func (r *PlatformReconciler) setupVaultComponent(ctx context.Context,
 
 	key := vault.Key{
 		Instance:  r.Instance,
-		Namespace: platform.Namespace,
-		Component: component,
+		Namespace: td.Platform.Namespace,
+		Component: td.Component.Name,
 	}
 
-	svcName := fmt.Sprintf("%s.%s", component, platform.Namespace)
+	r.log.Debugf("setting up Vault for Component '%s' with role '%s'", td.Component.Name, vault.RoleName(key))
+
+	svcName := fmt.Sprintf("%s.%s", td.Name(), td.Platform.Namespace)
 	if _, err := vaultCli.Logical().Write(vault.PKISubPath(key, "roles/"+vault.RoleName(key)),
 		map[string]interface{}{
 			"issuer_ref":         "default",
@@ -438,7 +439,7 @@ func (r *PlatformReconciler) setupVaultComponent(ctx context.Context,
 			path "`+vault.DataPath(api.DataKey{Instance: r.Instance})+`/*" {
 				capabilities = ["read", "list"]
 			}
-			path "`+vault.DataPath(api.DataKey{Instance: r.Instance, Namespace: platform.Namespace})+`/*" {
+			path "`+vault.DataPath(api.DataKey{Instance: r.Instance, Namespace: td.Platform.Namespace})+`/*" {
 				capabilities = ["read", "list"]
 			}
 		`); err != nil {
@@ -449,16 +450,16 @@ func (r *PlatformReconciler) setupVaultComponent(ctx context.Context,
 
 	if _, err = vaultCli.Logical().Write(vault.KubernetesRolePath(key),
 		map[string]interface{}{
-			"bound_service_account_names":      component,
-			"bound_service_account_namespaces": platform.Namespace,
+			"bound_service_account_names":      td.Name(),
+			"bound_service_account_namespaces": td.Platform.Namespace,
 			"token_policies":                   strings.Join(policies, ","),
 		},
 	); err != nil {
 		return err
 	}
 
-	r.setSetup(component, true)
-	r.log.Debugf("Vault successfully setup for Component '%s'", component)
+	r.setSetup(td.Name(), true)
+	r.log.Debugf("Vault successfully setup for Component '%s'", td.Component.Name)
 
 	return nil
 }

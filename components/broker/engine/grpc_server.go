@@ -42,6 +42,7 @@ type GRPCServer struct {
 type Metadata struct {
 	Component *core.Component
 	Platform  string
+	Pod       string
 	Token     string
 }
 
@@ -269,37 +270,49 @@ func parseMD(stream grpc.Broker_SubscribeServer) (*Metadata, error) {
 		return nil, fmt.Errorf("gRPC metadata missing")
 	}
 
-	m := &Metadata{
-		Component: &core.Component{},
-	}
-
 	var err error
-	m.Component.Id, err = getMD(md, api.GRPCKeyId, true)
+	id, err := getMD(md, api.GRPCKeyId, true)
 	if err != nil {
 		return nil, err
 	}
-	m.Component.Commit, err = getMD(md, api.GRPCKeyCommit, true)
+	commit, err := getMD(md, api.GRPCKeyCommit, true)
 	if err != nil {
 		return nil, err
 	}
-	m.Component.Name, err = getMD(md, api.GRPCKeyComponent, true)
+	name, err := getMD(md, api.GRPCKeyComponent, true)
 	if err != nil {
 		return nil, err
 	}
-	m.Component.Type, err = getMD(md, api.GRPCKeyType, true)
+	app, err := getMD(md, api.GRPCKeyApp, false)
 	if err != nil {
 		return nil, err
 	}
-	m.Platform, err = getMD(md, api.GRPCKeyPlatform, true)
+	typ, err := getMD(md, api.GRPCKeyType, true)
 	if err != nil {
 		return nil, err
 	}
-	m.Token, err = getMD(md, api.GRPCKeyToken, true)
+	platform, err := getMD(md, api.GRPCKeyPlatform, true)
+	if err != nil {
+		return nil, err
+	}
+	pod, err := getMD(md, api.GRPCKeyPod, true)
+	if err != nil {
+		return nil, err
+	}
+	token, err := getMD(md, api.GRPCKeyToken, true)
 	if err != nil {
 		return nil, err
 	}
 
-	return m, nil
+	comp := core.NewComponent(api.ComponentType(typ), app, name, commit)
+	comp.Id = id
+
+	return &Metadata{
+		Component: comp,
+		Platform:  platform,
+		Pod:       pod,
+		Token:     token,
+	}, nil
 }
 
 func getMD(md metadata.MD, key string, required bool) (string, error) {

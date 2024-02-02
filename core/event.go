@@ -148,13 +148,13 @@ func (evt *Event) SetRoute(route *Route) {
 		return
 	}
 
-	if evt.Target == nil {
-		evt.Target = &Component{}
-	}
-	evt.Target.Type = route.Component.Type
-	evt.Target.Name = route.Component.Name
-	evt.Target.Commit = route.Component.Commit
 	evt.SetContext(route.EventContext)
+	evt.Target = NewComponent(
+		api.ComponentType(route.Component.Type),
+		route.Component.App,
+		route.Component.Name,
+		route.Component.Commit,
+	)
 }
 
 func (evt *Event) EventType() api.EventType {

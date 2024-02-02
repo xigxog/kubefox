@@ -123,11 +123,12 @@ const (
 
 // gRPC metadata keys.
 const (
+	GRPCKeyApp       string = "app"
 	GRPCKeyCommit    string = "commit"
 	GRPCKeyComponent string = "component"
 	GRPCKeyId        string = "id"
-	GRPCKeyName      string = "name"
 	GRPCKeyPlatform  string = "platform"
+	GRPCKeyPod       string = "pod"
 	GRPCKeyToken     string = "token"
 	GRPCKeyType      string = "type"
 )

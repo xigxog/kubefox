@@ -30,4 +30,5 @@ go build \
 		-X github.com/xigxog/kubefox/build.operatorCommit=${OPERATOR_COMMIT} \
 		-X github.com/xigxog/kubefox/build.rootCommit=${ROOT_COMMIT} \
 		-X github.com/xigxog/kubefox/build.tagRef=${TAG_REF} \
+		-X github.com/xigxog/kubefox/build.version=${VERSION} \
 		"

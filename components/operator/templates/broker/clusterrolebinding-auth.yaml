@@ -9,8 +9,8 @@
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
-  name: {{ componentFullName }}-auth
-  namespace: {{ namespace }}
+  name: {{ name }}-auth
+  namespace: {{ .Platform.Namespace }}
   labels:
     {{- include "labels" . | nindent 4 }}
   annotations:
@@ -25,5 +25,5 @@ roleRef:
   name: system:auth-delegator
 subjects:
   - kind: ServiceAccount
-    name: {{ componentFullName }}
-    namespace: {{ namespace }}
+    name: {{ name }}
+    namespace: {{ .Platform.Namespace }}

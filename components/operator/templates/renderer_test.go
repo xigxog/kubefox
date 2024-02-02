@@ -24,8 +24,7 @@ import (
 func TestRenderInstance(t *testing.T) {
 	d := &Data{
 		Instance: Instance{
-			Name:      "kubefox",
-			Namespace: "kubefox-system",
+			Name: "kubefox",
 		},
 		Values: map[string]any{
 			"caBundle": "abcdef",
@@ -41,8 +40,7 @@ func TestRenderInstance(t *testing.T) {
 func TestRenderPlatform(t *testing.T) {
 	d := &Data{
 		Instance: Instance{
-			Name:      "kubefox",
-			Namespace: "kubefox-system",
+			Name: "kubefox",
 		},
 		Platform: Platform{
 			Name:      "dev",
@@ -68,8 +66,7 @@ func TestRenderNATS(t *testing.T) {
 	d := &Data{
 		Hash: "123",
 		Instance: Instance{
-			Name:      "kubefox",
-			Namespace: "kubefox-system",
+			Name: "kubefox",
 		},
 		Platform: Platform{
 			Name:      "dev",
@@ -141,8 +138,7 @@ func TestRenderNATS(t *testing.T) {
 func TestRenderBroker(t *testing.T) {
 	d := &Data{
 		Instance: Instance{
-			Name:      "kubefox",
-			Namespace: "kubefox-system",
+			Name: "kubefox",
 		},
 		Platform: Platform{
 			Name:      "dev",
@@ -189,8 +185,7 @@ func TestRenderHTTPSrv(t *testing.T) {
 			"httpsPort":   0,
 		},
 		Instance: Instance{
-			Name:      "kubefox",
-			Namespace: "kubefox-system",
+			Name: "kubefox",
 		},
 		Platform: Platform{
 			Name:      "dev",
@@ -248,8 +243,7 @@ func TestRenderHTTPSrv(t *testing.T) {
 func TestRenderComponent(t *testing.T) {
 	d := &Data{
 		Instance: Instance{
-			Name:      "kubefox",
-			Namespace: "kubefox-system",
+			Name: "kubefox",
 		},
 		Platform: Platform{
 			Name:      "dev",
@@ -257,6 +251,7 @@ func TestRenderComponent(t *testing.T) {
 		},
 		Component: Component{
 			Component: &core.Component{
+				App:  "testapp",
 				Name: "hello",
 				Type: string(api.ComponentTypeKubeFox),
 			},
@@ -278,6 +273,20 @@ func TestRenderComponent(t *testing.T) {
 		},
 	}
 	if s, err := renderStr("list.tpl", "component/*", d); err != nil {
+		t.Errorf("%v", err)
+	} else {
+		t.Logf("\n%s", s)
+	}
+}
+
+func TestRenderWebhooks(t *testing.T) {
+	d := &Data{
+		Instance: Instance{
+			Name: "kubefox",
+		},
+		Component: Component{Component: &core.Component{}},
+	}
+	if s, err := renderStr("list.tpl", "instance/*", d); err != nil {
 		t.Errorf("%v", err)
 	} else {
 		t.Logf("\n%s", s)

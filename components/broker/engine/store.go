@@ -84,7 +84,7 @@ func (str *Store) init(initCtx context.Context) error {
 	key := vault.Key{
 		Instance:  config.Instance,
 		Namespace: config.Namespace,
-		Component: "broker",
+		Component: api.PlatformComponentBroker,
 	}
 
 	vaultCli, err := vault.New(vault.ClientOptions{
@@ -405,11 +405,12 @@ func (str *Store) updateComponentCache(ctx context.Context) error {
 
 	for _, appDep := range appDepList.Items {
 		for compName, compSpec := range appDep.Spec.Components {
-			comp := &core.Component{
-				Type:   string(compSpec.Type),
-				Name:   compName,
-				Commit: compSpec.Commit,
-			}
+			comp := core.NewComponent(
+				compSpec.Type,
+				appDep.Spec.AppName,
+				compName,
+				compSpec.Commit,
+			)
 			compCache[comp.GroupKey()] = compSpec
 		}
 	}
@@ -423,11 +424,7 @@ func (str *Store) updateComponentCache(ctx context.Context) error {
 
 	for _, c := range p.Status.Components {
 		if c.Name == api.PlatformComponentHTTPSrv {
-			comp := &core.Component{
-				Type:   string(c.Type),
-				Name:   c.Name,
-				Commit: c.Commit,
-			}
+			comp := core.NewPlatformComponent(c.Type, c.Name, c.Commit)
 			compCache[comp.GroupKey()] = &api.ComponentDefinition{
 				Type: c.Type,
 			}
@@ -521,11 +518,12 @@ func (str *Store) updateReleaseMatcher(ctx context.Context) error {
 func (str *Store) buildRoutes(ctx *BrokerEventContext) ([]*core.Route, error) {
 	var routes []*core.Route
 	for compName, compSpec := range ctx.AppDeployment.Spec.Components {
-		comp := &core.Component{
-			Type:   string(compSpec.Type),
-			Name:   compName,
-			Commit: compSpec.Commit,
-		}
+		comp := core.NewComponent(
+			compSpec.Type,
+			ctx.AppDeployment.Spec.AppName,
+			compName,
+			compSpec.Commit,
+		)
 		for _, r := range compSpec.Routes {
 			route, err := core.NewRoute(r.Id, r.Rule)
 			if err != nil {

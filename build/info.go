@@ -24,6 +24,7 @@ var (
 	operatorCommit string
 	rootCommit     string
 	tagRef         string
+	version        string
 )
 
 type BuildInfo struct {
@@ -44,21 +45,23 @@ var Info BuildInfo
 
 func init() {
 	// Find Version
-	var modVersion, version string
-	if info, ok := debug.ReadBuildInfo(); ok {
-		if v := info.Main.Version; v != "" && v != "(devel)" {
-			modVersion = v
+	if version == "" {
+		var modVersion string
+		if info, ok := debug.ReadBuildInfo(); ok {
+			if v := info.Main.Version; v != "" && v != "(devel)" {
+				modVersion = v
+			}
 		}
-	}
 
-	if p := strings.Split(tagRef, "/"); tagRef != "" {
-		version = p[len(p)-1]
-	} else if modVersion != "" {
-		version = modVersion
-	} else if p := strings.Split(headRef, "/"); headRef != "" {
-		version = p[len(p)-1]
-	} else {
-		version = rootCommit
+		if p := strings.Split(tagRef, "/"); tagRef != "" {
+			version = p[len(p)-1]
+		} else if modVersion != "" {
+			version = modVersion
+		} else if p := strings.Split(headRef, "/"); headRef != "" {
+			version = p[len(p)-1]
+		} else {
+			version = rootCommit
+		}
 	}
 
 	// Construct Info

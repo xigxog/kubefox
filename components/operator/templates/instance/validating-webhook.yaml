@@ -10,7 +10,7 @@ apiVersion: admissionregistration.k8s.io/v1
 kind: ValidatingWebhookConfiguration
 metadata:
   name: {{ .Instance.Name }}-operator
-  namespace: {{ namespace }}
+  namespace: {{ .Instance.Namespace }}
   labels:
     {{- include "labels" . | nindent 4 }}
   annotations:
@@ -29,7 +29,7 @@ webhooks:
       caBundle: {{ .Values.caBundle }}
       service:
         name: {{ .Instance.Name }}-operator
-        namespace: {{ namespace }}
+        namespace: {{ .Instance.Namespace }}
         path: /immutable/validate
     rules:
       - apiGroups:

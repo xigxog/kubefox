@@ -143,16 +143,17 @@ func (c *HTTPClient) SendEvent(req *BrokerEventContext) error {
 		httpReq.Header.Set(k, v)
 	}
 
+	comp := core.NewPlatformComponent(
+		api.ComponentTypeHTTPAdapter,
+		req.Event.Target.Name,
+		c.brk.Component().Commit,
+	)
+	comp.Id, comp.BrokerId = c.brk.Component().Id, c.brk.Component().BrokerId
+
 	resp := core.NewResp(core.EventOpts{
 		Parent: req.Event,
 		Target: req.Event.Source,
-		Source: &core.Component{
-			Type:     string(api.ComponentTypeHTTPAdapter),
-			Name:     req.Event.Target.Name,
-			Commit:   c.brk.Component().Commit,
-			Id:       c.brk.Component().Id,
-			BrokerId: c.brk.Component().Id,
-		},
+		Source: comp,
 	})
 
 	go func() {
