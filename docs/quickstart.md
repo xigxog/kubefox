@@ -107,6 +107,8 @@ export FOX_INFO=true && \
 ??? example "Output"
 
     ```text
+    info    Configuration successfully written to '/home/xadhatter/.config/kubefox/config.yaml'.
+
     info    Waiting for KubeFox Platform 'demo' to be ready...
     info    KubeFox initialized for the quickstart guide!
     ```
@@ -201,11 +203,11 @@ fox publish --wait 5m
 ??? example "Output"
 
     ```text
-    info    Building Component image 'localhost/kubefox/backend:8bdd108ba636353020b95b75764b5edb18d5f914'.
-    info    Loading Component image 'localhost/kubefox/backend:8bdd108ba636353020b95b75764b5edb18d5f914' into kind cluster 'kind'.
+    info    Building Component image 'localhost/kubefox/hello-world/backend:8bdd108ba636353020b95b75764b5edb18d5f914'.
+    info    Loading Component image 'localhost/kubefox/hello-world/backend:8bdd108ba636353020b95b75764b5edb18d5f914' into kind cluster 'kind'.
 
-    info    Building Component image 'localhost/kubefox/frontend:8bdd108ba636353020b95b75764b5edb18d5f914'.
-    info    Loading Component image 'localhost/kubefox/frontend:8bdd108ba636353020b95b75764b5edb18d5f914' into kind cluster 'kind'.
+    info    Building Component image 'localhost/kubefox/hello-world/frontend:8bdd108ba636353020b95b75764b5edb18d5f914'.
+    info    Loading Component image 'localhost/kubefox/hello-world/frontend:8bdd108ba636353020b95b75764b5edb18d5f914' into kind cluster 'kind'.
 
     info    Waiting for KubeFox Platform 'demo' to be ready.
     info    Waiting for Component 'backend' to be ready.
@@ -281,12 +283,12 @@ kubectl get pods --namespace kubefox-demo
 ??? example "Output"
 
     ```text
-    NAME                                                                 READY   STATUS    RESTARTS   AGE
-    backend-8bdd108ba636353020b95b75764b5edb18d5f914-774c4c9cfx84hn      1/1     Running   0          2s
-    broker-grkcn                                                         1/1     Running   0          12s
-    frontend-8bdd108ba636353020b95b75764b5edb18d5f914-794bb8944k477      1/1     Running   0          2s
-    httpsrv-7d8d946c57-rlt55                                             1/1     Running   0          10s
-    nats-0                                                               1/1     Running   0          18s
+    NAME                                           READY   STATUS    RESTARTS   AGE
+    demo-broker-grkcn                              1/1     Running   0          12s
+    demo-httpsrv-7d8d946c57-rlt55                  1/1     Running   0          10s
+    demo-nats-0                                    1/1     Running   0          18s
+    hello-world-backend-8bdd108-577868c97b-29q2k   1/1     Running   0          2s
+    hello-world-frontend-8bdd108-65fb98f59d-ll4sf  1/1     Running   0          2s
     ```
 
 The Pods for two Components you deployed were created, `backend` and `frontend`.
@@ -372,11 +374,11 @@ fox publish --version v1 --create-tag && \
 ??? example "Output"
 
     ```text
-    info    Component image 'localhost/kubefox/backend:8bdd108ba636353020b95b75764b5edb18d5f914' exists, skipping build.
-    info    Loading Component image 'localhost/kubefox/backend:8bdd108ba636353020b95b75764b5edb18d5f914' into kind cluster 'kind'.
+    info    Component image 'localhost/kubefox/hello-world/backend:8bdd108ba636353020b95b75764b5edb18d5f914' exists, skipping build.
+    info    Loading Component image 'localhost/kubefox/hello-world/backend:8bdd108ba636353020b95b75764b5edb18d5f914' into kind cluster 'kind'.
 
-    info    Component image 'localhost/kubefox/frontend:8bdd108ba636353020b95b75764b5edb18d5f914' exists, skipping build.
-    info    Loading Component image 'localhost/kubefox/frontend:8bdd108ba636353020b95b75764b5edb18d5f914' into kind cluster 'kind'.
+    info    Component image 'localhost/kubefox/hello-world/frontend:8bdd108ba636353020b95b75764b5edb18d5f914' exists, skipping build.
+    info    Loading Component image 'localhost/kubefox/hello-world/frontend:8bdd108ba636353020b95b75764b5edb18d5f914' into kind cluster 'kind'.
 
     info    Creating tag 'v1'.
 
@@ -443,11 +445,6 @@ fox publish --version v1 --create-tag && \
         reason: ComponentsDeployed
         status: "False"
         type: Progressing
-
-
-    info    Waiting for KubeFox Platform 'demo' to be ready...
-    info    Waiting for Component 'backend' to be ready...
-    info    Waiting for Component 'frontend' to be ready...
 
     apiVersion: kubefox.xigxog.io/v1alpha1
     kind: VirtualEnvironment
@@ -518,12 +515,12 @@ kubectl get pods --namespace kubefox-demo
 ??? example "Output"
 
     ```text
-    NAME                                                                 READY   STATUS    RESTARTS   AGE
-    backend-8bdd108ba636353020b95b75764b5edb18d5f914-774c4c9cfx84hn      1/1     Running   0          6m1s
-    broker-grkcn                                                         1/1     Running   0          6m11s
-    frontend-8bdd108ba636353020b95b75764b5edb18d5f914-794bb8944k477      1/1     Running   0          6m1s
-    httpsrv-7d8d946c57-rlt55                                             1/1     Running   0          6m9s
-    nats-0                                                               1/1     Running   0          6m17s
+    NAME                                           READY   STATUS    RESTARTS   AGE
+    demo-broker-grkcn                              1/1     Running   0          6m11s
+    demo-httpsrv-7d8d946c57-rlt55                  1/1     Running   0          6m9s
+    demo-nats-0                                    1/1     Running   0          6m17s
+    hello-world-backend-8bdd108-577868c97b-29q2k   1/1     Running   0          6m1s
+    hello-world-frontend-8bdd108-65fb98f59d-ll4sf  1/1     Running   0          6m1s
     ```
 
 Surprisingly, nothing has changed in the Pods running on Kubernetes. KubeFox
@@ -572,11 +569,11 @@ git add . && \
     [main 6dcc993] updated frontend to say Hey
     1 file changed, 1 insertion(+)
 
-    info    Component image 'localhost/kubefox/backend:8bdd108ba636353020b95b75764b5edb18d5f914' exists, skipping build.
-    info    Loading Component image 'localhost/kubefox/backend:8bdd108ba636353020b95b75764b5edb18d5f914' into kind cluster 'kind'.
+    info    Component image 'localhost/kubefox/hello-world/backend:8bdd108ba636353020b95b75764b5edb18d5f914' exists, skipping build.
+    info    Loading Component image 'localhost/kubefox/hello-world/backend:8bdd108ba636353020b95b75764b5edb18d5f914' into kind cluster 'kind'.
 
-    info    Building Component image 'localhost/kubefox/frontend:6dcc9937126fccaf119acae8785e3ab90808a998'.
-    info    Loading Component image 'localhost/kubefox/frontend:6dcc9937126fccaf119acae8785e3ab90808a998' into kind cluster 'kind'.
+    info    Building Component image 'localhost/kubefox/hello-world/frontend:6dcc9937126fccaf119acae8785e3ab90808a998'.
+    info    Loading Component image 'localhost/kubefox/hello-world/frontend:6dcc9937126fccaf119acae8785e3ab90808a998' into kind cluster 'kind'.
 
     info    Waiting for KubeFox Platform 'demo' to be ready...
     info    Waiting for Component 'backend' to be ready...
@@ -672,13 +669,13 @@ kubectl get pods --namespace kubefox-demo
 ??? example "Output"
 
     ```text
-    NAME                                                                 READY   STATUS    RESTARTS   AGE
-    backend-8bdd108ba636353020b95b75764b5edb18d5f914-774c4c9cfx84hn      1/1     Running   0          6m1s
-    broker-grkcn                                                         1/1     Running   0          6m11s
-    frontend-6dcc9937126fccaf119acae8785e3ab90808a998-6d8ff7c7tgvsg      1/1     Running   0          18s
-    frontend-8bdd108ba636353020b95b75764b5edb18d5f914-794bb8944k477      1/1     Running   0          6m1s
-    httpsrv-7d8d946c57-rlt55                                             1/1     Running   0          6m9s
-    nats-0                                                               1/1     Running   0          6m17s
+    NAME                                           READY   STATUS    RESTARTS   AGE
+    demo-broker-grkcn                              1/1     Running   0          6m11s
+    demo-httpsrv-7d8d946c57-rlt55                  1/1     Running   0          6m9s
+    demo-nats-0                                    1/1     Running   0          6m17s
+    hello-world-backend-8bdd108-577868c97b-29q2k   1/1     Running   0          6m1s
+    hello-world-frontend-6dcc993-7c9895669d-mj6vc  1/1     Running   0          18s
+    hello-world-frontend-8bdd108-65fb98f59d-ll4sf  1/1     Running   0          6m1s
     ```
 
 You might be surprised to find only three Component Pods running to support the
@@ -709,11 +706,11 @@ fox publish --version v2 --create-tag && \
 ??? example "Output"
 
     ```text
-    info    Component image 'localhost/kubefox/backend:8bdd108ba636353020b95b75764b5edb18d5f914' exists.
-    info    Loading Component image 'localhost/kubefox/backend:8bdd108ba636353020b95b75764b5edb18d5f914' into kind cluster 'kind'.
+    info    Component image 'localhost/kubefox/hello-world/backend:8bdd108ba636353020b95b75764b5edb18d5f914' exists.
+    info    Loading Component image 'localhost/kubefox/hello-world/backend:8bdd108ba636353020b95b75764b5edb18d5f914' into kind cluster 'kind'.
 
-    info    Component image 'localhost/kubefox/frontend:6dcc9937126fccaf119acae8785e3ab90808a998' exists.
-    info    Loading Component image 'localhost/kubefox/frontend:6dcc9937126fccaf119acae8785e3ab90808a998' into kind cluster 'kind'.
+    info    Component image 'localhost/kubefox/hello-world/frontend:6dcc9937126fccaf119acae8785e3ab90808a998' exists.
+    info    Loading Component image 'localhost/kubefox/hello-world/frontend:6dcc9937126fccaf119acae8785e3ab90808a998' into kind cluster 'kind'.
 
     info    Creating tag 'v2'.
 
@@ -835,10 +832,6 @@ fox publish --version v2 --create-tag && \
         id: 011aa5fd-0ed3-4920-8564-bb793435e97c
         requestTime: "1970-01-01T00:00:00Z"
 
-    info    Waiting for KubeFox Platform 'demo' to be ready...
-    info    Waiting for Component 'backend' to be ready...
-    info    Waiting for Component 'frontend' to be ready...
-
     apiVersion: kubefox.xigxog.io/v1alpha1
     kind: VirtualEnvironment
     metadata:
@@ -886,9 +879,9 @@ fox publish --version v2 --create-tag && \
     ```
 
 Give the new Releases a spin! Notice the new output from the updated `frontend`
-Component in `qa`, while `prod` still displays the original output from
-`v1`. With Releases in both VirtualEnvironments there's no need to manually
-specify the context.
+Component in `qa`, while `prod` still displays the original output from `v1`.
+With Releases in both VirtualEnvironments there's no need to manually specify
+the context.
 
 ```{ .shell .copy }
 echo -ne "VERSION\tVIRTENV\tOUTPUT" && \
@@ -915,13 +908,13 @@ kubectl api-resources --output name | \
 ??? example "Output"
 
     ```text
-    NAME                                                                  READY   STATUS    RESTARTS   AGE
-    pod/backend-8bdd108ba636353020b95b75764b5edb18d5f914-774c4c9cfx84hn   1/1     Running   0          6m11s
-    pod/broker-grkcn                                                      1/1     Running   0          6m21s
-    pod/frontend-6dcc9937126fccaf119acae8785e3ab90808a998-6d8ff7c7tgvsg   1/1     Running   0          28s
-    pod/frontend-8bdd108ba636353020b95b75764b5edb18d5f914-794bb8944k477   1/1     Running   0          6m10s
-    pod/httpsrv-7d8d946c57-rlt55                                          1/1     Running   0          6m19s
-    pod/nats-0                                                            1/1     Running   0          6m27s
+    NAME                                               READY   STATUS    RESTARTS   AGE
+    pod/demo-broker-grkcn                              1/1     Running   0          6m21s
+    pod/demo-httpsrv-7d8d946c57-rlt55                  1/1     Running   0          6m19s
+    pod/demo-nats-0                                    1/1     Running   0          6m27s
+    pod/hello-world-backend-8bdd108-577868c97b-29q2k   1/1     Running   0          6m11s
+    pod/hello-world-frontend-6dcc993-7c9895669d-mj6vc  1/1     Running   0          28s
+    pod/hello-world-frontend-8bdd108-65fb98f59d-ll4sf  1/1     Running   0          6m11s
 
     NAME                                                 APP           VERSION   AVAILABLE   REASON                PROGRESSING
     appdeployment.kubefox.xigxog.io/hello-world-main     hello-world             True        ComponentsAvailable   False
@@ -931,7 +924,6 @@ kubectl api-resources --output name | \
     NAME                                 AGE
     environment.kubefox.xigxog.io/prod   54m
     environment.kubefox.xigxog.io/qa     54m
-
 
     NAME                              AVAILABLE   EVENT TIMEOUT   EVENT MAX   LOG LEVEL
     platform.kubefox.xigxog.io/demo   True        30              5242880     info

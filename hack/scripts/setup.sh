@@ -36,6 +36,7 @@ BROKER_COMMIT=$(git log -n 1 --format="%H" -- ${COMPONENTS_DIR}/broker/)
 HTTPSRV_COMMIT=$(git log -n 1 --format="%H" -- ${COMPONENTS_DIR}/httpsrv/)
 OPERATOR_COMMIT=$(git log -n 1 --format="%H" -- ${COMPONENTS_DIR}/operator/)
 ROOT_COMMIT=$(git rev-parse HEAD)
+VERSION=${VERSION:""}
 
 HEAD_REF=$(git symbolic-ref -q HEAD || true)
 TAG_REF=$(git describe --tags --exact-match 2>/dev/null | xargs -I % echo "refs/tags/%")
