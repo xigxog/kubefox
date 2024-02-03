@@ -17,7 +17,7 @@ Ensure that the following tools are installed for this quickstart:
 - [Fox](https://github.com/xigxog/kubefox-cli/releases/) - A CLI for
   communicating with the KubeFox Platform. Download the latest release and add
   the binary to your system's path. Or, if Go is installed, use `go install
-  github.com/xigxog/fox@v0.8.0-alpha`.
+  github.com/xigxog/fox@latest`.
 - [Git](https://github.com/git-guides/install-git) - A distributed version
   control system.
 - [Helm](https://helm.sh/docs/intro/install/) - Package manager for Kubernetes
