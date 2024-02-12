@@ -1,11 +1,12 @@
 # Quickstart
 
 Welcome to the world of KubeFox! This technical guide will walk you through the
-process of setting up a Kubernetes cluster using either kind or Azure and deploying your
-inaugural KubeFox app. From crafting environments and deploying apps to testing
-and version control, we'll cover it all. Whether you're a seasoned developer or
-just getting started, this guide will help you navigate the fundamentals of a
-comprehensive software development lifecycle leveraging KubeFox. Let's dive in!
+process of setting up a Kubernetes cluster using either kind or Azure and
+deploying your inaugural KubeFox app. From crafting environments and deploying
+apps to testing and version control, we'll cover it all. Whether you're a
+seasoned developer or just getting started, this guide will help you navigate
+the fundamentals of a comprehensive software development lifecycle leveraging
+KubeFox. Let's dive in!
 
 ## Prerequisites
 
@@ -16,7 +17,8 @@ Ensure that the following tools are installed for this quickstart:
   Kubernetes cluster via kind.
 - [Fox](https://github.com/xigxog/kubefox-cli/releases/) - A CLI for
   communicating with the KubeFox platform. Download the latest release and add
-  the binary to your system's path.
+  the binary to your system's path. Or, if Go is installed, use `go install
+  github.com/xigxog/fox@v0.7.0-alpha`.
 - [Git](https://github.com/git-guides/install-git) - A distributed version
   control system.
 - [Helm](https://helm.sh/docs/intro/install/) - Package manager for Kubernetes
@@ -34,17 +36,19 @@ Here are a few optional but recommended tools:
   installed.
 - [VS Code](https://code.visualstudio.com/download) - A lightweight but powerful
   source code editor. Helpful if you want to explore the `hello-world` app.
-- [Azure CLI](https://learn.microsoft.com/en-us/cli/azure/install-azure-cli) - CLI for communicating
-  with the Azure control plane.  
+- [Azure CLI](https://learn.microsoft.com/en-us/cli/azure/install-azure-cli) -
+  CLI for communicating with the Azure control plane.
 
 ## Setup Kubernetes
 
-Let's kick things off by setting up our first Kubernetes cluster. Use
-the below set of commands depending on which Kubernetes provider you would like to use.
-If you already have a Kubernetes Cluster provisioned, you can skip this step.
+Let's kick things off by setting up a Kubernetes cluster. Use the following
+commands depending on which Kubernetes provider you would like to use. If you
+already have a Kubernetes Cluster provisioned, you can skip this step.
 
 === "Local (kind)"
-    Let's start with setting up a local Kubernetes cluster using the kind CLI. The following commands can be used to create and interact with the cluster.
+
+    Let's start with setting up a local Kubernetes cluster using the kind CLI.
+    The following commands can be used to create and interact with the cluster.
 
     ```{ .shell .copy }
     kind create cluster --wait 5m
@@ -72,19 +76,25 @@ If you already have a Kubernetes Cluster provisioned, you can skip this step.
         ```
 
 === "Azure (AKS)"
-    Let's start with setting up a remote Kubernetes cluster using the Azure CLI. The following commands can be used to create and interact with the cluster.
+
+    Let's start with setting up a remote Kubernetes cluster using the Azure CLI.
+    The following commands can be used to create and interact with the cluster. 
     First you need to login to Azure.
 
     ```{ .shell .copy }
     az login
     ```
-    Lets set the other required variables for this quickstart on Azure. Make sure to modify the below accordingly before pasting into your terminal.
+    Lets set the other required variables for this quickstart on Azure. Make 
+    sure to modify the below accordingly before pasting into your terminal.
+    
     ```{ .shell .copy }
     export AZ_LOCATION=eastus2 && \
-    export AZ_RESOURCE_GROUP=kf-quickstart-infra-eus2-rg && \
-    export AZ_AKS_NAME=kf-quickstart-eus2-aks-01
+      export AZ_RESOURCE_GROUP=kf-quickstart-infra-eus2-rg && \
+      export AZ_AKS_NAME=kf-quickstart-eus2-aks-01
     ```
-    Next you need to create a Resource Group for the AKS cluster, and then deploy AKS within this Resource Group.
+    
+    Next you need to create a Resource Group for the AKS cluster, and then 
+    deploy AKS within this Resource Group.
 
     ```{ .shell .copy }
     az group create --location ${AZ_LOCATION} --name ${AZ_RESOURCE_GROUP}
@@ -92,7 +102,6 @@ If you already have a Kubernetes Cluster provisioned, you can skip this step.
     ??? example "Output"
 
         ```text
-        $ az group create --location ${AZ_LOCATION} --name ${AZ_RESOURCE_GROUP}
         {
           "id": "/subscriptions/00000000-0000-0000-0000-00000000/resourceGroups/kf-quickstart-infra-eus2-rg",
           "location": "eastus2",
@@ -106,16 +115,19 @@ If you already have a Kubernetes Cluster provisioned, you can skip this step.
         }
         ```
     *Note: This command to create your AKS cluster will take > 5 minutes to complete.*
+    
     ```{ .shell .copy }
     az aks create \
-        --resource-group ${AZ_RESOURCE_GROUP} \
-        --tier free \
-        --name ${AZ_AKS_NAME} \
-        --location ${AZ_LOCATION} \
-        --node-count 1 \
-        --node-vm-size "Standard_B2s"
+      --resource-group ${AZ_RESOURCE_GROUP} \
+      --tier free \
+      --name ${AZ_AKS_NAME} \
+      --location ${AZ_LOCATION} \
+      --node-count 1 \
+      --node-vm-size "Standard_B2s"
     ```
-    Once your AKS cluster is ready, you can use the below command to add the cluster to your kubectl configuration.
+    
+    Once your AKS cluster is ready, you can use the below command to add the
+    cluster to your kubectl configuration.
 
     ```{ .shell .copy }
     az aks get-credentials \
@@ -123,20 +135,22 @@ If you already have a Kubernetes Cluster provisioned, you can skip this step.
       --name ${AZ_AKS_NAME}
     ```
 
-    Create your Azure Container Registry in the same resource group as your AKS cluster.
-    Please modify the below to set the name of your ACR in the AZ_ACR_NAME environment variable, otherwise it will auto-generate a random numeric string.
-    
+    Create your Azure Container Registry in the same resource group as your
+    AKS cluster. Please modify the below to set the name of your ACR in the
+    AZ_ACR_NAME environment variable, otherwise it will auto-generate a random
+    numeric string.
+
     ```{ .shell .copy }
     export AZ_ACR_NAME="acr${RANDOM}" && \
       az acr create --name ${AZ_ACR_NAME} --sku Basic --admin-enabled true --resource-group ${AZ_RESOURCE_GROUP}
     ```
     Run the below commands to set the endpoints and token required to access your registry. Save this output somewhere safe.
     These environment variables will be used by the fox CLI later to configure your environment.
-    
+
     ```{ .shell .copy }
     FOX_REGISTRY_ADDRESS=$(az acr show-endpoints -n ${AZ_ACR_NAME} --resource-group ${AZ_RESOURCE_GROUP} --output tsv --query loginServer) && \
       FOX_REGISTRY_TOKEN=$(az acr login --name ${AZ_ACR_NAME} --expose-token --output tsv --query accessToken) && \
-      FOX_REGISTRY_USERNAME="00000000-0000-0000-0000-000000000000"  
+      FOX_REGISTRY_USERNAME="00000000-0000-0000-0000-000000000000"
     ```
 
 ## Setup KubeFox
@@ -179,21 +193,28 @@ Here we will setup the Fox CLI.
 === "Install using Bash"
 
     ```{ .shell .copy }
-    curl -sL "https://github.com/xigxog/fox/releases/latest/download/fox-$(uname -s | tr 'A-Z' 'a-z')-amd64.tar.gz" | tar xvz - -C /tmp && sudo mv /tmp/fox /usr/local/bin/fox 
+    curl -sL "https://github.com/xigxog/fox/releases/latest/download/fox-$(uname -s | tr 'A-Z' 'a-z')-amd64.tar.gz" | \
+      tar xvz - -C /tmp && \
+      sudo mv /tmp/fox /usr/local/bin/fox
     ```
 
 === "Install Manually"
 
     Go to the [GitHub release page](https://github.com/xigxog/fox/releases) and download the latest Fox binary for your OS.
 
-To begin, create a new directory and use Fox to initialize the `hello-world` app. Run all subsequent
-commands from this directory. The environment variable `FOX_INFO` tells Fox to
-to provide additional output about what is going on. Employ the `--quickstart`
-flag to use defaults and create a KubeFox platform named `demo` in the
-`kubefox-demo` namespace.
+To begin, create a new directory and use Fox to initialize the `hello-world`
+app. Run all subsequent commands from this directory. The environment variable
+`FOX_INFO` tells Fox to to provide additional output about what is going on.
+Employ the `--quickstart` flag to use defaults and create a KubeFox platform
+named `demo` in the `kubefox-demo` namespace.
 
 ??? "Remote Registry Note"
-    If you are using a remote registry, please ensure the following environment variables are set before running the quickstart:  FOX_REGISTRY_ADDRESS, FOX_REGISTRY_TOKEN, and FOX_REGISTRY_USERNAME. If you setup the Azure Container Registry as a part of this quickstart, these variables will already be set.
+
+    If you are using a remote registry, please ensure the following environment 
+    variables are set before running the quickstart: `FOX_REGISTRY_ADDRESS`, 
+    `FOX_REGISTRY_TOKEN`, and `FOX_REGISTRY_USERNAME`. If you setup the 
+    Azure Container Registry as a part of this quickstart, these variables will 
+    already be set.
 
 ```{ .shell .copy }
 export FOX_INFO=true && \
@@ -213,7 +234,6 @@ export FOX_INFO=true && \
     info    KubeFox initialized for the quickstart guide!
     ```
 
-
 Notice the newly created directories and files. The `hello-world` app comprises
 two components and example environments. Fox also initialized a new Git repo for
 you. Take a look around!
@@ -221,7 +241,7 @@ you. Take a look around!
 ## Deploy
 
 Awesome! You're all set to create your first KubeFox app and deploy it to a
-KubeFox platform running on your kubernetes cluster. 
+KubeFox platform running on your kubernetes cluster.
 
 Now, let's create some environments. Two example environments are available in
 the `hack` directory. The `subPath` variable ensures unique routes between
@@ -580,7 +600,7 @@ func sayHello(k kit.Kontext) error {
         return err
     }
 
-    msg := fmt.Sprintf("👋 Hello %s!", r.Str())
+    msg := fmt.Sprintf("👋 Hello %s!", r.Str()) // (1)
     json := map[string]any{"msg": msg}
     html := fmt.Sprintf(htmlTmpl, msg)
     k.Log().Debug(msg)
@@ -733,12 +753,11 @@ performed.
 
 ## Promote
 
-Finally, publish the new version of the app, release it to the `qa`
-environment, and then promote version `v0.1.0` to the `prod` environment.
-Stricter policies of the `prod` environment require an environment snapshot to
-exist for a release. Similar to a versioned deployment, an environment snapshot
-is immutable ensuring a stable release even if the source environment is
-changed.
+Finally, publish the new version of the app, release it to the `qa` environment,
+and then promote version `v0.1.0` to the `prod` environment. Stricter policies
+of the `prod` environment require an environment snapshot to exist for a
+release. Similar to a versioned deployment, an environment snapshot is immutable
+ensuring a stable release even if the source environment is changed.
 
 Release the new version to `qa`.
 
@@ -891,7 +910,8 @@ curl "http://localhost:8080/prod/hello"
 
 ## Cleanup
 
-Once you are done with the quickstart, you can optionally use the below commands to clean up the Kubernetes environment.
+Once you are done with the quickstart, you can optionally use the below commands
+to clean up the Kubernetes environment.
 
 === "Local (kind)"
 
@@ -904,7 +924,7 @@ Once you are done with the quickstart, you can optionally use the below commands
     ```{ .shell .copy }
     az aks delete -g ${AZ_RESOURCE_GROUP} --name ${AZ_AKS_NAME} && \
       az acr delete -g ${AZ_RESOURCE_GROUP} --name ${AZ_ACR_NAME} && \
-      az group delete -g ${AZ_RESOURCE_GROUP} 
+      az group delete -g ${AZ_RESOURCE_GROUP}
     ```
 
 ## Feedback
