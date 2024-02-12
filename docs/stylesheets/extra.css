@@ -9,7 +9,7 @@
  */
 
 :root {
-  --md-tooltip-width: 300px;
+  --md-tooltip-width: 340px;
   --md-text-font: "Noto Sans", sans-serif;
   --md-code-font: "Source Code Pro", monospace;
 }
