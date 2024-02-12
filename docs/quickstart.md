@@ -55,18 +55,18 @@ already have a Kubernetes Cluster provisioned, you can skip this step.
 
     ??? example "Output"
 
-    ```text
-    Creating cluster "kind" ...
-    ✓ Ensuring node image (kindest/node:v1.27.3) 🖼
-    ✓ Preparing nodes 📦
-    ✓ Writing configuration 📜
-    ✓ Starting control-plane 🕹️
-    ✓ Installing CNI 🔌
-    ✓ Installing StorageClass 💾
-    ✓ Waiting ≤ 5m0s for control-plane = Ready ⏳
-    • Ready after 15s 💚
-    Set kubectl context to "kind-kind"
-    You can now use your cluster with:
+        ```text
+        Creating cluster "kind" ...
+        ✓ Ensuring node image (kindest/node:v1.27.3) 🖼
+        ✓ Preparing nodes 📦
+        ✓ Writing configuration 📜
+        ✓ Starting control-plane 🕹️
+        ✓ Installing CNI 🔌
+        ✓ Installing StorageClass 💾
+        ✓ Waiting ≤ 5m0s for control-plane = Ready ⏳
+        • Ready after 15s 💚
+        Set kubectl context to "kind-kind"
+        You can now use your cluster with:
 
         kubectl cluster-info --context kind-kind
 
@@ -107,7 +107,7 @@ already have a Kubernetes Cluster provisioned, you can skip this step.
     ```
     ??? example "Output"
 
-        ```text
+        ```json
         {
           "id": "/subscriptions/00000000-0000-0000-0000-00000000/resourceGroups/kf-quickstart-infra-eus2-rg",
           "location": "eastus2",
