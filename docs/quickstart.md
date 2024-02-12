@@ -16,9 +16,7 @@ Ensure that the following tools are installed for this quickstart:
   runtime used to build KubeFox Components' OCI images and run a local
   Kubernetes Cluster via kind.
 - [Fox](https://github.com/xigxog/kubefox-cli/releases/) - A CLI for
-  communicating with the KubeFox Platform. Download the latest release and add
-  the binary to your system's path. Or, if Go is installed, use `go install
-  github.com/xigxog/fox@latest`.
+  communicating with the KubeFox Platform. Installation instructions are below.
 - [Git](https://github.com/git-guides/install-git) - A distributed version
   control system.
 - [Helm](https://helm.sh/docs/intro/install/) - Package manager for Kubernetes
@@ -47,8 +45,9 @@ already have a Kubernetes Cluster provisioned, you can skip this step.
 
 === "Local (kind)"
 
-    Let's start with setting up a local Kubernetes cluster using the kind CLI.
-    The following commands can be used to create and interact with the cluster.
+    Setup a Kubernetes cluster on your workstation using kind and Docker. Kind
+    is an excellent tool specifically designed for quickly establishing a
+    cluster for testing purposes.
 
     ```{ .shell .copy }
     kind create cluster --wait 5m
@@ -76,27 +75,35 @@ already have a Kubernetes Cluster provisioned, you can skip this step.
 
 === "Azure (AKS)"
 
-    Let's start with setting up a remote Kubernetes cluster using the Azure CLI.
-    The following commands can be used to create and interact with the cluster. 
-    First you need to login to Azure.
+    Establish a remote Kubernetes cluster on the Microsoft Azure cloud platform
+    using the Azure CLI. Keep in mind that creating the specified resources may
+    result in costs. Instructions at the end of the quickstart will guide you in
+    tearing down all the created resources.
 
     ```{ .shell .copy }
     az login
     ```
-    Lets set the other required variables for this quickstart on Azure. Make 
-    sure to modify the below accordingly before pasting into your terminal.
-    
+    Next set the required variables for this quickstart on Azure.
+
     ```{ .shell .copy }
     export AZ_LOCATION=eastus2 && \
       export AZ_RESOURCE_GROUP=kf-quickstart-infra-eus2-rg && \
       export AZ_AKS_NAME=kf-quickstart-eus2-aks-01
     ```
-    
-    Next you need to create a Resource Group for the AKS cluster, and then 
-    deploy AKS within this Resource Group.
+
+    Now you will create a Resource Group for the AKS cluster, and then deploy
+    Azure Kubernetes Service (AKS) to the group. The cluster provisioning will
+    take several minutes to complete.
 
     ```{ .shell .copy }
-    az group create --location ${AZ_LOCATION} --name ${AZ_RESOURCE_GROUP}
+    az group create --location ${AZ_LOCATION} --name ${AZ_RESOURCE_GROUP} && \
+      az aks create \
+        --resource-group ${AZ_RESOURCE_GROUP} \
+        --tier free \
+        --name ${AZ_AKS_NAME} \
+        --location ${AZ_LOCATION} \
+        --node-count 1 \
+        --node-vm-size "Standard_B2s"
     ```
     ??? example "Output"
 
@@ -113,20 +120,9 @@ already have a Kubernetes Cluster provisioned, you can skip this step.
           "type": "Microsoft.Resources/resourceGroups"
         }
         ```
-    *Note: This command to create your AKS cluster will take > 5 minutes to complete.*
-    
-    ```{ .shell .copy }
-    az aks create \
-      --resource-group ${AZ_RESOURCE_GROUP} \
-      --tier free \
-      --name ${AZ_AKS_NAME} \
-      --location ${AZ_LOCATION} \
-      --node-count 1 \
-      --node-vm-size "Standard_B2s"
-    ```
-    
-    Once your AKS cluster is ready, you can use the below command to add the
-    cluster to your kubectl configuration.
+
+    Once your AKS cluster is ready add the cluster to your kubectl configuration
+    to securely communicate with the Kube API.
 
     ```{ .shell .copy }
     az aks get-credentials \
@@ -134,17 +130,15 @@ already have a Kubernetes Cluster provisioned, you can skip this step.
       --name ${AZ_AKS_NAME}
     ```
 
-    Create your Azure Container Registry in the same resource group as your
-    AKS cluster. Please modify the below to set the name of your ACR in the
-    AZ_ACR_NAME environment variable, otherwise it will auto-generate a random
-    numeric string.
+    The last resource to create is the Azure Container Registry (ACR). This is
+    used to store the KubeFox Component container images.
 
     ```{ .shell .copy }
     export AZ_ACR_NAME="acr${RANDOM}" && \
       az acr create --name ${AZ_ACR_NAME} --sku Basic --admin-enabled true --resource-group ${AZ_RESOURCE_GROUP}
     ```
-    Run the below commands to set the endpoints and token required to access your registry. Save this output somewhere safe.
-    These environment variables will be used by the fox CLI later to configure your environment.
+    Set the registry endpoints and token to access the registry. These
+    environment variables are used by Fox to push container images to ACR.
 
     ```{ .shell .copy }
     FOX_REGISTRY_ADDRESS=$(az acr show-endpoints -n ${AZ_ACR_NAME} --resource-group ${AZ_RESOURCE_GROUP} --output tsv --query loginServer) && \
@@ -154,8 +148,9 @@ already have a Kubernetes Cluster provisioned, you can skip this step.
 
 ## Setup KubeFox
 
-Now, install the KubeFox Helm Chart to initiate the KubeFox operator on your
-Kubernetes cluster. The operator manages KubeFox platforms and apps.
+In this step you will install the KubeFox Helm Chart to initiate the KubeFox
+Operator on your Kubernetes cluster. The operator manages KubeFox Platforms and
+Apps.
 
 ```{ .shell .copy }
 helm upgrade kubefox kubefox \
@@ -176,12 +171,13 @@ helm upgrade kubefox kubefox \
     TEST SUITE: None
     ```
 
-Here we will setup the Fox CLI.
+Now install Fox, a cli tool used to interact with KubeFox and prepare your Apps
+for deployment and release.
 
 === "Install using Go"
 
     ```{ .shell .copy }
-    go install github.com/xigxog/fox@alpha-v0.8.0
+    go install github.com/xigxog/fox@latest
     ```
 
 === "Install using Bash"
@@ -196,19 +192,15 @@ Here we will setup the Fox CLI.
 
     Go to the [GitHub release page](https://github.com/xigxog/fox/releases) and download the latest Fox binary for your OS.
 
-To begin, create a new directory and use Fox to initialize the `hello-world`
-app. Run all subsequent commands from this directory. The environment variable
-`FOX_INFO` tells Fox to to provide additional output about what is going on.
-Employ the `--quickstart` flag to use defaults and create a KubeFox platform
-named `demo` in the `kubefox-demo` namespace.
+## Deploy
 
-??? "Remote Registry Note"
-
-    If you are using a remote registry, please ensure the following environment 
-    variables are set before running the quickstart: `FOX_REGISTRY_ADDRESS`, 
-    `FOX_REGISTRY_TOKEN`, and `FOX_REGISTRY_USERNAME`. If you setup the 
-    Azure Container Registry as a part of this quickstart, these variables will 
-    already be set.
+Awesome! You're all set to start the KubeFox Platform on the your newly created
+cluster and deploy your first KubeFox App. To begin, create a new directory and
+use Fox to initialize the `hello-world` App. Run all subsequent commands from
+this directory. The environment variable `FOX_INFO` tells Fox to to provide
+additional output about what is going on. Employ the `--quickstart` flag to use
+defaults and create a KubeFox Platform named `demo` in the `kubefox-demo`
+Namespace.
 
 ```{ .shell .copy }
 export FOX_INFO=true && \
@@ -299,15 +291,15 @@ cat -b hack/environments/* && \
     ```
 
 Next deploy the `hello-world` App. Simply use the `publish` command, which not
-only builds the OCI images for the Components but also loads them onto the kind
-Cluster and deploys the App to the KubeFox Platform. You have the flexibility to
-specify the name and version of the AppDeployment you're creating. We'll delve
-into AppDeployment version later in this tutorial, so there's no need to worry
-about it right now. If you don't provide a name, KubeFox defaults it to `<APP
-NAME>-<GIT REF>`. In our case, it becomes `hello-world-main`. The initial run
-might take a bit of time as it downloads dependencies, but subsequent runs will
-be faster. If you want more detailed feedback, consider adding the `--verbose`
-flag.
+only builds the OCI images for the Components but also pushes them to the
+container registry and finally deploys the App to the KubeFox Platform. You have
+the flexibility to specify the name and version of the AppDeployment you're
+creating. We'll delve into AppDeployment version later in this tutorial, so
+there's no need to worry about it right now. If you don't provide a name,
+KubeFox defaults it to `<APP NAME>-<GIT REF>`. In our case, it becomes
+`hello-world-main`. The initial run might take a bit of time as it downloads
+dependencies, but subsequent runs will be faster. If you want more detailed
+feedback, consider adding the `--verbose` flag.
 
 ```{ .shell .copy }
 fox publish --wait 5m
@@ -666,9 +658,9 @@ func sayHello(k kit.Kontext) error {
 
 Fox operates against the current commit of the Git repo when deploying
 Components. That means before deploying you need to commit the changes to record
-them. You can then re-deploy the `main` AppDeployment and test. Check out how
-the new commit hash is used to provide unique identifiers for Components. The
-applicable lines are highlighted in the output below.
+them. You can then re-deploy the `hello-world-main` AppDeployment and test.
+Check out how the new commit hash is used to provide unique identifiers for
+Components. The applicable lines are highlighted in the output below.
 
 ```{ .shell .copy }
 git add . && \
@@ -752,14 +744,14 @@ git add . && \
     ```
 
 Fox didn't rebuild the `backend` Component as no changes were made. Try testing
-out the current Release and latest AppDeployment.
+out the current `v1` Release and latest `hello-world-main` AppDeployment.
 
 ```{ .shell .copy }
 echo -ne "VERSION\tVIRTENV\tOUTPUT" && \
   echo -ne "\nv1\tqa\t"; curl "http://localhost:8080/qa/hello" && \
   echo -ne "\nv1\tprod\t"; curl "http://localhost:8080/prod/hello?kf-dep=hello-world-v1&kf-env=prod" && \
-  echo -ne "\nlatest\tqa\t"; curl "http://localhost:8080/qa/hello?kf-dep=hello-world-main&kf-env=qa" && \
-  echo -ne "\nlatest\tprod\t"; curl "http://localhost:8080/prod/hello?kf-dep=hello-world-main&kf-env=prod"
+  echo -ne "\nmain\tqa\t"; curl "http://localhost:8080/qa/hello?kf-dep=hello-world-main&kf-env=qa" && \
+  echo -ne "\nmain\tprod\t"; curl "http://localhost:8080/prod/hello?kf-dep=hello-world-main&kf-env=prod"
 ```
 
 ??? example "Output"
@@ -768,8 +760,8 @@ echo -ne "VERSION\tVIRTENV\tOUTPUT" && \
     VERSION VIRTENV OUTPUT
     v1      qa      👋 Hello World!
     v1      prod    👋 Hello Universe!
-    latest  qa      👋 Hey World!
-    latest  prod    👋 Hey Universe!
+    main    qa      👋 Hey World!
+    main    prod    👋 Hey Universe!
     ```
 
 Now that you've created a new AppDeployment, take another look at the Pods
@@ -792,10 +784,10 @@ kubectl get pods --namespace kubefox-demo
     ```
 
 You might be surprised to find only three Component Pods running to support the
-two AppDeployments and Release. Because the `backend` Component did not change
-between AppDeployments, KubeFox shares a single Pod. Based on the context
-applied at request time, routing to the correct Component version is dynamically
-performed.
+two AppDeployments and Release. Because the `backend` Component did not change,
+the two AppDeployments are able to share the same `backend` Pod. KubeFox
+dynamically shapes traffic at runtime and will route traffic to the correct
+version of the App depending on context.
 
 ## Promote
 
@@ -1047,6 +1039,25 @@ kubectl api-resources --output name | \
     NAME                                        ENVIRONMENT   MANIFEST                    AVAILABLE   REASON             PENDING   PENDING REASON
     virtualenvironment.kubefox.xigxog.io/prod   prod          prod-5747-20240201-162421   True        ContextAvailable   False     ReleaseActivated
     virtualenvironment.kubefox.xigxog.io/qa     qa                                        True        ContextAvailable   False     ReleaseActivated
+    ```
+
+## Cleanup
+
+Once you are done with the quickstart, you can delete the Kubernetes cluster and
+related resources created during the setup.
+
+=== "Local (kind)"
+
+    ```{ .shell .copy }
+    kind delete cluster
+    ```
+
+=== "Azure (AKS)"
+
+    ```{ .shell .copy }
+    az aks delete -g ${AZ_RESOURCE_GROUP} --name ${AZ_AKS_NAME} && \
+      az acr delete -g ${AZ_RESOURCE_GROUP} --name ${AZ_ACR_NAME} && \
+      az group delete -g ${AZ_RESOURCE_GROUP}
     ```
 
 Explore the rest of the documentation for more details. If you encounter any

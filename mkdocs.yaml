@@ -52,7 +52,7 @@ theme:
   features:
     - content.action.edit
     - content.code.annotate
-    - content.tabs.link    
+    - content.tabs.link
     - navigation.instant
     - navigation.tabs
     - navigation.tabs.sticky
