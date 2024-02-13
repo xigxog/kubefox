@@ -12,11 +12,14 @@ and release your KubeFox Apps.
 ### Options
 
 ```
-  -a, --app string      path to directory containing KubeFox App
-  -h, --help            help for fox
-  -i, --info            enable info output
-  -o, --output string   output format, one of ["json", "yaml"] (default "yaml")
-  -v, --verbose         enable verbose output
+  -a, --app string                 path to directory containing KubeFox App
+  -h, --help                       help for fox
+  -i, --info                       enable info output
+  -o, --output string              output format, one of ["json", "yaml"] (default "yaml")
+      --registry-address string    address of your container registry
+      --registry-token string      access token for your container registry
+      --registry-username string   username for your container registry
+  -v, --verbose                    enable verbose output
 ```
 
 ### SEE ALSO

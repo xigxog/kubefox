@@ -96,12 +96,13 @@ already have a Kubernetes Cluster provisioned, you can skip this step.
     take several minutes to complete.
 
     ```{ .shell .copy }
-    az group create --location ${AZ_LOCATION} --name ${AZ_RESOURCE_GROUP} && \
+    az group create --location $AZ_LOCATION --name $AZ_RESOURCE_GROUP && \
       az aks create \
-        --resource-group ${AZ_RESOURCE_GROUP} \
+        --resource-group $AZ_RESOURCE_GROUP \
         --tier free \
-        --name ${AZ_AKS_NAME} \
-        --location ${AZ_LOCATION} \
+        --name $AZ_AKS_NAME \
+        --location $AZ_LOCATION \
+        --generate-ssh-keys \
         --node-count 1 \
         --node-vm-size "Standard_B2s"
     ```
@@ -126,24 +127,32 @@ already have a Kubernetes Cluster provisioned, you can skip this step.
 
     ```{ .shell .copy }
     az aks get-credentials \
-      --resource-group ${AZ_RESOURCE_GROUP}  \
-      --name ${AZ_AKS_NAME}
+      --resource-group $AZ_RESOURCE_GROUP  \
+      --name $AZ_AKS_NAME
     ```
 
     The last resource to create is the Azure Container Registry (ACR). This is
     used to store the KubeFox Component container images.
 
     ```{ .shell .copy }
-    export AZ_ACR_NAME="acr${RANDOM}" && \
-      az acr create --name ${AZ_ACR_NAME} --sku Basic --admin-enabled true --resource-group ${AZ_RESOURCE_GROUP}
+    export AZ_ACR_NAME="acr$RANDOM" && \
+      az acr create --name $AZ_ACR_NAME --sku Basic --admin-enabled true --resource-group $AZ_RESOURCE_GROUP
     ```
     Set the registry endpoints and token to access the registry. These
     environment variables are used by Fox to push container images to ACR.
 
     ```{ .shell .copy }
-    FOX_REGISTRY_ADDRESS=$(az acr show-endpoints -n ${AZ_ACR_NAME} --resource-group ${AZ_RESOURCE_GROUP} --output tsv --query loginServer) && \
-      FOX_REGISTRY_TOKEN=$(az acr login --name ${AZ_ACR_NAME} --expose-token --output tsv --query accessToken) && \
-      FOX_REGISTRY_USERNAME="00000000-0000-0000-0000-000000000000"
+    export FOX_REGISTRY_ADDRESS=$(az acr show-endpoints \
+        --name $AZ_ACR_NAME \
+        --resource-group $AZ_RESOURCE_GROUP \
+        --output tsv \
+        --query loginServer) && \
+      export FOX_REGISTRY_TOKEN=$(az acr login \
+        --name $AZ_ACR_NAME \
+        --expose-token \
+        --output tsv \
+        --query accessToken) && \
+      export FOX_REGISTRY_USERNAME="00000000-0000-0000-0000-000000000000"
     ```
 
 ## Setup KubeFox
@@ -220,70 +229,65 @@ export FOX_INFO=true && \
 
 Notice the newly created directories and files. The `hello-world` App comprises
 two Components, `frontend` and `backend`. There are also two example
-Environments and VirtualEnvironments in the `hack/environments` directory.
+Environments and Virtual Environments in the `hack/environments` directory.
 Finally, Fox initialized a new Git repo for you. Take a look around!
 
-Now, let's create some Environments and VirtualEnvironments. A
-VirtualEnvironment inherits all specifications and data from its parent
-Environment, but values can be overridden or added in the VirtualEnvironment. In
-the provided examples the `subPath` variable is used to ensure unique routes
-between contexts, as demonstrated in the `frontend` Component's `main.go` line
-`17`.
+Now, let's create some Environments and Virtual Environments. A Virtual
+Environments inherits all specifications and data from its parent Environment,
+but values can be overridden or added in the Virtual Environments. In the
+provided examples the `subPath` variable is used to ensure unique routes between
+Virtual Environments.
 
-```{ .go .no-copy linenums="17" }
-k.Route("Path(`/{{.Vars.subPath}}/hello`)", sayHello)
-```
-
-Run the following command to examine the Environments and VirtualEnvironments
+Run the following command to examine the Environments and Virtual Environments
 and apply them to Kubernetes using `kubectl`. Note the differences between the
-two Environments' variables on lines numbered `11-12` and `30-31`.
+two Environments' variables on the highlighted lines.
 
 ```{ .shell .copy }
-cat -b hack/environments/* && \
+cat hack/environments/* && \
   kubectl apply --namespace kubefox-demo --filename hack/environments/
 ```
 
 ??? example "Output"
 
     ```text hl_lines="11 12 30 31"
-        1 ---
-        2 apiVersion: kubefox.xigxog.io/v1alpha1
-        3 kind: Environment
-        4 metadata:
-        5   name: prod
-        6 spec:
-        7   releasePolicy:
-        8     type: Stable
-        9 data:
-       10   vars:
-       11     who: Universe
-       12     subPath: prod
-       13 ---
-       14 apiVersion: kubefox.xigxog.io/v1alpha1
-       15 kind: VirtualEnvironment
-       16 metadata:
-       17   name: prod
-       18 spec:
-       19   environment: prod
-       20 ---
-       21 apiVersion: kubefox.xigxog.io/v1alpha1
-       22 kind: Environment
-       23 metadata:
-       24   name: qa
-       25 spec:
-       26   releasePolicy:
-       27     type: Testing
-       28 data:
-       29   vars:
-       30     who: World
-       31     subPath: qa
-       32 ---
-       33 apiVersion: kubefox.xigxog.io/v1alpha1
-       34 kind: VirtualEnvironment
-       35 metadata:
-       36   name: qa
-       37 spec:
-       38   environment: qa
+    ---
+    apiVersion: kubefox.xigxog.io/v1alpha1
+    kind: Environment
+    metadata:
+      name: prod
+    spec:
+      releasePolicy:
+        type: Stable
+    data:
+      vars:
+        who: Universe
+        subPath: prod
+    ---
+    apiVersion: kubefox.xigxog.io/v1alpha1
+    kind: VirtualEnvironment
+    metadata:
+      name: prod
+    spec:
+      environment: prod
+    ---
+    apiVersion: kubefox.xigxog.io/v1alpha1
+    kind: Environment
+    metadata:
+      name: qa
+    spec:
+      releasePolicy:
+        type: Testing
+    data:
+      vars:
+        who: World
+        subPath: qa
+    ---
+    apiVersion: kubefox.xigxog.io/v1alpha1
+    kind: VirtualEnvironment
+    metadata:
+      name: qa
+    spec:
+      environment: qa
     environment.kubefox.xigxog.io/prod created
     virtualenvironment.kubefox.xigxog.io/prod created
     environment.kubefox.xigxog.io/qa created
@@ -428,7 +432,7 @@ fox proxy 8080
 Now, back in the original terminal, test the AppDeployment. KubeFox won't route
 requests to the App until it's released, but you can still test AppDeployments
 by manually providing context. KubeFox needs two pieces of information to route
-an event, the AppDeployment to use and the VirtualEnvironment to inject. These
+an event, the AppDeployment to use and the Virtual Environments to inject. These
 can be passed as headers or query parameters for HTTP requests.
 
 ```{ .shell .copy }
@@ -441,12 +445,11 @@ curl "http://localhost:8080/qa/hello?kf-dep=hello-world-main&kf-env=qa"
     👋 Hello World!
     ```
 
-Try switching to the `prod` VirtualEnvironment — this can be done seamlessly
+Try switching to the `prod` Virtual Environments — this can be done seamlessly
 with KubeFox without creating another AppDeployment. This is possible because
-KubeFox injects context at request time instead of at deployment. Adding
-VirtualEnvironments has nearly zero overhead! Be sure to change the URL path
-from `/qa/hello` to `/prod/hello` to reflect the change of the `subPath`
-variable.
+KubeFox injects context at request time instead of at deployment. Adding Virtual
+Environments has nearly zero overhead! Be sure to change the URL path from
+`/qa/hello` to `/prod/hello` to reflect the change of the `subPath` variable.
 
 ```{ .shell .copy }
 curl "http://localhost:8080/prod/hello?kf-dep=hello-world-main&kf-env=prod"
@@ -466,7 +469,7 @@ match requests to Components' routes and automatically inject context. Before
 creating a Release it is recommended to publish a versioned AppDeployment and
 tag the Git repo. Unlike normal AppDeployments, which can be updated freely,
 versioned AppDeployments are immutable. They provide a stable deployment that
-can be promoted to higher VirtualEnvironments.
+can be promoted to higher Virtual Environments.
 
 Tag the Git repo, publish the versioned AppDeployment, and release it to the
 `qa` Environment with this command.
@@ -629,8 +632,8 @@ kubectl get pods --namespace kubefox-demo
     ```
 
 Surprisingly, nothing has changed in the Pods running on Kubernetes. KubeFox
-dynamically injects context per request, just like when you changed
-VirtualEnvironments earlier with the query parameters.
+dynamically injects context per request, just like when you changed Virtual
+Environments earlier with the query parameters.
 
 ## Update
 
@@ -791,14 +794,14 @@ version of the App depending on context.
 
 ## Promote
 
-Finally, publish the new version of the App, release it to the `qa`
-VirtualEnvironment, and then promote version `v1` to the `prod`
-VirtualEnvironment. Stricter policies of the `prod` VirtualEnvironment require
-the Release to be stable. To achieve this, the Operator creates a
-ReleaseManifest when it activates the Release. A ReleaseManifest is an immutable
-snapshot of all constituents of the Release; the Environment,
-VirtualEnvironment, Adapters, and AppDeployments. This ensures any changes made
-to these resources after the Release is activated do not affect the Release.
+Finally, publish the new version of the App, release it to the `qa` Virtual
+Environments, and then promote version `v1` to the `prod` Virtual Environments.
+Stricter policies of the `prod` Virtual Environments require the Release to be
+stable. To achieve this, the Operator creates a ReleaseManifest when it
+activates the Release. A ReleaseManifest is an immutable snapshot of all
+constituents of the Release; the Environment, Virtual Environments, Adapters,
+and AppDeployments. This ensures any changes made to these resources after the
+Release is activated do not affect the Release.
 
 Release the new version to `qa` and promote `v1` to `prod`.
 
@@ -985,7 +988,7 @@ fox publish --version v2 --create-tag && \
 
 Give the new Releases a spin! Notice the new output from the updated `frontend`
 Component in `qa`, while `prod` still displays the original output from `v1`.
-With Releases in both VirtualEnvironments there's no need to manually specify
+With Releases in both Virtual Environments there's no need to manually specify
 the context.
 
 ```{ .shell .copy }
@@ -1055,9 +1058,7 @@ related resources created during the setup.
 === "Azure (AKS)"
 
     ```{ .shell .copy }
-    az aks delete -g ${AZ_RESOURCE_GROUP} --name ${AZ_AKS_NAME} && \
-      az acr delete -g ${AZ_RESOURCE_GROUP} --name ${AZ_ACR_NAME} && \
-      az group delete -g ${AZ_RESOURCE_GROUP}
+    az group delete --resource-group $AZ_RESOURCE_GROUP
     ```
 
 Explore the rest of the documentation for more details. If you encounter any
