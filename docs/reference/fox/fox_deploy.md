@@ -11,6 +11,7 @@ fox deploy [flags]
 ```
   -t, --create-tag         create Git tag using the AppDeployment version
       --dry-run            submit server-side request without persisting the resource
+  -g, --generate           only generate AppDeployment and exit
   -h, --help               help for deploy
   -d, --name string        name to use for AppDeployment, defaults to <APP NAME>-<VERSION | GIT REF | GIT COMMIT>
   -n, --namespace string   namespace of KubeFox Platform
@@ -28,6 +29,7 @@ fox deploy [flags]
       --registry-address string    address of your container registry
       --registry-token string      access token for your container registry
       --registry-username string   username for your container registry
+  -m, --timeout duration           timeout for command (default 5m0s)
   -v, --verbose                    enable verbose output
 ```
 

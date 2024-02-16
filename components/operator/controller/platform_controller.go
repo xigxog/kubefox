@@ -185,11 +185,12 @@ func (r *PlatformReconciler) reconcile(ctx context.Context, platform *v1alpha1.P
 		if err := r.setupVaultPlatform(ctx, platform); err != nil {
 			return log.ErrorN("problem setting up vault: %w", err)
 		}
-		if err := r.ApplyTemplate(ctx, "platform", &platformTD.Data, log); err != nil {
-			return log.ErrorN("problem setting up Platform: %w", err)
-		}
 
 		r.setSetup(setupKey, true)
+	}
+
+	if err := r.ApplyTemplate(ctx, "platform", &platformTD.Data, log); err != nil {
+		return log.ErrorN("problem setting up Platform: %w", err)
 	}
 
 	td := platformTD.ForComponent(api.PlatformComponentNATS, &appsv1.StatefulSet{}, &defaults.NATS, templates.Component{

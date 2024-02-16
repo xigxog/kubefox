@@ -199,7 +199,7 @@ for deployment and release.
 
 === "Install Manually"
 
-    Go to the [GitHub release page](https://github.com/xigxog/fox/releases) and download the latest Fox binary for your OS.
+    Download the [latest Fox release](https://github.com/xigxog/fox/releases/latest){:target="_blank"} for your OS and extract the `fox` binary to a directory on your path.
 
 ## Deploy
 
@@ -212,9 +212,9 @@ defaults and create a KubeFox Platform named `demo` in the `kubefox-demo`
 Namespace.
 
 ```{ .shell .copy }
-export FOX_INFO=true && \
-  mkdir kubefox-quickstart && \
+mkdir kubefox-quickstart && \
   cd kubefox-quickstart && \
+  export FOX_INFO=true && \
   fox init --quickstart
 ```
 
@@ -312,11 +312,11 @@ fox publish --wait 5m
 ??? example "Output"
 
     ```text
-    info    Building Component image 'localhost/kubefox/hello-world/backend:8bdd108ba636353020b95b75764b5edb18d5f914'.
-    info    Loading Component image 'localhost/kubefox/hello-world/backend:8bdd108ba636353020b95b75764b5edb18d5f914' into kind cluster 'kind'.
+    info    Building Component image 'localhost/kubefox/hello-world/backend:3fbfcb274c2116d4d82271da41074135'.
+    info    Loading Component image 'localhost/kubefox/hello-world/backend:3fbfcb274c2116d4d82271da41074135' into kind cluster 'kind'.
 
-    info    Building Component image 'localhost/kubefox/hello-world/frontend:8bdd108ba636353020b95b75764b5edb18d5f914'.
-    info    Loading Component image 'localhost/kubefox/hello-world/frontend:8bdd108ba636353020b95b75764b5edb18d5f914' into kind cluster 'kind'.
+    info    Building Component image 'localhost/kubefox/hello-world/frontend:98c75bd20b210d15b456ec92faab2abd'.
+    info    Loading Component image 'localhost/kubefox/hello-world/frontend:98c75bd20b210d15b456ec92faab2abd' into kind cluster 'kind'.
 
     info    Waiting for KubeFox Platform 'demo' to be ready.
     info    Waiting for Component 'backend' to be ready.
@@ -343,22 +343,22 @@ fox publish --wait 5m
       title: Hello World
     spec:
       appName: hello-world
-      branch: refs/heads/main
+      branch: main
       commit: 8bdd108ba636353020b95b75764b5edb18d5f914
       commitTime: "1970-01-01T00:00:00Z"
       components:
         backend:
-          commit: 8bdd108ba636353020b95b75764b5edb18d5f914
           defaultHandler: true
           envVarSchema:
             who:
               required: true
+          hash: 3fbfcb274c2116d4d82271da41074135
           type: KubeFox
         frontend:
-          commit: 8bdd108ba636353020b95b75764b5edb18d5f914
           dependencies:
             backend:
               type: KubeFox
+          hash: 98c75bd20b210d15b456ec92faab2abd
           routes:
           - envVarSchema:
               subPath:
@@ -396,8 +396,8 @@ kubectl get pods --namespace kubefox-demo
     demo-broker-grkcn                              1/1     Running   0          12s
     demo-httpsrv-7d8d946c57-rlt55                  1/1     Running   0          10s
     demo-nats-0                                    1/1     Running   0          18s
-    hello-world-backend-8bdd108-577868c97b-29q2k   1/1     Running   0          2s
-    hello-world-frontend-8bdd108-65fb98f59d-ll4sf  1/1     Running   0          2s
+    hello-world-backend-3fbfcb2-577868c97b-29q2k   1/1     Running   0          2s
+    hello-world-frontend-98c75bd-65fb98f59d-ll4sf  1/1     Running   0          2s
     ```
 
 The Pods for two Components you deployed were created, `backend` and `frontend`.
@@ -482,11 +482,11 @@ fox publish --version v1 --create-tag && \
 ??? example "Output"
 
     ```text
-    info    Component image 'localhost/kubefox/hello-world/backend:8bdd108ba636353020b95b75764b5edb18d5f914' exists, skipping build.
-    info    Loading Component image 'localhost/kubefox/hello-world/backend:8bdd108ba636353020b95b75764b5edb18d5f914' into kind cluster 'kind'.
+    info    Component image 'localhost/kubefox/hello-world/backend:3fbfcb274c2116d4d82271da41074135' exists, skipping build.
+    info    Loading Component image 'localhost/kubefox/hello-world/backend:3fbfcb274c2116d4d82271da41074135' into kind cluster 'kind'.
 
-    info    Component image 'localhost/kubefox/hello-world/frontend:8bdd108ba636353020b95b75764b5edb18d5f914' exists, skipping build.
-    info    Loading Component image 'localhost/kubefox/hello-world/frontend:8bdd108ba636353020b95b75764b5edb18d5f914' into kind cluster 'kind'.
+    info    Component image 'localhost/kubefox/hello-world/frontend:98c75bd20b210d15b456ec92faab2abd' exists, skipping build.
+    info    Loading Component image 'localhost/kubefox/hello-world/frontend:98c75bd20b210d15b456ec92faab2abd' into kind cluster 'kind'.
 
     info    Creating tag 'v1'.
 
@@ -513,22 +513,22 @@ fox publish --version v1 --create-tag && \
       title: Hello World
     spec:
       appName: hello-world
-      branch: refs/heads/main
+      branch: main
       commit: 8bdd108ba636353020b95b75764b5edb18d5f914
       commitTime: "1970-01-01T00:00:00Z"
       components:
         backend:
-          commit: 8bdd108ba636353020b95b75764b5edb18d5f914
           defaultHandler: true
           envVarSchema:
             who:
               required: true
+          hash: 3fbfcb274c2116d4d82271da41074135
           type: KubeFox
         frontend:
-          commit: 8bdd108ba636353020b95b75764b5edb18d5f914
           dependencies:
             backend:
               type: KubeFox
+          hash: 98c75bd20b210d15b456ec92faab2abd
           routes:
           - envVarSchema:
               subPath:
@@ -537,7 +537,7 @@ fox publish --version v1 --create-tag && \
             rule: Path(`/{{.Vars.subPath}}/hello`)
           type: KubeFox
       containerRegistry: localhost/kubefox
-      tag: refs/tags/v1
+      tag: v1
       version: v1
     status:
       conditions:
@@ -627,8 +627,8 @@ kubectl get pods --namespace kubefox-demo
     demo-broker-grkcn                              1/1     Running   0          6m11s
     demo-httpsrv-7d8d946c57-rlt55                  1/1     Running   0          6m9s
     demo-nats-0                                    1/1     Running   0          6m17s
-    hello-world-backend-8bdd108-577868c97b-29q2k   1/1     Running   0          6m1s
-    hello-world-frontend-8bdd108-65fb98f59d-ll4sf  1/1     Running   0          6m1s
+    hello-world-backend-3fbfcb2-577868c97b-29q2k   1/1     Running   0          6m1s
+    hello-world-frontend-98c75bd-65fb98f59d-ll4sf  1/1     Running   0          6m1s
     ```
 
 Surprisingly, nothing has changed in the Pods running on Kubernetes. KubeFox
@@ -662,8 +662,6 @@ func sayHello(k kit.Kontext) error {
 Fox operates against the current commit of the Git repo when deploying
 Components. That means before deploying you need to commit the changes to record
 them. You can then re-deploy the `hello-world-main` AppDeployment and test.
-Check out how the new commit hash is used to provide unique identifiers for
-Components. The applicable lines are highlighted in the output below.
 
 ```{ .shell .copy }
 git add . && \
@@ -673,15 +671,15 @@ git add . && \
 
 ??? example "Output"
 
-    ```text hl_lines="1 7 8 34 45"
+    ```text
     [main 6dcc993] updated frontend to say Hey
     1 file changed, 1 insertion(+)
 
-    info    Component image 'localhost/kubefox/hello-world/backend:8bdd108ba636353020b95b75764b5edb18d5f914' exists, skipping build.
-    info    Loading Component image 'localhost/kubefox/hello-world/backend:8bdd108ba636353020b95b75764b5edb18d5f914' into kind cluster 'kind'.
+    info    Component image 'localhost/kubefox/hello-world/backend:3fbfcb274c2116d4d82271da41074135' exists, skipping build.
+    info    Loading Component image 'localhost/kubefox/hello-world/backend:3fbfcb274c2116d4d82271da41074135' into kind cluster 'kind'.
 
-    info    Building Component image 'localhost/kubefox/hello-world/frontend:6dcc9937126fccaf119acae8785e3ab90808a998'.
-    info    Loading Component image 'localhost/kubefox/hello-world/frontend:6dcc9937126fccaf119acae8785e3ab90808a998' into kind cluster 'kind'.
+    info    Building Component image 'localhost/kubefox/hello-world/frontend:0e74758f06c3d275746689c161eb21e1'.
+    info    Loading Component image 'localhost/kubefox/hello-world/frontend:0e74758f06c3d275746689c161eb21e1' into kind cluster 'kind'.
 
     info    Waiting for KubeFox Platform 'demo' to be ready...
     info    Waiting for Component 'backend' to be ready...
@@ -706,22 +704,22 @@ git add . && \
       title: Hello World
     spec:
       appName: hello-world
-      branch: refs/heads/main
+      branch: main
       commit: 6dcc9937126fccaf119acae8785e3ab90808a998
       commitTime: "1970-01-01T00:00:00Z"
       components:
         backend:
-          commit: 8bdd108ba636353020b95b75764b5edb18d5f914
           defaultHandler: true
           envVarSchema:
             who:
               required: true
+          hash: 3fbfcb274c2116d4d82271da41074135
           type: KubeFox
         frontend:
-          commit: 6dcc9937126fccaf119acae8785e3ab90808a998
           dependencies:
             backend:
               type: KubeFox
+          hash: 0e74758f06c3d275746689c161eb21e1
           routes:
           - envVarSchema:
               subPath:
@@ -781,9 +779,9 @@ kubectl get pods --namespace kubefox-demo
     demo-broker-grkcn                              1/1     Running   0          6m11s
     demo-httpsrv-7d8d946c57-rlt55                  1/1     Running   0          6m9s
     demo-nats-0                                    1/1     Running   0          6m17s
-    hello-world-backend-8bdd108-577868c97b-29q2k   1/1     Running   0          6m1s
-    hello-world-frontend-6dcc993-7c9895669d-mj6vc  1/1     Running   0          18s
-    hello-world-frontend-8bdd108-65fb98f59d-ll4sf  1/1     Running   0          6m1s
+    hello-world-backend-3fbfcb2-577868c97b-29q2k   1/1     Running   0          6m1s
+    hello-world-frontend-0e74758-7c9895669d-mj6vc  1/1     Running   0          18s
+    hello-world-frontend-98c75bd-65fb98f59d-ll4sf  1/1     Running   0          6m1s
     ```
 
 You might be surprised to find only three Component Pods running to support the
@@ -814,11 +812,11 @@ fox publish --version v2 --create-tag && \
 ??? example "Output"
 
     ```text
-    info    Component image 'localhost/kubefox/hello-world/backend:8bdd108ba636353020b95b75764b5edb18d5f914' exists.
-    info    Loading Component image 'localhost/kubefox/hello-world/backend:8bdd108ba636353020b95b75764b5edb18d5f914' into kind cluster 'kind'.
+    info    Component image 'localhost/kubefox/hello-world/backend:3fbfcb274c2116d4d82271da41074135' exists.
+    info    Loading Component image 'localhost/kubefox/hello-world/backend:3fbfcb274c2116d4d82271da41074135' into kind cluster 'kind'.
 
-    info    Component image 'localhost/kubefox/hello-world/frontend:6dcc9937126fccaf119acae8785e3ab90808a998' exists.
-    info    Loading Component image 'localhost/kubefox/hello-world/frontend:6dcc9937126fccaf119acae8785e3ab90808a998' into kind cluster 'kind'.
+    info    Component image 'localhost/kubefox/hello-world/frontend:0e74758f06c3d275746689c161eb21e1' exists.
+    info    Loading Component image 'localhost/kubefox/hello-world/frontend:0e74758f06c3d275746689c161eb21e1' into kind cluster 'kind'.
 
     info    Creating tag 'v2'.
 
@@ -845,22 +843,22 @@ fox publish --version v2 --create-tag && \
       title: Hello World
     spec:
       appName: hello-world
-      branch: refs/heads/main
+      branch: main
       commit: 6dcc9937126fccaf119acae8785e3ab90808a998
       commitTime: "1970-01-01T00:00:00Z"
       components:
         backend:
-          commit: 8bdd108ba636353020b95b75764b5edb18d5f914
           defaultHandler: true
           envVarSchema:
             who:
               required: true
+          hash: 3fbfcb274c2116d4d82271da41074135
           type: KubeFox
         frontend:
-          commit: 6dcc9937126fccaf119acae8785e3ab90808a998
           dependencies:
             backend:
               type: KubeFox
+          hash: 0e74758f06c3d275746689c161eb21e1
           routes:
           - envVarSchema:
               subPath:
@@ -869,7 +867,7 @@ fox publish --version v2 --create-tag && \
             rule: Path(`/{{.Vars.subPath}}/hello`)
           type: KubeFox
       containerRegistry: localhost/kubefox
-      tag: refs/tags/v2
+      tag: v2
       version: v2
     status:
       conditions:
@@ -1020,9 +1018,9 @@ kubectl api-resources --output name | \
     pod/demo-broker-grkcn                              1/1     Running   0          6m21s
     pod/demo-httpsrv-7d8d946c57-rlt55                  1/1     Running   0          6m19s
     pod/demo-nats-0                                    1/1     Running   0          6m27s
-    pod/hello-world-backend-8bdd108-577868c97b-29q2k   1/1     Running   0          6m11s
-    pod/hello-world-frontend-6dcc993-7c9895669d-mj6vc  1/1     Running   0          28s
-    pod/hello-world-frontend-8bdd108-65fb98f59d-ll4sf  1/1     Running   0          6m11s
+    pod/hello-world-backend-3fbfcb2-577868c97b-29q2k   1/1     Running   0          6m11s
+    pod/hello-world-frontend-0e74758-7c9895669d-mj6vc  1/1     Running   0          28s
+    pod/hello-world-frontend-98c75bd-65fb98f59d-ll4sf  1/1     Running   0          6m11s
 
     NAME                                                 APP           VERSION   AVAILABLE   REASON                PROGRESSING
     appdeployment.kubefox.xigxog.io/hello-world-main     hello-world             True        ComponentsAvailable   False

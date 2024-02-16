@@ -53,6 +53,7 @@ fox proxy 8080 --virtual-env my-env --app-deployment my-dep
       --registry-address string    address of your container registry
       --registry-token string      access token for your container registry
       --registry-username string   username for your container registry
+  -m, --timeout duration           timeout for command (default 5m0s)
   -v, --verbose                    enable verbose output
 ```
 

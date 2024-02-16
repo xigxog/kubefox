@@ -221,9 +221,6 @@ spec:
                         components:
                           additionalProperties:
                             properties:
-                              commit:
-                                pattern: ^[a-z0-9]{40}$
-                                type: string
                               defaultHandler:
                                 type: boolean
                               dependencies:
@@ -256,6 +253,9 @@ spec:
                                   - required
                                   type: object
                                 type: object
+                              hash:
+                                pattern: ^[a-z0-9]{32}$
+                                type: string
                               image:
                                 type: string
                               routes:
@@ -296,7 +296,7 @@ spec:
                                 - HTTPAdapter
                                 type: string
                             required:
-                            - commit
+                            - hash
                             - type
                             type: object
                           minProperties: 1

@@ -167,7 +167,7 @@ func (cm *ComponentManager) ReconcileApps(ctx context.Context, namespace string)
 			image := comp.Image
 			if image == "" {
 				reg := strings.TrimSuffix(appDep.Spec.ContainerRegistry, "/")
-				image = fmt.Sprintf("%s/%s/%s:%s", reg, appDep.Spec.AppName, compName, comp.Commit)
+				image = fmt.Sprintf("%s/%s/%s:%s", reg, appDep.Spec.AppName, compName, comp.Hash)
 			}
 
 			compTD := td.ForComponent("component", &appsv1.Deployment{}, &defaults.Component, templates.Component{
@@ -175,7 +175,7 @@ func (cm *ComponentManager) ReconcileApps(ctx context.Context, namespace string)
 					api.ComponentTypeKubeFox,
 					appDep.Spec.AppName,
 					compName,
-					comp.Commit,
+					comp.Hash,
 				),
 				Image:           image,
 				ImagePullSecret: appDep.Spec.ImagePullSecretName,
@@ -333,7 +333,7 @@ func availableCondition(
 			api.ComponentTypeKubeFox,
 			spec.AppName,
 			name,
-			c.Commit,
+			c.Hash,
 		)
 		dep, found := deployments[comp.GroupKey()]
 		if !found || dep == nil {
@@ -411,7 +411,7 @@ func progressingCondition(
 			api.ComponentTypeKubeFox,
 			spec.AppName,
 			name,
-			c.Commit,
+			c.Hash,
 		)
 		dep, found := deployments[comp.GroupKey()]
 		if !found || dep == nil {

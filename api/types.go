@@ -41,9 +41,9 @@ type ComponentDefinition struct {
 	Dependencies   map[string]*Dependency `json:"dependencies,omitempty"`
 
 	// +kubebuilder:validation:Required
-	// +kubebuilder:validation:Pattern="^[a-z0-9]{40}$"
-	Commit string `json:"commit"`
-	Image  string `json:"image,omitempty"`
+	// +kubebuilder:validation:Pattern="^[a-z0-9]{32}$"
+	Hash  string `json:"hash"`
+	Image string `json:"image,omitempty"`
 }
 
 type RouteSpec struct {

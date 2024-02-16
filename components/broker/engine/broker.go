@@ -228,7 +228,7 @@ func (brk *broker) AuthorizeComponent(ctx context.Context, meta *Metadata) error
 		}
 
 		def, err := brk.store.ComponentDef(ctx, meta.Component)
-		if err != nil || typ != def.Type || meta.Component.Commit != def.Commit {
+		if err != nil || typ != def.Type || meta.Component.Commit != def.Hash {
 			return fmt.Errorf("component not found")
 		}
 
@@ -468,7 +468,7 @@ func (brk *broker) findTarget(ctx *BrokerEventContext) (err error) {
 					return err
 				}
 
-				ctx.Event.Target.Commit = def.Commit
+				ctx.Event.Target.Commit = def.Hash
 				ctx.Event.Target.App = ctx.AppDeployment.Spec.AppName
 			}
 

@@ -23,6 +23,7 @@ See each sub-command's help for details on how to use the generated script.
       --registry-address string    address of your container registry
       --registry-token string      access token for your container registry
       --registry-username string   username for your container registry
+  -m, --timeout duration           timeout for command (default 5m0s)
   -v, --verbose                    enable verbose output
 ```
 

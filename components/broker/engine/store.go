@@ -409,7 +409,7 @@ func (str *Store) updateComponentCache(ctx context.Context) error {
 				compSpec.Type,
 				appDep.Spec.AppName,
 				compName,
-				compSpec.Commit,
+				compSpec.Hash,
 			)
 			compCache[comp.GroupKey()] = compSpec
 		}
@@ -522,7 +522,7 @@ func (str *Store) buildRoutes(ctx *BrokerEventContext) ([]*core.Route, error) {
 			compSpec.Type,
 			ctx.AppDeployment.Spec.AppName,
 			compName,
-			compSpec.Commit,
+			compSpec.Hash,
 		)
 		for _, r := range compSpec.Routes {
 			route, err := core.NewRoute(r.Id, r.Rule)
