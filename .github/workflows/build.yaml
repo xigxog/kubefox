@@ -41,7 +41,6 @@ jobs:
       - name: Install Protoc
         uses: arduino/setup-protoc@v3
         with:
-          version: "3.x"
           repo-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Setup Python
@@ -98,7 +97,6 @@ jobs:
       - name: Install Protoc
         uses: arduino/setup-protoc@v3
         with:
-          version: "3.x"
           repo-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Setup Go
