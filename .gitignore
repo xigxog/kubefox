@@ -16,7 +16,7 @@ site/
 tools/
 
 # Misc
-.DS_Store
+*.DS_Store
 *.ignore.*
 go.work.sum
 workstation/
