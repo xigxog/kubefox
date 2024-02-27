@@ -42,6 +42,7 @@
 | target | [Component](#kubefoxprotov1component) |  |  |
 | params | [Event.ParamsEntry](#kubefoxprotov1eventparamsentry) | repeated |  |
 | values | [Event.ValuesEntry](#kubefoxprotov1eventvaluesentry) | repeated |  |
+| spans | [opentelemetry.proto.trace.v1.Span](#opentelemetryprototracev1span) | repeated |  |
 | content_type | [string](#string) |  |  |
 | content | [bytes](#bytes) |  |  |
 
@@ -94,6 +95,7 @@
 | virtual_environment | [string](#string) |  |  |
 | app_deployment | [string](#string) |  |  |
 | release_manifest | [string](#string) |  |  |
+| trace_parent | [opentelemetry.proto.trace.v1.Span](#opentelemetryprototracev1span) |  |  |
 
 
 
@@ -143,9 +145,10 @@
 | Name | Number | Description |
 | ---- | ------ | ----------- |
 | UNKNOWN | 0 |  |
-| MESSAGE | 1 |  |
-| REQUEST | 2 |  |
-| RESPONSE | 3 |  |
+| ACK | 1 |  |
+| MESSAGE | 2 |  |
+| REQUEST | 3 |  |
+| RESPONSE | 4 |  |
 
 
  <!-- end enums -->

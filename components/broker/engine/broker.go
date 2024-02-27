@@ -27,6 +27,9 @@ import (
 	"github.com/xigxog/kubefox/core"
 	"github.com/xigxog/kubefox/logkf"
 	"github.com/xigxog/kubefox/utils"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/trace"
 	authv1 "k8s.io/api/authentication/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -143,11 +146,11 @@ func (brk *broker) Start() {
 		}
 	}
 
-	if config.TelemetryAddr != "false" {
-		if err := brk.telClient.Start(ctx); err != nil {
-			brk.shutdown(ExitCodeTelemetry, err)
-		}
+	// if config.TelemetryAddr != "false" {
+	if err := brk.telClient.Start(ctx); err != nil {
+		brk.shutdown(ExitCodeTelemetry, err)
 	}
+	// }
 
 	if err := brk.natsClient.Connect(ctx); err != nil {
 		brk.shutdown(ExitCodeNATS, err)
@@ -342,7 +345,25 @@ func (brk *broker) startWorker(id int) {
 	}
 }
 
+var tracer = otel.Tracer("test-tracer")
+
 func (brk *broker) routeEvent(ctx *BrokerEventContext) error {
+	// TODO need a way to decide if to sample span after creation, after event
+	// context is attached. It looks like "sampler" is called at creation.
+	trCtx, span := tracer.Start(ctx.Context, "route-event", trace.WithAttributes(attribute.Bool("sample", true)))
+	ctx.Context = trCtx
+
+	trCtx2, span2 := tracer.Start(ctx.Context, "route-event2")
+	ctx.Context = trCtx2
+
+	span.SpanContext().TraceState().Insert("record", "false")
+	span.SetAttributes(attribute.Bool("record", false))
+
+	defer func() {
+		defer span2.End()
+		defer span.End()
+	}()
+
 	ctx.Log.Debugf("routing event from receiver '%s'", ctx.Receiver)
 
 	if err := brk.validateEvent(ctx); err != nil {

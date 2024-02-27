@@ -16,13 +16,9 @@ import (
 	"github.com/xigxog/kubefox/components/broker/config"
 	"github.com/xigxog/kubefox/logkf"
 
-	"go.opentelemetry.io/contrib/instrumentation/host"
-	"go.opentelemetry.io/contrib/instrumentation/runtime"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
-	"go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetrichttp"
-	"go.opentelemetry.io/otel/exporters/otlp/otlptrace"
-	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp"
+	"go.opentelemetry.io/otel/exporters/stdout/stdouttrace"
 	"go.opentelemetry.io/otel/sdk/metric"
 	"go.opentelemetry.io/otel/sdk/resource"
 	"go.opentelemetry.io/otel/sdk/trace"
@@ -68,49 +64,49 @@ func (c *Client) Start(ctx context.Context) error {
 		attribute.String("kubefox."+logkf.KeyPlatformComponent, api.PlatformComponentBroker),
 	)
 
-	metricExp, err := otlpmetrichttp.New(ctx,
-		// otlpmetrichttp.WithTLSClientConfig(tlsCfg),
-		otlpmetrichttp.WithInsecure(),
-		otlpmetrichttp.WithEndpoint(config.TelemetryAddr))
-	if err != nil {
-		return c.log.ErrorN("%v", err)
-	}
+	// metricExp, err := otlpmetrichttp.New(ctx,
+	// 	// otlpmetrichttp.WithTLSClientConfig(tlsCfg),
+	// 	otlpmetrichttp.WithInsecure(),
+	// 	otlpmetrichttp.WithEndpoint(config.TelemetryAddr))
+	// if err != nil {
+	// 	return c.log.ErrorN("%v", err)
+	// }
 
-	interval := time.Duration(config.TelemetryInterval) * time.Second
-	c.meterProvider = metric.NewMeterProvider(
-		metric.WithResource(res),
-		metric.WithReader(metric.NewPeriodicReader(metricExp, metric.WithInterval(interval))))
-	// global.SetMeterProvider(c.meterProvider)
+	// interval := time.Duration(config.TelemetryInterval) * time.Second
+	// c.meterProvider = metric.NewMeterProvider(
+	// 	metric.WithResource(res),
+	// 	metric.WithReader(metric.NewPeriodicReader(metricExp, metric.WithInterval(interval))))
+	// otel.SetMeterProvider(c.meterProvider)
 
-	if err := host.Start(); err != nil {
-		return c.log.ErrorN("%v", err)
-	}
-	if err := runtime.Start(runtime.WithMinimumReadMemStatsInterval(interval)); err != nil {
-		return c.log.ErrorN("%v", err)
-	}
+	// if err := host.Start(); err != nil {
+	// 	return c.log.ErrorN("%v", err)
+	// }
+	// if err := runtime.Start(runtime.WithMinimumReadMemStatsInterval(interval)); err != nil {
+	// 	return c.log.ErrorN("%v", err)
+	// }
 
-	// TODO do not exit if cannot connect, just show warnings it should keep
-	// trying to connect, hopefully just enabling retry on clients will do looks
-	// like the exporters do the right thing and throw away things if queue
-	// fills up
+	// trClient := otlptracehttp.NewClient(
+	// 	// otlptracehttp.WithTLSClientConfig(tlsCfg),
+	// 	otlptracehttp.WithInsecure(),
+	// 	otlptracehttp.WithEndpoint(config.TelemetryAddr),
+	// )
+	// trExp, err := otlptrace.New(ctx, trClient)
 
-	trClient := otlptracehttp.NewClient(
-		// otlptracehttp.WithTLSClientConfig(tlsCfg),
-		otlptracehttp.WithInsecure(),
-		otlptracehttp.WithEndpoint(config.TelemetryAddr),
-	)
-	trExp, err := otlptrace.New(ctx, trClient)
+	trExp, err := stdouttrace.New(stdouttrace.WithPrettyPrint())
 	if err != nil {
 		return c.log.ErrorN("%v", err)
 	}
 
 	c.traceProvider = trace.NewTracerProvider(
 		// TODO sample setup? just rely on outside request to determine if to sample?
-		// trace.WithSampler(trace.AlwaysSample()),
+		trace.WithSampler(&Sampler{}),
 		trace.WithResource(res),
 		trace.WithBatcher(trExp),
 	)
 	otel.SetTracerProvider(c.traceProvider)
+
+	// TODO ???
+	//  otel.SetTextMapPropagator()
 
 	c.log.Info("telemetry client started")
 	return nil

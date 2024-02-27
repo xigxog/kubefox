@@ -256,11 +256,8 @@ const (
 	ValKeyMethod       = "method"
 	ValKeyPath         = "path"
 	ValKeyQuery        = "queryParam"
-	ValKeySpanId       = "spanId"
 	ValKeyStatus       = "status"
 	ValKeyStatusCode   = "statusCode"
-	ValKeyTraceFlags   = "traceFlags"
-	ValKeyTraceId      = "traceId"
 	ValKeyURL          = "url"
 	ValKeyVaultURL     = "vaultURL"
 )
@@ -272,6 +269,8 @@ const (
 	HeaderAppDepAbbrv             = "kf-dep"
 	HeaderAppDepShort             = "kfd"
 	HeaderContentLength           = "Content-Length"
+	HeaderContentType             = "Content-Type"
+	HeaderEventId                 = "kubefox-event-id"
 	HeaderEventType               = "kubefox-event-type"
 	HeaderEventTypeAbbrv          = "kf-type"
 	HeaderEventTypeShort          = "kft"
@@ -280,8 +279,8 @@ const (
 	HeaderReleaseManifest         = "kubefox-release-manifest"
 	HeaderTraceId                 = "kubefox-trace-id"
 	HeaderVirtualEnvironment      = "kubefox-virtual-environment"
-	HeaderVirtualEnvironmentAbbrv = "kf-env"
-	HeaderVirtualEnvironmentShort = "kfe"
+	HeaderVirtualEnvironmentAbbrv = "kf-ve"
+	HeaderVirtualEnvironmentShort = "kfv"
 )
 
 const (

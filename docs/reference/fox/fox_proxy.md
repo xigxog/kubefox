@@ -41,7 +41,7 @@ fox proxy 8080 --virtual-env my-env --app-deployment my-dep
   -n, --namespace string        namespace of KubeFox Platform
   -p, --platform string         name of KubeFox Platform to utilize
   -e, --virtual-env string      environment to add to proxied requests
-      --wait duration           wait up the specified time for components to be ready
+      --wait duration           wait up to the specified time for components to be ready
 ```
 
 ### Options inherited from parent commands

@@ -37,7 +37,7 @@ fox release v1.2.3 --virtual-env prod
   -n, --namespace string     namespace of KubeFox Platform
   -p, --platform string      name of KubeFox Platform to utilize
   -e, --virtual-env string   name of VirtualEnvironment to use for Release
-      --wait duration        wait up the specified time for components to be ready
+      --wait duration        wait up to the specified time for components to be ready
 ```
 
 ### Options inherited from parent commands

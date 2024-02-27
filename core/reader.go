@@ -8,8 +8,10 @@ import "io"
 //
 // LimitedReader reads from R but limits the amount of data returned to just N
 // bytes. Each call to Read updates N to reflect the new amount remaining. Read
-// returns ErrContentTooLarge when N <= 0. This is a variation of
-// io.LimitedReader that returns a different err for exceeding limit and EOF.
+// returns ErrContentTooLarge when N <= 0.
+//
+// This is a variation of io.LimitedReader that returns a different err for
+// exceeding limit and EOF.
 type LimitedReader struct {
 	R io.Reader // underlying reader
 	N int64     // max bytes remaining

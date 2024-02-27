@@ -11,14 +11,16 @@ syntax = "proto3";
 package kubefox.proto.v1;
 
 import "google/protobuf/struct.proto";
+import "opentelemetry/proto/trace/v1/trace.proto";
 
 option go_package = "github.com/xigxog/kubefox/core";
 
 enum Category {
   UNKNOWN = 0;
-  MESSAGE = 1;
-  REQUEST = 2;
-  RESPONSE = 3;
+  ACK = 1;
+  MESSAGE = 2;
+  REQUEST = 3;
+  RESPONSE = 4;
 }
 
 message Component {
@@ -35,7 +37,15 @@ message EventContext {
   string virtual_environment = 2;
   string app_deployment = 3;
   string release_manifest = 4;
+  opentelemetry.proto.trace.v1.Span trace_parent = 5;
 }
+
+// message SpanContext {
+//   bytes trace_id = 1;
+//   bytes span_id = 2;
+//   string trace_flags = 3;
+//   fixed32 flags = 16;
+// }
 
 message Event {
   string id = 1;
@@ -55,6 +65,8 @@ message Event {
 
   map<string, google.protobuf.Value> params = 10;
   map<string, google.protobuf.Value> values = 11;
+
+  repeated opentelemetry.proto.trace.v1.Span spans = 12;
 
   string content_type = 14;
   bytes content = 15;

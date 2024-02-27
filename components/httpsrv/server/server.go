@@ -10,17 +10,25 @@ package server
 
 import (
 	"context"
+	crand "crypto/rand"
 	"crypto/tls"
+	"encoding/binary"
 	"errors"
+	"math/rand"
 	"net"
 	"net/http"
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/xigxog/kubefox/api"
 	"github.com/xigxog/kubefox/core"
 	"github.com/xigxog/kubefox/grpc"
 	"github.com/xigxog/kubefox/logkf"
+
+	"go.opentelemetry.io/contrib/instrumentation/net/http/httptrace/otelhttptrace"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/propagation"
 )
 
 const (
@@ -28,14 +36,23 @@ const (
 )
 
 type Server struct {
-	wrapped *http.Server
+	sync.Mutex
 
-	brk *grpc.Client
+	wrapped *http.Server
+	brk     *grpc.Client
+
+	randSrc *rand.Rand
 
 	log *logkf.Logger
 }
 
 func New(comp *core.Component, pod string) *Server {
+	otel.SetTextMapPropagator(propagation.TraceContext{})
+
+	var rngSeed int64
+	_ = binary.Read(crand.Reader, binary.LittleEndian, &rngSeed)
+	randSrc := rand.New(rand.NewSource(rngSeed))
+
 	return &Server{
 		brk: grpc.NewClient(grpc.ClientOpts{
 			Platform:      Platform,
@@ -44,8 +61,8 @@ func New(comp *core.Component, pod string) *Server {
 			BrokerAddr:    BrokerAddr,
 			HealthSrvAddr: HealthSrvAddr,
 		}),
-
-		log: logkf.Global,
+		randSrc: randSrc,
+		log:     logkf.Global,
 	}
 }
 
@@ -115,18 +132,37 @@ func (srv *Server) Shutdown() {
 	}
 }
 
-// TODO have `kubefox-set-cookie` which takes dynamic context and puts it into
+// IDEA have `kubefox-set-cookie` which takes dynamic context and puts it into
 // cookie so do not have to set query params?
 func (srv *Server) ServeHTTP(resWriter http.ResponseWriter, httpReq *http.Request) {
 	ctx, cancel := context.WithTimeoutCause(httpReq.Context(), EventTimeout, core.ErrTimeout())
 	defer cancel()
 
-	resWriter.Header().Set(api.HeaderAdapter, srv.brk.Component.Key())
+	setHeader(resWriter, api.HeaderAdapter, srv.brk.Component.Key())
+
+	sc := &core.SpanContext{
+		TraceId: [16]byte{},
+		SpanId:  [8]byte{},
+	}
+	srv.Lock()
+	_, _ = srv.randSrc.Read(sc.TraceId[:])
+	_, _ = srv.randSrc.Read(sc.SpanId[:])
+	srv.Unlock()
+
+	_, _, otelSC := otelhttptrace.Extract(ctx, httpReq)
+	if otelSC.HasTraceID() {
+		sc.TraceId = otelSC.TraceID()
+		sc.TraceState = otelSC.TraceState().String()
+		sc.Flags = byte(otelSC.TraceFlags())
+	}
 
 	req := core.NewReq(core.EventOpts{
-		Source: srv.brk.Component,
+		Source:      srv.brk.Component,
+		Timeout:     EventTimeout,
+		TraceParent: sc,
 	})
-	req.SetTTL(EventTimeout)
+	setHeader(resWriter, api.HeaderEventId, req.Id)
+
 	if err := req.SetHTTPRequest(httpReq, MaxEventSize); err != nil {
 		writeError(resWriter, err, srv.log)
 		return
@@ -143,7 +179,6 @@ func (srv *Server) ServeHTTP(resWriter http.ResponseWriter, httpReq *http.Reques
 		setHeader(resWriter, api.HeaderVirtualEnvironment, resp.Context.VirtualEnvironment)
 		setHeader(resWriter, api.HeaderAppDep, resp.Context.AppDeployment)
 		setHeader(resWriter, api.HeaderReleaseManifest, resp.Context.ReleaseManifest)
-		setHeader(resWriter, api.HeaderTraceId, resp.TraceId())
 	}
 
 	switch {
@@ -161,8 +196,8 @@ func (srv *Server) ServeHTTP(resWriter http.ResponseWriter, httpReq *http.Reques
 			resWriter.Header().Add(key, h)
 		}
 	}
-	resWriter.Header().Set("Content-Type", resp.ContentType)
-	resWriter.Header().Set("Content-Length", strconv.Itoa(len(resp.Content)))
+	setHeader(resWriter, api.HeaderContentType, resp.ContentType)
+	setHeader(resWriter, api.HeaderContentLength, strconv.Itoa(len(resp.Content)))
 	resWriter.WriteHeader(httpResp.StatusCode)
 	resWriter.Write(resp.Content)
 }

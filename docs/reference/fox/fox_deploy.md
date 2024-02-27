@@ -17,7 +17,7 @@ fox deploy [flags]
   -n, --namespace string   namespace of KubeFox Platform
   -p, --platform string    name of KubeFox Platform to utilize
   -s, --version string     version to assign to the AppDeployment, making it immutable
-      --wait duration      wait up the specified time for components to be ready
+      --wait duration      wait up to the specified time for components to be ready
 ```
 
 ### Options inherited from parent commands

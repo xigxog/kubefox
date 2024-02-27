@@ -11,6 +11,7 @@ package core
 import (
 	"bytes"
 	context "context"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -24,15 +25,25 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/xigxog/kubefox/api"
+	v1 "go.opentelemetry.io/proto/otlp/trace/v1"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/structpb"
 )
 
 type EventOpts struct {
-	Type   api.EventType
-	Parent *Event
-	Source *Component
-	Target *Component
+	Type        api.EventType
+	Parent      *Event
+	Source      *Component
+	Timeout     time.Duration
+	Target      *Component
+	TraceParent *SpanContext
+}
+
+type SpanContext struct {
+	TraceId    [16]byte
+	SpanId     [8]byte
+	TraceState string
+	Flags      byte
 }
 
 func NewResp(opts EventOpts) *Event {
@@ -99,8 +110,19 @@ func applyOpts(evt *Event, cat Category, opts EventOpts) *Event {
 	evt.Category = cat
 	evt.Source = opts.Source
 	evt.Target = opts.Target
+	if opts.Timeout != 0 {
+		evt.Ttl = opts.Timeout.Microseconds()
+	}
 	if opts.Type != "" && opts.Type != api.EventTypeUnknown {
 		evt.Type = string(opts.Type)
+	}
+	if ps := opts.TraceParent; ps != nil {
+		evt.Context.TraceParent = &v1.Span{
+			TraceId:    ps.TraceId[:],
+			SpanId:     ps.SpanId[:],
+			TraceState: ps.TraceState,
+			Flags:      uint32(ps.Flags),
+		}
 	}
 
 	return evt
@@ -113,9 +135,6 @@ func (evt *Event) SetParent(parent *Event) {
 	evt.ParentId = parent.Id
 	evt.Ttl = parent.Ttl
 	evt.SetContext(parent.Context)
-	evt.SetTraceId(parent.TraceId())
-	evt.SetSpanId(parent.SpanId())
-	evt.SetTraceFlags(parent.TraceFlags())
 	if evt.Type == "" || evt.Type == string(api.EventTypeUnknown) {
 		evt.Type = parent.Type
 	}
@@ -141,6 +160,8 @@ func (evt *Event) SetContext(evtCtx *EventContext) {
 	evt.Context.VirtualEnvironment = evtCtx.VirtualEnvironment
 	evt.Context.AppDeployment = evtCtx.AppDeployment
 	evt.Context.ReleaseManifest = evtCtx.ReleaseManifest
+	// TODO should this be copied?
+	// evt.Context.ParentSpan = evtCtx.ParentSpan
 }
 
 func (evt *Event) SetRoute(route *Route) {
@@ -366,27 +387,24 @@ func (evt *Event) SetStatusV(val *api.Val) {
 }
 
 func (evt *Event) TraceId() string {
-	return evt.Value(api.ValKeyTraceId)
-}
-
-func (evt *Event) SetTraceId(val string) {
-	evt.SetValue(api.ValKeyTraceId, val)
+	if evt.Context == nil || evt.Context.TraceParent == nil {
+		return ""
+	}
+	return hex.EncodeToString(evt.Context.TraceParent.TraceId)
 }
 
 func (evt *Event) SpanId() string {
-	return evt.Value(api.ValKeySpanId)
-}
-
-func (evt *Event) SetSpanId(val string) {
-	evt.SetValue(api.ValKeySpanId, val)
+	if evt.Context == nil || evt.Context.TraceParent == nil {
+		return ""
+	}
+	return hex.EncodeToString(evt.Context.TraceParent.SpanId)
 }
 
 func (evt *Event) TraceFlags() byte {
-	return byte(evt.ValueV(api.ValKeyTraceFlags).Float())
-}
-
-func (evt *Event) SetTraceFlags(val byte) {
-	evt.SetValueV(api.ValKeyTraceFlags, api.ValInt(int(val)))
+	if evt.Context == nil || evt.Context.TraceParent == nil {
+		return 0
+	}
+	return byte(evt.Context.TraceParent.Flags)
 }
 
 func (evt *Event) URL() (*url.URL, error) {
