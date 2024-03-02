@@ -75,7 +75,7 @@ is directed to the currently-released version of the hello-world App at my-domai
 KubeFox employs straightforward conventions for matching. HTTP requests are identified by subpath.  When you define KubeFox
 Environments, you specify the subpath that KubeFox
 will use to identify the inbound requests that should map to that Environment.  In Figure
-2, the subpath 'dev' **(b)** tells KubeFox that it should use the Environment
+2 **(b)**, the subpath 'dev' tells KubeFox that it should use the Environment
 that specifies the 'dev' subpath. Though optional, the KubeFox Environment typically maps to a traditional environment by
 Kubernetes namespace, for instance, the 'dev' 
 namespace in this case.
@@ -141,7 +141,7 @@ This is just the **hello-world** App on the main branch in the repository.
 </figure>
 
 We're also further qualifying (Figure 4) that we want traffic directed to the
-**hello-world-main** deployment in the **team-a** VE.
+**hello-world-main** deployment in the **team-a** VE **(d)**.
 
 Individual engineers can spool up VEs and deploy applications on their own.
 Suppose Joe has an enhancement to our hello-world App.  Joe can create his own
