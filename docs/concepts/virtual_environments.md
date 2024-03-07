@@ -57,7 +57,28 @@ by DevOps teams.  KubeFox usurps responsibility for the difficult aspects of
 this process and drastically reduces DevOps overhead while simultaneously
 increasing the speed at which accommodations can be made for new projects.
 
-How?  KubeFox turns the concept of environment on its head.  Environments become lightweight, malleable, virtual constructs.  Custom configurations
+How?  KubeFox turns the concept of "environment" on its head.  There are two
+elements of KubeFox environments:
+
+1. **Environment**
+
+    KubeFox Environments serve largely as containers for environment variables
+    and secrets that will be shared across KubeFox Virtual Environments (VEs).
+
+    Environments often map to Kubernetes namespaces and traditionaal environments.
+
+2. **Virtual Environments**
+
+    KubeFox Virtual Environments are wholly different and we'll delve into their
+    capabilities on this page.
+    
+    When KubeFox VEs are defined, their definitions must include a reference to
+    the Environment to which they belong.
+
+    VEs can include overrides to environment variables present in the Environment.
+
+KubeFox VEs are lightweight, malleable, virtual.  They are also runtime
+constructs.  Custom configurations
 (consisting of environment variables and secrets) can be created and deployed
 easily  - either alongside a developer’s modifications or independently.  In
 effect, it appears to the developer that their code is running inside a private
@@ -67,19 +88,20 @@ efforts and sharing those components that have not changed.  The developer can
 coexist with their colleagues - even if those colleagues are working on the same
 component(s) for different reasons.  And DevOps overhead is drastically reduced.  
 
-One can think about KubeFox environments as retaining the aspects of
+One can think about KubeFox VEs as retaining the aspects of
 environments that help accomplish useful things like segregating workloads,
 providing sandboxes for POCs, developer experimentation, all the varieties of QA
-testing and others.  However, the constraints one associates with environments
+testing and others.  However, the constraints one associates with traditional environments
 are gone.  
 
 You can think of KubeFox Virtual Environments 
-of them as overlays. Developers are empowered to rapidly spool up sandboxes to test their POCs and
-ideas.  And they can do so without being constrained by environment
+as overlays. Developers are empowered to rapidly spool up sandboxes to test their POCs and
+ideas.  And they can do so without being constrained by traditional environment
 or namespace related logistics, and without the bureaucracy and overhead of
-DevOps engagement.  
+DevOps engagement. In turn, DevOps is unburdened from burdensome rote activities
+like provisioning, namespace configuration, replicating config and secrets etc. 
 
-Polina can test her new code in Environment A, which is unique to her (Figure
+Polina can test her new code in Virtual Environment A, which is unique to her (Figure
 2):
 
 <figure markdown>
@@ -87,7 +109,7 @@ Polina can test her new code in Environment A, which is unique to her (Figure
   <figcaption>Figure 2 - Polina testing in environment A</figcaption>
 </figure>
 
-and then shift instantly to Environment B (Figure 3), perhaps to compare her
+and then shift instantly to Virtual Environment B (Figure 3), perhaps to compare her
 changes with the prior version of software:
 
 <figure markdown>
@@ -101,8 +123,8 @@ composing Polina’s deployment.  And by the way, Polina can run both versions o
 the Retail application simultaneously.
 
 One way to think about it is that conventional developer environments are
-spooled up.  But in actuality, KubeFox environments are overlays. Because KubeFox routes requests and events dynamically at runtime, the limitations of
-environments melt away.  And KubeFox abstracts the
+spooled up.  But in actuality, KubeFox VEs are overlays. Because KubeFox routes requests and events dynamically at runtime, the limitations of
+traditional environments melt away.  And KubeFox abstracts the
 configuration from the deployment, empowering teams to easily and simply modify
 and shift their
 workloads - including for deployments that have already occurred.
@@ -157,10 +179,10 @@ the v2Polina version of the Web UI component.  Polina can now test her version o
 the Web UI component side-by-side with the production version (v1).  To access
 her version, Polina simply adds some query parameters to the HTTP URL, e.g.:
 
-curl "http://localhost:8080/polina/index.html?kf-dep=polinadepv2&kf-env=polina"
+    curl "http://localhost:8080/polina/index.html?kf-dep=polina-dep-v2&kf-ve=polina"
 
 What we're doing here is asking for this request to be routed to the
-"polinadepv2" deployment (shorthand for Polina's version 2 deployment) in the "polina"
+"polina-dep-v2" deployment (shorthand for Polina's version 2 deployment) in the "polina"
 Virtual Environment.  Polina can create another deployment (v3 in Figure 6) if she wishes and
 test that alongside the base version of App and her v2 deployment:
 
