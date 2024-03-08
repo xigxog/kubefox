@@ -63,3 +63,88 @@ img[alt="diagram"] {
 .md-grid {
   max-width: 90%;
 }
+
+/* The following should (hopefully) be specific to mermaid */
+
+/* body {
+  background: white;
+}
+ */
+
+/* .actor-top {
+  fill:aqua;
+}
+
+.actor {
+  stroke: yellow;
+  fill: yellow;
+}
+text.actor {
+  fill: black;
+  stroke: none;
+  font-family: Helvetica;
+}
+
+.actor-line {
+  stroke: grey;
+}
+
+.messageLine0 {
+  stroke-width: 1.5;
+  stroke-dasharray: '2 2';
+  marker-end: 'url(#arrowhead)';
+  stroke: black;
+}
+
+.messageLine1 {
+  stroke-width: 1.5;
+  stroke-dasharray: '2 2';
+  stroke: black;
+}
+
+#arrowhead {
+  fill: black;
+}
+
+.messageText {
+  fill: black;
+  stroke: none;
+  font-family: 'trebuchet ms', verdana, arial;
+  font-size: 14px;
+}
+
+.labelBox {
+  stroke: #ccccff;
+  fill: #ececff;
+}
+
+.labelText {
+  fill: black;
+  stroke: none;
+  font-family: 'trebuchet ms', verdana, arial;
+}
+
+.loopText {
+  fill: black;
+  stroke: none;
+  font-family: 'trebuchet ms', verdana, arial;
+}
+
+.loopLine {
+  stroke-width: 2;
+  stroke-dasharray: '2 2';
+  marker-end: 'url(#arrowhead)';
+  stroke: #ccccff;
+}
+
+.note {
+  stroke: #decc93;
+  fill: #fff5ad;
+}
+
+.noteText {
+  fill: black;
+  stroke: none;
+  font-family: 'trebuchet ms', verdana, arial;
+  font-size: 14px;
+} */
