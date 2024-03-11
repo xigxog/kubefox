@@ -114,9 +114,7 @@ func (r *PlatformReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 
 	} else {
 		if _, err := r.CompMgr.ReconcileApps(ctx, req.Namespace); err != nil {
-			if reconcileErr == nil {
-				reconcileErr = err
-			}
+			reconcileErr = err
 		}
 	}
 

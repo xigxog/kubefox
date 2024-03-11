@@ -14,7 +14,7 @@ mkdir -p ${TOOLS_DIR}
 # Ensure all source files have copyright header.
 go install github.com/google/addlicense@v1.1.1
 ${TOOLS_DIR}/addlicense -f addlicense.tpl \
-    -l mpl -c XigXog -y 2023 \
+    -l mpl -c XigXog -y 2024 \
     -ignore ".markdownlint.yaml" \
     -ignore ".github/**" \
     -ignore "examples/**" \

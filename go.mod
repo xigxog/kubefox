@@ -2,8 +2,6 @@ module github.com/xigxog/kubefox
 
 go 1.21
 
-replace go.opentelemetry.io/otel/exporters/stdout/stdouttrace => ../../open-telemetry/opentelemetry-go/exporters/stdout/stdouttrace
-
 require (
 	github.com/Masterminds/sprig/v3 v3.2.3
 	github.com/go-logr/zapr v1.3.0
@@ -17,14 +15,14 @@ require (
 	github.com/vulcand/predicate v1.2.0
 	go.opentelemetry.io/contrib/instrumentation/net/http/httptrace/otelhttptrace v0.49.0
 	go.opentelemetry.io/otel v1.24.0
-	go.opentelemetry.io/otel/exporters/stdout/stdouttrace v0.0.0-00010101000000-000000000000
+	go.opentelemetry.io/otel/exporters/stdout/stdouttrace v1.24.0
 	go.opentelemetry.io/otel/sdk v1.24.0
 	go.opentelemetry.io/otel/sdk/metric v1.22.0
 	go.opentelemetry.io/otel/trace v1.24.0
 	go.opentelemetry.io/proto/otlp v1.1.0
 	go.uber.org/zap v1.26.0
 	golang.org/x/mod v0.14.0
-	google.golang.org/grpc v1.61.1
+	google.golang.org/grpc v1.60.1
 	google.golang.org/protobuf v1.32.0
 	k8s.io/api v0.29.1
 	k8s.io/apiextensions-apiserver v0.29.1

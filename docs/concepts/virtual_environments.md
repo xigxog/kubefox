@@ -157,7 +157,7 @@ the v2Polina version of the Web UI component.  Polina can now test her version o
 the Web UI component side-by-side with the production version (v1).  To access
 her version, Polina simply adds some query parameters to the HTTP URL, e.g.:
 
-curl "http://localhost:8080/polina/index.html?kf-dep=polinadepv2&kf-env=polina"
+curl "http://localhost:8080/polina/index.html?kf-dep=polinadepv2&kf-ve=polina"
 
 What we're doing here is asking for this request to be routed to the
 "polinadepv2" deployment (shorthand for Polina's version 2 deployment) in the "polina"

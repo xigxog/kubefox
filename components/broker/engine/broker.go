@@ -27,8 +27,7 @@ import (
 	"github.com/xigxog/kubefox/core"
 	"github.com/xigxog/kubefox/logkf"
 	"github.com/xigxog/kubefox/utils"
-	"go.opentelemetry.io/otel"
-	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/codes"
 	"go.opentelemetry.io/otel/trace"
 	authv1 "k8s.io/api/authentication/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -246,6 +245,9 @@ func (brk *broker) AuthorizeComponent(ctx context.Context, meta *Metadata) error
 			return err
 		}
 
+		brk.log.DebugInterface("status", p.Status.Components)
+		brk.log.DebugInterface("meta", meta)
+
 		found := false
 		for _, c := range p.Status.Components {
 			if c.Name == meta.Component.Name &&
@@ -270,6 +272,7 @@ func (brk *broker) AuthorizeComponent(ctx context.Context, meta *Metadata) error
 		},
 	}
 	if err := brk.k8sClient.Create(ctx, &review); err != nil {
+		brk.log.Debug("CTOKE REVIEW FAILD !!!!!!")
 		return err
 	}
 	if !review.Status.Authenticated {
@@ -345,58 +348,72 @@ func (brk *broker) startWorker(id int) {
 	}
 }
 
-var tracer = otel.Tracer("test-tracer")
-
-func (brk *broker) routeEvent(ctx *BrokerEventContext) error {
+func (brk *broker) routeEvent(ctx *BrokerEventContext) (err error) {
 	// TODO need a way to decide if to sample span after creation, after event
 	// context is attached. It looks like "sampler" is called at creation.
-	trCtx, span := tracer.Start(ctx.Context, "route-event", trace.WithAttributes(attribute.Bool("sample", true)))
-	ctx.Context = trCtx
 
-	trCtx2, span2 := tracer.Start(ctx.Context, "route-event2")
-	ctx.Context = trCtx2
-
-	span.SpanContext().TraceState().Insert("record", "false")
-	span.SetAttributes(attribute.Bool("record", false))
-
+	var (
+		routeSpan      trace.Span
+		findTargetSpan trace.Span
+		sendSpan       trace.Span
+	)
 	defer func() {
-		defer span2.End()
-		defer span.End()
+		if err != nil {
+			routeSpan.SetStatus(codes.Error, err.Error())
+		}
+		routeSpan.End()
 	}()
 
 	ctx.Log.Debugf("routing event from receiver '%s'", ctx.Receiver)
+	ctx.Context, routeSpan = telemetry.Tracer.Start(ctx, "route-event")
 
-	if err := brk.validateEvent(ctx); err != nil {
-		return err
+	ctx.Context, findTargetSpan = telemetry.Tracer.Start(ctx, "find-target")
+	if err = brk.validateEvent(ctx); err == nil { //success
+		err = brk.findTarget(ctx)
 	}
-	if err := brk.findTarget(ctx); err != nil {
-		return err
+	if err != nil {
+		findTargetSpan.RecordError(err)
+		findTargetSpan.SetStatus(codes.Error, err.Error())
+		findTargetSpan.End()
+		return
 	}
+	findTargetSpan.End()
 
 	// Set log attributes after matching.
 	ctx.Log = ctx.Log.WithEvent(ctx.Event)
 	ctx.Log.Debugf("matched event to target '%s'", ctx.Event.Target)
 
-	// TODO move http client to adapter
+	ctx.Context, sendSpan = telemetry.Tracer.Start(ctx, "send-event")
 	if ctx.TargetAdapter != nil {
-		return brk.httpClient.SendEvent(ctx)
+		// TODO move http client to adapter
+		err = brk.httpClient.SendEvent(ctx)
+
+	} else {
+		sub, found := brk.subMgr.Subscription(ctx.Event.Target)
+		switch {
+		case found:
+			// Found component subscribed via gRPC.
+			ctx.Log.Debug("subscription found, sending event with gRPC")
+			err = sub.SendEvent(ctx)
+
+		case ctx.Receiver != ReceiverNATS && ctx.Event.Target.BrokerId != brk.comp.Id:
+			// Component not found locally, send via NATS.
+			ctx.Log.Debug("subscription not found, sending event with nats")
+			err = brk.natsClient.Publish(ctx.Event.Target.Subject(), ctx.Event)
+
+		default:
+			err = core.ErrComponentGone()
+		}
 	}
-
-	sub, found := brk.subMgr.Subscription(ctx.Event.Target)
-	switch {
-	case found:
-		// Found component subscribed via gRPC.
-		ctx.Log.Debug("subscription found, sending event with gRPC")
-		return sub.SendEvent(ctx)
-
-	case ctx.Receiver != ReceiverNATS && ctx.Event.Target.BrokerId != brk.comp.Id:
-		// Component not found locally, send via NATS.
-		ctx.Log.Debug("subscription not found, sending event with nats")
-		return brk.natsClient.Publish(ctx.Event.Target.Subject(), ctx.Event)
-
-	default:
-		return core.ErrComponentGone()
+	if err != nil {
+		sendSpan.RecordError(err)
+		sendSpan.SetStatus(codes.Error, err.Error())
+		sendSpan.End()
+		return
 	}
+	sendSpan.End()
+
+	return
 }
 
 func (brk *broker) validateEvent(ctx *BrokerEventContext) error {

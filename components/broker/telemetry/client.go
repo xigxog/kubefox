@@ -10,6 +10,7 @@ package telemetry
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/xigxog/kubefox/api"
@@ -19,10 +20,15 @@ import (
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/exporters/stdout/stdouttrace"
+	"go.opentelemetry.io/otel/propagation"
 	"go.opentelemetry.io/otel/sdk/metric"
 	"go.opentelemetry.io/otel/sdk/resource"
 	"go.opentelemetry.io/otel/sdk/trace"
 	semconv "go.opentelemetry.io/otel/semconv/v1.4.0"
+)
+
+var (
+	Tracer = otel.Tracer(fmt.Sprintf("kubefox.%s.%s", config.Instance, config.Platform))
 )
 
 type Client struct {
@@ -50,6 +56,7 @@ func (c *Client) Start(ctx context.Context) error {
 	c.log.Debug("telemetry client starting")
 
 	otel.SetErrorHandler(OTELErrorHandler{Log: c.log})
+	otel.SetTextMapPropagator(propagation.TraceContext{})
 
 	// tlsCfg, err := cl.tls()
 	// if err != nil {
@@ -99,14 +106,11 @@ func (c *Client) Start(ctx context.Context) error {
 
 	c.traceProvider = trace.NewTracerProvider(
 		// TODO sample setup? just rely on outside request to determine if to sample?
-		trace.WithSampler(&Sampler{}),
+		// trace.WithSampler(&Sampler{}),
 		trace.WithResource(res),
 		trace.WithBatcher(trExp),
 	)
 	otel.SetTracerProvider(c.traceProvider)
-
-	// TODO ???
-	//  otel.SetTextMapPropagator()
 
 	c.log.Info("telemetry client started")
 	return nil

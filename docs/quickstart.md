@@ -436,7 +436,7 @@ an event, the AppDeployment to use and the Virtual Environments to inject. These
 can be passed as headers or query parameters for HTTP requests.
 
 ```{ .shell .copy }
-curl "http://localhost:8080/qa/hello?kf-dep=hello-world-main&kf-env=qa"
+curl "http://localhost:8080/qa/hello?kf-dep=hello-world-main&kf-ve=qa"
 ```
 
 ??? example "Output"
@@ -452,7 +452,7 @@ Environments has nearly zero overhead! Be sure to change the URL path from
 `/qa/hello` to `/prod/hello` to reflect the change of the `subPath` variable.
 
 ```{ .shell .copy }
-curl "http://localhost:8080/prod/hello?kf-dep=hello-world-main&kf-env=prod"
+curl "http://localhost:8080/prod/hello?kf-dep=hello-world-main&kf-ve=prod"
 ```
 
 ??? example "Output"
@@ -750,9 +750,9 @@ out the current `v1` Release and latest `hello-world-main` AppDeployment.
 ```{ .shell .copy }
 echo -ne "VERSION\tVIRTENV\tOUTPUT" && \
   echo -ne "\nv1\tqa\t"; curl "http://localhost:8080/qa/hello" && \
-  echo -ne "\nv1\tprod\t"; curl "http://localhost:8080/prod/hello?kf-dep=hello-world-v1&kf-env=prod" && \
-  echo -ne "\nmain\tqa\t"; curl "http://localhost:8080/qa/hello?kf-dep=hello-world-main&kf-env=qa" && \
-  echo -ne "\nmain\tprod\t"; curl "http://localhost:8080/prod/hello?kf-dep=hello-world-main&kf-env=prod"
+  echo -ne "\nv1\tprod\t"; curl "http://localhost:8080/prod/hello?kf-dep=hello-world-v1&kf-ve=prod" && \
+  echo -ne "\nmain\tqa\t"; curl "http://localhost:8080/qa/hello?kf-dep=hello-world-main&kf-ve=qa" && \
+  echo -ne "\nmain\tprod\t"; curl "http://localhost:8080/prod/hello?kf-dep=hello-world-main&kf-ve=prod"
 ```
 
 ??? example "Output"

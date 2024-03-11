@@ -28,7 +28,7 @@ fox proxy 8080 --wait 5m
 fox proxy 8080 --virtual-env my-env --app-deployment my-dep
 
 	http://127.0.0.1:8080/hello                 # uses my-env and my-deployment
-	http://127.0.0.1:8080/hello?kf-env=your-env # uses your-env and my-dep
+	http://127.0.0.1:8080/hello?kf-ve=your-env # uses your-env and my-dep
 	http://127.0.0.1:8080/hello?kf-dep=your-dep # uses my-env and your-dep
 ```
 

@@ -132,7 +132,9 @@ func (c *Client) run(def *api.ComponentDefinition, retry int) (int, error) {
 		}
 	}()
 
-	if c.brk, err = NewBrokerClient(conn).Subscribe(context.Background()); err != nil {
+	ctx := context.WithoutCancel(context.Background())
+
+	if c.brk, err = NewBrokerClient(conn).Subscribe(ctx); err != nil {
 		return retry + 1, fmt.Errorf("subscribing to broker failed: %v", err)
 	}
 

@@ -25,7 +25,6 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/xigxog/kubefox/api"
-	v1 "go.opentelemetry.io/proto/otlp/trace/v1"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/structpb"
 )
@@ -39,11 +38,8 @@ type EventOpts struct {
 	TraceParent *SpanContext
 }
 
-type SpanContext struct {
-	TraceId    [16]byte
-	SpanId     [8]byte
-	TraceState string
-	Flags      byte
+func SpanAttr(key, value string) *SpanAttribute {
+	return &SpanAttribute{Key: key, Value: value}
 }
 
 func NewResp(opts EventOpts) *Event {
@@ -107,22 +103,15 @@ func clone(evt *Event, cat Category, opts EventOpts) *Event {
 
 func applyOpts(evt *Event, cat Category, opts EventOpts) *Event {
 	evt.SetParent(opts.Parent)
+	evt.SetTraceParent(opts.TraceParent)
 	evt.Category = cat
 	evt.Source = opts.Source
 	evt.Target = opts.Target
 	if opts.Timeout != 0 {
-		evt.Ttl = opts.Timeout.Microseconds()
+		evt.Ttl = opts.Timeout.Nanoseconds()
 	}
 	if opts.Type != "" && opts.Type != api.EventTypeUnknown {
 		evt.Type = string(opts.Type)
-	}
-	if ps := opts.TraceParent; ps != nil {
-		evt.Context.TraceParent = &v1.Span{
-			TraceId:    ps.TraceId[:],
-			SpanId:     ps.SpanId[:],
-			TraceState: ps.TraceState,
-			Flags:      uint32(ps.Flags),
-		}
 	}
 
 	return evt
@@ -138,6 +127,10 @@ func (evt *Event) SetParent(parent *Event) {
 	if evt.Type == "" || evt.Type == string(api.EventTypeUnknown) {
 		evt.Type = parent.Type
 	}
+}
+
+func (evt *Event) SetTraceParent(parent *SpanContext) {
+
 }
 
 func (evt *Event) HasContext() bool {
@@ -362,11 +355,11 @@ func (evt *Event) TTL() time.Duration {
 }
 
 func (evt *Event) SetTTL(t time.Duration) {
-	evt.Ttl = t.Microseconds()
+	evt.Ttl = t.Nanoseconds()
 }
 
 func (evt *Event) ReduceTTL(start time.Time) time.Duration {
-	evt.Ttl = evt.Ttl - time.Since(start).Microseconds()
+	evt.Ttl = evt.Ttl - time.Since(start).Nanoseconds()
 	return evt.TTL()
 }
 
@@ -525,6 +518,13 @@ func (evt *Event) Str() string {
 
 func (evt *Event) Bytes() []byte {
 	return evt.Content
+}
+
+func (evt *Event) StartSpan(name string, attrs ...SpanAttribute) *Span {
+	span := StartSpan(name, evt.Context.TraceParent, attrs...)
+	evt.Spans = append(evt.Spans, span.otelSpan)
+
+	return span
 }
 
 func (evt *Event) Bind(v any) error {

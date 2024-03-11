@@ -125,7 +125,7 @@ func (r *VirtualEnvReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 		}
 	}
 
-	if err := r.reconcile(veCtx, log); err != nil {
+	if err := r.reconcile(veCtx); err != nil {
 		return RetryConflictWebhookErr(err)
 	}
 
@@ -184,7 +184,7 @@ func (r *VirtualEnvReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 	return ctrl.Result{RequeueAfter: requeueDuration}, nil
 }
 
-func (r *VirtualEnvReconciler) reconcile(ctx *VirtualEnvContext, log *logkf.Logger) error {
+func (r *VirtualEnvReconciler) reconcile(ctx *VirtualEnvContext) error {
 	pending := k8s.Condition(ctx.Status.Conditions, api.ConditionTypeReleasePending)
 
 	// Check if the pending Release failed to activate before deadline was
@@ -523,7 +523,7 @@ func (r *VirtualEnvReconciler) updateProblems(ctx *VirtualEnvContext, rel *v1alp
 				},
 			})
 
-		case err != nil:
+		default:
 			return err
 		}
 	}
@@ -687,7 +687,7 @@ func (r *VirtualEnvReconciler) updateProblems(ctx *VirtualEnvContext, rel *v1alp
 				},
 			})
 
-		case err != nil:
+		default:
 			return err
 		}
 	}
