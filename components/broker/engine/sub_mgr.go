@@ -182,7 +182,7 @@ func (mgr *subscriptionMgr) ReplicaSubscription(comp *core.Component) (ReplicaSu
 }
 
 func (mgr *subscriptionMgr) GroupSubscription(comp *core.Component) (GroupSubscription, bool) {
-	if comp == nil || comp.Name == "" || comp.Commit == "" {
+	if comp == nil || comp.Name == "" || comp.Hash == "" {
 		return nil, false
 	}
 
@@ -317,8 +317,8 @@ func checkComp(comp *core.Component) error {
 	if comp.Name == "" {
 		return fmt.Errorf("component is missing name")
 	}
-	if comp.Commit == "" {
-		return fmt.Errorf("component is missing commit")
+	if comp.Hash == "" {
+		return fmt.Errorf("component is missing hash")
 	}
 	if comp.Id == "" {
 		return fmt.Errorf("component is missing id")

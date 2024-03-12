@@ -21,9 +21,13 @@ import (
 	"time"
 
 	"github.com/xigxog/kubefox/api"
-	core "github.com/xigxog/kubefox/core"
+	"github.com/xigxog/kubefox/core"
+	"github.com/xigxog/kubefox/telemetry"
 
 	"github.com/xigxog/kubefox/logkf"
+	semconv "go.opentelemetry.io/otel/semconv/v1.24.0"
+	otelgrpc "go.opentelemetry.io/proto/otlp/collector/trace/v1"
+	tracev1 "go.opentelemetry.io/proto/otlp/trace/v1"
 	gogrpc "google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 )
@@ -36,10 +40,15 @@ type ClientOpts struct {
 	HealthSrvAddr string
 }
 
+type Broker struct {
+	Broker_SubscribeClient
+	otelgrpc.TraceServiceClient
+}
+
 type Client struct {
 	ClientOpts
 
-	brk    Broker_SubscribeClient
+	brk    *Broker
 	reqMap map[string]*ActiveReq
 
 	recvCh chan *ComponentEvent
@@ -132,15 +141,23 @@ func (c *Client) run(def *api.ComponentDefinition, retry int) (int, error) {
 		}
 	}()
 
-	ctx := context.WithoutCancel(context.Background())
+	brkClient := NewBrokerClient(conn)
+	traceClient := otelgrpc.NewTraceServiceClient(conn)
 
-	if c.brk, err = NewBrokerClient(conn).Subscribe(ctx); err != nil {
+	brkSubClient, err := brkClient.Subscribe(context.Background())
+	if err != nil {
 		return retry + 1, fmt.Errorf("subscribing to broker failed: %v", err)
 	}
 
+	c.brk = &Broker{
+		Broker_SubscribeClient: brkSubClient,
+		TraceServiceClient:     traceClient,
+	}
+
 	evt := core.NewReq(core.EventOpts{
-		Type:   api.EventTypeRegister,
-		Source: c.Component,
+		Type:    api.EventTypeRegister,
+		Source:  c.Component,
+		Timeout: time.Second * 5,
 	})
 	if err := evt.SetJSON(def); err != nil {
 		return retry + 1, fmt.Errorf("unable to marshal component spec: %v", err)
@@ -275,6 +292,32 @@ func (c *Client) send(evt *core.Event, start time.Time) error {
 	return c.brk.Send(evt)
 }
 
+func (c *Client) SendSpans(spans ...*telemetry.Span) {
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
+	defer cancel()
+
+	resSpans := &tracev1.ResourceSpans{
+		Resource: telemetry.Resource(),
+		ScopeSpans: []*tracev1.ScopeSpans{
+			{
+				Spans:     make([]*tracev1.Span, len(spans)),
+				SchemaUrl: semconv.SchemaURL,
+			},
+		},
+		SchemaUrl: semconv.SchemaURL,
+	}
+	for i := range spans {
+		resSpans.ScopeSpans[0].Spans[i] = spans[i].OTELSpan()
+	}
+
+	_, err := c.brk.Export(ctx, &otelgrpc.ExportTraceServiceRequest{
+		ResourceSpans: []*tracev1.ResourceSpans{resSpans},
+	})
+	if err != nil {
+		c.log.Warnf("error sending trace spans to broker: %v", err)
+	}
+}
+
 func (c *Client) StartHealthSrv() error {
 	if c.HealthSrvAddr == "" || c.HealthSrvAddr == "false" {
 		return nil
@@ -320,7 +363,7 @@ func (c *Client) GetRequestMetadata(ctx context.Context, uri ...string) (map[str
 
 	return map[string]string{
 		api.GRPCKeyId:        c.Component.Id,
-		api.GRPCKeyCommit:    c.Component.Commit,
+		api.GRPCKeyHash:      c.Component.Hash,
 		api.GRPCKeyComponent: c.Component.Name,
 		api.GRPCKeyApp:       c.Component.App,
 		api.GRPCKeyType:      c.Component.Type,

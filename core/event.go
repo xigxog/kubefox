@@ -38,10 +38,6 @@ type EventOpts struct {
 	TraceParent *SpanContext
 }
 
-func SpanAttr(key, value string) *SpanAttribute {
-	return &SpanAttribute{Key: key, Value: value}
-}
-
 func NewResp(opts EventOpts) *Event {
 	return applyOpts(NewEvent(), Category_RESPONSE, opts)
 }
@@ -78,7 +74,7 @@ func CloneToReq(evt *Event, opts EventOpts) *Event {
 func NewEvent() *Event {
 	return &Event{
 		Id:         uuid.NewString(),
-		CreateTime: time.Now().UnixMicro(),
+		CreateTime: time.Now().UnixNano(),
 		Params:     make(map[string]*structpb.Value),
 		Values:     make(map[string]*structpb.Value),
 		Context:    &EventContext{},
@@ -88,7 +84,7 @@ func NewEvent() *Event {
 func clone(evt *Event, cat Category, opts EventOpts) *Event {
 	clone := proto.Clone(evt).(*Event)
 	clone.Id = uuid.NewString()
-	clone.CreateTime = time.Now().UnixMicro()
+	clone.CreateTime = time.Now().UnixNano()
 	if clone.Params == nil {
 		clone.Params = make(map[string]*structpb.Value)
 	}
@@ -103,7 +99,9 @@ func clone(evt *Event, cat Category, opts EventOpts) *Event {
 
 func applyOpts(evt *Event, cat Category, opts EventOpts) *Event {
 	evt.SetParent(opts.Parent)
-	evt.SetTraceParent(opts.TraceParent)
+	if opts.TraceParent != nil {
+		evt.TraceParent = opts.TraceParent
+	}
 	evt.Category = cat
 	evt.Source = opts.Source
 	evt.Target = opts.Target
@@ -122,15 +120,12 @@ func (evt *Event) SetParent(parent *Event) {
 		return
 	}
 	evt.ParentId = parent.Id
+	evt.TraceParent = parent.TraceParent
 	evt.Ttl = parent.Ttl
 	evt.SetContext(parent.Context)
 	if evt.Type == "" || evt.Type == string(api.EventTypeUnknown) {
 		evt.Type = parent.Type
 	}
-}
-
-func (evt *Event) SetTraceParent(parent *SpanContext) {
-
 }
 
 func (evt *Event) HasContext() bool {
@@ -153,8 +148,6 @@ func (evt *Event) SetContext(evtCtx *EventContext) {
 	evt.Context.VirtualEnvironment = evtCtx.VirtualEnvironment
 	evt.Context.AppDeployment = evtCtx.AppDeployment
 	evt.Context.ReleaseManifest = evtCtx.ReleaseManifest
-	// TODO should this be copied?
-	// evt.Context.ParentSpan = evtCtx.ParentSpan
 }
 
 func (evt *Event) SetRoute(route *Route) {
@@ -167,7 +160,7 @@ func (evt *Event) SetRoute(route *Route) {
 		api.ComponentType(route.Component.Type),
 		route.Component.App,
 		route.Component.Name,
-		route.Component.Commit,
+		route.Component.Hash,
 	)
 }
 
@@ -351,7 +344,7 @@ func (evt *Event) SetValueProto(key string, val *structpb.Value) {
 }
 
 func (evt *Event) TTL() time.Duration {
-	return time.Duration(evt.Ttl) * time.Microsecond
+	return time.Duration(evt.Ttl) * time.Nanosecond
 }
 
 func (evt *Event) SetTTL(t time.Duration) {
@@ -380,24 +373,17 @@ func (evt *Event) SetStatusV(val *api.Val) {
 }
 
 func (evt *Event) TraceId() string {
-	if evt.Context == nil || evt.Context.TraceParent == nil {
+	if evt.TraceParent == nil {
 		return ""
 	}
-	return hex.EncodeToString(evt.Context.TraceParent.TraceId)
+	return hex.EncodeToString(evt.TraceParent.TraceId)
 }
 
 func (evt *Event) SpanId() string {
-	if evt.Context == nil || evt.Context.TraceParent == nil {
+	if evt.TraceParent == nil {
 		return ""
 	}
-	return hex.EncodeToString(evt.Context.TraceParent.SpanId)
-}
-
-func (evt *Event) TraceFlags() byte {
-	if evt.Context == nil || evt.Context.TraceParent == nil {
-		return 0
-	}
-	return byte(evt.Context.TraceParent.Flags)
+	return hex.EncodeToString(evt.TraceParent.SpanId)
 }
 
 func (evt *Event) URL() (*url.URL, error) {
@@ -518,13 +504,6 @@ func (evt *Event) Str() string {
 
 func (evt *Event) Bytes() []byte {
 	return evt.Content
-}
-
-func (evt *Event) StartSpan(name string, attrs ...SpanAttribute) *Span {
-	span := StartSpan(name, evt.Context.TraceParent, attrs...)
-	evt.Spans = append(evt.Spans, span.otelSpan)
-
-	return span
 }
 
 func (evt *Event) Bind(v any) error {

@@ -146,7 +146,7 @@ func (c *HTTPClient) SendEvent(req *BrokerEventContext) error {
 	comp := core.NewPlatformComponent(
 		api.ComponentTypeHTTPAdapter,
 		req.Event.Target.Name,
-		c.brk.Component().Commit,
+		c.brk.Component().Hash,
 	)
 	comp.Id, comp.BrokerId = c.brk.Component().Id, c.brk.Component().BrokerId
 

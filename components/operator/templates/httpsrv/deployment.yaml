@@ -38,7 +38,7 @@ spec:
           args:
             - -platform={{ .Platform.Name }}
             - -name={{ .Component.Name }}
-            - -commit={{ .BuildInfo.HTTPSrvCommit }}
+            - -hash={{ .BuildInfo.HTTPSrvCommit }}
             - -pod=$(KUBEFOX_COMPONENT_POD)
             - -http-addr=0.0.0.0:8080
             - -https-addr=0.0.0.0:8443

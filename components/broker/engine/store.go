@@ -424,7 +424,7 @@ func (str *Store) updateComponentCache(ctx context.Context) error {
 
 	for _, c := range p.Status.Components {
 		if c.Name == api.PlatformComponentHTTPSrv {
-			comp := core.NewPlatformComponent(c.Type, c.Name, c.Commit)
+			comp := core.NewPlatformComponent(c.Type, c.Name, c.Hash)
 			compCache[comp.GroupKey()] = &api.ComponentDefinition{
 				Type: c.Type,
 			}

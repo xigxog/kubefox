@@ -97,7 +97,7 @@ type PlatformStatus struct {
 type ComponentStatus struct {
 	Ready    bool              `json:"ready"`
 	Name     string            `json:"name"`
-	Commit   string            `json:"commit,omitempty"`
+	Hash     string            `json:"hash,omitempty"`
 	Type     api.ComponentType `json:"type,omitempty"`
 	PodName  string            `json:"podName"`
 	PodIP    string            `json:"podIP"`

@@ -14,7 +14,7 @@
 | type | [string](#string) |  |  |
 | app | [string](#string) |  |  |
 | name | [string](#string) |  |  |
-| commit | [string](#string) |  |  |
+| hash | [string](#string) |  |  |
 | id | [string](#string) |  |  |
 | broker_id | [string](#string) |  |  |
 
@@ -33,16 +33,16 @@
 | ----- | ---- | ----- | ----------- |
 | id | [string](#string) |  |  |
 | parent_id | [string](#string) |  |  |
+| trace_parent | [SpanContext](#kubefoxprotov1spancontext) |  |  |
 | type | [string](#string) |  |  |
 | category | [Category](#kubefoxprotov1category) |  |  |
-| create_time | [int64](#int64) |  | Unix time in µs |
-| ttl | [int64](#int64) |  | TTL in µs |
+| create_time | [int64](#int64) |  | Unix time in nanosecond |
+| ttl | [int64](#int64) |  | TTL in nanosecond |
 | context | [EventContext](#kubefoxprotov1eventcontext) |  |  |
 | source | [Component](#kubefoxprotov1component) |  |  |
 | target | [Component](#kubefoxprotov1component) |  |  |
 | params | [Event.ParamsEntry](#kubefoxprotov1eventparamsentry) | repeated |  |
 | values | [Event.ValuesEntry](#kubefoxprotov1eventvaluesentry) | repeated |  |
-| spans | [opentelemetry.proto.trace.v1.Span](#opentelemetryprototracev1span) | repeated |  |
 | content_type | [string](#string) |  |  |
 | content | [bytes](#bytes) |  |  |
 
@@ -95,7 +95,6 @@
 | virtual_environment | [string](#string) |  |  |
 | app_deployment | [string](#string) |  |  |
 | release_manifest | [string](#string) |  |  |
-| trace_parent | [opentelemetry.proto.trace.v1.Span](#opentelemetryprototracev1span) |  |  |
 
 
 
@@ -129,6 +128,24 @@
 | ----- | ---- | ----- | ----------- |
 | key | [string](#string) |  |  |
 | value | [google.protobuf.Value](#googleprotobufvalue) |  |  |
+
+
+
+
+
+
+<a name="kubefoxprotov1spancontext"></a>
+
+### SpanContext
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| trace_id | [bytes](#bytes) |  |  |
+| span_id | [bytes](#bytes) |  |  |
+| trace_state | [string](#string) |  |  |
+| flags | [fixed32](#fixed32) |  |  |
 
 
 

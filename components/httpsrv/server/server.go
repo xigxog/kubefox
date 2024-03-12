@@ -10,11 +10,9 @@ package server
 
 import (
 	"context"
-	crand "crypto/rand"
 	"crypto/tls"
-	"encoding/binary"
 	"errors"
-	"math/rand"
+	"fmt"
 	"net"
 	"net/http"
 	"strconv"
@@ -25,10 +23,9 @@ import (
 	"github.com/xigxog/kubefox/core"
 	"github.com/xigxog/kubefox/grpc"
 	"github.com/xigxog/kubefox/logkf"
+	"github.com/xigxog/kubefox/telemetry"
 
 	"go.opentelemetry.io/contrib/instrumentation/net/http/httptrace/otelhttptrace"
-	"go.opentelemetry.io/otel"
-	"go.opentelemetry.io/otel/propagation"
 )
 
 const (
@@ -41,18 +38,10 @@ type Server struct {
 	wrapped *http.Server
 	brk     *grpc.Client
 
-	randSrc *rand.Rand
-
 	log *logkf.Logger
 }
 
 func New(comp *core.Component, pod string) *Server {
-	otel.SetTextMapPropagator(propagation.TraceContext{})
-
-	var rngSeed int64
-	_ = binary.Read(crand.Reader, binary.LittleEndian, &rngSeed)
-	randSrc := rand.New(rand.NewSource(rngSeed))
-
 	return &Server{
 		brk: grpc.NewClient(grpc.ClientOpts{
 			Platform:      Platform,
@@ -61,8 +50,7 @@ func New(comp *core.Component, pod string) *Server {
 			BrokerAddr:    BrokerAddr,
 			HealthSrvAddr: HealthSrvAddr,
 		}),
-		randSrc: randSrc,
-		log:     logkf.Global,
+		log: logkf.Global,
 	}
 }
 
@@ -140,26 +128,28 @@ func (srv *Server) ServeHTTP(resWriter http.ResponseWriter, httpReq *http.Reques
 
 	setHeader(resWriter, api.HeaderAdapter, srv.brk.Component.Key())
 
-	sc := &core.SpanContext{
-		TraceId: [16]byte{},
-		SpanId:  [8]byte{},
-	}
-	srv.Lock()
-	_, _ = srv.randSrc.Read(sc.TraceId[:])
-	_, _ = srv.randSrc.Read(sc.SpanId[:])
-	srv.Unlock()
-
+	var parentTrace *core.SpanContext
 	_, _, otelSC := otelhttptrace.Extract(ctx, httpReq)
 	if otelSC.HasTraceID() {
-		sc.TraceId = otelSC.TraceID()
-		sc.TraceState = otelSC.TraceState().String()
-		sc.Flags = byte(otelSC.TraceFlags())
+		parentTrace = telemetry.SpanContextFromOTEL(otelSC)
 	}
+
+	var spans []*telemetry.Span
+	span := telemetry.StartSpan(fmt.Sprintf("%s %s", httpReq.Method, httpReq.URL), parentTrace)
+	spans = append(spans, span)
+
+	defer func() {
+		span.End()
+		srv.brk.SendSpans(spans...)
+	}()
+
+	parseSpan := telemetry.StartSpan("parse http request", span.SpanContext())
+	spans = append(spans, parseSpan)
 
 	req := core.NewReq(core.EventOpts{
 		Source:      srv.brk.Component,
 		Timeout:     EventTimeout,
-		TraceParent: sc,
+		TraceParent: span.SpanContext(),
 	})
 	setHeader(resWriter, api.HeaderEventId, req.Id)
 
@@ -167,11 +157,16 @@ func (srv *Server) ServeHTTP(resWriter http.ResponseWriter, httpReq *http.Reques
 		writeError(resWriter, err, srv.log)
 		return
 	}
+	parseSpan.End()
 
 	log := srv.log.WithEvent(req)
 	log.Debug("receive request")
 
 	resp, err := srv.brk.SendReq(ctx, req, time.Now())
+
+	respSpan := telemetry.StartSpan("send http response", span.SpanContext())
+	spans = append(spans, respSpan)
+	defer respSpan.End()
 
 	// Add Event Context to response headers.
 	if resp != nil && resp.Context != nil {

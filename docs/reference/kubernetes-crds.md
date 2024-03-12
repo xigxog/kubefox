@@ -313,7 +313,7 @@ Used by:<br>
 | ----- | ---- | ----------- | ---------- |
 | `ready` | <div style="white-space:nowrap">boolean<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
 | `name` | <div style="white-space:nowrap">string<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
-| `commit` | <div style="white-space:nowrap">string<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
+| `hash` | <div style="white-space:nowrap">string<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
 | `type` | <div style="white-space:nowrap">[ComponentType](#componenttype)<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
 | `podName` | <div style="white-space:nowrap">string<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
 | `podIP` | <div style="white-space:nowrap">string<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |

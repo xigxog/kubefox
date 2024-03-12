@@ -22,6 +22,7 @@ import (
 	"github.com/xigxog/kubefox/grpc"
 	"github.com/xigxog/kubefox/logkf"
 
+	otelgrpc "go.opentelemetry.io/proto/otlp/collector/trace/v1"
 	gogrpc "google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials"
@@ -32,6 +33,7 @@ import (
 
 type GRPCServer struct {
 	grpc.UnimplementedBrokerServer
+	otelgrpc.UnimplementedTraceServiceServer
 
 	wrapped *gogrpc.Server
 	brk     Broker
@@ -66,6 +68,7 @@ func (srv *GRPCServer) Start(ctx context.Context) error {
 	)
 
 	grpc.RegisterBrokerServer(srv.wrapped, srv)
+	otelgrpc.RegisterTraceServiceServer(srv.wrapped, srv)
 	reflection.Register(srv.wrapped)
 
 	lis, err := net.Listen("tcp", config.GRPCSrvAddr)
@@ -264,6 +267,10 @@ func (srv *GRPCServer) subscribe(stream grpc.Broker_SubscribeServer) (ReplicaSub
 	}
 }
 
+func (srv *GRPCServer) Export(ctx context.Context, req *otelgrpc.ExportTraceServiceRequest) (*otelgrpc.ExportTraceServiceResponse, error) {
+	return &otelgrpc.ExportTraceServiceResponse{}, srv.brk.UploadTraces(ctx, req.ResourceSpans)
+}
+
 func parseMD(stream grpc.Broker_SubscribeServer) (*Metadata, error) {
 	md, found := metadata.FromIncomingContext(stream.Context())
 	if !found {
@@ -275,7 +282,7 @@ func parseMD(stream grpc.Broker_SubscribeServer) (*Metadata, error) {
 	if err != nil {
 		return nil, err
 	}
-	commit, err := getMD(md, api.GRPCKeyCommit, true)
+	hash, err := getMD(md, api.GRPCKeyHash, true)
 	if err != nil {
 		return nil, err
 	}
@@ -304,7 +311,7 @@ func parseMD(stream grpc.Broker_SubscribeServer) (*Metadata, error) {
 		return nil, err
 	}
 
-	comp := core.NewComponent(api.ComponentType(typ), app, name, commit)
+	comp := core.NewComponent(api.ComponentType(typ), app, name, hash)
 	comp.Id = id
 
 	return &Metadata{

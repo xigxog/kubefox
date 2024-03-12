@@ -27,8 +27,10 @@ import (
 	"github.com/xigxog/kubefox/core"
 	"github.com/xigxog/kubefox/logkf"
 	"github.com/xigxog/kubefox/utils"
+	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/codes"
 	"go.opentelemetry.io/otel/trace"
+	v1 "go.opentelemetry.io/proto/otlp/trace/v1"
 	authv1 "k8s.io/api/authentication/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -58,6 +60,7 @@ type Engine interface {
 }
 
 type Broker interface {
+	UploadTraces(context.Context, []*v1.ResourceSpans) error
 	AuthorizeComponent(context.Context, *Metadata) error
 	Subscribe(context.Context, *SubscriptionConf) (ReplicaSubscription, error)
 	RecvEvent(evt *core.Event, receiver Receiver) *BrokerEventContext
@@ -90,7 +93,7 @@ type broker struct {
 }
 
 func New() Engine {
-	comp := core.NewPlatformComponent(api.ComponentTypeBroker, api.PlatformComponentBroker, build.Info.Commit)
+	comp := core.NewPlatformComponent(api.ComponentTypeBroker, api.PlatformComponentBroker, build.Info.Hash)
 
 	id := core.GenerateId()
 	comp.Id, comp.BrokerId = id, id
@@ -146,7 +149,7 @@ func (brk *broker) Start() {
 	}
 
 	// if config.TelemetryAddr != "false" {
-	if err := brk.telClient.Start(ctx); err != nil {
+	if err := brk.telClient.Start(ctx, brk.comp); err != nil {
 		brk.shutdown(ExitCodeTelemetry, err)
 	}
 	// }
@@ -183,6 +186,10 @@ func (brk *broker) Start() {
 	<-ch
 
 	brk.shutdown(0, nil)
+}
+
+func (brk *broker) UploadTraces(ctx context.Context, protoSpans []*v1.ResourceSpans) error {
+	return brk.telClient.UploadTraces(ctx, protoSpans)
 }
 
 func (brk *broker) Subscribe(ctx context.Context, conf *SubscriptionConf) (ReplicaSubscription, error) {
@@ -230,7 +237,7 @@ func (brk *broker) AuthorizeComponent(ctx context.Context, meta *Metadata) error
 		}
 
 		def, err := brk.store.ComponentDef(ctx, meta.Component)
-		if err != nil || typ != def.Type || meta.Component.Commit != def.Hash {
+		if err != nil || typ != def.Type || meta.Component.Hash != def.Hash {
 			return fmt.Errorf("component not found")
 		}
 
@@ -245,13 +252,10 @@ func (brk *broker) AuthorizeComponent(ctx context.Context, meta *Metadata) error
 			return err
 		}
 
-		brk.log.DebugInterface("status", p.Status.Components)
-		brk.log.DebugInterface("meta", meta)
-
 		found := false
 		for _, c := range p.Status.Components {
 			if c.Name == meta.Component.Name &&
-				c.Commit == meta.Component.Commit &&
+				c.Hash == meta.Component.Hash &&
 				c.PodName == meta.Pod {
 
 				found = true
@@ -272,7 +276,6 @@ func (brk *broker) AuthorizeComponent(ctx context.Context, meta *Metadata) error
 		},
 	}
 	if err := brk.k8sClient.Create(ctx, &review); err != nil {
-		brk.log.Debug("CTOKE REVIEW FAILD !!!!!!")
 		return err
 	}
 	if !review.Status.Authenticated {
@@ -285,6 +288,19 @@ func (brk *broker) AuthorizeComponent(ctx context.Context, meta *Metadata) error
 func (brk *broker) RecvEvent(evt *core.Event, receiver Receiver) *BrokerEventContext {
 	parentCtx, cancel := context.WithCancelCause(context.Background())
 	ctx, _ := context.WithTimeoutCause(parentCtx, evt.TTL(), core.ErrTimeout())
+
+	// TODO move to kubefox telemetry and implements batch exporter.
+	if tp := evt.TraceParent; tp != nil {
+		ts, _ := trace.ParseTraceState(tp.TraceState)
+		ctx = trace.ContextWithRemoteSpanContext(ctx, trace.NewSpanContext(
+			trace.SpanContextConfig{
+				TraceID:    trace.TraceID(tp.TraceId),
+				SpanID:     trace.SpanID(tp.SpanId),
+				TraceState: ts,
+				TraceFlags: trace.TraceFlags(tp.Flags),
+			},
+		))
+	}
 
 	evtCtx := &BrokerEventContext{
 		Context:    ctx,
@@ -352,38 +368,36 @@ func (brk *broker) routeEvent(ctx *BrokerEventContext) (err error) {
 	// TODO need a way to decide if to sample span after creation, after event
 	// context is attached. It looks like "sampler" is called at creation.
 
-	var (
-		routeSpan      trace.Span
-		findTargetSpan trace.Span
-		sendSpan       trace.Span
-	)
-	defer func() {
-		if err != nil {
-			routeSpan.SetStatus(codes.Error, err.Error())
-		}
-		routeSpan.End()
-	}()
-
 	ctx.Log.Debugf("routing event from receiver '%s'", ctx.Receiver)
-	ctx.Context, routeSpan = telemetry.Tracer.Start(ctx, "route-event")
 
-	ctx.Context, findTargetSpan = telemetry.Tracer.Start(ctx, "find-target")
+	var routeSpan trace.Span
+	ctx.Context, routeSpan = telemetry.Tracer.Start(ctx.Context,
+		fmt.Sprintf("route %s from %s", ctx.Event.Category, ctx.Event.Source.Key()),
+		trace.WithAttributes(
+			attribute.String("kubefox.event.id", ctx.Event.Id),
+			attribute.String("kubefox.source", ctx.Event.Source.Key()),
+		),
+	)
+	defer routeSpan.End()
+
+	_, span := telemetry.Tracer.Start(ctx.Context, "find target")
 	if err = brk.validateEvent(ctx); err == nil { //success
 		err = brk.findTarget(ctx)
 	}
 	if err != nil {
-		findTargetSpan.RecordError(err)
-		findTargetSpan.SetStatus(codes.Error, err.Error())
-		findTargetSpan.End()
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
+		span.End()
 		return
 	}
-	findTargetSpan.End()
+	span.End()
 
-	// Set log attributes after matching.
+	// Update log and span attributes after matching.
+	routeSpan.SetAttributes(attribute.String("kubefox.target", ctx.Event.Target.Key()))
 	ctx.Log = ctx.Log.WithEvent(ctx.Event)
 	ctx.Log.Debugf("matched event to target '%s'", ctx.Event.Target)
 
-	ctx.Context, sendSpan = telemetry.Tracer.Start(ctx, "send-event")
+	_, span = telemetry.Tracer.Start(ctx.Context, fmt.Sprintf("send to %s", ctx.Event.Target.Key()))
 	if ctx.TargetAdapter != nil {
 		// TODO move http client to adapter
 		err = brk.httpClient.SendEvent(ctx)
@@ -406,12 +420,12 @@ func (brk *broker) routeEvent(ctx *BrokerEventContext) (err error) {
 		}
 	}
 	if err != nil {
-		sendSpan.RecordError(err)
-		sendSpan.SetStatus(codes.Error, err.Error())
-		sendSpan.End()
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
+		span.End()
 		return
 	}
-	sendSpan.End()
+	span.End()
 
 	return
 }
@@ -500,13 +514,13 @@ func (brk *broker) findTarget(ctx *BrokerEventContext) (err error) {
 			ctx.Event.SetRoute(route)
 
 		case ctx.Event.Target != nil && ctx.Event.Target.Type == string(api.ComponentTypeKubeFox):
-			if ctx.Event.Target.Commit == "" || ctx.Event.Target.App == "" {
+			if ctx.Event.Target.Hash == "" || ctx.Event.Target.App == "" {
 				def, err := ctx.AppDeployment.GetDefinition(ctx.Event.Target)
 				if err != nil {
 					return err
 				}
 
-				ctx.Event.Target.Commit = def.Hash
+				ctx.Event.Target.Hash = def.Hash
 				ctx.Event.Target.App = ctx.AppDeployment.Spec.AppName
 			}
 

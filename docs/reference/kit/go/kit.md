@@ -278,7 +278,7 @@ type Kit interface {
 ```
 
 <a name="New"></a>
-### func [New](<https://github.com/xigxog/kubefox/blob/main/kit/kit.go#L57>)
+### func [New](<https://github.com/xigxog/kubefox/blob/main/kit/kit.go#L58>)
 
 ```go
 func New() Kit

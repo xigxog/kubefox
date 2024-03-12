@@ -304,7 +304,7 @@ func (r *PlatformReconciler) updateComponentsStatus(ctx context.Context, p *v1al
 		p.Status.Components = append(p.Status.Components, v1alpha1.ComponentStatus{
 			Ready:    cond.Status == v1.ConditionTrue,
 			Name:     pod.Labels[api.LabelK8sComponent],
-			Commit:   pod.Labels[api.LabelK8sComponentCommit],
+			Hash:     pod.Labels[api.LabelK8sComponentHash],
 			Type:     api.ComponentType(pod.Labels[api.LabelK8sComponentType]),
 			PodName:  pod.Name,
 			PodIP:    pod.Status.PodIP,

@@ -84,12 +84,12 @@ func ByteArrayToUInt(b []byte) uint64 {
 	return *(*uint64)(unsafe.Pointer(&b[0]))
 }
 
-func ShortCommit(commit string) string {
-	if len(commit) < 7 {
+func ShortHash(hash string) string {
+	if len(hash) < 7 {
 		return ""
 	}
 
-	return commit[0:7]
+	return hash[0:7]
 }
 
 // First returns the first non-empty string. If all strings are empty then empty

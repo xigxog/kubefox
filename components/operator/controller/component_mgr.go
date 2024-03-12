@@ -479,7 +479,3 @@ func findCondition(status appsv1.DeploymentStatus, condType appsv1.DeploymentCon
 
 	return appsv1.DeploymentCondition{Type: condType, Status: corev1.ConditionUnknown}
 }
-
-// func componentKey(name, commit string) string {
-// 	return fmt.Sprintf("%s-%s", name, commit)
-// }

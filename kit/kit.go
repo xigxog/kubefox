@@ -24,6 +24,7 @@ import (
 	"github.com/xigxog/kubefox/grpc"
 	"github.com/xigxog/kubefox/kit/env"
 	"github.com/xigxog/kubefox/logkf"
+	"github.com/xigxog/kubefox/telemetry"
 	"github.com/xigxog/kubefox/utils"
 )
 
@@ -66,12 +67,12 @@ func New() Kit {
 	}
 
 	var help bool
-	var platform, app, name, commit string
+	var platform, app, name, hash string
 	var brokerAddr, healthAddr, logFormat, logLevel string
 	flag.StringVar(&platform, "platform", "", "KubeFox Platform name. (required)")
 	flag.StringVar(&app, "app", "", "App name. (required)")
 	flag.StringVar(&name, "name", "", "Component name. (required)")
-	flag.StringVar(&commit, "commit", "", "Commit the Component was built from. (required)")
+	flag.StringVar(&hash, "hash", "", "Hash the Component was built from. (required)")
 	flag.StringVar(&brokerAddr, "broker-addr", "127.0.0.1:6060", "Address of the Broker gRPC server.")
 	flag.StringVar(&healthAddr, "health-addr", "127.0.0.1:1111", `Address and port the HTTP health server should bind to, set to "false" to disable.`)
 	flag.Int64Var(&svc.maxEventSize, "max-event-size", api.DefaultMaxEventSizeBytes, "Maximum size of event in bytes.")
@@ -96,22 +97,28 @@ Flags:
 		utils.CheckRequiredFlag("platform", platform)
 		utils.CheckRequiredFlag("app", app)
 		utils.CheckRequiredFlag("name", name)
-		utils.CheckRequiredFlag("commit", commit)
+		utils.CheckRequiredFlag("hash", hash)
 
-		if commit != build.Info.Commit {
-			fmt.Fprintf(os.Stderr, "commit '%s' does not match build info commit '%s'", commit, build.Info.Commit)
+		if hash != build.Info.Hash {
+			fmt.Fprintf(os.Stderr, "hash '%s' does not match build info hash '%s'", hash, build.Info.Hash)
 			os.Exit(1)
 		}
+
+		// REMOVE
+		logFormat = "console"
+		logLevel = "debug"
 	} else {
 		logLevel = "error"
 	}
 
-	comp := core.NewComponent(api.ComponentTypeKubeFox, app, name, commit)
+	comp := core.NewComponent(api.ComponentTypeKubeFox, app, name, hash)
 	comp.Id = core.GenerateId()
 
 	logkf.Global = logkf.
 		BuildLoggerOrDie(logFormat, logLevel).
 		WithComponent(comp)
+
+	telemetry.SetComponent(comp)
 
 	svc.log = logkf.Global
 	svc.log.DebugInterface("build info:", build.Info)
@@ -265,23 +272,39 @@ func (svc *kit) recvReq(req *grpc.ComponentEvent) {
 		env:   req.Env,
 		start: time.Now(),
 		ctx:   ctx,
-		log:   log,
+
+		log: log,
 	}
 
-	var err error
+	var (
+		handler EventHandler
+		rule    string = "unknown"
+		err     error
+	)
 	switch {
 	case req.RouteId == api.DefaultRouteId:
 		if svc.defHandler == nil {
 			err = core.ErrNotFound(fmt.Errorf("default handler not found"))
 		} else {
-			err = svc.defHandler(ktx)
+			handler = svc.defHandler
+			rule = "default route"
 		}
 
 	case req.RouteId >= 0 && req.RouteId < int64(len(svc.routes)):
-		err = svc.routes[req.RouteId].handler(ktx)
+		handler = svc.routes[req.RouteId].handler
+		rule = svc.routes[req.RouteId].Rule
 
 	default:
 		err = core.ErrNotFound(fmt.Errorf("invalid route id %d", req.RouteId))
+	}
+
+	ktx.reqSpan = telemetry.StartSpan(rule, req.Event.TraceParent,
+		telemetry.SpanAttribute("kubefox.route.id", req.RouteId),
+	)
+	ktx.spans = append(ktx.spans, ktx.reqSpan)
+
+	if handler != nil {
+		err = handler(ktx)
 	}
 
 	if err != nil {
@@ -291,5 +314,9 @@ func (svc *kit) recvReq(req *grpc.ComponentEvent) {
 		if err := ktx.Resp().Forward(errEvt); err != nil {
 			log.Error(err)
 		}
+		// TODO mark span as error
 	}
+
+	ktx.reqSpan.End()
+	svc.brk.SendSpans(ktx.spans...)
 }

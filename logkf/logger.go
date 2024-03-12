@@ -25,7 +25,7 @@ const (
 	KeyBrokerId           = "brokerId"
 	KeyBrokerName         = "brokerName"
 	KeyComponentApp       = "componentApp"
-	KeyComponentCommit    = "componentCommit"
+	KeyComponentHash      = "componentHash"
 	KeyComponentId        = "componentId"
 	KeyComponentName      = "componentName"
 	KeyComponentType      = "componentType"
@@ -39,14 +39,14 @@ const (
 	KeyReleaseManifest    = "releaseManifest"
 	KeySourceApp          = "sourceApp"
 	KeySourceBrokerId     = "sourceBrokerId"
-	KeySourceCommit       = "sourceCommit"
+	KeySourceHash         = "sourceHash"
 	KeySourceId           = "sourceId"
 	KeySourceName         = "sourceName"
 	KeySourceType         = "sourceType"
 	KeySpanId             = "spanId"
 	KeyTargetApp          = "targetApp"
 	KeyTargetBrokerId     = "targetBrokerId"
-	KeyTargetCommit       = "targetCommit"
+	KeyTargetHash         = "targetHash"
 	KeyTargetId           = "targetId"
 	KeyTargetName         = "targetName"
 	KeyTargetType         = "targetType"
@@ -185,7 +185,7 @@ func (log *Logger) WithComponent(comp *core.Component) *Logger {
 	}
 	return log.With(
 		KeyComponentId, comp.Id,
-		KeyComponentCommit, comp.Commit,
+		KeyComponentHash, comp.Hash,
 		KeyComponentName, comp.Name,
 		KeyComponentApp, comp.App,
 		KeyComponentType, comp.Type,
@@ -199,7 +199,7 @@ func (log *Logger) WithSource(src *core.Component) *Logger {
 	}
 	return log.With(
 		KeySourceId, src.Id,
-		KeySourceCommit, src.Commit,
+		KeySourceHash, src.Hash,
 		KeySourceName, src.Name,
 		KeySourceApp, src.App,
 		KeySourceType, src.Type,
@@ -213,7 +213,7 @@ func (log *Logger) WithTarget(tgt *core.Component) *Logger {
 	}
 	return log.With(
 		KeyTargetId, tgt.Id,
-		KeyTargetCommit, tgt.Commit,
+		KeyTargetHash, tgt.Hash,
 		KeyTargetName, tgt.Name,
 		KeyTargetApp, tgt.App,
 		KeyTargetType, tgt.Type,

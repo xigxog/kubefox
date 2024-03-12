@@ -22,7 +22,7 @@ go build \
 	-ldflags " \
 		-w -s
 		-X github.com/xigxog/kubefox/build.brokerCommit=${BROKER_COMMIT} \
-		-X github.com/xigxog/kubefox/build.commit=${COMPONENT_COMMIT} \
+		-X github.com/xigxog/kubefox/build.hash=${COMPONENT_COMMIT} \
 		-X github.com/xigxog/kubefox/build.component=${COMPONENT} \
 		-X github.com/xigxog/kubefox/build.date=${BUILD_DATE}\
 		-X github.com/xigxog/kubefox/build.headRef=${HEAD_REF} \

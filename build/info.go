@@ -16,9 +16,9 @@ import (
 // Injected at build time.
 var (
 	brokerCommit   string
-	commit         string
 	component      string
 	date           string
+	hash           string
 	headRef        string
 	httpsrvCommit  string
 	operatorCommit string
@@ -30,9 +30,9 @@ var (
 type BuildInfo struct {
 	Branch         string `json:"branch,omitempty"`
 	BrokerCommit   string `json:"brokerCommit,omitempty"`
-	Commit         string `json:"commit,omitempty"`
 	Component      string `json:"component,omitempty"`
 	Date           string `json:"date,omitempty"`
+	Hash           string `json:"hash,omitempty"`
 	HTTPSrvCommit  string `json:"httpsrvCommit,omitempty"`
 	OperatorCommit string `json:"operatorCommit,omitempty"`
 	RootCommit     string `json:"rootCommit,omitempty"`
@@ -68,7 +68,7 @@ func init() {
 	Info = BuildInfo{
 		Branch:         headRef,
 		BrokerCommit:   brokerCommit,
-		Commit:         commit,
+		Hash:           hash,
 		Component:      component,
 		Date:           date,
 		HTTPSrvCommit:  httpsrvCommit,

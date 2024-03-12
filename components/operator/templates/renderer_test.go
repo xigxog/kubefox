@@ -149,7 +149,7 @@ func TestRenderBroker(t *testing.T) {
 				Name: "broker",
 				Type: string(api.ComponentTypeBroker),
 
-				Commit: "aaaaaaa",
+				Hash: "aaaaaaa",
 			},
 			// IsPlatformComponent: true,
 			Image: "ghcr.io/xigxog/kubefox/broker:v0.0.1",

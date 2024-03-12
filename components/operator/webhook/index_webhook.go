@@ -37,7 +37,7 @@ func (r *IndexWebhook) Handle(ctx context.Context, req admission.Request) admiss
 
 		k8s.UpdateLabel(appDep, api.LabelK8sAppBranch, appDep.Spec.Branch)
 		k8s.UpdateLabel(appDep, api.LabelK8sAppCommit, appDep.Spec.Commit)
-		k8s.UpdateLabel(appDep, api.LabelK8sAppCommitShort, utils.ShortCommit(appDep.Spec.Commit))
+		k8s.UpdateLabel(appDep, api.LabelK8sAppCommitShort, utils.ShortHash(appDep.Spec.Commit))
 		k8s.UpdateLabel(appDep, api.LabelK8sAppName, appDep.Spec.AppName)
 		k8s.UpdateLabel(appDep, api.LabelK8sAppTag, appDep.Spec.Tag)
 		k8s.UpdateLabel(appDep, api.LabelK8sAppVersion, appDep.Spec.Version)

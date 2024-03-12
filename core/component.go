@@ -17,12 +17,12 @@ import (
 
 var idChars = []rune("abcdefghijklmnopqrstuvwxyz0123456789")
 
-func NewComponent(typ api.ComponentType, app, name, commit string) *Component {
+func NewComponent(typ api.ComponentType, app, name, hash string) *Component {
 	return &Component{
-		Type:   string(typ),
-		App:    utils.CleanName(app),
-		Name:   utils.CleanName(name),
-		Commit: commit,
+		Type: string(typ),
+		App:  utils.CleanName(app),
+		Name: utils.CleanName(name),
+		Hash: hash,
 	}
 }
 
@@ -33,11 +33,11 @@ func NewTargetComponent(typ api.ComponentType, name string) *Component {
 	}
 }
 
-func NewPlatformComponent(typ api.ComponentType, name, commit string) *Component {
+func NewPlatformComponent(typ api.ComponentType, name, hash string) *Component {
 	return &Component{
-		Type:   string(typ),
-		Name:   utils.CleanName(name),
-		Commit: commit,
+		Type: string(typ),
+		Name: utils.CleanName(name),
+		Hash: hash,
 	}
 }
 
@@ -55,7 +55,7 @@ func (c *Component) IsComplete() bool {
 		return false
 	}
 
-	return c.Type != "" && c.Name != "" && c.Commit != "" && c.Id != "" && c.BrokerId != ""
+	return c.Type != "" && c.Name != "" && c.Hash != "" && c.Id != "" && c.BrokerId != ""
 }
 
 func (c *Component) IsNameOnly() bool {
@@ -63,7 +63,7 @@ func (c *Component) IsNameOnly() bool {
 		return false
 	}
 
-	return c.Type != "" && c.Name != "" && c.Commit == "" && c.Id == "" && c.BrokerId == ""
+	return c.Type != "" && c.Name != "" && c.Hash == "" && c.Id == "" && c.BrokerId == ""
 }
 
 func (lhs *Component) Equal(rhs *Component) bool {
@@ -73,20 +73,29 @@ func (lhs *Component) Equal(rhs *Component) bool {
 	return lhs.Type == rhs.Type &&
 		lhs.App == rhs.App &&
 		lhs.Name == rhs.Name &&
-		lhs.Commit == rhs.Commit &&
+		lhs.Hash == rhs.Hash &&
 		lhs.Id == rhs.Id &&
 		lhs.BrokerId == rhs.BrokerId
 }
 
 func (c *Component) Key() string {
-	return c.GroupKey() + "-" + c.Id
+	if c == nil {
+		return ""
+	}
+	return utils.Join("-", c.GroupKey(), c.Id)
 }
 
 func (c *Component) GroupKey() string {
-	return utils.Join("-", c.App, c.Name, c.ShortCommit())
+	if c == nil {
+		return ""
+	}
+	return utils.Join("-", c.App, c.Name, c.ShortHash())
 }
 
 func (c *Component) Subject() string {
+	if c == nil {
+		return ""
+	}
 	if c.BrokerId != "" {
 		return c.BrokerSubject()
 	}
@@ -95,17 +104,26 @@ func (c *Component) Subject() string {
 }
 
 func (c *Component) GroupSubject() string {
-	return utils.Join(".", "evt.cmp", c.App, c.Name, c.ShortCommit())
+	if c == nil {
+		return ""
+	}
+	return utils.Join(".", "evt.cmp", c.App, c.Name, c.ShortHash())
 }
 
 func (c *Component) BrokerSubject() string {
+	if c == nil {
+		return ""
+	}
 	return utils.Join(".", "evt.brk", c.BrokerId)
 }
 
-func (c *Component) ShortCommit() string {
-	if len(c.Commit) <= 7 {
-		return c.Commit
+func (c *Component) ShortHash() string {
+	if c == nil {
+		return ""
+	}
+	if len(c.Hash) <= 7 {
+		return c.Hash
 	}
 
-	return c.Commit[:7]
+	return c.Hash[:7]
 }

@@ -11,7 +11,6 @@ syntax = "proto3";
 package kubefox.proto.v1;
 
 import "google/protobuf/struct.proto";
-import "opentelemetry/proto/trace/v1/trace.proto";
 
 option go_package = "github.com/xigxog/kubefox/core";
 
@@ -27,7 +26,7 @@ message Component {
   string type = 1;
   string app = 2;
   string name = 3;
-  string commit = 4;
+  string hash = 4;
   string id = 5;
   string broker_id = 6;
 }
@@ -36,41 +35,40 @@ message EventContext {
   string platform = 1;
   string virtual_environment = 2;
   string app_deployment = 3;
-  string release_manifest = 4;
-  opentelemetry.proto.trace.v1.Span trace_parent = 5;
+  string release_manifest = 4; 
 }
 
-// message SpanContext {
-//   bytes trace_id = 1;
-//   bytes span_id = 2;
-//   string trace_flags = 3;
-//   fixed32 flags = 16;
-// }
+message SpanContext {
+  bytes trace_id = 1;
+  bytes span_id = 2;
+  string trace_state = 3;
+  fixed32 flags = 4;
+}
 
 message Event {
   string id = 1;
   string parent_id = 2;
+  SpanContext trace_parent = 3;
 
-  string type = 3;
-  Category category = 4;
+  string type = 4;
+  Category category = 5;
 
-  // Unix time in µs
-  int64 create_time = 5;
-  // TTL in µs
-  int64 ttl = 6;
+  // Unix time in nanosecond
+  int64 create_time = 6;
+  // TTL in nanosecond
+  int64 ttl = 7;
 
-  EventContext context = 7;
-  Component source = 8;
-  Component target = 9;
+  EventContext context = 8;
+  Component source = 9;
+  Component target = 10;
 
-  map<string, google.protobuf.Value> params = 10;
-  map<string, google.protobuf.Value> values = 11;
-
-  repeated opentelemetry.proto.trace.v1.Span spans = 12;
+  map<string, google.protobuf.Value> params = 11;
+  map<string, google.protobuf.Value> values = 12;
 
   string content_type = 14;
   bytes content = 15;
 }
+
 
 message MatchedEvent {
   Event event = 1;

@@ -10,28 +10,31 @@ package telemetry
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	"github.com/xigxog/kubefox/api"
 	"github.com/xigxog/kubefox/components/broker/config"
+	"github.com/xigxog/kubefox/core"
 	"github.com/xigxog/kubefox/logkf"
 
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
-	"go.opentelemetry.io/otel/exporters/stdout/stdouttrace"
+	"go.opentelemetry.io/otel/exporters/otlp/otlptrace"
+	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp"
 	"go.opentelemetry.io/otel/propagation"
 	"go.opentelemetry.io/otel/sdk/metric"
 	"go.opentelemetry.io/otel/sdk/resource"
 	"go.opentelemetry.io/otel/sdk/trace"
-	semconv "go.opentelemetry.io/otel/semconv/v1.4.0"
+	semconv "go.opentelemetry.io/otel/semconv/v1.24.0"
+	v1 "go.opentelemetry.io/proto/otlp/trace/v1"
 )
 
 var (
-	Tracer = otel.Tracer(fmt.Sprintf("kubefox.%s.%s", config.Instance, config.Platform))
+	Tracer = otel.Tracer("")
 )
 
 type Client struct {
+	otelClient    otlptrace.Client
 	meterProvider *metric.MeterProvider
 	traceProvider *trace.TracerProvider
 
@@ -52,7 +55,7 @@ func NewClient() *Client {
 	}
 }
 
-func (c *Client) Start(ctx context.Context) error {
+func (c *Client) Start(ctx context.Context, comp *core.Component) error {
 	c.log.Debug("telemetry client starting")
 
 	otel.SetErrorHandler(OTELErrorHandler{Log: c.log})
@@ -66,6 +69,7 @@ func (c *Client) Start(ctx context.Context) error {
 
 	res := resource.NewWithAttributes(
 		semconv.SchemaURL,
+		semconv.ServiceName(comp.Key()),
 		attribute.String("kubefox."+logkf.KeyInstance, config.Instance),
 		attribute.String("kubefox."+logkf.KeyPlatform, config.Platform),
 		attribute.String("kubefox."+logkf.KeyPlatformComponent, api.PlatformComponentBroker),
@@ -92,23 +96,29 @@ func (c *Client) Start(ctx context.Context) error {
 	// 	return c.log.ErrorN("%v", err)
 	// }
 
-	// trClient := otlptracehttp.NewClient(
-	// 	// otlptracehttp.WithTLSClientConfig(tlsCfg),
-	// 	otlptracehttp.WithInsecure(),
-	// 	otlptracehttp.WithEndpoint(config.TelemetryAddr),
-	// )
-	// trExp, err := otlptrace.New(ctx, trClient)
+	//REMOVE
+	config.TelemetryAddr = "kubefox-jaeger-collector.kubefox-system:4318"
 
-	trExp, err := stdouttrace.New(stdouttrace.WithPrettyPrint())
+	c.otelClient = otlptracehttp.NewClient(
+		// otlptracehttp.WithTLSClientConfig(tlsCfg),
+		otlptracehttp.WithInsecure(),
+		otlptracehttp.WithEndpoint(config.TelemetryAddr),
+	)
+	exporter, err := otlptrace.New(ctx, c.otelClient)
+	// trExp, err := stdouttrace.New(stdouttrace.WithPrettyPrint())
 	if err != nil {
 		return c.log.ErrorN("%v", err)
 	}
 
+	// bsp := trace.NewBatchSpanProcessor(trExp)
+	// bsp.OnEnd(nil) // this adds span to queue
+
 	c.traceProvider = trace.NewTracerProvider(
 		// TODO sample setup? just rely on outside request to determine if to sample?
 		// trace.WithSampler(&Sampler{}),
+		trace.WithSampler(trace.AlwaysSample()),
 		trace.WithResource(res),
-		trace.WithBatcher(trExp),
+		trace.WithBatcher(exporter),
 	)
 	otel.SetTracerProvider(c.traceProvider)
 
@@ -134,6 +144,14 @@ func (cl *Client) Shutdown(timeout time.Duration) {
 			cl.log.Warn(err)
 		}
 	}
+}
+
+func (cl *Client) UploadTraces(ctx context.Context, protoSpans []*v1.ResourceSpans) error {
+	if cl.otelClient == nil {
+		return nil
+	}
+
+	return cl.otelClient.UploadTraces(ctx, protoSpans)
 }
 
 // func (cl *Client) tls() (*tls.Config, error) {

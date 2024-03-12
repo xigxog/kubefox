@@ -41,22 +41,22 @@ const (
 
 // Kubernetes Labels
 const (
-	LabelK8sAppBranch            string = "kubefox.xigxog.io/app-branch"
-	LabelK8sAppCommit            string = "kubefox.xigxog.io/app-commit"
-	LabelK8sAppCommitShort       string = "kubefox.xigxog.io/app-commit-short"
-	LabelK8sAppName              string = "app.kubernetes.io/name"
-	LabelK8sAppTag               string = "kubefox.xigxog.io/app-tag"
-	LabelK8sAppVersion           string = "kubefox.xigxog.io/app-version"
-	LabelK8sComponent            string = "app.kubernetes.io/component"
-	LabelK8sComponentCommit      string = "kubefox.xigxog.io/component-commit"
-	LabelK8sComponentCommitShort string = "kubefox.xigxog.io/component-commit-short"
-	LabelK8sComponentType        string = "kubefox.xigxog.io/component-type"
-	LabelK8sEnvironment          string = "kubefox.xigxog.io/environment"
-	LabelK8sInstance             string = "app.kubernetes.io/instance"
-	LabelK8sPlatform             string = "kubefox.xigxog.io/platform"
-	LabelK8sReleaseManifest      string = "kubefox.xigxog.io/release-manifest"
-	LabelK8sRuntimeVersion       string = "kubefox.xigxog.io/runtime-version"
-	LabelK8sVirtualEnvironment   string = "kubefox.xigxog.io/virtual-environment"
+	LabelK8sAppBranch          string = "kubefox.xigxog.io/app-branch"
+	LabelK8sAppCommit          string = "kubefox.xigxog.io/app-commit"
+	LabelK8sAppCommitShort     string = "kubefox.xigxog.io/app-commit-short"
+	LabelK8sAppName            string = "app.kubernetes.io/name"
+	LabelK8sAppTag             string = "kubefox.xigxog.io/app-tag"
+	LabelK8sAppVersion         string = "kubefox.xigxog.io/app-version"
+	LabelK8sComponent          string = "app.kubernetes.io/component"
+	LabelK8sComponentHash      string = "kubefox.xigxog.io/component-hash"
+	LabelK8sComponentHashShort string = "kubefox.xigxog.io/component-hash-short"
+	LabelK8sComponentType      string = "kubefox.xigxog.io/component-type"
+	LabelK8sEnvironment        string = "kubefox.xigxog.io/environment"
+	LabelK8sInstance           string = "app.kubernetes.io/instance"
+	LabelK8sPlatform           string = "kubefox.xigxog.io/platform"
+	LabelK8sReleaseManifest    string = "kubefox.xigxog.io/release-manifest"
+	LabelK8sRuntimeVersion     string = "kubefox.xigxog.io/runtime-version"
+	LabelK8sVirtualEnvironment string = "kubefox.xigxog.io/virtual-environment"
 )
 
 // Kubernetes Annotations
@@ -124,7 +124,7 @@ const (
 // gRPC metadata keys.
 const (
 	GRPCKeyApp       string = "app"
-	GRPCKeyCommit    string = "commit"
+	GRPCKeyHash      string = "hash"
 	GRPCKeyComponent string = "component"
 	GRPCKeyId        string = "id"
 	GRPCKeyPlatform  string = "platform"
@@ -297,6 +297,7 @@ const (
 var (
 	RegexpCommit = regexp.MustCompile(`^[0-9a-f]{40}$`)
 	RegexpGitRef = regexp.MustCompile(`^[a-z0-9][a-z0-9-\\.]{0,28}[a-z0-9]$`)
+	RegexpHash   = regexp.MustCompile(`^[0-9a-f]{32}$`)
 	RegexpImage  = regexp.MustCompile(`^.*:[a-z0-9-]{40}$`)
 	RegexpName   = regexp.MustCompile(`^[a-z0-9][a-z0-9-]{0,28}[a-z0-9]$`)
 	RegexpUUID   = regexp.MustCompile(`^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`)

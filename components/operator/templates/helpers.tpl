@@ -3,15 +3,15 @@
 app.kubernetes.io/managed-by: {{ printf "%s-operator" .Instance.Name | cleanLabel | quote }}
 kubefox.xigxog.io/runtime-version: {{ .BuildInfo.Version | cleanLabel | quote }}
 {{- if .Component.IsPlatformComponent }}
-  {{- with .Component.Commit }}
-kubefox.xigxog.io/component-commit: {{ . | cleanLabel | quote }}
+  {{- with .Component.Hash }}
+kubefox.xigxog.io/component-hash: {{ . | cleanLabel | quote }}
   {{- end }}
 {{- end }}
 {{- with .Component.Type }}
 kubefox.xigxog.io/component-type: {{ . | cleanLabel | quote }}
 {{- end }}
-{{- with .Component.Commit }}
-kubefox.xigxog.io/component-commit-short: {{ . | substr 0 7 | cleanLabel | quote }}
+{{- with .Component.Hash }}
+kubefox.xigxog.io/component-hash-short: {{ . | substr 0 7 | cleanLabel | quote }}
 {{- end }}
 {{- range $k, $v := .Component.Labels }}
 {{ $k }}: {{ $v | cleanLabel | quote }}
@@ -36,8 +36,8 @@ kubefox.xigxog.io/platform: {{ . | cleanLabel | quote }}
 app.kubernetes.io/component: {{ . | cleanLabel | quote }}
 {{- end }}
 {{- if not .Component.IsPlatformComponent }}
-  {{- with .Component.Commit }}
-kubefox.xigxog.io/component-commit: {{ . | cleanLabel | quote }}
+  {{- with .Component.Hash }}
+kubefox.xigxog.io/component-hash: {{ . | cleanLabel | quote }}
   {{- end }}
 {{- end }}
 {{- end }}
@@ -95,8 +95,8 @@ kind: ServiceAccount
 - name: KUBEFOX_COMPONENT
   value: {{ . | quote }}
 {{- end }}
-{{- with .Component.Commit }}
-- name: KUBEFOX_COMMIT
+{{- with .Component.Hash }}
+- name: KUBEFOX_HASH
   value: {{ . | quote }}
 {{- end }}
 {{- with .Component.Type }}

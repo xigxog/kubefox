@@ -197,8 +197,8 @@ func (a *AppDeployment) GetDefinition(comp *core.Component) (*api.ComponentDefin
 	if comp.Type != string(c.Type) {
 		return nil, core.ErrComponentMismatch(fmt.Errorf("component type does not match app"))
 	}
-	if comp.Commit != "" && comp.Commit != c.Hash {
-		return nil, core.ErrComponentMismatch(fmt.Errorf("component commit does not match app"))
+	if comp.Hash != "" && comp.Hash != c.Hash {
+		return nil, core.ErrComponentMismatch(fmt.Errorf("component hash does not match app"))
 	}
 
 	return c, nil

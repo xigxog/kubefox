@@ -19,6 +19,7 @@ import (
 	"github.com/xigxog/kubefox/api"
 	"github.com/xigxog/kubefox/core"
 	"github.com/xigxog/kubefox/logkf"
+	"github.com/xigxog/kubefox/telemetry"
 
 	"google.golang.org/protobuf/types/known/structpb"
 )
@@ -28,6 +29,9 @@ type kontext struct {
 
 	kit *kit
 	env map[string]*structpb.Value
+
+	reqSpan *telemetry.Span
+	spans   []*telemetry.Span
 
 	start time.Time
 	ctx   context.Context
@@ -243,5 +247,12 @@ func (req *reqKontext) SendBytes(contentType string, b []byte) (EventReader, err
 }
 
 func (req *reqKontext) Send() (EventReader, error) {
+	span := telemetry.StartSpan(
+		fmt.Sprintf("send REQUEST to %s", req.Event.Target.Key()), req.ktx.reqSpan.SpanContext())
+	defer span.End()
+
+	req.ktx.spans = append(req.ktx.spans, span)
+	req.Event.TraceParent = span.SpanContext()
+
 	return req.ktx.kit.brk.SendReq(req.ktx.ctx, req.Event, req.ktx.start)
 }
