@@ -171,9 +171,9 @@ func (svc *kit) Route(rule string, handler EventHandler) {
 	svc.compDef.Routes = append(svc.compDef.Routes, kitRoute.RouteSpec)
 }
 
-func (svc *kit) Static(pathPrefix string, fs fs.FS) {
+func (svc *kit) Static(pathPrefix string, fsPrefix string, fs fs.FS) {
 	svc.Route("PathPrefix(`"+pathPrefix+"`)", func(ktx Kontext) error {
-		file := ktx.PathSuffix()
+		file := filepath.Join(fsPrefix, ktx.PathSuffix())
 		f, err := fs.Open(file)
 		if err != nil {
 			ktx.Log().Debugf("error serving static file '%s': %v", file, err)

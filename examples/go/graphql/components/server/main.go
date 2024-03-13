@@ -1,13 +1,16 @@
 package main
 
 import (
+	"embed"
 	"html/template"
 
-	"github.com/xigxog/kubefox/examples/go/graphql/components/server/static"
-	"github.com/xigxog/kubefox/examples/go/graphql/components/server/templates"
 	"github.com/xigxog/kubefox/kit"
 	"github.com/xigxog/kubefox/kit/graphql"
 )
+
+//go:embed static/*
+//go:embed templates/*
+var EFS embed.FS
 
 var (
 	tpl            *template.Template
@@ -19,7 +22,7 @@ func main() {
 	k := kit.New()
 
 	var err error
-	tpl, err = template.ParseFS(templates.EFS, "*.html")
+	tpl, err = template.ParseFS(EFS, "templates/*.html")
 	if err != nil {
 		k.Log().Fatal(err)
 	}
@@ -27,7 +30,7 @@ func main() {
 	graphqlAdapter = k.HTTPAdapter("graphql")
 	hasuraAdapter = k.HTTPAdapter("hasura")
 
-	k.Static("/{{.Vars.subPath}}/hasura/static", static.EFS)
+	k.Static("/{{.Vars.subPath}}/hasura/static", "static", EFS)
 	k.Route("Path(`/{{.Vars.subPath}}/hasura/heroes`)", listHeroes)
 	k.Route("PathPrefix(`/{{.Vars.subPath}}/hasura`)", forwardHasura)
 
@@ -44,7 +47,7 @@ func listHeroes(k kit.Kontext) error {
 			Name      string `graphql:"superhero_name"`
 			RealName  string `graphql:"full_name"`
 			Alignment struct {
-				Alignment string
+				Value string `graphql:"alignment"`
 			}
 		} `graphql:"superhero(order_by: {superhero_name: asc})"`
 	}

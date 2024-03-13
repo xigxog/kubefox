@@ -225,7 +225,7 @@ type Kit interface {
     //     })
     Route(rule string, handler EventHandler)
 
-    Static(pathPrefix string, fs fs.FS)
+    Static(pathPrefix string, fsPrefix string, fs fs.FS)
 
     // Default registers a default EventHandler. If Kit receives an Event from
     // the Broker that does not match any registered rules the default
