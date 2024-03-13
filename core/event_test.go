@@ -40,3 +40,12 @@ func Test_clone(t *testing.T) {
 		t.Fail()
 	}
 }
+
+func TestEvent_SetHeader(t *testing.T) {
+	evt := NewEvent()
+	evt.SetHeader("test", "test")
+	evt.SetHeader("test2", "test2")
+	if evt.Header("test") != "test" || evt.Header("test2") != "test2" {
+		t.Fail()
+	}
+}

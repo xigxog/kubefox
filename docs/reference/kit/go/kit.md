@@ -24,7 +24,7 @@ import "github.com/xigxog/kubefox/kit"
 
 
 <a name="ComponentDep"></a>
-## type [ComponentDep](<https://github.com/xigxog/kubefox/blob/main/kit/types.go#L328-L333>)
+## type [ComponentDep](<https://github.com/xigxog/kubefox/blob/main/kit/types.go#L338-L343>)
 
 
 
@@ -38,7 +38,7 @@ type ComponentDep interface {
 ```
 
 <a name="EnvVarDep"></a>
-## type [EnvVarDep](<https://github.com/xigxog/kubefox/blob/main/kit/types.go#L323-L326>)
+## type [EnvVarDep](<https://github.com/xigxog/kubefox/blob/main/kit/types.go#L333-L336>)
 
 
 
@@ -50,7 +50,7 @@ type EnvVarDep interface {
 ```
 
 <a name="EventHandler"></a>
-## type [EventHandler](<https://github.com/xigxog/kubefox/blob/main/kit/types.go#L22>)
+## type [EventHandler](<https://github.com/xigxog/kubefox/blob/main/kit/types.go#L25>)
 
 
 
@@ -59,7 +59,7 @@ type EventHandler func(ktx Kontext) error
 ```
 
 <a name="EventReader"></a>
-## type [EventReader](<https://github.com/xigxog/kubefox/blob/main/kit/types.go#L274-L299>)
+## type [EventReader](<https://github.com/xigxog/kubefox/blob/main/kit/types.go#L283-L309>)
 
 
 
@@ -72,6 +72,7 @@ type EventReader interface {
     ParamDef(key string, def string) string
 
     URL() (*url.URL, error)
+    PathSuffix() string
 
     Query(key string) string
     QueryV(key string) *api.Val
@@ -122,7 +123,7 @@ func (rt *EventRoundTripper) RoundTrip(httpReq *http.Request) (*http.Response, e
 
 
 <a name="EventWriter"></a>
-## type [EventWriter](<https://github.com/xigxog/kubefox/blob/main/kit/types.go#L301-L321>)
+## type [EventWriter](<https://github.com/xigxog/kubefox/blob/main/kit/types.go#L311-L331>)
 
 
 
@@ -134,7 +135,7 @@ type EventWriter interface {
     SetParamV(key string, value *api.Val)
 
     SetURL(u *url.URL)
-    TrimPathPrefix(prefix string)
+    RewritePath(path string)
 
     SetQuery(key, value string)
     SetQueryV(key string, value *api.Val)
@@ -151,7 +152,7 @@ type EventWriter interface {
 ```
 
 <a name="Kit"></a>
-## type [Kit](<https://github.com/xigxog/kubefox/blob/main/kit/types.go#L24-L142>)
+## type [Kit](<https://github.com/xigxog/kubefox/blob/main/kit/types.go#L27-L147>)
 
 
 
@@ -224,6 +225,8 @@ type Kit interface {
     //     })
     Route(rule string, handler EventHandler)
 
+    Static(pathPrefix string, fs fs.FS)
+
     // Default registers a default EventHandler. If Kit receives an Event from
     // the Broker that does not match any registered rules the default
     // EventHandler is called.
@@ -278,7 +281,7 @@ type Kit interface {
 ```
 
 <a name="New"></a>
-### func [New](<https://github.com/xigxog/kubefox/blob/main/kit/kit.go#L58>)
+### func [New](<https://github.com/xigxog/kubefox/blob/main/kit/kit.go#L61>)
 
 ```go
 func New() Kit
@@ -287,7 +290,7 @@ func New() Kit
 
 
 <a name="Kontext"></a>
-## type [Kontext](<https://github.com/xigxog/kubefox/blob/main/kit/types.go#L144-L198>)
+## type [Kontext](<https://github.com/xigxog/kubefox/blob/main/kit/types.go#L149-L203>)
 
 
 
@@ -350,7 +353,7 @@ type Kontext interface {
 ```
 
 <a name="Req"></a>
-## type [Req](<https://github.com/xigxog/kubefox/blob/main/kit/types.go#L200-L231>)
+## type [Req](<https://github.com/xigxog/kubefox/blob/main/kit/types.go#L205-L236>)
 
 
 
@@ -390,7 +393,7 @@ type Req interface {
 ```
 
 <a name="Resp"></a>
-## type [Resp](<https://github.com/xigxog/kubefox/blob/main/kit/types.go#L233-L272>)
+## type [Resp](<https://github.com/xigxog/kubefox/blob/main/kit/types.go#L238-L281>)
 
 
 
@@ -431,6 +434,10 @@ type Resp interface {
     // content of the response Event. If the reader implements io.ReadCloser
     // then it will be automatically closed.
     SendReader(contentType string, reader io.Reader) error
+
+    SendTemplate(tpl *template.Template, name string, data any) error
+
+    SendHTMLTemplate(tpl *htmltpl.Template, name string, data any) error
 
     // Send sends the response to the source Component of the current request.
     Send() error

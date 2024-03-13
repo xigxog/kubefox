@@ -186,15 +186,20 @@ func (srv *Server) ServeHTTP(resWriter http.ResponseWriter, httpReq *http.Reques
 	}
 
 	httpResp := resp.HTTPResponse()
+	log.Debugf("send http response; status: %d", httpResp.StatusCode)
 	for key, val := range httpResp.Header {
 		for _, h := range val {
 			resWriter.Header().Add(key, h)
 		}
 	}
 	setHeader(resWriter, api.HeaderContentType, resp.ContentType)
-	setHeader(resWriter, api.HeaderContentLength, strconv.Itoa(len(resp.Content)))
+	if resp.Content != nil {
+		setHeader(resWriter, api.HeaderContentLength, strconv.Itoa(len(resp.Content)))
+	}
 	resWriter.WriteHeader(httpResp.StatusCode)
-	resWriter.Write(resp.Content)
+	if resp.Content != nil {
+		resWriter.Write(resp.Content)
+	}
 }
 
 // setHeader will set the header on the http.ResponseWriter if the value is not

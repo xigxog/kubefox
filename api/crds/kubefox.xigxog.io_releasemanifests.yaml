@@ -137,7 +137,7 @@ spec:
                                 to machine-in-the-middle attacks.
                               type: boolean
                             url:
-                              format: uri
+                              minLength: 1
                               type: string
                           required:
                           - url

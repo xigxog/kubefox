@@ -1,0 +1,19 @@
+---
+apiVersion: kubefox.xigxog.io/v1alpha1
+kind: Environment
+metadata:
+  name: prod
+spec:
+  releasePolicy:
+    type: Stable
+data:
+  vars:
+    db: prod
+    subPath: prod
+---
+apiVersion: kubefox.xigxog.io/v1alpha1
+kind: VirtualEnvironment
+metadata:
+  name: prod
+spec:
+  environment: prod

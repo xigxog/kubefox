@@ -277,6 +277,10 @@ func matchParts(val string, sep string, parts []string, params map[int]*param, e
 		e.SetParam(k, v)
 	}
 
+	if prefix {
+		e.SetValue(api.ValKeyPathSuffix, strings.Join(evtParts[len(parts):], sep))
+	}
+
 	return true
 }
 

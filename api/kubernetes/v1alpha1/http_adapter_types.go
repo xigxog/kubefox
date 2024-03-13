@@ -17,7 +17,7 @@ import (
 
 type HTTPAdapterSpec struct {
 	// +kubebuilder:validation:Required
-	// +kubebuilder:validation:Format=uri
+	// +kubebuilder:validation:MinLength=1
 
 	URL     string            `json:"url"`
 	Headers map[string]string `json:"headers,omitempty"`

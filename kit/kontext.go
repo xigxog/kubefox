@@ -9,11 +9,15 @@
 package kit
 
 import (
+	"bytes"
 	"context"
 	"fmt"
+	html "html/template"
 	"io"
+	"mime"
 	"net/http"
 	"strings"
+	"text/template"
 	"time"
 
 	"github.com/xigxog/kubefox/api"
@@ -186,6 +190,33 @@ func (resp *respKontext) SendAccepts(json any, html, str string) error {
 	default:
 		return resp.SendStr(str)
 	}
+}
+
+func (resp *respKontext) SendTemplate(tpl *template.Template, name string, data any) error {
+	t := tpl.Lookup(name)
+	if t == nil {
+		return core.ErrNotFound()
+	}
+
+	return resp.sendTpl(t, name, data)
+}
+
+func (resp *respKontext) SendHTMLTemplate(tpl *html.Template, name string, data any) error {
+	t := tpl.Lookup(name)
+	if t == nil {
+		return core.ErrNotFound()
+	}
+
+	return resp.sendTpl(t, name, data)
+}
+
+func (resp *respKontext) sendTpl(tpl tpl, name string, data any) error {
+	var buf bytes.Buffer
+	if err := tpl.Execute(&buf, data); err != nil {
+		return err
+	}
+
+	return resp.SendBytes(mime.TypeByExtension(name), buf.Bytes())
 }
 
 func (resp *respKontext) SendReader(contentType string, reader io.Reader) error {

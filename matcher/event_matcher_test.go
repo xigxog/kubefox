@@ -37,15 +37,57 @@ func TestPath(t *testing.T) {
 	r, match := m.Match(e)
 
 	if !match {
-		t.Log("should have got a match :(")
-		t.FailNow()
+		t.Fatalf("should have got a match :(")
 	}
 	if r.Id != 2 {
-		t.Log("incorrect route matched :(")
-		t.FailNow()
+		t.Fatalf("incorrect route matched :(")
 	}
 
 	t.Logf("matched route %d; i=%s, j=%s", r.Id, e.Param("i"), e.Param("j"))
+}
+
+func TestPathPrefix(t *testing.T) {
+	route, _ := core.NewRoute(1, "PathPrefix(`/customize/{stuff...}`)")
+	route.Resolve(nil)
+
+	m := New()
+	m.AddRoutes(route)
+
+	e := evt(api.EventTypeHTTP)
+	_, match := m.Match(e)
+	if !match {
+		t.Fatalf("should have got a match :(")
+	}
+	if s := e.Param("stuff"); s != "1/a" {
+		t.Fatalf("expected 'stuff' param to be '1/a', got %s", s)
+	}
+}
+
+func TestPriority(t *testing.T) {
+	data := &api.Data{
+		Vars: map[string]*api.Val{
+			"subPath": api.ValString("qa"),
+		},
+	}
+
+	route1, _ := core.NewRoute(1, "PathPrefix(`/{{.Vars.subPath}}/hasura/static`)")
+	route1.Resolve(data)
+
+	route2, _ := core.NewRoute(1, "Path(`/{{.Vars.subPath}}/hasura/{file}`)")
+	route2.Resolve(data)
+
+	m := New()
+	m.AddRoutes(route1, route2)
+
+	e := evt(api.EventTypeHTTP)
+	e.SetValue(api.ValKeyURL, "http://127.0.0.1/qa/hasura/static/favicon.ico")
+	e.SetValue(api.ValKeyPath, "/qa/hasura/static/favicon.ico")
+
+	r, match := m.Match(e)
+	if !match {
+		t.Fatalf("should have got a match :(")
+	}
+	t.Logf("route: %v, suffix: %s", r, e.PathSuffix())
 }
 
 func evt(evtType api.EventType) *core.Event {

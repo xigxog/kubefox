@@ -255,6 +255,7 @@ const (
 	ValKeyMaxEventSize = "maxEventSize"
 	ValKeyMethod       = "method"
 	ValKeyPath         = "path"
+	ValKeyPathSuffix   = "pathSuffix"
 	ValKeyQuery        = "queryParam"
 	ValKeyStatus       = "status"
 	ValKeyStatusCode   = "statusCode"

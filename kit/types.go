@@ -10,9 +10,12 @@ package kit
 
 import (
 	"context"
+	htmltpl "html/template"
 	"io"
+	"io/fs"
 	"net/http"
 	"net/url"
+	"text/template"
 
 	"github.com/xigxog/kubefox/api"
 	"github.com/xigxog/kubefox/kit/env"
@@ -88,6 +91,8 @@ type Kit interface {
 	//       return ktx.Resp().SendStr("The orderId is ", ktx.Param("orderId"))
 	//     })
 	Route(rule string, handler EventHandler)
+
+	Static(pathPrefix string, fs fs.FS)
 
 	// Default registers a default EventHandler. If Kit receives an Event from
 	// the Broker that does not match any registered rules the default
@@ -267,6 +272,10 @@ type Resp interface {
 	// then it will be automatically closed.
 	SendReader(contentType string, reader io.Reader) error
 
+	SendTemplate(tpl *template.Template, name string, data any) error
+
+	SendHTMLTemplate(tpl *htmltpl.Template, name string, data any) error
+
 	// Send sends the response to the source Component of the current request.
 	Send() error
 }
@@ -279,6 +288,7 @@ type EventReader interface {
 	ParamDef(key string, def string) string
 
 	URL() (*url.URL, error)
+	PathSuffix() string
 
 	Query(key string) string
 	QueryV(key string) *api.Val
@@ -305,7 +315,7 @@ type EventWriter interface {
 	SetParamV(key string, value *api.Val)
 
 	SetURL(u *url.URL)
-	TrimPathPrefix(prefix string)
+	RewritePath(path string)
 
 	SetQuery(key, value string)
 	SetQueryV(key string, value *api.Val)
@@ -330,6 +340,10 @@ type ComponentDep interface {
 	App() string
 	Type() api.ComponentType
 	EventType() api.EventType
+}
+
+type tpl interface {
+	Execute(wr io.Writer, data any) error
 }
 
 type route struct {

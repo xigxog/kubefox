@@ -13,7 +13,10 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"io/fs"
+	"mime"
 	"os"
+	"path/filepath"
 	"runtime"
 	"sync"
 	"time"
@@ -172,6 +175,19 @@ func (svc *kit) Route(rule string, handler EventHandler) {
 	svc.compDef.Routes = append(svc.compDef.Routes, kitRoute.RouteSpec)
 }
 
+func (svc *kit) Static(pathPrefix string, fs fs.FS) {
+	svc.Route("PathPrefix(`"+pathPrefix+"`)", func(ktx Kontext) error {
+		file := ktx.PathSuffix()
+		f, err := fs.Open(file)
+		if err != nil {
+			ktx.Log().Debugf("error serving static file '%s': %v", file, err)
+			return core.ErrNotFound()
+		}
+
+		return ktx.Resp().SendReader(mime.TypeByExtension(filepath.Ext(file)), f)
+	})
+}
+
 func (svc *kit) Default(handler EventHandler) {
 	svc.defHandler = handler
 	svc.compDef.DefaultHandler = handler != nil
@@ -308,11 +324,11 @@ func (svc *kit) recvReq(req *grpc.ComponentEvent) {
 	}
 
 	if err != nil {
-		log.Error(err)
+		log.Debugf("error returned by route handler: %v", err)
 
 		errEvt := core.NewErr(err, core.EventOpts{})
 		if err := ktx.Resp().Forward(errEvt); err != nil {
-			log.Error(err)
+			log.Errorf("unexpected error sending response: %v", err)
 		}
 		// TODO mark span as error
 	}

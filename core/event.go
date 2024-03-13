@@ -209,6 +209,9 @@ func (evt *Event) ParamDef(key string, def string) string {
 }
 
 func (evt *Event) ParamProto(key string) *structpb.Value {
+	if evt.Params == nil {
+		return nil
+	}
 	return evt.Params[key]
 }
 
@@ -223,9 +226,13 @@ func (evt *Event) SetParamV(key string, val *api.Val) {
 func (evt *Event) SetParamProto(key string, val *structpb.Value) {
 	if val == nil {
 		delete(evt.Params, key)
-	} else {
-		evt.Params[key] = val
+		return
 	}
+
+	if evt.Params == nil {
+		evt.Params = map[string]*structpb.Value{}
+	}
+	evt.Params[key] = val
 }
 
 func (evt *Event) Value(key string) string {
@@ -245,6 +252,9 @@ func (evt *Event) ValueMap(key string) map[string][]string {
 	}
 
 	for k, v := range p.Fields {
+		if v == nil || v.GetListValue() == nil {
+			continue
+		}
 		for _, h := range v.GetListValue().Values {
 			m[k] = append(m[k], h.GetStringValue())
 		}
@@ -281,6 +291,9 @@ func (evt *Event) ValueMapKeyAll(valKey, key string) []string {
 }
 
 func (evt *Event) ValueProto(key string) *structpb.Value {
+	if evt.Values == nil {
+		return nil
+	}
 	return evt.Values[key]
 }
 
@@ -310,7 +323,7 @@ func (evt *Event) SetValueMapKey(valKey, key, value string, overwrite bool) {
 	m := evt.ValueProto(valKey).GetStructValue()
 	if m == nil {
 		v, _ := structpb.NewValue(map[string]interface{}{
-			key: value,
+			key: []any{value},
 		})
 		evt.SetValueProto(valKey, v)
 		return
@@ -339,6 +352,9 @@ func (evt *Event) SetValueProto(key string, val *structpb.Value) {
 	if val == nil {
 		delete(evt.Values, key)
 		return
+	}
+	if evt.Values == nil {
+		evt.Values = map[string]*structpb.Value{}
 	}
 	evt.Values[key] = val
 }
@@ -401,9 +417,13 @@ func (evt *Event) SetURL(u *url.URL) {
 	evt.SetValueMap(api.ValKeyQuery, u.Query())
 }
 
-func (evt *Event) TrimPathPrefix(prefix string) {
+func (evt *Event) PathSuffix() string {
+	return evt.Value(api.ValKeyPathSuffix)
+}
+
+func (evt *Event) RewritePath(path string) {
 	if u, err := evt.URL(); err == nil { // success
-		u.Path = strings.TrimPrefix(u.Path, prefix)
+		u.Path = path
 		evt.SetURL(u)
 	}
 }

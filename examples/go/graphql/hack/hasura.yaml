@@ -1,0 +1,145 @@
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: hasura-prod
+  labels:
+    app.kubernetes.io/component: hasura
+    app.kubernetes.io/instance: prod
+spec:
+  containers:
+    - name: hasura
+      image: hasura/graphql-engine:v2.37.0
+      env:
+        - name: HASURA_GRAPHQL_DEV_MODE
+          value: "true"
+        - name: HASURA_GRAPHQL_METADATA_DATABASE_URL
+          value: postgres://postgres:password@localhost:5432/postgres
+        - name: HASURA_GRAPHQL_ENABLE_CONSOLE
+          value: "true"
+        - name: PG_DATABASE_URL
+          value: postgres://postgres:password@localhost:5432/postgres
+      ports:
+        - name: http
+          containerPort: 8080
+          protocol: TCP
+    - name: postgres
+      image: ghcr.io/xigxog/postgres-superheroes:main
+      env:
+        - name: POSTGRES_PASSWORD
+          value: password
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app.kubernetes.io/component: hasura
+    app.kubernetes.io/instance: prod
+  name: hasura-prod
+spec:
+  type: ClusterIP
+  ports:
+    - name: http
+      port: 80
+      targetPort: 8080
+      protocol: TCP
+  selector:
+    app.kubernetes.io/component: hasura
+    app.kubernetes.io/instance: prod
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: hasura-dev
+  labels:
+    app.kubernetes.io/component: hasura
+    app.kubernetes.io/instance: dev
+spec:
+  containers:
+    - name: hasura
+      image: hasura/graphql-engine:v2.37.0
+      env:
+        - name: HASURA_GRAPHQL_DEV_MODE
+          value: "true"
+        - name: HASURA_GRAPHQL_METADATA_DATABASE_URL
+          value: postgres://postgres:password@localhost:5432/postgres
+        - name: HASURA_GRAPHQL_ENABLE_CONSOLE
+          value: "true"
+        - name: PG_DATABASE_URL
+          value: postgres://postgres:password@localhost:5432/postgres
+      ports:
+        - name: http
+          containerPort: 8080
+          protocol: TCP
+    - name: postgres
+      image: ghcr.io/xigxog/postgres-superheroes:main
+      env:
+        - name: POSTGRES_PASSWORD
+          value: password
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app.kubernetes.io/component: hasura
+    app.kubernetes.io/instance: dev
+  name: hasura-dev
+spec:
+  type: ClusterIP
+  ports:
+    - name: http
+      port: 80
+      targetPort: 8080
+      protocol: TCP
+  selector:
+    app.kubernetes.io/component: hasura
+    app.kubernetes.io/instance: dev
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: hasura-john
+  labels:
+    app.kubernetes.io/component: hasura
+    app.kubernetes.io/instance: john
+spec:
+  containers:
+    - name: hasura
+      image: hasura/graphql-engine:v2.37.0
+      env:
+        - name: HASURA_GRAPHQL_DEV_MODE
+          value: "true"
+        - name: HASURA_GRAPHQL_METADATA_DATABASE_URL
+          value: postgres://postgres:password@localhost:5432/postgres
+        - name: HASURA_GRAPHQL_ENABLE_CONSOLE
+          value: "true"
+        - name: PG_DATABASE_URL
+          value: postgres://postgres:password@localhost:5432/postgres
+      ports:
+        - name: http
+          containerPort: 8080
+          protocol: TCP
+    - name: postgres
+      image: ghcr.io/xigxog/postgres-superheroes:main
+      env:
+        - name: POSTGRES_PASSWORD
+          value: password
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app.kubernetes.io/component: hasura
+    app.kubernetes.io/instance: john
+  name: hasura-john
+spec:
+  type: ClusterIP
+  ports:
+    - name: http
+      port: 80
+      targetPort: 8080
+      protocol: TCP
+  selector:
+    app.kubernetes.io/component: hasura
+    app.kubernetes.io/instance: john
+

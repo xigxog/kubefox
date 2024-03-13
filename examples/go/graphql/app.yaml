@@ -1,0 +1,3 @@
+name: graphql
+title: KubeFox GraphQL Demo
+description: A simple App demonstrating the use of KubeFox with Hasura GraphQL Engine.

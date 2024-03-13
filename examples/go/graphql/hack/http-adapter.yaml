@@ -1,0 +1,16 @@
+---
+apiVersion: kubefox.xigxog.io/v1alpha1
+kind: HTTPAdapter
+metadata:
+  name: graphql
+spec:
+  url: http://hasura-{{.Vars.db}}/v1/graphql
+  insecureSkipVerify: true
+---
+apiVersion: kubefox.xigxog.io/v1alpha1
+kind: HTTPAdapter
+metadata:
+  name: hasura
+spec:
+  url: http://hasura-{{.Vars.db}}/
+  insecureSkipVerify: true

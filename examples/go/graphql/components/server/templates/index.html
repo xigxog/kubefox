@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta http-equiv="X-UA-Compatible" content="ie=edge" />
+
+    <title>KubeFox Hasura Demo</title>
+
+    <link rel="stylesheet" href="./static/style.css" />
+    <link rel="icon" href="./static/favicon.ico" type="image/x-icon" />
+  </head>
+
+  <body>
+    <h1>🦸 Superheroes</h1>
+
+    <table class="styled-table">
+      <tr>
+        <th>Name</th>
+        <th>Real Name</th>
+        <th>Alignment</th>
+      </tr>
+      {{ range .Superhero }}
+      <tr>
+        <td>{{.Name}}</td>
+        <td>{{.RealName}}</td>
+        <td>{{.Alignment.Alignment}}</td>
+      </tr>
+      {{ end}}
+    </table>
+  </body>
+</html>
