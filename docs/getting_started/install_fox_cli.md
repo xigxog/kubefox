@@ -1,8 +1,8 @@
-# Install Fox Cli
+# Install Fox CLI
 
-The fox cli is a tool used to interact with KubeFox, initialize your repositories
+The Fox CLI is a tool used to interact with KubeFox, initialize your repositories
 and prepare your Apps for deployment and release.  It is modified fairly
-frequently, so don't frequently upgrading it!
+frequently, so don't be shy about frequently upgrading it!
 
 === "Install using Go"
 

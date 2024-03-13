@@ -103,7 +103,7 @@ helm upgrade kubefox kubefox \
     TEST SUITE: None
     ```
 
-Now install Fox, a cli tool used to interact with KubeFox and prepare your Apps
+Now install Fox, a CLI tool used to interact with KubeFox and prepare your Apps
 for deployment and release.
 
 === "Install using Go"
