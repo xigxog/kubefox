@@ -1,4 +1,4 @@
-# Hasura Tutorial
+# GraphQL
 
 Welcome to the world of KubeFox! This technical guide will walk you through the
 process of setting up a Kubernetes cluster using kind ("kind" is **K**ubernetes
@@ -7,9 +7,9 @@ process of setting up a Kubernetes cluster using kind ("kind" is **K**ubernetes
 A couple of notes:
 
 1. We'll add instructions for Azure soon - it's really not that different but we
-want to vet it first.
+   want to vet it first.
 2. This tutorial currently gets the cluster ready for the LiveStream we're doing
-   on the 13th of March.  We'll turn it into a standalone tutorial soon!
+   on the 13th of March. We'll turn it into a standalone tutorial soon!
 
 ## Prerequisites
 
@@ -42,8 +42,9 @@ Here are a few optional but recommended tools:
 
 ## Setup Kubernetes
 
-*Note:  If you went through the Quickstart using kind, we recommend that you
-first delete the cluster you created to ensure that you're starting with a clean slate.*
+_Note: If you went through the Quickstart using kind, we recommend that you
+first delete the cluster you created to ensure that you're starting with a clean
+slate._
 
 Let's kick things off by setting up a Kubernetes cluster. Use the following
 commands depending on which Kubernetes provider you would like to use. If you
@@ -91,6 +92,7 @@ helm upgrade kubefox kubefox \
   --create-namespace --namespace kubefox-system \
   --install --wait
 ```
+
 ??? example "Output"
 
     ```text
@@ -127,17 +129,17 @@ for deployment and release.
 ## Deploy
 
 Awesome! You're all set to start the KubeFox Platform on the your newly created
-cluster and deploy your first KubeFox Hasura App. To begin, create a new directory and
-use Fox to initialize the `hello-world` App. Run all subsequent commands from
-this directory. The environment variable `FOX_INFO` tells Fox to to provide
-additional output about what is going on. Employ the `--hasura` flag to simplify
-the Hasura `demo` in the `kubefox-demo` Namespace.
+cluster and deploy your first KubeFox GraphQL App. To begin, create a new
+directory and use Fox to initialize the `graphql` App. Run all subsequent
+commands from this directory. The environment variable `FOX_INFO` tells Fox to
+to provide additional output about what is going on. Employ the `--graphql` flag
+to simplify setting things up for this tutorial.
 
 ```{ .shell .copy }
-mkdir kubefox-hasura && \
-  cd kubefox-hasura && \
+mkdir kubefox-graphql && \
+  cd kubefox-graphql && \
   export FOX_INFO=true && \
-  fox init --hasura 
+  fox init --graphql
 ```
 
 ??? example "Output"
@@ -146,8 +148,8 @@ mkdir kubefox-hasura && \
     info    Configuration successfully written to '/home/xadhatter/.config/kubefox/config.yaml'.
 
     info    Waiting for KubeFox Platform 'demo' to be ready...
-    info    KubeFox initialized for the quickstart guide!
+    info    KubeFox initialized for the GraphQL tutorial!
     ```
 
-From here, please refer to the CNCF LiveStream from March 13th.  Rest Assured,
+From here, please refer to the CNCF LiveStream from March 13th. Rest Assured,
 we'll update this shortly to turn it into a standalone tutorial!

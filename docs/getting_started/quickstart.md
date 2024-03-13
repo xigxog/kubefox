@@ -415,7 +415,7 @@ fox proxy 8080
 ??? info "macOS Network Warning"
 
     <figure markdown>
-      ![macosx-warning](../../images/fox-mac-net-warn.png)
+      ![macosx-warning](../images/fox-mac-net-warn.png)
     </figure>
 
     If you are using macOS you might notice this dialog popup when you start the

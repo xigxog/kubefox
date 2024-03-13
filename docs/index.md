@@ -54,7 +54,7 @@ and deal with sometimes competing objectives:
 
 … and this is just the tip of the iceberg
 
-## Why KubeFox?
+## Why KubeFox
 
 KubeFox is involved in the areas of the software lifecycle that inflict the
 greatest pain on engineering and DevOps teams. That starts with CI/CD. CI/CD
@@ -71,9 +71,9 @@ At a high level, they’re all some variation of Figure 1 below:
 
 KubeFox automates significant parts of this workflow.
 
-In KubeFox, you build and deploy [Apps](./concepts/index.md#app), just
-as you do today.  Applications are collections of
-[Components](./concepts/index.md#component).  Components can be microservices or
+In KubeFox, you build and deploy [Apps](./concepts/index.md#app), just as you do
+today. Applications are collections of
+[Components](./concepts/index.md#component). Components can be microservices or
 functions. When an application is deployed, KubeFox determines what components
 have changed and distills the deployment to only those components that are
 unique - either new versions of existing components or new components.
@@ -81,8 +81,8 @@ unique - either new versions of existing components or new components.
 Building applications with KubeFox yields a host of benefits in the software
 lifecycle:
 
-- The application lifecycle is focused on the Application component development and
-  interaction – not on associated DevOps tasks and logistics.
+- The application lifecycle is focused on the Application component development
+  and interaction – not on associated DevOps tasks and logistics.
 - A primary goal of KubeFox is to enable engineering teams to interact with
   Kubernetes in an as frictionless a manner as possible. Developers can rapidly
   prototype new concepts, enhance existing applications, and test their work.
@@ -97,11 +97,11 @@ lifecycle:
   KubeFox. You can arrange for a subdomain for canary testing for early
   adopters, and run the advanced version of the application side-by-side with
   the current version.
-- KubeFox dynamically shapes traffic at runtime, so shifting from one application
-  version to another is lightswitch quick.
+- KubeFox dynamically shapes traffic at runtime, so shifting from one
+  application version to another is lightswitch quick.
 - Environments are virtual constructs, enabling you (and your developers) to
   rapidly spool up and tear down isolated environments for teams or even
-  individual developers. 
+  individual developers.
 - Configuration is abstracted from environment, yielding great flexibility and
   fostering rapid engineering.
 - Span-based federated telemetry (logs, metrics, traces) is immediately
@@ -112,10 +112,10 @@ lifecycle:
 In the following sections, we’ll delve more deeply into some of KubeFox’s
 concepts and capabilities.
 
-## How Do I Get Started?
+## Next Steps
 
 If you want to jump straight in, go to the
-[Quickstart](./getting_started/tutorials/quickstart.md).  It's also worthwhile
-to review the docs, starting with [Concepts](./concepts/index.md).
+[Quickstart](./getting_started/quickstart.md). It's also worthwhile to review
+the docs, starting with [Concepts](./concepts/index.md).
 
 We welcome your feedback and involvement!
