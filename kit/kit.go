@@ -106,10 +106,6 @@ Flags:
 			fmt.Fprintf(os.Stderr, "hash '%s' does not match build info hash '%s'", hash, build.Info.Hash)
 			os.Exit(1)
 		}
-
-		// REMOVE
-		logFormat = "console"
-		logLevel = "debug"
 	} else {
 		logLevel = "error"
 	}
