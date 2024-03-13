@@ -111,3 +111,11 @@ lifecycle:
 
 In the following sections, we’ll delve more deeply into some of KubeFox’s
 concepts and capabilities.
+
+## How Do I Get Started?
+
+If you want to jump straight in, go to the
+[Quickstart](./getting_started/tutorials/quickstart.md).  It's also worthwhile
+to review the docs, starting with [Concepts](./concepts/index.md).
+
+We welcome your feedback and involvement!

@@ -1,0 +1,18 @@
+---
+apiVersion: kubefox.xigxog.io/v1alpha1
+kind: Environment
+metadata:
+  name: dev
+spec:
+  releasePolicy:
+    type: Testing
+data:
+  vars:
+    subPath: dev
+---
+apiVersion: kubefox.xigxog.io/v1alpha1
+kind: VirtualEnvironment
+metadata:
+  name: joe
+spec:
+  environment: dev
