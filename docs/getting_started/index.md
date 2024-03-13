@@ -8,7 +8,7 @@ In the [Tutorials](./tutorials/index.md) section, we have a few things:
 
 There's the [Quickstart](./tutorials/quickstart.md), which walks you
 through the process of getting KubeFox running in either kind or Azure, and
-gives you and introduction to some of it's powerful features.  
+gives you and introduction to some of its powerful features.  
 
 ### [Hasura](./tutorials/hasura.md)
 
