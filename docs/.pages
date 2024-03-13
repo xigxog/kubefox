@@ -1,6 +1,7 @@
 nav:
   - index.md
   - quickstart.md
+  - getting_started
   - concepts
   - design
   - reference
