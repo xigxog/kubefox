@@ -1,15 +1,22 @@
-# GraphQL
+# KubeFox with Hasura Tutorial
 
-Welcome to the world of KubeFox! This technical guide will walk you through the
-process of setting up a Kubernetes cluster using kind ("kind" is **K**ubernetes
-**in** **D**ocker).
+Welcome to the world of KubeFox! This tutorial will walk you through the process
+of setting up a Kubernetes cluster using kind ("kind" is **K**ubernetes **in**
+**D**ocker), loading KubeFox and Hasura, and working with the technologies.
 
-A couple of notes:
+The tutorial is a hands-on, code-along-with-us introduction to KubeFox Virtual Environments (VEs) with GoLang and Hasura.  In under an hour, you’ll work with a test application in Kubernetes that has multiple backends, see how KubeFox enables developers to rapidly prototype, test different versions of code, and visualize application behavior - without extensive configuration or DevOps overhead.  
+
+You’ll see how KubeFox’s Virtual Environments empower developers as you spin up what appear to be independent sandboxes.  Behind the scenes, you’ll learn how KubeFox’s Deployment Distillation and Dynamic Routing work in concert to prevent over-provisioning.  And we’ll finish with some simple modifications to the Virtual Environments themselves, enabling you switch the backend data store you’re using without deploying anything.
+
+This overview is approachable - even for those relatively new to Kubernetes.
+
+Some quick notes:
 
 1. We'll add instructions for Azure soon - it's really not that different but we
    want to vet it first.
-2. This tutorial currently gets the cluster ready for the LiveStream we're doing
-   on the 13th of March. We'll turn it into a standalone tutorial soon!
+2. This tutorial maps to a [CNCF
+   Livestream](https://www.youtube.com/watch?v=Gc6XJFgjocM) we did on March
+   13th, 2024. You can follow along with that Livestream if you wish.
 
 ## Prerequisites
 
@@ -47,12 +54,11 @@ Here are a few optional but recommended tools:
 
 ## Setup Kubernetes
 
-_Note: If you went through the Quickstart using kind, we recommend that you
+_Note: If you went through the KubeFox Quickstart using kind, we recommend that you
 first delete the cluster you created to ensure that you're starting with a clean
 slate._
 
-Let's kick things off by setting up a Kubernetes cluster. Use the following
-commands depending on which Kubernetes provider you would like to use. If you
+Let's kick things off by setting up a Kubernetes cluster. If you
 already have a Kubernetes Cluster provisioned, you can skip this step.
 
 === "Local (kind)"
