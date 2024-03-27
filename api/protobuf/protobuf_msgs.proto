@@ -16,10 +16,9 @@ option go_package = "github.com/xigxog/kubefox/core";
 
 enum Category {
   UNKNOWN = 0;
-  ACK = 1;
-  MESSAGE = 2;
-  REQUEST = 3;
-  RESPONSE = 4;
+  MESSAGE = 1;
+  REQUEST = 2;
+  RESPONSE = 3;
 }
 
 message Component {
@@ -48,7 +47,7 @@ message SpanContext {
 message Event {
   string id = 1;
   string parent_id = 2;
-  SpanContext trace_parent = 3;
+  SpanContext parent_span = 3;
 
   string type = 4;
   Category category = 5;

@@ -100,7 +100,7 @@ func (c *Component) Subject() string {
 		return c.BrokerSubject()
 	}
 
-	return utils.Join(".", c.GroupSubject(), c.Id)
+	return c.GroupSubject()
 }
 
 func (c *Component) GroupSubject() string {

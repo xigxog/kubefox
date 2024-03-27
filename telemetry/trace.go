@@ -13,12 +13,11 @@ import (
 	"encoding/binary"
 	"fmt"
 	"math/rand"
+	"reflect"
 	sync "sync"
 	"time"
 
 	"github.com/xigxog/kubefox/core"
-	semconv "go.opentelemetry.io/otel/semconv/v1.24.0"
-	"go.opentelemetry.io/otel/trace"
 	commonv1 "go.opentelemetry.io/proto/otlp/common/v1"
 	resv1 "go.opentelemetry.io/proto/otlp/resource/v1"
 	tracev1 "go.opentelemetry.io/proto/otlp/trace/v1"
@@ -31,95 +30,14 @@ var (
 )
 
 type Span struct {
-	otelSpan *tracev1.Span
+	OTELSpan *tracev1.Span
 }
 
-type Attribute struct {
+type Attr struct {
 	kv *commonv1.KeyValue
 }
 
-func SetComponent(comp *core.Component) {
-	resource = &resv1.Resource{
-		Attributes: []*commonv1.KeyValue{
-			SpanAttribute(string(semconv.ServiceNameKey), comp.Key()).kv,
-			SpanAttribute("kubefox.component.type", comp.Type).kv,
-			SpanAttribute("kubefox.component.app", comp.App).kv,
-			SpanAttribute("kubefox.component.name", comp.Name).kv,
-			SpanAttribute("kubefox.component.hash", comp.Hash).kv,
-			SpanAttribute("kubefox.component.id", comp.Id).kv,
-		},
-	}
-}
-
-func Resource() *resv1.Resource {
-	return resource
-}
-
-func SpanContextFromOTEL(otelSpan trace.SpanContext) *core.SpanContext {
-	tid, sid := otelSpan.TraceID(), otelSpan.SpanID()
-	return &core.SpanContext{
-		TraceId:    tid[:],
-		SpanId:     sid[:],
-		TraceState: otelSpan.TraceState().String(),
-		Flags:      uint32(otelSpan.TraceFlags()),
-	}
-}
-
-func StartSpan(name string, traceParent *core.SpanContext, attrs ...Attribute) *Span {
-	if traceParent == nil {
-		traceParent = &core.SpanContext{
-			TraceId: make([]byte, 16),
-		}
-		// Generate traceId
-		randSrcMutex.Lock()
-		_, _ = randSrc.Read(traceParent.TraceId)
-		randSrcMutex.Unlock()
-	}
-
-	otelAttrs := make([]*commonv1.KeyValue, len(attrs))
-	for i := range attrs {
-		otelAttrs[i] = attrs[i].kv
-	}
-
-	otelSpan := &tracev1.Span{
-		Name:              name,
-		TraceId:           traceParent.TraceId,
-		ParentSpanId:      traceParent.SpanId,
-		SpanId:            make([]byte, 8),
-		Attributes:        otelAttrs,
-		TraceState:        traceParent.TraceState,
-		Flags:             traceParent.Flags,
-		StartTimeUnixNano: uint64(time.Now().UnixNano()),
-	}
-
-	// Generate spanId
-	randSrcMutex.Lock()
-	_, _ = randSrc.Read(otelSpan.SpanId)
-	randSrcMutex.Unlock()
-
-	return &Span{
-		otelSpan: otelSpan,
-	}
-}
-
-func (s *Span) SpanContext() *core.SpanContext {
-	return &core.SpanContext{
-		TraceId:    s.otelSpan.TraceId,
-		SpanId:     s.otelSpan.SpanId,
-		TraceState: s.otelSpan.TraceState,
-		Flags:      s.otelSpan.Flags,
-	}
-}
-
-func (s *Span) OTELSpan() *tracev1.Span {
-	return s.otelSpan
-}
-
-func (s *Span) End() {
-	s.otelSpan.EndTimeUnixNano = uint64(time.Now().UnixNano())
-}
-
-func SpanAttribute(key string, val any) Attribute {
+func NewAttr(key string, val any) Attr {
 	anyVal := &commonv1.AnyValue{}
 	switch t := val.(type) {
 	case float32:
@@ -158,7 +76,116 @@ func SpanAttribute(key string, val any) Attribute {
 		anyVal.Value = &commonv1.AnyValue_StringValue{StringValue: fmt.Sprint(t)}
 	}
 
-	return Attribute{&commonv1.KeyValue{Key: key, Value: anyVal}}
+	return Attr{&commonv1.KeyValue{Key: string(key), Value: anyVal}}
+}
+
+func SetComponent(comp *core.Component) {
+	resource = &resv1.Resource{
+		Attributes: []*commonv1.KeyValue{
+			NewAttr(AttrKeySvcName, comp.Key()).kv,
+			NewAttr(AttrKeyComponentType, comp.Type).kv,
+			NewAttr(AttrKeyComponentApp, comp.App).kv,
+			NewAttr(AttrKeyComponentName, comp.Name).kv,
+			NewAttr(AttrKeyComponentHash, comp.Hash).kv,
+			NewAttr(AttrKeyComponentId, comp.Id).kv,
+		},
+	}
+}
+
+func Resource() *resv1.Resource {
+	return resource
+}
+
+func StartSpan(name string, parent *core.SpanContext, attrs ...Attr) *Span {
+	if parent == nil {
+		parent = &core.SpanContext{
+			TraceId: make([]byte, 16),
+		}
+		// Generate traceId
+		randSrcMutex.Lock()
+		_, _ = randSrc.Read(parent.TraceId)
+		randSrcMutex.Unlock()
+	}
+
+	var otelAttrs []*commonv1.KeyValue
+	if len(attrs) > 0 {
+		otelAttrs = make([]*commonv1.KeyValue, len(attrs))
+		for i := range attrs {
+			otelAttrs[i] = attrs[i].kv
+		}
+	}
+
+	otelSpan := &tracev1.Span{
+		Name:              name,
+		TraceId:           parent.TraceId,
+		ParentSpanId:      parent.SpanId,
+		SpanId:            make([]byte, 8),
+		Attributes:        otelAttrs,
+		TraceState:        parent.TraceState,
+		Flags:             parent.Flags,
+		StartTimeUnixNano: now(),
+	}
+
+	// Generate spanId
+	randSrcMutex.Lock()
+	_, _ = randSrc.Read(otelSpan.SpanId)
+	randSrcMutex.Unlock()
+
+	return &Span{
+		OTELSpan: otelSpan,
+	}
+}
+
+func (s *Span) SpanContext() *core.SpanContext {
+	return &core.SpanContext{
+		TraceId:    s.OTELSpan.TraceId,
+		SpanId:     s.OTELSpan.SpanId,
+		TraceState: s.OTELSpan.TraceState,
+		Flags:      s.OTELSpan.Flags,
+	}
+}
+
+func (s *Span) RecordErr(err error) {
+	if err == nil {
+		return
+	}
+
+	s.OTELSpan.Events = append(s.OTELSpan.Events, &tracev1.Span_Event{
+		TimeUnixNano: now(),
+		Name:         EventNameException,
+		Attributes: []*commonv1.KeyValue{
+			NewAttr(AttrKeyExceptionType, typeStr(err)).kv,
+			NewAttr(AttrKeyExceptionMsg, err.Error()).kv,
+		},
+	})
+}
+
+func (s *Span) End(errs ...error) {
+	if len(errs) > 0 {
+		for _, e := range errs {
+			s.RecordErr(e)
+		}
+
+		s.OTELSpan.Status = &tracev1.Status{
+			Message: errs[0].Error(),
+			Code:    tracev1.Status_STATUS_CODE_ERROR,
+		}
+	}
+
+	s.OTELSpan.EndTimeUnixNano = now()
+}
+
+func now() uint64 {
+	return uint64(time.Now().UnixNano())
+}
+
+func typeStr(i interface{}) string {
+	t := reflect.TypeOf(i)
+	if t.PkgPath() == "" && t.Name() == "" {
+		// Likely a builtin type.
+		return t.String()
+	}
+	return fmt.Sprintf("%s.%s", t.PkgPath(), t.Name())
 }
 
 func init() {

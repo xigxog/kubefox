@@ -17,8 +17,8 @@ import (
 
 // Misc
 const (
-	SecretMask               = "••••••"
-	MaximumMaxEventSizeBytes = 16777216 // 16 MiB
+	SecretMask             = "••••••"
+	MaxEventSizeBytesLimit = 16777216 // 16 MiB
 )
 
 var (
@@ -54,7 +54,7 @@ const (
 	LabelK8sEnvironment        string = "kubefox.xigxog.io/environment"
 	LabelK8sInstance           string = "app.kubernetes.io/instance"
 	LabelK8sPlatform           string = "kubefox.xigxog.io/platform"
-	LabelK8sReleaseManifest    string = "kubefox.xigxog.io/release-manifest"
+	LabelK8sRelManifest        string = "kubefox.xigxog.io/release-manifest"
 	LabelK8sRuntimeVersion     string = "kubefox.xigxog.io/runtime-version"
 	LabelK8sVirtualEnvironment string = "kubefox.xigxog.io/virtual-environment"
 )
@@ -144,23 +144,23 @@ const (
 type ProblemType string
 
 const (
-	ProblemTypeAdapterNotFound            ProblemType = "AdapterNotFound"
-	ProblemTypeAppDeploymentFailed        ProblemType = "AppDeploymentFailed"
-	ProblemTypeAppDeploymentNotFound      ProblemType = "AppDeploymentNotFound"
-	ProblemTypeDependencyInvalid          ProblemType = "DependencyInvalid"
-	ProblemTypeDependencyNotFound         ProblemType = "DependencyNotFound"
-	ProblemTypeDeploymentFailed           ProblemType = "DeploymentFailed"
-	ProblemTypeDeploymentNotFound         ProblemType = "DeploymentNotFound"
-	ProblemTypeDeploymentUnavailable      ProblemType = "DeploymentUnavailable"
-	ProblemTypeParseError                 ProblemType = "ParseError"
-	ProblemTypePolicyViolation            ProblemType = "PolicyViolation"
-	ProblemTypeReleaseManifestFailed      ProblemType = "ReleaseManifestFailed"
-	ProblemTypeReleaseManifestNotFound    ProblemType = "ReleaseManifestNotFound"
-	ProblemTypeReleaseManifestUnavailable ProblemType = "ReleaseManifestUnavailable"
-	ProblemTypeRouteConflict              ProblemType = "RouteConflict"
-	ProblemTypeVarNotFound                ProblemType = "VarNotFound"
-	ProblemTypeVarWrongType               ProblemType = "VarWrongType"
-	ProblemTypeVersionConflict            ProblemType = "VersionConflict"
+	ProblemTypeAdapterNotFound        ProblemType = "AdapterNotFound"
+	ProblemTypeAppDeploymentFailed    ProblemType = "AppDeploymentFailed"
+	ProblemTypeAppDeploymentNotFound  ProblemType = "AppDeploymentNotFound"
+	ProblemTypeDependencyInvalid      ProblemType = "DependencyInvalid"
+	ProblemTypeDependencyNotFound     ProblemType = "DependencyNotFound"
+	ProblemTypeDeploymentFailed       ProblemType = "DeploymentFailed"
+	ProblemTypeDeploymentNotFound     ProblemType = "DeploymentNotFound"
+	ProblemTypeDeploymentUnavailable  ProblemType = "DeploymentUnavailable"
+	ProblemTypeParseError             ProblemType = "ParseError"
+	ProblemTypePolicyViolation        ProblemType = "PolicyViolation"
+	ProblemTypeRelManifestFailed      ProblemType = "ReleaseManifestFailed"
+	ProblemTypeRelManifestNotFound    ProblemType = "ReleaseManifestNotFound"
+	ProblemTypeRelManifestUnavailable ProblemType = "ReleaseManifestUnavailable"
+	ProblemTypeRouteConflict          ProblemType = "RouteConflict"
+	ProblemTypeVarNotFound            ProblemType = "VarNotFound"
+	ProblemTypeVarWrongType           ProblemType = "VarWrongType"
+	ProblemTypeVersionConflict        ProblemType = "VersionConflict"
 )
 
 type DataSourceKind string
@@ -172,12 +172,12 @@ const (
 type ProblemSourceKind string
 
 const (
-	ProblemSourceKindAppDeployment      ProblemSourceKind = "AppDeployment"
-	ProblemSourceKindComponent          ProblemSourceKind = "Component"
-	ProblemSourceKindDeployment         ProblemSourceKind = "Deployment"
-	ProblemSourceKindHTTPAdapter        ProblemSourceKind = "HTTPAdapter"
-	ProblemSourceKindReleaseManifest    ProblemSourceKind = "ReleaseManifest"
-	ProblemSourceKindVirtualEnvironment ProblemSourceKind = "VirtualEnvironment"
+	ProblemSourceKindAppDeployment ProblemSourceKind = "AppDeployment"
+	ProblemSourceKindComponent     ProblemSourceKind = "Component"
+	ProblemSourceKindDeployment    ProblemSourceKind = "Deployment"
+	ProblemSourceKindHTTPAdapter   ProblemSourceKind = "HTTPAdapter"
+	ProblemSourceKindRelManifest   ProblemSourceKind = "ReleaseManifest"
+	ProblemSourceKindVirtualEnv    ProblemSourceKind = "VirtualEnvironment"
 )
 
 type EnvVarType string
@@ -225,17 +225,15 @@ const (
 
 type EventType string
 
-// Component event types
 const (
+	// Component event types
 	EventTypeCron       EventType = "io.kubefox.cron"
 	EventTypeDapr       EventType = "io.kubefox.dapr"
 	EventTypeHTTP       EventType = "io.kubefox.http"
 	EventTypeKubeFox    EventType = "io.kubefox.kubefox"
 	EventTypeKubernetes EventType = "io.kubefox.kubernetes"
-)
 
-// Platform event types
-const (
+	// Platform event types
 	EventTypeAck       EventType = "io.kubefox.ack"
 	EventTypeBootstrap EventType = "io.kubefox.bootstrap"
 	EventTypeError     EventType = "io.kubefox.error"
@@ -265,23 +263,23 @@ const (
 
 // Headers and query params.
 const (
-	HeaderAdapter                 = "kubefox-adapter"
-	HeaderAppDep                  = "kubefox-app-deployment"
-	HeaderAppDepAbbrv             = "kf-dep"
-	HeaderAppDepShort             = "kfd"
-	HeaderContentLength           = "Content-Length"
-	HeaderContentType             = "Content-Type"
-	HeaderEventId                 = "kubefox-event-id"
-	HeaderEventType               = "kubefox-event-type"
-	HeaderEventTypeAbbrv          = "kf-type"
-	HeaderEventTypeShort          = "kft"
-	HeaderHost                    = "Host"
-	HeaderPlatform                = "kubefox-platform"
-	HeaderReleaseManifest         = "kubefox-release-manifest"
-	HeaderTraceId                 = "kubefox-trace-id"
-	HeaderVirtualEnvironment      = "kubefox-virtual-environment"
-	HeaderVirtualEnvironmentAbbrv = "kf-ve"
-	HeaderVirtualEnvironmentShort = "kfv"
+	HeaderAdapter            = "kubefox-adapter"
+	HeaderAppDeployment      = "kubefox-app-deployment"
+	HeaderAppDeploymentAbbrv = "kf-dep"
+	HeaderAppDeploymentShort = "kfd"
+	HeaderContentLength      = "Content-Length"
+	HeaderContentType        = "Content-Type"
+	HeaderEventId            = "kubefox-event-id"
+	HeaderEventType          = "kubefox-event-type"
+	HeaderEventTypeAbbrv     = "kf-type"
+	HeaderEventTypeShort     = "kft"
+	HeaderHost               = "Host"
+	HeaderPlatform           = "kubefox-platform"
+	HeaderRelManifest        = "kubefox-release-manifest"
+	HeaderTraceId            = "kubefox-trace-id"
+	HeaderVirtualEnv         = "kubefox-virtual-environment"
+	HeaderVirtualEnvAbbrv    = "kf-ve"
+	HeaderVirtualEnvShort    = "kfv"
 )
 
 const (

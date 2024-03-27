@@ -310,8 +310,8 @@ func (svc *kit) recvReq(req *grpc.ComponentEvent) {
 		err = core.ErrNotFound(fmt.Errorf("invalid route id %d", req.RouteId))
 	}
 
-	ktx.reqSpan = telemetry.StartSpan(rule, req.Event.TraceParent,
-		telemetry.SpanAttribute("kubefox.route.id", req.RouteId),
+	ktx.reqSpan = telemetry.StartSpan(rule, req.Event.ParentSpan,
+		telemetry.NewAttr(telemetry.AttrKeyRouteId, req.RouteId),
 	)
 	ktx.spans = append(ktx.spans, ktx.reqSpan)
 

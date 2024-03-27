@@ -30,12 +30,12 @@ import (
 )
 
 type EventOpts struct {
-	Type        api.EventType
-	Parent      *Event
-	Source      *Component
-	Timeout     time.Duration
-	Target      *Component
-	TraceParent *SpanContext
+	Type       api.EventType
+	Parent     *Event
+	Source     *Component
+	Timeout    time.Duration
+	Target     *Component
+	ParentSpan *SpanContext
 }
 
 func NewResp(opts EventOpts) *Event {
@@ -99,8 +99,8 @@ func clone(evt *Event, cat Category, opts EventOpts) *Event {
 
 func applyOpts(evt *Event, cat Category, opts EventOpts) *Event {
 	evt.SetParent(opts.Parent)
-	if opts.TraceParent != nil {
-		evt.TraceParent = opts.TraceParent
+	if opts.ParentSpan != nil {
+		evt.ParentSpan = opts.ParentSpan
 	}
 	evt.Category = cat
 	evt.Source = opts.Source
@@ -120,7 +120,7 @@ func (evt *Event) SetParent(parent *Event) {
 		return
 	}
 	evt.ParentId = parent.Id
-	evt.TraceParent = parent.TraceParent
+	evt.ParentSpan = parent.ParentSpan
 	evt.Ttl = parent.Ttl
 	evt.SetContext(parent.Context)
 	if evt.Type == "" || evt.Type == string(api.EventTypeUnknown) {
@@ -389,17 +389,17 @@ func (evt *Event) SetStatusV(val *api.Val) {
 }
 
 func (evt *Event) TraceId() string {
-	if evt.TraceParent == nil {
+	if evt.ParentSpan == nil {
 		return ""
 	}
-	return hex.EncodeToString(evt.TraceParent.TraceId)
+	return hex.EncodeToString(evt.ParentSpan.TraceId)
 }
 
 func (evt *Event) SpanId() string {
-	if evt.TraceParent == nil {
+	if evt.ParentSpan == nil {
 		return ""
 	}
-	return hex.EncodeToString(evt.TraceParent.SpanId)
+	return hex.EncodeToString(evt.ParentSpan.SpanId)
 }
 
 func (evt *Event) URL() (*url.URL, error) {
@@ -583,10 +583,10 @@ func (evt *Event) SetHTTPRequest(httpReq *http.Request, maxEventSize int64) erro
 	evt.Category = Category_REQUEST
 
 	if evt.Context.VirtualEnvironment == "" {
-		evt.Context.VirtualEnvironment = GetParamOrHeader(httpReq, api.HeaderVirtualEnvironment, api.HeaderVirtualEnvironmentAbbrv, api.HeaderVirtualEnvironmentShort)
+		evt.Context.VirtualEnvironment = GetParamOrHeader(httpReq, api.HeaderVirtualEnv, api.HeaderVirtualEnvAbbrv, api.HeaderVirtualEnvShort)
 	}
 	if evt.Context.AppDeployment == "" {
-		evt.Context.AppDeployment = GetParamOrHeader(httpReq, api.HeaderAppDep, api.HeaderAppDepAbbrv, api.HeaderAppDepShort)
+		evt.Context.AppDeployment = GetParamOrHeader(httpReq, api.HeaderAppDeployment, api.HeaderAppDeploymentAbbrv, api.HeaderAppDeploymentShort)
 	}
 
 	if evt.Type == "" || evt.Type == string(api.EventTypeUnknown) {
@@ -599,8 +599,8 @@ func (evt *Event) SetHTTPRequest(httpReq *http.Request, maxEventSize int64) erro
 	}
 
 	DelParamOrHeader(httpReq,
-		api.HeaderVirtualEnvironment, api.HeaderVirtualEnvironmentAbbrv, api.HeaderVirtualEnvironmentShort,
-		api.HeaderAppDep, api.HeaderAppDepAbbrv, api.HeaderAppDepShort,
+		api.HeaderVirtualEnv, api.HeaderVirtualEnvAbbrv, api.HeaderVirtualEnvShort,
+		api.HeaderAppDeployment, api.HeaderAppDeploymentAbbrv, api.HeaderAppDeploymentShort,
 		api.HeaderEventType, api.HeaderEventTypeAbbrv, api.HeaderEventTypeShort,
 	)
 

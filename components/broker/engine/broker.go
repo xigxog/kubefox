@@ -290,7 +290,7 @@ func (brk *broker) RecvEvent(evt *core.Event, receiver Receiver) *BrokerEventCon
 	ctx, _ := context.WithTimeoutCause(parentCtx, evt.TTL(), core.ErrTimeout())
 
 	// TODO move to kubefox telemetry and implements batch exporter.
-	if tp := evt.TraceParent; tp != nil {
+	if tp := evt.ParentSpan; tp != nil {
 		ts, _ := trace.ParseTraceState(tp.TraceState)
 		ctx = trace.ContextWithRemoteSpanContext(ctx, trace.NewSpanContext(
 			trace.SpanContextConfig{

@@ -131,7 +131,13 @@ func (srv *Server) ServeHTTP(resWriter http.ResponseWriter, httpReq *http.Reques
 	var parentTrace *core.SpanContext
 	_, _, otelSC := otelhttptrace.Extract(ctx, httpReq)
 	if otelSC.HasTraceID() {
-		parentTrace = telemetry.SpanContextFromOTEL(otelSC)
+		tid, sid := otelSC.TraceID(), otelSC.SpanID()
+		parentTrace = &core.SpanContext{
+			TraceId:    tid[:],
+			SpanId:     sid[:],
+			TraceState: otelSC.TraceState().String(),
+			Flags:      uint32(otelSC.TraceFlags()),
+		}
 	}
 
 	var spans []*telemetry.Span
@@ -147,9 +153,9 @@ func (srv *Server) ServeHTTP(resWriter http.ResponseWriter, httpReq *http.Reques
 	spans = append(spans, parseSpan)
 
 	req := core.NewReq(core.EventOpts{
-		Source:      srv.brk.Component,
-		Timeout:     EventTimeout,
-		TraceParent: span.SpanContext(),
+		Source:     srv.brk.Component,
+		Timeout:    EventTimeout,
+		ParentSpan: span.SpanContext(),
 	})
 	setHeader(resWriter, api.HeaderEventId, req.Id)
 
@@ -171,9 +177,9 @@ func (srv *Server) ServeHTTP(resWriter http.ResponseWriter, httpReq *http.Reques
 	// Add Event Context to response headers.
 	if resp != nil && resp.Context != nil {
 		setHeader(resWriter, api.HeaderPlatform, resp.Context.Platform)
-		setHeader(resWriter, api.HeaderVirtualEnvironment, resp.Context.VirtualEnvironment)
-		setHeader(resWriter, api.HeaderAppDep, resp.Context.AppDeployment)
-		setHeader(resWriter, api.HeaderReleaseManifest, resp.Context.ReleaseManifest)
+		setHeader(resWriter, api.HeaderVirtualEnv, resp.Context.VirtualEnvironment)
+		setHeader(resWriter, api.HeaderAppDeployment, resp.Context.AppDeployment)
+		setHeader(resWriter, api.HeaderRelManifest, resp.Context.ReleaseManifest)
 	}
 
 	switch {

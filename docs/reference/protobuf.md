@@ -33,7 +33,7 @@
 | ----- | ---- | ----- | ----------- |
 | id | [string](#string) |  |  |
 | parent_id | [string](#string) |  |  |
-| trace_parent | [SpanContext](#kubefoxprotov1spancontext) |  |  |
+| parent_span | [SpanContext](#kubefoxprotov1spancontext) |  |  |
 | type | [string](#string) |  |  |
 | category | [Category](#kubefoxprotov1category) |  |  |
 | create_time | [int64](#int64) |  | Unix time in nanosecond |
@@ -162,10 +162,9 @@
 | Name | Number | Description |
 | ---- | ------ | ----------- |
 | UNKNOWN | 0 |  |
-| ACK | 1 |  |
-| MESSAGE | 2 |  |
-| REQUEST | 3 |  |
-| RESPONSE | 4 |  |
+| MESSAGE | 1 |  |
+| REQUEST | 2 |  |
+| RESPONSE | 3 |  |
 
 
  <!-- end enums -->

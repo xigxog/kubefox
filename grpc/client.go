@@ -307,7 +307,7 @@ func (c *Client) SendSpans(spans ...*telemetry.Span) {
 		SchemaUrl: semconv.SchemaURL,
 	}
 	for i := range spans {
-		resSpans.ScopeSpans[0].Spans[i] = spans[i].OTELSpan()
+		resSpans.ScopeSpans[0].Spans[i] = spans[i].OTELSpan
 	}
 
 	_, err := c.brk.Export(ctx, &otelgrpc.ExportTraceServiceRequest{

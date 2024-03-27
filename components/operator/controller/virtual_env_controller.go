@@ -509,14 +509,14 @@ func (r *VirtualEnvReconciler) updateProblems(ctx *VirtualEnvContext, rel *v1alp
 					Message: msg,
 					Causes: []api.ProblemSource{
 						{
-							Kind:               api.ProblemSourceKindVirtualEnvironment,
+							Kind:               api.ProblemSourceKindVirtualEnv,
 							Name:               ctx.Name,
 							ObservedGeneration: ctx.Generation,
 							Path:               "$.status.activeRelease.releaseManifest",
 							Value:              &rel.ReleaseManifest,
 						},
 						{
-							Kind: api.ProblemSourceKindReleaseManifest,
+							Kind: api.ProblemSourceKindRelManifest,
 							Name: rel.ReleaseManifest,
 						},
 					},
@@ -618,14 +618,14 @@ func (r *VirtualEnvReconciler) updateProblems(ctx *VirtualEnvContext, rel *v1alp
 						Message: msg,
 						Causes: []api.ProblemSource{
 							{
-								Kind:               api.ProblemSourceKindVirtualEnvironment,
+								Kind:               api.ProblemSourceKindVirtualEnv,
 								Name:               ctx.Name,
 								ObservedGeneration: ctx.Generation,
 								Path:               "$.spec.releasePolicy.versionRequired",
 								Value:              &value,
 							},
 							{
-								Kind:               api.ProblemSourceKindVirtualEnvironment,
+								Kind:               api.ProblemSourceKindVirtualEnv,
 								Name:               ctx.Name,
 								ObservedGeneration: ctx.Generation,
 								Path:               fmt.Sprintf("$.spec.release.apps.%s.version", appName),
@@ -646,7 +646,7 @@ func (r *VirtualEnvReconciler) updateProblems(ctx *VirtualEnvContext, rel *v1alp
 						Message: msg,
 						Causes: []api.ProblemSource{
 							{
-								Kind:               api.ProblemSourceKindVirtualEnvironment,
+								Kind:               api.ProblemSourceKindVirtualEnv,
 								Name:               ctx.Name,
 								ObservedGeneration: ctx.Generation,
 								Path:               fmt.Sprintf("$.spec.release.apps.%s.version", appName),
@@ -673,7 +673,7 @@ func (r *VirtualEnvReconciler) updateProblems(ctx *VirtualEnvContext, rel *v1alp
 					Message: msg,
 					Causes: []api.ProblemSource{
 						{
-							Kind:               api.ProblemSourceKindVirtualEnvironment,
+							Kind:               api.ProblemSourceKindVirtualEnv,
 							Name:               ctx.Name,
 							ObservedGeneration: ctx.Generation,
 							Path:               fmt.Sprintf("$.spec.release.apps.%s.appDeployment", appName),

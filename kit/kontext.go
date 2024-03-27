@@ -283,7 +283,7 @@ func (req *reqKontext) Send() (EventReader, error) {
 	defer span.End()
 
 	req.ktx.spans = append(req.ktx.spans, span)
-	req.Event.TraceParent = span.SpanContext()
+	req.Event.ParentSpan = span.SpanContext()
 
 	return req.ktx.kit.brk.SendReq(req.ktx.ctx, req.Event, req.ktx.start)
 }
