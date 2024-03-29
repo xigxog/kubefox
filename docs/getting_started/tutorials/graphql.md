@@ -1120,7 +1120,7 @@ http://localhost:8080/dev/hasura/heroes
 Try it and you should see this:
 
 <figure markdown>
-  <img src="../../images/screenshots/hasura_tutorial/Initial Superheroes HTML page with Fox proxy context.png" width=100% height=100%>
+  <img src="../../images/screenshots/hasura_tutorial/Initial Superheroes HTML page with fox proxy context.png" width=100% height=100%>
   <figcaption>Figure 5 - The Superheroes HTML Page with Fox proxy context</figcaption>
 </figure>
 
