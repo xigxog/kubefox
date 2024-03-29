@@ -1,4 +1,4 @@
-# KubeFox with Hasura Tutorial
+# KubeFox and Hasura
 
 Welcome to the world of KubeFox! This tutorial will walk you through the process
 of setting up a Kubernetes cluster using kind ("kind" is **K**ubernetes **in**
@@ -12,11 +12,13 @@ This overview is approachable - even for those relatively new to Kubernetes.
 
 Some quick notes:
 
-1. We'll add instructions for Azure soon - it's really not that different but we
-   want to vet it first.
-2. This tutorial maps to a [CNCF
+1. This tutorial maps to a [CNCF
    Livestream](https://www.youtube.com/watch?v=Gc6XJFgjocM) we did on March
    13th, 2024. You can follow along with that Livestream if you wish.
+2. We very much welcome your feedback. If you encounter any problems or you have
+   some suggestions to help make us better, please let us know on [GitHub
+Issues](https://github.com/xigxog/kubefox/issues).
+3. Or contribute!
 
 ## Prerequisites
 
@@ -54,14 +56,14 @@ Here are a few optional but recommended tools:
 
 ## Setup Kubernetes
 
-_Note: If you went through the KubeFox Quickstart using kind, we recommend that you
-first delete the cluster you created to ensure that you're starting with a clean
-slate._
-
 Let's kick things off by setting up a Kubernetes cluster. If you
 already have a Kubernetes Cluster provisioned, you can skip this step.
 
 === "Local (kind)"
+
+    _Note: If you went through the KubeFox Quickstart using kind, we recommend that you
+    first delete the cluster you created to ensure that you're starting with a clean
+    slate._
 
     Setup a Kubernetes cluster on your workstation using kind and Docker. Kind
     is an excellent tool specifically designed for quickly establishing a
@@ -153,6 +155,16 @@ already have a Kubernetes Cluster provisioned, you can skip this step.
       --resource-group $AZ_RESOURCE_GROUP  \
       --name $AZ_AKS_NAME
     ```
+    ??? info "Asked to overwrite?"
+
+        Were you asked whether you wanted to overwrite items in kubeconfig?  This probably means that you're going throught the tutorial a second time.  Go ahead and answer "y".
+
+        ```text
+        A different object named kf-hasura-eus2-aks-01 already exists in your kubeconfig file.
+        Overwrite? (y/n): y
+        A different object named clusterUser_kf-hasura-infra-eus2-rg_kf-hasura-eus2-aks-01 already exists in your kubeconfig file.
+        Overwrite? (y/n): y
+        ```
 
     The last resource to create is the Azure Container Registry (ACR). This is
     used to store the KubeFox Component container images.
@@ -272,8 +284,6 @@ helm upgrade kubefox kubefox \
     TEST SUITE: None
     ```
 
----
-
 ## Get the Fox CLI
 
 Now install Fox, a CLI tool used to interact with KubeFox and prepare your Apps
@@ -295,9 +305,7 @@ for deployment and release.
 
 === "Install Manually"
 
-    Download the [latest Fox release](https://github.com/xigxog/fox/releases/latest){:target="_blank"} for your OS and extract the `fox` binary to a directory on your path.
-
----
+    Download the [latest Fox release](https://github.com/xigxog/fox/releases/latest){:target="_blank"} for your OS and extract the `Fox` binary to a directory on your path.
 
 ## Set up the Tutorial
 
@@ -323,8 +331,6 @@ mkdir kubefox-graphql && \
     info    Waiting for KubeFox Platform 'demo' to be ready...
     info    KubeFox initialized for the GraphQL tutorial!
     ```
-
----
 
 ## Load Hasura
 
@@ -419,12 +425,10 @@ kubectl get pods -A
 
 Once the Pods are up, we can start working with KubeFox and Hasura in earnest!
 
----
-
 ## Define Environments
 
 We're first going to establish some KubeFox Environments and Virtual
-Environments. Let's take a quick look at the environment YAML.  Open "dev.yaml"
+Environments. Let's take a quick look at the environment YAML.  Open `dev.yaml`
 in VS Code.  It's in the hack/environments folder in kubefox-graphql:
 
 ```yaml linenums="9"
@@ -468,16 +472,16 @@ resource will be inherited by VEs, but can also be overridden in VEs.  The
 Environment is largely a convenience, relieving you from defining the same
 values repeatedly in the VEs (e.g., DB connection strings).  
 
-VEs map to Environments using the spec: environment: value - in this case "dev".
-Each of these VEs - "dev" and "dev-john" - inherit the values from the dev
-Environment.  The dev-john VE overrides the value of the "db" environment value
-to "john".  We'll discuss the "subPath" value in a momment.
+VEs map to Environments using the spec: environment: value - in this case `dev`.
+Each of these VEs - `dev` and `dev-john` - inherit the values from the dev
+Environment.  The dev-john VE overrides the value of the `db` environment value
+to `john`.  We'll discuss the `subPath` value in a momment.
 
 As you can see, multiple VEs can be defined within an Environment. You'll see
 later how - when coupled with KubeFox's Dynamic Routing - VEs are one of
 KubeFox's superpowers.
 
-Let's load the environment resources (we have two of them - "dev" and "prod") into our cluster:
+Let's load the environment resources (we have two of them - `dev` and `prod`) into our cluster:
 
 ```{ .shell .copy }
 kubectl apply -f hack/environments/ --namespace kubefox-demo
@@ -493,23 +497,23 @@ kubectl apply -f hack/environments/ --namespace kubefox-demo
     virtualenvironment.kubefox.xigxog.io/prod created
     ```
 
-Great!  So we've created two Environments, "dev" and "prod".  In prod, we have
-one VE: "prod".  And in dev, we have two VEs: "dev" and "dev-john".  Let's chat
+Great!  So we've created two Environments, `dev` and `prod`.  In the prod Environment, we have
+one VE: `prod`.  And in the dev Environment, we have two VEs: `dev` and `dev-john`.  Let's chat
 about the subPath value referenced above.
 
-Open our App component - "main.go".  It's in the components/server subdirectory of
+Open our App component - `main.go`.  It's in the components/server subdirectory of
 kubefox-graphql. Scroll to line 40 and you'll see the following:
 
-```text
-	k.Static("/{{.Vars.subPath}}/hasura/static", "static", EFS)
-	k.Route("Path(`/{{.Vars.subPath}}/hasura/heroes`)", listHeroes)
-	k.Route("PathPrefix(`/{{.Vars.subPath}}/hasura`)", forwardHasura)
+```go linenums="41"
+k.Static("/{{.Vars.subPath}}/hasura/static", "static", EFS)
+k.Route("Path(`/{{.Vars.subPath}}/hasura/heroes`)", listHeroes)
+k.Route("PathPrefix(`/{{.Vars.subPath}}/hasura`)", forwardHasura)
 ```
 KubeFox has the ability to inject routing information at runtime.  It will pull
 the subPath value from the VE (which may be inherited from the Environment) and
-inject it where you see "{{.Vars.subPath}}".  You'll see this in action in a
-moment, but to send a request to a deployment in the "dev" VE, we'd use an URL
-with a subpath of "dev" as that is what is defined in the dev VE above:
+inject it where you see `{{.Vars.subPath}}`.  You'll see this in action in a
+moment, but to send a request to a deployment in the `dev` VE, we'd use an URL
+with a subpath of `dev` as that is what is defined in the dev VE above:
 
 <figure markdown>
   <img src="../../images/diagrams/hasura_tutorial/sample_url_subpath_kf-dep_kf-ve.svg" width=100% height=100%>
@@ -517,10 +521,10 @@ with a subpath of "dev" as that is what is defined in the dev VE above:
 </figure>
 
 These are the features of the URL shown in Figure 1 above:<br/>
-(a) - The 'dev' subPath is specified, which should match the subPath in the
- VE to which we want the request routed (in this case, 'dev')<br/>
-(b) - The 'graphql-main' deployment is specified<br/>
-(c) - The 'dev' VE is specified<br/>
+(a) - The `dev` subPath is specified, which should match the subPath in the
+ VE to which we want the request routed (in this case, `dev`)<br/>
+(b) - The `graphql-main` deployment is specified<br/>
+(c) - The `dev` VE is specified<br/>
 
 It's worthwhile to note here that in KubeFox, there can be multiple versions of
 an App with multiple versions of components running in the same cluster.
@@ -531,15 +535,13 @@ of the specific version of the deployment being referenced.
 
 Scroll up a bit to line 38, and you'll see the following:
 
-```text
-	graphqlAdapter = k.HTTPAdapter("graphql")
-	hasuraAdapter = k.HTTPAdapter("hasura")
+```go linenums="38"
+graphqlAdapter = k.HTTPAdapter("graphql")
+hasuraAdapter = k.HTTPAdapter("hasura")
 ``` 
 
 These two lines define dependencies for components that must be present for us
 to successfully run our App.
-
----
 
 ## Initial Deployment
 
@@ -557,7 +559,7 @@ fox publish --wait 5m
 
 === "Azure (AKS)"
 
-    ??? info "fox publish error?"
+    ??? info "Fox publish error?"
 
         Did you receive an error with 'fox publish'?  For example:
 
@@ -693,8 +695,8 @@ build an AppDeployment based upon that process.  The AppDeployment is a custom
 resource that the KubeFox Operator leverages to bring the AppDeployment online.
 
 In the Output, you can also see the routes we defined in our App (in the
-"routes:" section), and the Adapter dependencies we specified (in the
-"dependencies:" section).
+`routes:` section), and the Adapter dependencies we specified (in the
+`dependencies:` section).
 
 Let's jump over to k9s for the rest our evaluation of the cluster.  If you don't
 see the Pods section as shown in Figure 2 below, then type 
@@ -707,18 +709,18 @@ see the Pods section as shown in Figure 2 below, then type
 ```
 into k9s.  You can also set the namespace in k9s by typing the number
 corresponding to the namespace you wish to view.  We want to review
-kubefox-demo, so that would be `1` (you can see the namespaces in pink left of
+kubefox-demo, so that would be ++1++ (you can see the namespaces in pink left of
 center in the screen in Figure 2).
 
 <figure markdown>
   <img src="../../images/screenshots/hasura_tutorial/k9s Initial Publish.png" width=100% height=100%>
-  <figcaption>Figure 2 - Pods display after fox publish</figcaption>
+  <figcaption>Figure 2 - Pods display after Fox publish</figcaption>
 </figure>
 
 Typically, connections to KubeFox Apps are made through a public-facing load
-balancer. For the simplicity of this guide use Fox to create a local proxy
-instead. Note that we're going to leave the proxy running, so it's important to
-start it in a new terminal window.  
+balancer. To keep things simple for purposes of this tutorial, we'll use the Fox
+CLI to create a local proxy instead. Note that we're going to leave the proxy
+running, so it's important to start it in a new terminal window.  
 
 In a new terminal window run the following command:
 
@@ -729,7 +731,8 @@ fox proxy 8080
 ??? info "macOS Network Warning"
 
     <figure markdown>
-      ![macosx-warning](../images/fox-mac-net-warn.png)
+      <img src="../../images/fox-mac-net-warn.png" width=75% height=75%>
+      <figcaption>macOS Warning</figcaption>
     </figure>
 
     If you are using macOS you might notice this dialog popup when you start the
@@ -743,9 +746,7 @@ fox proxy 8080
     HTTP proxy started on http://127.0.0.1:8080
     ```
 
----
-
-## Diagnosing 400
+## Diagnosing a 400
 
 Now, switch back to the original terminal window and run the following curl
 command:
@@ -755,8 +756,8 @@ curl -v "http://localhost:8080/dev/hasura/heroes?kf-dep=graphql-main&kf-ve=dev"
 ```
 
 ??? example "Output"
-    ```text
 
+    ```text hl_lines="10 20 40 47 54"
     *   Trying [::1]:8080...
     * connect to ::1 port 8080 failed: Connection refused
     *   Trying 127.0.0.1:8080...
@@ -822,23 +823,23 @@ KubeFox is telling us that it cannot fulfill the request because the event
 context is invalid:
 
 ```text
-    invalid: event context is invalid
+invalid: event context is invalid
 ```
 
 A little further down, we can see the reasons.  The first error is:
 
 ```text
-    message: Var "subPath" not found but is required.
+message: Var "subPath" not found but is required.
 ```
 
-So KubeFox saw that the request specified a subPath of 'dev', as illustrated in
-Figure 1 above, but that subPath is not defined in the "dev" VE.
+So KubeFox saw that the request specified a subPath of `dev`, as illustrated in
+Figure 1 above, but that subPath is not defined in the `dev` VE.
 
 The second thing is that our Adapters have not been defined:
 
 ```text
-    message: Component "server" dependency "graphql" of type "HTTPAdapter" not found.
-    message: Component "server" dependency "hasura" of type "HTTPAdapter" not found.
+message: Component "server" dependency "graphql" of type "HTTPAdapter" not found.
+message: Component "server" dependency "hasura" of type "HTTPAdapter" not found.
 ```
 
 Adapters are responsible for translating back and forth between KubeFox events and some
@@ -859,13 +860,13 @@ kubectl apply -f hack/http-adapter.yaml --namespace kubefox-demo
     httpadapter.kubefox.xigxog.io/hasura created
     ```
 We need to come clean; we cheated a bit here for purposes of illustration.  If
-you review the original deployment, reprinted here (under Output below), KubeFox
+you review the original deployment, reprinted here (under Output below) for convenience, KubeFox
 told us that problems were present when we tried to publish.  KubeFox could not
 resolve the dependencies for the Adapters, and it told us so.
 
 ??? example "Output"
 
-    ```text
+    ```text hl_lines="61 67 78 85"
 
     info	Component image 'localhost/kubefox/graphql/server:a6fee36f3aed5bef8e4b482821fc4098' exists, skipping build.
     info	Loading component image 'localhost/kubefox/graphql/server:a6fee36f3aed5bef8e4b482821fc4098' into kind cluster 'kind'.
@@ -970,7 +971,7 @@ Do see the problem?
   data:
     vars:
       db: dev
-      #subPath: dev
+      subPath: dev
   ---
   apiVersion: kubefox.xigxog.io/v1alpha1
   kind: VirtualEnvironment
@@ -998,8 +999,6 @@ kubectl apply -f hack/environments/ --namespace kubefox-demo
     environment.kubefox.xigxog.io/prod created
     virtualenvironment.kubefox.xigxog.io/prod created
     ```
-
----
 
 ## Accessing Deployments
 
@@ -1088,10 +1087,12 @@ This is what you should see:
   <figcaption>Figure 3 - The Superheroes HTML Page in FireFox</figcaption>
 </figure>
 
+The initial request was successful, but the page sure doesn't look pretty.
+
 If we look under the covers, we see that while the content is correct and the
 initial request was fine, subsequent requests made by the browser lacked the
 KubeFox context for the deployment and VE (to see this view, right click and
-click inspect, select "Network", refresh the page, and click on the 404 message):
+click `inspect`, select `Network`, refresh the page, and click on the 404 message):
 
 <figure markdown>
   <img src="../../images/screenshots/hasura_tutorial/Initial Superheroes HTML page with 404 for CSS styles.png" width=100% height=100%>
@@ -1100,14 +1101,14 @@ click inspect, select "Network", refresh the page, and click on the 404 message)
 
 We can fix this in one of two ways:
 
-1. We can launch the fox proxy with context.   Go to the terminal where you
-   launched the fox proxy, do a CTRL-C, then restart it with context:
+1. We can launch the Fox proxy with context.   Go to the terminal where you
+   launched the Fox proxy, do a ++ctrl+c++ to stop it, then restart it with context:
 
 ```{ .shell .copy }
 fox proxy --virtual-env dev --app-deployment graphql-main 8080
 ```
 
-When we specify the deployment and VE in the fox proxy, it will take care of the
+When we specify the deployment and VE in the Fox proxy, it will take care of the
 injection of the deployment and VE for us.  So we can use an undecorated URL -
 one without query parameters (we'll use copy/paste this time so you can paste
 the URL on the same page where you had the Inspector active):
@@ -1119,22 +1120,20 @@ http://localhost:8080/dev/hasura/heroes
 Try it and you should see this:
 
 <figure markdown>
-  <img src="../../images/screenshots/hasura_tutorial/Initial Superheroes HTML page with fox proxy context.png" width=100% height=100%>
-  <figcaption>Figure 5 - The Superheroes HTML Page with fox proxy context</figcaption>
+  <img src="../../images/screenshots/hasura_tutorial/Initial Superheroes HTML page with Fox proxy context.png" width=100% height=100%>
+  <figcaption>Figure 5 - The Superheroes HTML Page with Fox proxy context</figcaption>
 </figure>
 
 2. The second and simpler way to correct this though is to make a release.
-   First, let's change the fox proxy back to the generic flavor (CTRL-C the fox proxy with context, then restart it as follows):
+   First, let's change the Fox proxy back to the generic flavor.  ++ctrl+c++ the Fox proxy with context, then restart it as follows:
 
 ```{ .shell .copy }
   fox proxy 8080
 ```
 
----
-
 ## Creating a Release
 
-Now we create a release:
+Now let's create a release:
 
 ```{ .shell .copy }
 fox release graphql-main --virtual-env dev
@@ -1191,7 +1190,9 @@ fox release graphql-main --virtual-env dev
     ```
 
 When we release, KubeFox defaults all traffic to that subPath to the
-currently-released version of the App. Refresh the page and you should see the same results in your browser:
+currently-released version of the App. We released to the `dev` VE, so when
+KubeFox sees the undecorated URL with a subpath of `dev`, it will inject context for
+us. Refresh the page and you should see the same results in your browser:
 
 <figure markdown>
   <img src="../../images/screenshots/hasura_tutorial/Superheroes HTML page post release.png" width=100% height=100%>
@@ -1205,13 +1206,12 @@ Using Release is actually recommended.  It's more convenient for developers and
 QA staff, and the URLs don't need to be decorated with query parameters, so the
 same test suites can be run iteratively for rapid prototyping etc.
 
----
-
-## Dynamic Routing in Action
+## Dynamic Routing
 
 Remember that we started with three VEs:  `dev` and `dev-john` in the dev
-environment, and `prod` in the prod environment.  To illustrate the power of
-KubeFox's Dynamic Routing, we're going to create a release for each of our VEs.
+environment, and `prod` in the prod environment.  We just created a release for
+our `dev` VE.  To illustrate the power of KubeFox's Dynamic Routing, we're going
+to create releases for each of our remaining VEs, `dev-john` and `prod`.
 
 First we'll release to the dev-john VE:
 
@@ -1272,13 +1272,9 @@ fox release graphql-main --virtual-env dev-john
 
     ```
 
----
-
-## Releasing to prod
-
-Now we're going to release to prod, but there is a fundamental difference
-between the prod environment and dev environment.  If we look back at the dev
-environment (open "dev.yaml" in VS Code - you'll fine it in the hack/environments folder
+Now we're going to release to prod, but before we do, let's discuss some fundamental differences
+between the prod environment and the dev environment.  If we look back at the dev
+environment (open `dev.yaml` in VS Code - you'll fine it in the hack/environments folder
 in kubefox-graphql).  You'll see a releasePolicy defined as type: Testing.
 
 ```yaml linenums="9" hl_lines="8"
@@ -1297,14 +1293,14 @@ data:
 ---
 ```
 
-A Testing release policy enables release without requiring any formality,
+A Testing release policy enables release without requiring excessive formality,
 thereby reducing overhead.  In prod however, we want formality.  We want
 releases to be versioned and immutable.  It is good practice to ensure that
-prod releases can be reproduced at any point in the futur, something that is
-actually required for compliance purposes for things like medical devices.
+prod releases can be reproduced at any point in the future, something that is
+actually required for compliance purposes, for instance, in the medical device space.
 
 When we look at the prod.yaml, we see a releasePolicy defined as type: Stable.  That
-compels us to add some steps to release.
+compels us to add some essential steps to a production release.
 
 ```yaml linenums="9" hl_lines="8"
 ---
@@ -1322,7 +1318,7 @@ data:
 ---
 ```
 
-Just for grins, let's try to do a release to prod  in the same manner as we did
+Just for grins, let's try to do a release to prod in the same manner as we did
 for dev:
 
 ```{ .shell .copy }
@@ -1331,10 +1327,9 @@ fox release graphql-main --virtual-env prod
 
 Take a look at the response:
 
-??? example "Output"
+??? example "Output" 
 
-    ```text
-
+    ```text hl_lines="32 55"
     apiVersion: kubefox.xigxog.io/v1alpha1
     data: {}
     details: {}
@@ -1399,7 +1394,7 @@ Take a look at the response:
 KubeFox cannot release the App because the version is not set:
 
 ```text
-   message: Version is required but not set for App "graphql".
+message: Version is required but not set for App "graphql".
 ```
 
 Okay, so let's tag the repository and publish a versioned copy of the
@@ -1427,8 +1422,8 @@ the changes and republish:
 
 ```{ .shell .copy }
 git add . && \
-  git commit -m "fixed VE" && \
-  fox publish --version v1 --create-tag
+git commit -m "fixed VE" && \
+fox publish --version v1 --create-tag
 ```
 
 ??? example "Output"
@@ -1511,9 +1506,7 @@ git add . && \
         type: Progressing
     ```
 
-We've now complied with our release policy and successfully released.
-
----
+We've now complied with our release policy by tagging and versioning the deployment.
 
 ## Deployment Distillation
 
@@ -1521,10 +1514,10 @@ It's worthwhile to take a closer look at the top of the deployment, where you
 can see this message:
 
 ```text
-    info	Component image 'localhost/kubefox/graphql/server:a6fee36f3aed5bef8e4b482821fc4098' exists, skipping build.
+info	Component image 'localhost/kubefox/graphql/server:a6fee36f3aed5bef8e4b482821fc4098' exists, skipping build.
 ```
 
-Remember that KubeFox works from the repository outward.  It inspected the
+Again, KubeFox works from the repository outward.  It inspected the
 component, determined it had not changed and continued with the deployment.
 This is a common occurrence when working with a KubeFox App.  It is not
 incumbent on the developer, QA or build staff to determine what has changed and
@@ -1534,7 +1527,7 @@ greater accuracy during development cycles.
 
 KubeFox did create a new AppDeployment, with the name "graphql-v1":
 
-```text
+```text hl_lines="14"
     kind: AppDeployment
     metadata:
       creationTimestamp: "2024-03-26T02:39:39Z"
@@ -1562,7 +1555,7 @@ Let's jump over to k9s and see what we have.
   <figcaption>Figure 7 - View of Pods after Publish to prod</figcaption>
 </figure>
 
-We've released to dev, dev-john and prod - but we still have only one
+We've deployed to dev, dev-john and prod - but we still have only one
 graphql-server application Pod. KubeFox can satisfy all requests for each of
 these deployments with a single Pod due to its dynamic routing.
 
@@ -1592,7 +1585,7 @@ http://localhost:8080/dev/hasura/heroes
   <figcaption>Figure 8 - Browser view of the dev VE after release</figcaption>
 </figure>
 
-Okay, let's try dev-john (remember the subPath for dev-john is "john").
+Okay, let's try dev-john (remember the subPath for dev-john is `john`).
 
 ```{ .shell .copy }
 http://localhost:8080/john/hasura/heroes
@@ -1628,7 +1621,8 @@ http://localhost:8080/prod/hasura/heroes?kf-dep=graphql-v1&kf-ve=prod
   <figcaption>Figure 11 - Browser view of the prod VE pre release with query parameters</figcaption>
 </figure>
 
-Okay - that works.  We just forgot to release.  Let's do that now:
+Okay - that works.  But we have our 404 errors for the secondary browser
+requests. So we just forgot to release.  Let's do that now:
 
 ```{ .shell .copy }
 fox release v1 --virtual-env prod
@@ -1686,7 +1680,8 @@ fox release v1 --virtual-env prod
         type: ReleasePending
     ```
 
-and try our undecorated query in prod again.
+and try our undecorated query in prod again (sometimes this takes a moment or
+two - particularly in external clouds).
 
 ```{ .shell .copy }
 http://localhost:8080/prod/hasura/heroes
@@ -1730,27 +1725,25 @@ There is some simple logic in our main.go component that routes requests to
 Hasura. On line 43, you see this code:
 
 ```go linenums="43" 
-	k.Route("PathPrefix(`/{{.Vars.subPath}}/hasura`)", forwardHasura)
+k.Route("PathPrefix(`/{{.Vars.subPath}}/hasura`)", forwardHasura)
 ```
 
 which tells us that anything that is not 'static' or 'heroes' will be forward to
 Hasura, and there is a simple proxy function starting on line 69 to achieve this:
 
 ```go linenums="69"
-  func forwardHasura(k kit.Kontext) error {
-    req := k.Forward(hasuraAdapter)
-    req.RewritePath(k.PathSuffix())
+func forwardHasura(k kit.Kontext) error {
+  req := k.Forward(hasuraAdapter)
+  req.RewritePath(k.PathSuffix())
 
-    resp, err := req.Send()
-    if err != nil {
-      return err
-    }
-
-    return k.Resp().Forward(resp)
+  resp, err := req.Send()
+  if err != nil {
+    return err
   }
-```
 
----
+  return k.Resp().Forward(resp)
+}
+```
 
 ## Hasura Console Basics
 
@@ -1763,12 +1756,12 @@ is a very powerful product.
 
 As shown in Figure 14 below:
 
-1. Click the "DATA" menu button at the top of the Hasura console
-2. Expand the "> public" folder under the "Superheroes" database on the left
+1. Click the `DATA` menu button at the top of the Hasura console
+2. Expand the `> public` folder under the `Superheroes` database on the left
    panel
-3. Click the "superhero" table
-4. Click the "Try GraphQL" dropdown
-5. Click "Query" on the dropdown menu
+3. Click the `superhero` table
+4. Click the `Try GraphQL` dropdown
+5. Click `Query` on the dropdown menu
 
 <figure markdown>
   <img src="../../images/screenshots/hasura_tutorial/Hasura console setup for first GraphiQL query.png" width=100% height=100%>
@@ -1782,7 +1775,7 @@ Your screen should look like what is shown below in Figure 15.
   <figcaption>Figure 15 - Initial GraphQL query panel for the superhero table</figcaption>
 </figure>
 
-In the botom center panel - right below the "GraphiQL" text and play button,
+In the botom center panel - right below the `GraphiQL` text and play button,
 there is a query ready for us to execute. Just to get acquainted, click that play
 button.  It should look as shown in Figure 16 below.
 
@@ -1791,17 +1784,16 @@ button.  It should look as shown in Figure 16 below.
   <figcaption>Figure 16 - Results from our first query</figcaption>
 </figure>
 
-
-Right now, it's returning "alignment_id", which is not really very helpful
+Right now, it's returning `alignment_id`, which is not really very helpful.
 Alignment, in our superhero world, is whether the superhero is 'good' or
 'bad'. What we'd really like to know is exactly that.  So change the query to
 look like it does in Figure 17.  Hasura's autocomplete will help you but some
 tips:
 
-1. Delete from "alignment_id" to "weight_kg"
-2. Type "alignment {" on the line after superhero name (Hasura will add the
-   right brace), and hit <kbd>Enter</kbd>
-3. Start typing "alignment" and Hasura will autocomplete for you
+1. Delete from `alignment_id` to `weight_kg`
+2. Type `alignment {` on the line after superhero name (Hasura will add the
+   right brace), and hit ++enter++
+3. Start typing `alignment` and Hasura will autocomplete for you
 
 <figure markdown>
   <img src="../../images/screenshots/hasura_tutorial/Hasura query with alignment edit.png" width=100% height=100%>
@@ -1815,13 +1807,13 @@ Run the query again (hit the play button), and you should see this:
   <figcaption>Figure 18 - Hasura query results after alignment edit</figcaption>
 </figure>
 
-Excellent!  Now we're going to go back into the database and modify the superhero table.  To do
-so:
+Excellent!  Now we're going to go back into the database and modify the
+superhero table.  To get there again:
 
-1. Click the "DATA" menu button at the top of the Hasura console
-2. Expand the "> public" folder under the "Superheroes" database on the left
+1. Click the `DATA` menu button at the top of the Hasura console
+2. Expand the `> public` folder under the `Superheroes` database on the left
    panel
-3. Click the "superhero" table
+3. Click the `superhero` table
 
 Your screen should look like this:
 
@@ -1830,14 +1822,14 @@ Your screen should look like this:
   <figcaption>Figure 19 - Browsing the 'superhero' table in Hasura</figcaption>
 </figure>
 
-Click the edit button for "3-D Man":
+Click the edit button for `3-D Man`:
 
 <figure markdown>
   <img src="../../images/screenshots/hasura_tutorial/Hasura console editing 3-D Man.png" width=100% height=100%>
   <figcaption>Figure 20 - Editing 3-D Man in Hasura</figcaption>
 </figure>
 
-Type in your own name in the "full_name" field for 3-D Man (Congratulations!
+Type in your own name in the `full_name` field for 3-D Man (Congratulations!
 You're a superhero!):
 
 <figure markdown>
@@ -1865,16 +1857,14 @@ Let's check and see what the dev VE looks like.
   <figcaption>Figure 23 - 3-D Man in the dev VE</figcaption>
 </figure>
 
-3-D Man is unchanged.  Why?  The change we made was in the 'dev-john' VE, the
-'dev' VE is unaffected.  Even though there is only one Pod running for both
+3-D Man is unchanged.  Why?  The change we made was in the `dev-john` VE, the
+`dev` VE is unaffected.  Even though there is only one Pod running for both
 releases, KubeFox is dynamically routing requests at runtime.  Developers using
-the dev VE can use the original data source, and developers using the 'dev-john'
+the `dev` VE can use the original data source, and developers using the `dev-john`
 VE can work with the new content and queries. To each group, their VEs provide
-them wiht what appear to be independent sandboxes.  All the while, KubeFox is controlling
+them with what appear to be independent sandboxes.  All the while, KubeFox is controlling
 provisioning by deploying only changed (or new) components - so we're achieving
 this with a single instance of our graphql-server component.
-
----
 
 ## Modifying our App
 
@@ -1894,8 +1884,8 @@ You should be here:
 
 Let's add gender to our query.  To do so:
 
-1. Copy the 'alignment' block
-2. Change 'alignment' to 'gender'
+1. Copy the `alignment` block
+2. Change `alignment` to `gender`
 
 The console should look like this:
 
@@ -1954,9 +1944,9 @@ you'll see the listHeroes function.
 We want to add gender to our GraphQL query.  To do so, we'll do something very
 similar to what we did in the Hasura console:
 
-1. Copy the Alignment struct & paste it right beneath itself
-2. In the copy, change 'Alignment' to 'Gender'
-3. Change 'Value string: 'graphql:"alignment"' to 'Value string: 'graphql:"gender"'
+1. Copy the `Alignment` struct & paste it right beneath itself
+2. In the copy, change `Alignment` to `Gender`
+3. Change `Value string: 'graphql:"alignment"` to `Value string: 'graphql:"gender"`
 
 It should look like this:
 
@@ -1985,6 +1975,7 @@ It should look like this:
     return k.Resp().SendHTMLTemplate(tpl, "index.html", query)
   }
 ```
+Save your changes.
 
 This extends our Go GraphQL query to include gender.  To display it, we need to modify
 the HTML page.
@@ -2038,6 +2029,9 @@ We just need to add gender.  Modify the table so it looks like this:
       {{ end}}
     </table>
 ```
+
+Save your changes.
+
 Finished!  Let's commit our changes:
 
 ```{ .shell .copy }
@@ -2045,7 +2039,7 @@ Finished!  Let's commit our changes:
   git commit -m "Added gender"
 ```
 
-Now we can do a fox publish.  We're publishing from our branch.
+Now we can do a Fox publish.  We're publishing from our branch.
 
 ```{ .shell .copy }
   fox publish --wait 5m
@@ -2053,10 +2047,9 @@ Now we can do a fox publish.  We're publishing from our branch.
 
 ??? example "Output"
 
-    ```text
-
-    info	Component image 'localhost/kubefox/graphql/server:652297f19c4fbcf397833df8522378fa' exists, skipping build.
-    info	Loading component image 'localhost/kubefox/graphql/server:652297f19c4fbcf397833df8522378fa' into kind cluster 'kind'.
+    ```text hl_lines="1"
+    info	Building component image 'acr32568.azurecr.io/graphql/server:652297f19c4fbcf397833df8522378fa'.
+    info	Pushing component image to registry 'acr32568.azurecr.io/graphql/server:652297f19c4fbcf397833df8522378fa'.
 
     info	Waiting for KubeFox Platform 'demo' to be ready...
     info	Waiting for component 'server' to be ready...
@@ -2067,24 +2060,24 @@ Now we can do a fox publish.  We're publishing from our branch.
       title: KubeFox GraphQL Demo
     kind: AppDeployment
     metadata:
-      creationTimestamp: "2024-03-26T23:12:02Z"
+      creationTimestamp: "2024-03-28T22:48:02Z"
       finalizers:
       - kubefox.xigxog.io/release-protection
       generation: 1
       labels:
         app.kubernetes.io/name: graphql
         kubefox.xigxog.io/app-branch: feature
-        kubefox.xigxog.io/app-commit: 35cd1bb15d08e1d6c65c5a3cdb13ed13ff92b573
-        kubefox.xigxog.io/app-commit-short: 35cd1bb
+        kubefox.xigxog.io/app-commit: d53bd2b9064c8d65449db86791e98e1a4ddb38f8
+        kubefox.xigxog.io/app-commit-short: d53bd2b
       name: graphql-feature
       namespace: kubefox-demo
-      resourceVersion: "85973"
-      uid: 13cd2a79-c59f-4aaf-8996-5c949c2f0ae4
+      resourceVersion: "24793"
+      uid: 673ebae3-f7ac-43a1-9880-22390567345a
     spec:
       appName: graphql
       branch: feature
-      commit: 35cd1bb15d08e1d6c65c5a3cdb13ed13ff92b573
-      commitTime: "2024-03-26T23:10:46Z"
+      commit: d53bd2b9064c8d65449db86791e98e1a4ddb38f8
+      commitTime: "2024-03-28T22:47:00Z"
       components:
         server:
           dependencies:
@@ -2110,17 +2103,18 @@ Now we can do a fox publish.  We're publishing from our branch.
             id: 2
             rule: PathPrefix(`/{{.Vars.subPath}}/hasura`)
           type: KubeFox
-      containerRegistry: localhost/kubefox
+      containerRegistry: acr32568.azurecr.io
+      imagePullSecretName: graphql-image-pull-secret
       tag: .
     status:
       conditions:
-      - lastTransitionTime: "2024-03-26T23:12:03Z"
+      - lastTransitionTime: "2024-03-28T22:48:05Z"
         message: Component Deployments have minimum required Pods available.
         observedGeneration: 1
         reason: ComponentsAvailable
         status: "True"
         type: Available
-      - lastTransitionTime: "2024-03-26T23:12:03Z"
+      - lastTransitionTime: "2024-03-28T22:48:05Z"
         message: Component Deployments completed successfully.
         observedGeneration: 1
         reason: ComponentsDeployed
@@ -2129,11 +2123,11 @@ Now we can do a fox publish.  We're publishing from our branch.
     ```
 
 It’s actually going to rebuild the component this time because we made changes
-to it.  By default, fox uses the includes the branch name as part of the
-AppDeployment name.  So our AppDeployment name is "graphql-feature".  Let's jump
+to it.  By default, Fox uses the includes the branch name as part of the
+AppDeployment name.  So our AppDeployment name is `graphql-feature`.  Let's jump
 over to k9s again and see what we have.
 
-To show Pods, type ":pods" into k9s.
+To show Pods, type `:pods` into k9s.
 
 <figure markdown>
   <img src="../../images/screenshots/hasura_tutorial/k9s Pods after modifying our App.png" width=100% height=100%>
@@ -2143,18 +2137,18 @@ To show Pods, type ":pods" into k9s.
 We needed to build and deploy a new container due to the modifications we made.
 You see the newly-created Pod highlighted in Figure 25.
 
-To show AppDeployments, type ":appdeployments" into k9s.
+To show AppDeployments, type `:appdeployments` into k9s.
 
 <figure markdown>
   <img src="../../images/screenshots/hasura_tutorial/k9s AppDeployments after deploying feature branch.png" width=100% height=100%>
   <figcaption>Figure 28 - k9s showing the graphql-feature Appdeployment</figcaption>
 </figure>
 
-We have 3 AppDeployments now.  You can see our "graphql-feature" AppDeployment
+We have 3 AppDeployments now.  You can see our `graphql-feature` AppDeployment
 highlighted in Figure 28.
 
-Let’s check out the results.  If we go to the dev-john VE, there is no gender
-column.  
+Let’s check out the results.  If we go to the dev-john VE and don't provide
+query parameters, there should not be a gender column.  
 
 The reason is that we have not yet performed a release - we only published.
 
@@ -2276,8 +2270,8 @@ database content.
 </figure>
 
 Normal workflow now would be to checkout main, do a merge and deploy.  With
-KubeFox, we do a fox publish.  This operation is going to update the
-“graphql-main” AppDeployment (check the AppDeployment name in the output).  
+KubeFox, we do a Fox publish.  This operation is going to update the
+`graphql-main` AppDeployment (check the AppDeployment name in the output).  
 
 ```{ .shell .copy }
   git checkout main && \
@@ -2387,8 +2381,8 @@ release policy of Testing.
 
 To further explore this KubeFox superpower, let's do the following:
 
-1. Modify the dev.yaml to change the subPath to "something".  Remember that it's
-   currently inheriting the subPath from the dev Environment, which is 'dev'.
+1. Modify the `dev.yaml` to change the subPath to `something`.  Remember that it's
+   currently inheriting the subPath from the dev Environment, which is `dev`.
 2. Apply the Environment YAML.
 3. Check what we see.
 
@@ -2427,7 +2421,7 @@ Edit the dev.yaml.  It's in hack/environments and it looks like this:
       subPath: john
 ```
 
-Add a subPath "something" to the dev VE so it looks like this:
+Add a subPath `something` to the dev VE so it looks like this:
 
 ```yaml linenums="9" hl_lines="20-22"
     ---
@@ -2489,8 +2483,8 @@ Go back to the browser, and refresh the page.  This is the URL if you need it:
   <figcaption>Figure 35 - dev VE after modifying subPath and old URL</figcaption>
 </figure>
 
-We get 'route not found' because the dev subPath no longer exists in any VE. We
-need to use the 'something' subPath instead:
+We get "route not found" because the `dev` subPath no longer exists in any VE. We
+need to use the `something` subPath instead:
 
 [http://localhost:8080/something/hasura/heroes](http://localhost:8080/something/hasura/heroes){:target="_blank"} 
 
@@ -2499,7 +2493,7 @@ need to use the 'something' subPath instead:
   <figcaption>Figure 36 - dev VE after modifying subPath and new URL</figcaption>
 </figure>
 
-The "something" subPath is now the correct path for the dev VE.  Note that KubeFox effected this change instantly.
+The `something` subPath is now the correct path for the dev VE.  Note that KubeFox effected this change instantly.
 
 Let's revert our change to the dev VE so we're back at our original baseline.
 Edit the dev.yaml and return it to its original state:
@@ -2556,7 +2550,7 @@ Our dev subPath should be back amongst the living.  Check it and make sure.
 
 <figure markdown>
   <img src="../../images/screenshots/hasura_tutorial/Superheroes HTML page after reverting dev yaml.png" width=100% height=100%>
-  <figcaption>Figure 37 - dev VE after we revert the "something" subPath change</figcaption>
+  <figcaption>Figure 37 - dev VE after we revert the 'something' subPath change</figcaption>
 </figure>
 
 If we look at the prod environment, we're reminded that it has a Stable release
@@ -2565,7 +2559,7 @@ environment variables, secrets and AppDeployment that is being released.  Any
 changes won't go into effect until we release again. And it is required that we
 have a versioned, tagged release if our policy is Stable.
 
-Before we do so, let's remind ourselves of what is runing in prod now.
+Before we make changes, let's remind ourselves of what is runing in prod now.
 
 [http://localhost:8080/prod/hasura/heroes](http://localhost:8080/prod/hasura/heroes){:target="_blank"} 
 
@@ -2751,7 +2745,7 @@ Let's look at the dev-john VE.
   <figcaption>Figure 40 - dev VE summary</figcaption>
 </figure>
 
-The john VE is running our current release with the updated database (in which
+The dev-john VE is running our current release with the updated database (in which
 you're still a superhero!).
 
 And we're also running the current release with the original database in prod.
@@ -2763,15 +2757,16 @@ And we're also running the current release with the original database in prod.
   <figcaption>Figure 41 - prod VE summary</figcaption>
 </figure>
 
-Let's jump back over to k9s.  If we look at our Pods (:pods), we can see that
-we're still running the two graphql-server application instances.
+Let's jump back over to k9s.  If we look at our Pods (`:pods`), we can see that
+we're still running the two graphql-server component Pods corresponding to the
+two versions of our App.
 
 <figure markdown>
   <img src="../../images/screenshots/hasura_tutorial/k9s Pods after v2 release.png" width=100% height=100%>
   <figcaption>Figure 42 - Active Pods after our v2 release</figcaption>
 </figure>
 
-If we look at our AppDeployments (:appdeployments), we see that there are 4
+If we look at our AppDeployments (`:appdeployments`), we see that there are 4
 AppDeployments:
 
 1. Our graphql-main deployment
@@ -2786,31 +2781,31 @@ AppDeployments:
 
 No one is using the graphql-v1 AppDeployment anymore, so let's delete it:
 
-1. Use the up/down arrow keys to highlight the graphql-v1 AppDeployment
-2. Hit <kbd>CTRL</kbd>+<kbd>d</kbd> to delete it
+1. Use the ++up++ or ++down++ arrow keys to highlight the graphql-v1 AppDeployment
+2. Hit ++ctrl+d++ to delete it
 
 <figure markdown>
   <img src="../../images/screenshots/hasura_tutorial/k9s AppDeployments delete graphql-v1.png" width=100% height=100%>
   <figcaption>Figure 44 - Delete the graphql-v1 AppDeployment</figcaption>
 </figure>
 
-3. Select OK (right arrow key) to confirm
-4. Hit <kbd>ENTER</kbd>
+3. Select OK ++arrow-right++
+4. Hit ++enter++
 
 <figure markdown>
   <img src="../../images/screenshots/hasura_tutorial/k9s AppDeployments after graphql-v1 delete.png" width=100% height=100%>
   <figcaption>Figure 45 - AppDeployment list after deletion of graphql-v1</figcaption>
 </figure>
 
-If we look at our Pods (:pods), we can see that KubeFox has distilled away the
+If we look at our Pods (`:pods`), we can see that KubeFox has distilled away the
 original graphql-server Pod because no deployments remain that require it.
+
+This is just one of the many ways that KubeFox helps control provisioning.
 
 <figure markdown>
   <img src="../../images/screenshots/hasura_tutorial/k9s Pods after graphql-v1 AppDeployment delete.png" width=100% height=100%>
   <figcaption>Figure 46 - Pods list after deletion of graphql-v1 AppDeployment</figcaption>
 </figure>
-
----
 
 ## Cleanup
 
@@ -2829,19 +2824,16 @@ related resources created during the setup.
     az group delete --resource-group $AZ_RESOURCE_GROUP
     ```
 
-Explore the rest of the documentation for more details. If you encounter any
-problems please let us know on [GitHub
-Issues](https://github.com/xigxog/kubefox/issues).
-
----
-
 ## Summary
 
 We hope this tutorial provides you with a nice overview of the capabilities of
 KubeFox, and an introduction (albeit a cursory one) to Hasura.
 
-If you experienced any issues with the tutorial, we ask that you please let us
-know!  We truly welcome and value your feedback!
+Explore the rest of the documentation for more details. If you encounter any
+problems, you have any suggestions for improvement or you would like to get
+involved, please let us know on [GitHub
+Issues](https://github.com/xigxog/kubeFox/issues).  We value your feedback!
+
 
 
 

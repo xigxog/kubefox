@@ -94,6 +94,7 @@ markdown_extensions:
           format: !!python/name:pymdownx.superfences.fence_code_format
   - pymdownx.tasklist:
       custom_checkbox: true
+  - pymdownx.keys
   - toc:
       permalink: false
       toc_depth: 3

@@ -18,6 +18,13 @@
   --md-typeset-a-color: #2824d3;
 }
 
+h2 {
+  border-top: solid 1px;
+  border-top-width: 1px;
+  padding-top: 8px;
+  padding-bottom: 4px;
+}
+
 img[alt="diagram"] {
   display: block;
   margin: 0 auto;
