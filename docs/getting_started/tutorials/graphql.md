@@ -467,7 +467,7 @@ data:
 Let's review some parts of these resources.
 
 Think of the Environment as a parent of Virtual Environments (we'll call Virtual
-Environments VEs for short).  Environment variables defined in the Environment
+Environments "VEs" for short).  Environment variables defined in the Environment
 resource will be inherited by VEs, but can also be overridden in VEs.  The
 Environment is largely a convenience, relieving you from defining the same
 values repeatedly in the VEs (e.g., DB connection strings).  
@@ -716,6 +716,16 @@ center in the screen in Figure 2).
   <img src="../../images/screenshots/hasura_tutorial/k9s Initial Publish.png" width=100% height=100%>
   <figcaption>Figure 2 - Pods display after Fox publish</figcaption>
 </figure>
+
+A few things to note:
+
+1. We've deployed our App - `graphql-server` - once, and we have a single Pod
+   running.
+2. There are 3 Pods running with 3 different databases:
+
+    1.  `hasura-dev` - Traffic to the `dev` VE will be routed to this database
+    2.  `hasura-john` - Traffic to the `dev-john` VE will be routed to this database
+    3.  `hasura-prod` - Traffic to the `prod` VE will be routed to this database
 
 Typically, connections to KubeFox Apps are made through a public-facing load
 balancer. To keep things simple for purposes of this tutorial, we'll use the Fox
@@ -1410,15 +1420,19 @@ We receive an immediate error:
 error	😖 Error finding commit hash: uncommitted changes present
 ```
 
-Remember that KubeFox works from the repository outward.  We discussed the fact
-that it inspects the repository, detects changes, and publishes only those
-changes that it finds.  It also ensures that when we try to publish to a
-VE that has a Stable release policy, that we're publishing what we
-intend to publish. 
+KubeFox ensures that when we try to publish to a VE that has a Stable
+release policy, that we're publishing what we intend to publish.  The deployment
+must be versioned and built from a tag in the repository (KubeFox helps with
+that as you can see above).  
 
-Remember that we made a change earlier to uncomment subPath in dev.yaml.  We
-need to deal with that before we can publish.  In our case, let's simply commit
-the changes and republish:
+Concerning the uncommitted changes message - remember that KubeFox works from
+the repository outward.  We discussed the fact that KubeFox inspects the
+repository, detects changes, and publishes only those changes that it finds.  If
+uncommitted changes are present, KubeFox will halt the publish operation until
+that situation is resolved in the repository.
+
+Remember that we made a change earlier to uncomment subPath in dev.yaml?  That's
+the pending change with which we need to deal before we can publish.  In our case, let's simply commit the changes and republish:
 
 ```{ .shell .copy }
 git add . && \
@@ -1523,9 +1537,10 @@ This is a common occurrence when working with a KubeFox App.  It is not
 incumbent on the developer, QA or build staff to determine what has changed and
 modify CI/CD accordingly.  Instead, staff simply publishes, and KubeFox handles
 the rest. Besides being an enormous timesaver, this approach lends itself to far
-greater accuracy during development cycles.
+greater accuracy during development cycles.  Additionally, provisioning is
+controlled in a largely seamless manner.
 
-KubeFox did create a new AppDeployment, with the name "graphql-v1":
+KubeFox did create a new AppDeployment, with the name `graphql-v1`:
 
 ```text hl_lines="14"
     kind: AppDeployment
@@ -1568,8 +1583,8 @@ Let's take a look at our AppDeployments.  On k9s, type `:appdeployments`.
 
 We have two AppDeployments:
 
-1. graphql-main - the development version of our App
-2. graphql-v1 - the production version of our App
+1. `graphql-main` - the development version of our App
+2. `graphql-v1` - the production version of our App
 
 Let's take a look at the browser.  First, let's try the dev VE.  
 
@@ -2150,7 +2165,8 @@ highlighted in Figure 28.
 Let’s check out the results.  If we go to the dev-john VE and don't provide
 query parameters, there should not be a gender column.  
 
-The reason is that we have not yet performed a release - we only published.
+The reason is that we have not yet performed a release - we only published. So
+the released version is our original deployment - `graphql-main`.
 
 [http://localhost:8080/john/hasura/heroes](http://localhost:8080/john/hasura/heroes){:target="_blank"} 
 
@@ -2159,7 +2175,10 @@ The reason is that we have not yet performed a release - we only published.
   <figcaption>Figure 29 - dev-john VE after gender mod but before release</figcaption>
 </figure>
 
-The App in dev-john is unchanged.  As it should be.  We can access our modifications with query parameters though.
+The App in dev-john is unchanged.  As it should be.  
+
+Our new deploying with our gender modifications - `graphql-feature` - is running
+and we can access it.  We just need to include query parameters on the URL.
 
 [http://localhost:8080/john/hasura/heroes?kf-dep=graphql-feature&kf-ve=dev-john](http://localhost:8080/john/hasura/heroes?kf-dep=graphql-feature&kf-ve=dev-john){:target="_blank"} 
 
@@ -2360,7 +2379,7 @@ KubeFox, we do a Fox publish.  This operation is going to update the
         status: "False"
         type: Progressing
     ```
-Because dev is already using the graphql-main AppDeployment, we should see that
+Because dev is already using the `graphql-main` AppDeployment, we should see that
 dev is updated with the new feature.  Let's check it and see.
 
 [http://localhost:8080/dev/hasura/heroes](http://localhost:8080/dev/hasura/heroes){:target="_blank"} 
@@ -2375,14 +2394,12 @@ prototyping and POC efforts.  You can make changes and redeploy, and the VE will
 reflect those changes instantly.  Note that this is only permissable with a
 release policy of Testing.
 
----
-
 ## Exploring KubeFox VEs
 
 To further explore this KubeFox superpower, let's do the following:
 
 1. Modify the `dev.yaml` to change the subPath to `something`.  Remember that it's
-   currently inheriting the subPath from the dev Environment, which is `dev`.
+   currently inheriting the subPath (`dev`) from the dev Environment.
 2. Apply the Environment YAML.
 3. Check what we see.
 
@@ -2769,19 +2786,19 @@ two versions of our App.
 If we look at our AppDeployments (`:appdeployments`), we see that there are 4
 AppDeployments:
 
-1. Our graphql-main deployment
-2. Our first release AppDeployment graphql-v1
-3. Our feature deployment graphql-feature
-4. Our just-released AppDeployment graphql-v2
+1. Our `graphql-main` deployment
+2. Our first release AppDeployment `graphql-v1`
+3. Our feature deployment `graphql-feature`
+4. Our just-released AppDeployment `graphql-v2`
 
 <figure markdown>
   <img src="../../images/screenshots/hasura_tutorial/k9s AppDeployments after v2 release.png" width=100% height=100%>
   <figcaption>Figure 43 - Active Pods after our v2 release</figcaption>
 </figure>
 
-No one is using the graphql-v1 AppDeployment anymore, so let's delete it:
+No one is using the `graphql-v1` AppDeployment anymore, so let's delete it:
 
-1. Use the ++up++ or ++down++ arrow keys to highlight the graphql-v1 AppDeployment
+1. Use the ++up++ or ++down++ arrow keys to highlight the `graphql-v1` AppDeployment
 2. Hit ++ctrl+d++ to delete it
 
 <figure markdown>
