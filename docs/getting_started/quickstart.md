@@ -294,6 +294,21 @@ cat hack/environments/* && \
     virtualenvironment.kubefox.xigxog.io/qa created
     ```
 
+Fox operates against the current commit of the Git repo when deploying Components. That 
+means before deploying you need to commit the changes to record them.
+
+```{ .shell .copy }
+git add . && \
+  git commit -m "Inital deployment with fox quickstart"
+```
+
+??? example "Output"
+  
+  ```text
+  [main (root-commit) c9561ea] Inital testing with fox quickstart
+  7 files changed, 198 insertions(+)
+  ```
+
 Next deploy the `hello-world` App. Simply use the `publish` command, which not
 only builds the OCI images for the Components but also pushes them to the
 container registry and finally deploys the App to the KubeFox Platform. You have
