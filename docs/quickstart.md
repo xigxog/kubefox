@@ -306,7 +306,7 @@ git add . && \
 ??? example "Output"
   
     ```text
-    [main (root-commit) c9561ea] Inital testing with fox quickstart
+    [main (root-commit) c9561ea] Inital deployment with fox quickstart
     7 files changed, 198 insertions(+)
     ```
 
