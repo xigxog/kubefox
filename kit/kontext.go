@@ -150,6 +150,17 @@ func (k *kontext) Transport(target ComponentDep) http.RoundTripper {
 	}
 }
 
+func (k *kontext) sendReq(req *core.Event) (*core.Event, error) {
+	span := k.reqSpan.StartChildSpan(
+		fmt.Sprintf("send REQUEST to %s", req.Target.Key()))
+	defer span.End()
+
+	k.spans = append(k.spans, span)
+	req.ParentSpan = span.SpanContext()
+
+	return k.kit.brk.SendReq(k.ctx, req, k.start)
+}
+
 func (resp *respKontext) Forward(evt EventReader) error {
 	resp.Event = core.CloneToResp(evt.(*core.Event), core.EventOpts{
 		Parent: resp.ktx.Event,
@@ -278,12 +289,5 @@ func (req *reqKontext) SendBytes(contentType string, b []byte) (EventReader, err
 }
 
 func (req *reqKontext) Send() (EventReader, error) {
-	span := telemetry.StartSpan(
-		fmt.Sprintf("send REQUEST to %s", req.Event.Target.Key()), req.ktx.reqSpan.SpanContext())
-	defer span.End()
-
-	req.ktx.spans = append(req.ktx.spans, span)
-	req.Event.ParentSpan = span.SpanContext()
-
-	return req.ktx.kit.brk.SendReq(req.ktx.ctx, req.Event, req.ktx.start)
+	return req.ktx.sendReq(req.Event)
 }

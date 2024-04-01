@@ -30,14 +30,34 @@ var (
 )
 
 type Span struct {
-	OTELSpan *tracev1.Span
+	*tracev1.Span
 }
 
-type Attr struct {
-	kv *commonv1.KeyValue
+type Attribute struct {
+	*commonv1.KeyValue
 }
 
-func NewAttr(key string, val any) Attr {
+func SetComponent(comp *core.Component, attrs ...Attribute) {
+	resource = &resv1.Resource{
+		Attributes: []*commonv1.KeyValue{
+			Attr(AttrKeySvcName, comp.Key()).KeyValue,
+			Attr(AttrKeyComponentType, comp.Type).KeyValue,
+			Attr(AttrKeyComponentApp, comp.App).KeyValue,
+			Attr(AttrKeyComponentName, comp.Name).KeyValue,
+			Attr(AttrKeyComponentHash, comp.Hash).KeyValue,
+			Attr(AttrKeyComponentId, comp.Id).KeyValue,
+		},
+	}
+	for _, a := range attrs {
+		resource.Attributes = append(resource.Attributes, a.KeyValue)
+	}
+}
+
+func Resource() *resv1.Resource {
+	return resource
+}
+
+func Attr(key string, val any) Attribute {
 	anyVal := &commonv1.AnyValue{}
 	switch t := val.(type) {
 	case float32:
@@ -76,27 +96,10 @@ func NewAttr(key string, val any) Attr {
 		anyVal.Value = &commonv1.AnyValue_StringValue{StringValue: fmt.Sprint(t)}
 	}
 
-	return Attr{&commonv1.KeyValue{Key: string(key), Value: anyVal}}
+	return Attribute{&commonv1.KeyValue{Key: string(key), Value: anyVal}}
 }
 
-func SetComponent(comp *core.Component) {
-	resource = &resv1.Resource{
-		Attributes: []*commonv1.KeyValue{
-			NewAttr(AttrKeySvcName, comp.Key()).kv,
-			NewAttr(AttrKeyComponentType, comp.Type).kv,
-			NewAttr(AttrKeyComponentApp, comp.App).kv,
-			NewAttr(AttrKeyComponentName, comp.Name).kv,
-			NewAttr(AttrKeyComponentHash, comp.Hash).kv,
-			NewAttr(AttrKeyComponentId, comp.Id).kv,
-		},
-	}
-}
-
-func Resource() *resv1.Resource {
-	return resource
-}
-
-func StartSpan(name string, parent *core.SpanContext, attrs ...Attr) *Span {
+func StartSpan(name string, parent *core.SpanContext, attrs ...Attribute) *Span {
 	if parent == nil {
 		parent = &core.SpanContext{
 			TraceId: make([]byte, 16),
@@ -111,7 +114,7 @@ func StartSpan(name string, parent *core.SpanContext, attrs ...Attr) *Span {
 	if len(attrs) > 0 {
 		otelAttrs = make([]*commonv1.KeyValue, len(attrs))
 		for i := range attrs {
-			otelAttrs[i] = attrs[i].kv
+			otelAttrs[i] = attrs[i].KeyValue
 		}
 	}
 
@@ -132,16 +135,36 @@ func StartSpan(name string, parent *core.SpanContext, attrs ...Attr) *Span {
 	randSrcMutex.Unlock()
 
 	return &Span{
-		OTELSpan: otelSpan,
+		Span: otelSpan,
 	}
+}
+
+func (s *Span) StartChildSpan(name string, attrs ...Attribute) *Span {
+	return StartSpan(name, s.SpanContext(), attrs...)
 }
 
 func (s *Span) SpanContext() *core.SpanContext {
 	return &core.SpanContext{
-		TraceId:    s.OTELSpan.TraceId,
-		SpanId:     s.OTELSpan.SpanId,
-		TraceState: s.OTELSpan.TraceState,
-		Flags:      s.OTELSpan.Flags,
+		TraceId:    s.TraceId,
+		SpanId:     s.SpanId,
+		TraceState: s.TraceState,
+		Flags:      s.Flags,
+	}
+}
+
+func (s *Span) SetAttributes(attrs ...Attribute) {
+	for _, a := range attrs {
+		found := false
+		for i, c := range s.Attributes {
+			if c.Key == a.Key {
+				s.Attributes[i] = a.KeyValue
+				found = true
+				break
+			}
+		}
+		if !found {
+			s.Attributes = append(s.Attributes, a.KeyValue)
+		}
 	}
 }
 
@@ -150,12 +173,12 @@ func (s *Span) RecordErr(err error) {
 		return
 	}
 
-	s.OTELSpan.Events = append(s.OTELSpan.Events, &tracev1.Span_Event{
+	s.Events = append(s.Events, &tracev1.Span_Event{
 		TimeUnixNano: now(),
 		Name:         EventNameException,
 		Attributes: []*commonv1.KeyValue{
-			NewAttr(AttrKeyExceptionType, typeStr(err)).kv,
-			NewAttr(AttrKeyExceptionMsg, err.Error()).kv,
+			Attr(AttrKeyExceptionType, typeStr(err)).KeyValue,
+			Attr(AttrKeyExceptionMsg, err.Error()).KeyValue,
 		},
 	})
 }
@@ -166,13 +189,13 @@ func (s *Span) End(errs ...error) {
 			s.RecordErr(e)
 		}
 
-		s.OTELSpan.Status = &tracev1.Status{
+		s.Status = &tracev1.Status{
 			Message: errs[0].Error(),
 			Code:    tracev1.Status_STATUS_CODE_ERROR,
 		}
 	}
 
-	s.OTELSpan.EndTimeUnixNano = now()
+	s.EndTimeUnixNano = now()
 }
 
 func now() uint64 {

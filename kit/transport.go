@@ -21,7 +21,7 @@ func (rt *EventRoundTripper) RoundTrip(httpReq *http.Request) (*http.Response, e
 		return nil, err
 	}
 
-	resp, err := rt.req.ktx.kit.brk.SendReq(rt.req.ktx.ctx, rt.req.Event, rt.req.ktx.start)
+	resp, err := rt.req.ktx.sendReq(rt.req.Event)
 	if err != nil {
 		return nil, err
 	}

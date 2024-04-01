@@ -268,7 +268,14 @@ func (srv *GRPCServer) subscribe(stream grpc.Broker_SubscribeServer) (ReplicaSub
 }
 
 func (srv *GRPCServer) Export(ctx context.Context, req *otelgrpc.ExportTraceServiceRequest) (*otelgrpc.ExportTraceServiceResponse, error) {
-	return &otelgrpc.ExportTraceServiceResponse{}, srv.brk.UploadTraces(ctx, req.ResourceSpans)
+	// TODO auth
+	if req == nil {
+		return &otelgrpc.ExportTraceServiceResponse{}, nil
+	}
+
+	srv.brk.AddResourceSpans(req.ResourceSpans)
+
+	return &otelgrpc.ExportTraceServiceResponse{}, nil
 }
 
 func parseMD(stream grpc.Broker_SubscribeServer) (*Metadata, error) {

@@ -311,7 +311,7 @@ func (svc *kit) recvReq(req *grpc.ComponentEvent) {
 	}
 
 	ktx.reqSpan = telemetry.StartSpan(rule, req.Event.ParentSpan,
-		telemetry.NewAttr(telemetry.AttrKeyRouteId, req.RouteId),
+		telemetry.Attr(telemetry.AttrKeyRouteId, req.RouteId),
 	)
 	ktx.spans = append(ktx.spans, ktx.reqSpan)
 
@@ -330,5 +330,5 @@ func (svc *kit) recvReq(req *grpc.ComponentEvent) {
 	}
 
 	ktx.reqSpan.End()
-	svc.brk.SendSpans(ktx.spans...)
+	go svc.brk.SendSpans(ktx.spans...)
 }

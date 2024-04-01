@@ -19,6 +19,7 @@ import (
 	"github.com/xigxog/kubefox/api/kubernetes/v1alpha1"
 	"github.com/xigxog/kubefox/core"
 	"github.com/xigxog/kubefox/logkf"
+	"github.com/xigxog/kubefox/telemetry"
 	"google.golang.org/protobuf/types/known/structpb"
 )
 
@@ -52,6 +53,7 @@ type BrokerEventContext struct {
 
 	TargetAdapter common.Adapter
 
+	Span   *telemetry.Span
 	Log    *logkf.Logger
 	Cancel context.CancelCauseFunc
 

@@ -146,7 +146,7 @@ func (srv *Server) ServeHTTP(resWriter http.ResponseWriter, httpReq *http.Reques
 
 	defer func() {
 		span.End()
-		srv.brk.SendSpans(spans...)
+		go srv.brk.SendSpans(spans...)
 	}()
 
 	parseSpan := telemetry.StartSpan("parse http request", span.SpanContext())
