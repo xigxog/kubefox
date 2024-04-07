@@ -294,14 +294,6 @@ cat hack/environments/* && \
     virtualenvironment.kubefox.xigxog.io/qa created
     ```
 
-Fox operates against the current commit of the Git repo when deploying Components. That 
-means before deploying you need to commit the changes to record them.
-
-```{ .shell .copy }
-git add . && \
-  git commit -m "Inital deployment with fox quickstart"
-```
-
 ??? example "Output"
 
     ```text
