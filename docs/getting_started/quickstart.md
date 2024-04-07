@@ -294,13 +294,6 @@ cat hack/environments/* && \
     virtualenvironment.kubefox.xigxog.io/qa created
     ```
 
-??? example "Output"
-
-    ```text
-    [main (root-commit) c9561ea] Inital deployment with fox quickstart
-    7 files changed, 198 insertions(+)
-    ```
-
 Next deploy the `hello-world` App. Simply use the `publish` command, which not
 only builds the OCI images for the Components but also pushes them to the
 container registry and finally deploys the App to the KubeFox Platform. You have
