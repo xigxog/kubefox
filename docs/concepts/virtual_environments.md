@@ -65,7 +65,7 @@ elements of KubeFox environments:
     KubeFox Environments serve largely as containers for environment variables
     and secrets that will be shared across KubeFox Virtual Environments (VEs).
 
-    Environments often map to Kubernetes namespaces and traditionaal environments.
+    Environments often map to Kubernetes namespaces and traditional environments.
 
 2. **Virtual Environments**
 
@@ -130,8 +130,8 @@ and shift their
 workloads - including for deployments that have already occurred.
 
 KubeFox segregates the developer sandboxes while leveraging its capabilities to
-distill the number of Pods running to only those that are unique and necessary
-(this is discussed in greater depth both in [Versioned
+distill the number of Pods running to only those that are unique and necessary.
+This is discussed in greater depth both in [Versioned
 Deployments](versioned_deployments.md) and [Deployment
 Distillation](deployment_distillation.md).
 
@@ -149,7 +149,7 @@ A KubeFox [Release](index.md#release)
 results in all default traffic being directed to the released version of the App.  So
 for instance, we might access the home page of the released App with a command like:
 
-curl "http://localhost:8080/dev/index.html"
+    curl "http://localhost:8080/dev/index.html"
 
 By the way, you can see some extra real estate in the Web UI
 module - you'll see why in a moment.
