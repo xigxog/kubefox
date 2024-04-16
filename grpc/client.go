@@ -25,11 +25,11 @@ import (
 	"github.com/xigxog/kubefox/telemetry"
 
 	"github.com/xigxog/kubefox/logkf"
-	semconv "go.opentelemetry.io/otel/semconv/v1.24.0"
 	otelgrpc "go.opentelemetry.io/proto/otlp/collector/trace/v1"
 	tracev1 "go.opentelemetry.io/proto/otlp/trace/v1"
 	gogrpc "google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
+	"google.golang.org/protobuf/proto"
 )
 
 type ClientOpts struct {
@@ -48,8 +48,9 @@ type Broker struct {
 type Client struct {
 	ClientOpts
 
-	brk    *Broker
-	reqMap map[string]*ActiveReq
+	brk     *Broker
+	brkComp *core.Component
+	reqMap  map[string]*ActiveReq
 
 	recvCh chan *ComponentEvent
 	errCh  chan error
@@ -165,10 +166,13 @@ func (c *Client) run(def *api.ComponentDefinition, retry int) (int, error) {
 	if err := c.send(evt, time.Now()); err != nil {
 		return retry + 1, err
 	}
-	if _, err := c.brk.Recv(); err != nil {
+
+	resp, err := c.brk.Recv()
+	if err != nil {
 		// TODO deal with redirect when broker removed from host network
 		return retry + 1, err
 	}
+	c.brkComp = resp.Event.Source
 
 	c.healthy.Store(true)
 	c.log.Info("subscribed to broker")
@@ -293,28 +297,32 @@ func (c *Client) send(evt *core.Event, start time.Time) error {
 }
 
 func (c *Client) SendSpans(spans ...*telemetry.Span) {
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
-	defer cancel()
-
-	resSpans := &tracev1.ResourceSpans{
-		Resource: telemetry.Resource(),
-		ScopeSpans: []*tracev1.ScopeSpans{
-			{
-				Spans:     make([]*tracev1.Span, len(spans)),
-				SchemaUrl: semconv.SchemaURL,
-			},
-		},
-		SchemaUrl: semconv.SchemaURL,
+	t := &core.Telemetry{
+		Spans: make([]*tracev1.Span, len(spans)),
 	}
+
 	for i := range spans {
-		resSpans.ScopeSpans[0].Spans[i] = spans[i].Span
+		t.Spans[i] = spans[i].Span
 	}
 
-	_, err := c.brk.Export(ctx, &otelgrpc.ExportTraceServiceRequest{
-		ResourceSpans: []*tracev1.ResourceSpans{resSpans},
-	})
+	b, err := proto.Marshal(t)
 	if err != nil {
 		c.log.Warnf("error sending trace spans to broker: %v", err)
+		return
+	}
+
+	evt := core.NewMsg(core.EventOpts{
+		Type:    api.EventTypeTelemetry,
+		Source:  c.Component,
+		Target:  c.brkComp,
+		Timeout: time.Minute,
+	})
+	evt.Content = b
+	evt.ContentType = api.ContentTypeProtobuf
+
+	if err := c.send(evt, time.Now()); err != nil {
+		c.log.Warnf("error sending trace spans to broker: %v", err)
+		return
 	}
 }
 

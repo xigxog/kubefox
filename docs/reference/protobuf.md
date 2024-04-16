@@ -151,6 +151,24 @@
 
 
 
+
+<a name="kubefoxprotov1telemetry"></a>
+
+### Telemetry
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| trace_id | [bytes](#bytes) |  |  |
+| log_records | [opentelemetry.proto.logs.v1.LogRecord](#opentelemetryprotologsv1logrecord) | repeated |  |
+| metrics | [opentelemetry.proto.metrics.v1.Metric](#opentelemetryprotometricsv1metric) | repeated |  |
+| spans | [opentelemetry.proto.trace.v1.Span](#opentelemetryprototracev1span) | repeated |  |
+
+
+
+
+
  <!-- end messages -->
 
 

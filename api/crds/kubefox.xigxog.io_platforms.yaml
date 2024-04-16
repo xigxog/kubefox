@@ -32,9 +32,15 @@ spec:
     - jsonPath: .spec.events.maxSize
       name: Event Max
       type: string
-    - jsonPath: .spec.logger.level
+    - jsonPath: .spec.telemetry.logs.level
       name: Log Level
       type: string
+    - jsonPath: .spec.telemetry.traces.level
+      name: Trace Level
+      type: string
+    - jsonPath: .spec.telemetry.collector.enabled
+      name: Publish Telemetry
+      type: boolean
     name: v1alpha1
     schema:
       openAPIV3Schema:
@@ -1746,6 +1752,7 @@ spec:
                     anyOf:
                     - type: integer
                     - type: string
+                    default: 5242880
                     description: Large events reduce performance and increase memory
                       usage. Default 5Mi. Maximum 16Mi.
                     pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
@@ -3471,21 +3478,15 @@ spec:
                         type: string
                     type: object
                 type: object
-              logger:
-                properties:
-                  format:
-                    enum:
-                    - json
-                    - console
-                    type: string
-                  level:
-                    enum:
-                    - debug
-                    - info
-                    - warn
-                    - error
-                    type: string
-                type: object
+              imagePullPolicy:
+                default: IfNotPresent
+                description: PullPolicy describes a policy for if/when to pull a container
+                  image
+                enum:
+                - Always
+                - IfNotPresent
+                - Never
+                type: string
               nats:
                 properties:
                   containerSpec:
@@ -5161,6 +5162,59 @@ spec:
                               type: string
                           type: object
                         type: array
+                    type: object
+                type: object
+              telemetry:
+                properties:
+                  collector:
+                    properties:
+                      address:
+                        type: string
+                      enabled:
+                        default: false
+                        type: boolean
+                      protocol:
+                        enum:
+                        - http
+                        - grpc
+                        type: string
+                    required:
+                    - enabled
+                    type: object
+                  logs:
+                    properties:
+                      format:
+                        default: json
+                        enum:
+                        - json
+                        - console
+                        type: string
+                      level:
+                        default: info
+                        enum:
+                        - debug
+                        - info
+                        - warn
+                        - error
+                        type: string
+                    type: object
+                  metrics:
+                    properties:
+                      collectionIntervalSeconds:
+                        default: 60
+                        minimum: 3
+                        type: integer
+                    type: object
+                  traces:
+                    properties:
+                      level:
+                        default: info
+                        enum:
+                        - debug
+                        - info
+                        - warn
+                        - error
+                        type: string
                     type: object
                 type: object
             type: object

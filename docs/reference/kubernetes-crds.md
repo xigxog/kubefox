@@ -46,6 +46,7 @@ AppDeployment is the Schema for the AppDeployments API
 
 
 
+
 ### Environment
 
 
@@ -82,6 +83,7 @@ AppDeployment is the Schema for the AppDeployments API
 | `metadata` | <div style="white-space:nowrap">[ObjectMeta](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.28/#objectmeta-v1-meta)<div> | <div style="max-width:30rem">Refer to Kubernetes API documentation for fields of `metadata`.</div> | <div style="white-space:nowrap"></div> |
 | `spec` | <div style="white-space:nowrap">[HTTPAdapterSpec](#httpadapterspec)<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
 | `details` | <div style="white-space:nowrap">[Details](#details)<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
+
 
 
 
@@ -137,6 +139,8 @@ Platform is the Schema for the Platforms API
 | `metadata` | <div style="white-space:nowrap">[ObjectMeta](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.28/#objectmeta-v1-meta)<div> | <div style="max-width:30rem">Refer to Kubernetes API documentation for fields of `metadata`.</div> | <div style="white-space:nowrap"></div> |
 | `spec` | <div style="white-space:nowrap">[ReleaseManifestSpec](#releasemanifestspec)<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap">required</div> |
 | `data` | <div style="white-space:nowrap">[Data](#data)<div> | <div style="max-width:30rem">Data is the merged values of the Environment and VirtualEnvironment Data.</div> | <div style="white-space:nowrap">required</div> |
+
+
 
 
 
@@ -274,6 +278,24 @@ Used by:<br>
 | ----- | ---- | ----------- | ---------- |
 | `podSpec` | <div style="white-space:nowrap">[PodSpec](#podspec)<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
 | `containerSpec` | <div style="white-space:nowrap">[ContainerSpec](#containerspec)<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
+
+
+
+### CollectorSpec
+
+
+
+<p style="font-size:.6rem;">
+Used by:<br>
+
+- <a href=#telemetryspec>TelemetrySpec</a><br>
+</p>
+
+| Field | Type | Description | Validation |
+| ----- | ---- | ----------- | ---------- |
+| `enabled` | <div style="white-space:nowrap">boolean<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap">default: false</div> |
+| `address` | <div style="white-space:nowrap">string<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
+| `protocol` | <div style="white-space:nowrap">enum[`http`, `grpc`]<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
 
 
 
@@ -568,7 +590,7 @@ Used by:<br>
 | Field | Type | Description | Validation |
 | ----- | ---- | ----------- | ---------- |
 | `timeoutSeconds` | <div style="white-space:nowrap">integer<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap">min: 3, default: 30</div> |
-| `maxSize` | <div style="white-space:nowrap">[Quantity](https://kubernetes.io/docs/reference/kubernetes-api/common-definitions/quantity/)<div> | <div style="max-width:30rem">Large events reduce performance and increase memory usage. Default 5Mi. Maximum 16Mi.</div> | <div style="white-space:nowrap"></div> |
+| `maxSize` | <div style="white-space:nowrap">[Quantity](https://kubernetes.io/docs/reference/kubernetes-api/common-definitions/quantity/)<div> | <div style="max-width:30rem">Large events reduce performance and increase memory usage. Default 5Mi. Maximum 16Mi.</div> | <div style="white-space:nowrap">default: 5242880</div> |
 
 
 
@@ -677,20 +699,36 @@ Used by:<br>
 
 
 
-### LoggerSpec
+### LogsSpec
 
 
 
 <p style="font-size:.6rem;">
 Used by:<br>
 
-- <a href=#platformspec>PlatformSpec</a><br>
+- <a href=#telemetryspec>TelemetrySpec</a><br>
 </p>
 
 | Field | Type | Description | Validation |
 | ----- | ---- | ----------- | ---------- |
-| `level` | <div style="white-space:nowrap">enum[`debug`, `info`, `warn`, `error`]<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
-| `format` | <div style="white-space:nowrap">enum[`json`, `console`]<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
+| `level` | <div style="white-space:nowrap">enum[`debug`, `info`, `warn`, `error`]<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap">default: info</div> |
+| `format` | <div style="white-space:nowrap">enum[`json`, `console`]<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap">default: json</div> |
+
+
+
+### MetricsSpec
+
+
+
+<p style="font-size:.6rem;">
+Used by:<br>
+
+- <a href=#telemetryspec>TelemetrySpec</a><br>
+</p>
+
+| Field | Type | Description | Validation |
+| ----- | ---- | ----------- | ---------- |
+| `collectionIntervalSeconds` | <div style="white-space:nowrap">integer<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap">min: 3, default: 60</div> |
 
 
 
@@ -771,7 +809,8 @@ Used by:<br>
 | `broker` | <div style="white-space:nowrap">[BrokerSpec](#brokerspec)<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
 | `httpsrv` | <div style="white-space:nowrap">[HTTPSrvSpec](#httpsrvspec)<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
 | `nats` | <div style="white-space:nowrap">[NATSSpec](#natsspec)<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
-| `logger` | <div style="white-space:nowrap">[LoggerSpec](#loggerspec)<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
+| `telemetry` | <div style="white-space:nowrap">[TelemetrySpec](#telemetryspec)<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
+| `imagePullPolicy` | <div style="white-space:nowrap">enum[`Always`, `IfNotPresent`, `Never`]<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap">default: IfNotPresent</div> |
 
 
 
@@ -981,6 +1020,41 @@ Used by:<br>
 | `rule` | <div style="white-space:nowrap">string<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap">required</div> |
 | `priority` | <div style="white-space:nowrap">integer<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
 | `envVarSchema` | <div style="white-space:nowrap">[EnvVarSchema](#envvarschema)<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
+
+
+
+### TelemetrySpec
+
+
+
+<p style="font-size:.6rem;">
+Used by:<br>
+
+- <a href=#platformspec>PlatformSpec</a><br>
+</p>
+
+| Field | Type | Description | Validation |
+| ----- | ---- | ----------- | ---------- |
+| `collector` | <div style="white-space:nowrap">[CollectorSpec](#collectorspec)<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
+| `logs` | <div style="white-space:nowrap">[LogsSpec](#logsspec)<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
+| `metrics` | <div style="white-space:nowrap">[MetricsSpec](#metricsspec)<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
+| `traces` | <div style="white-space:nowrap">[TracesSpec](#tracesspec)<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
+
+
+
+### TracesSpec
+
+
+
+<p style="font-size:.6rem;">
+Used by:<br>
+
+- <a href=#telemetryspec>TelemetrySpec</a><br>
+</p>
+
+| Field | Type | Description | Validation |
+| ----- | ---- | ----------- | ---------- |
+| `level` | <div style="white-space:nowrap">enum[`debug`, `info`, `warn`, `error`]<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap">default: info</div> |
 
 
 

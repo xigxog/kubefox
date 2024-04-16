@@ -205,8 +205,8 @@ args:
   - -component-service-name={{ printf "%s.%s" name .Platform.Namespace }}
   - -component-ip=$(KUBEFOX_COMPONENT_IP)
   - -vault-url={{ .Values.vaultURL }}
-  - -log-format={{ .Logger.Format | default "json" }}
-  - -log-level={{ .Logger.Level | default "info" }}
+  - -log-format={{ .Telemetry.Logs.Format | default "json" }}
+  - -log-level={{ .Telemetry.Logs.Level | default "info" }}
 env:
 {{- include "env" . | nindent 2 }}
   - name: KUBEFOX_COMPONENT_IP

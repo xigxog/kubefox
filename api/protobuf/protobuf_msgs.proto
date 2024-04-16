@@ -11,6 +11,9 @@ syntax = "proto3";
 package kubefox.proto.v1;
 
 import "google/protobuf/struct.proto";
+import "opentelemetry/proto/logs/v1/logs.proto";
+import "opentelemetry/proto/metrics/v1/metrics.proto";
+import "opentelemetry/proto/trace/v1/trace.proto";
 
 option go_package = "github.com/xigxog/kubefox/core";
 
@@ -73,4 +76,12 @@ message MatchedEvent {
   Event event = 1;
   int64 route_id = 2;
   map<string, google.protobuf.Value> env = 3;
+}
+
+message Telemetry {
+  bytes trace_id = 1;
+
+  repeated opentelemetry.proto.logs.v1.LogRecord log_records = 13;
+  repeated opentelemetry.proto.metrics.v1.Metric metrics = 14;
+  repeated opentelemetry.proto.trace.v1.Span spans = 15;
 }

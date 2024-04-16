@@ -7,7 +7,7 @@
 # SPDX-License-Identifier: MPL-2.0
 
 # Compress binary
-FROM ghcr.io/xigxog/upx:4.2.1 AS upx
+FROM ghcr.io/xigxog/upx:4.2.3 AS upx
 
 ARG COMPONENT
 ARG COMPRESS=false

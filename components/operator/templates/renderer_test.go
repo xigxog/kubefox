@@ -121,11 +121,13 @@ func TestRenderNATS(t *testing.T) {
 				Name:       "kubefox-dev",
 			},
 		},
-		Logger: common.LoggerSpec{
-			Level: "debug",
+		Telemetry: common.TelemetrySpec{
+			Logs: common.LogsSpec{
+				Level: "debug",
+			},
 		},
 		Values: map[string]any{
-			api.ValKeyMaxEventSize: api.DefaultMaxEventSizeBytes,
+			api.ValKeyMaxEventSize: "123",
 		},
 	}
 	if s, err := renderStr("list.tpl", "nats/*", d); err != nil {

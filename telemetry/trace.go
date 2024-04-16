@@ -31,6 +31,8 @@ var (
 
 type Span struct {
 	*tracev1.Span
+
+	Recorded []*tracev1.Span
 }
 
 type Attribute struct {
@@ -118,7 +120,7 @@ func StartSpan(name string, parent *core.SpanContext, attrs ...Attribute) *Span 
 		}
 	}
 
-	otelSpan := &tracev1.Span{
+	protoSpan := &tracev1.Span{
 		Name:              name,
 		TraceId:           parent.TraceId,
 		ParentSpanId:      parent.SpanId,
@@ -131,11 +133,12 @@ func StartSpan(name string, parent *core.SpanContext, attrs ...Attribute) *Span 
 
 	// Generate spanId
 	randSrcMutex.Lock()
-	_, _ = randSrc.Read(otelSpan.SpanId)
+	_, _ = randSrc.Read(protoSpan.SpanId)
 	randSrcMutex.Unlock()
 
 	return &Span{
-		Span: otelSpan,
+		Span:     protoSpan,
+		Recorded: []*tracev1.Span{protoSpan},
 	}
 }
 

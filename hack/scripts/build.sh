@@ -15,7 +15,7 @@ if ! ${SKIP_GENERATE}; then
 fi
 
 mkdir -p "${BUILD_OUT}"
-rm -f "${COMPONENT_OUT}"
+rm -rf "${COMPONENT_OUT}"
 
 go build \
 	-C "${COMPONENT_SRC}/" -o "${COMPONENT_OUT}" \

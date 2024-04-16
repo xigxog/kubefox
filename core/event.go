@@ -368,6 +368,10 @@ func (evt *Event) SetTTL(t time.Duration) {
 }
 
 func (evt *Event) ReduceTTL(start time.Time) time.Duration {
+	if start.IsZero() {
+		return evt.TTL()
+	}
+
 	evt.Ttl = evt.Ttl - time.Since(start).Nanoseconds()
 	return evt.TTL()
 }

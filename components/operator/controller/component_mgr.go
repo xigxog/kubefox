@@ -295,7 +295,7 @@ func (td *TemplateData) ForComponent(template string, obj client.Object, defs *c
 			Instance:  td.Instance,
 			Platform:  td.Platform,
 			Owner:     td.Owner,
-			Logger:    td.Logger,
+			Telemetry: td.Telemetry,
 			BuildInfo: td.BuildInfo,
 			Component: comp,
 			Values:    make(map[string]any),

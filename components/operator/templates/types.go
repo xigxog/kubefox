@@ -13,6 +13,7 @@ import (
 	"github.com/xigxog/kubefox/build"
 	"github.com/xigxog/kubefox/core"
 	"github.com/xigxog/kubefox/utils"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
@@ -26,7 +27,7 @@ type Data struct {
 
 	Values map[string]any
 
-	Logger    common.LoggerSpec
+	Telemetry common.TelemetrySpec
 	BuildInfo build.BuildInfo `hash:"ignore"`
 
 	Hash string `hash:"ignore"`
@@ -50,7 +51,7 @@ type Component struct {
 	common.ContainerSpec `json:",inline"`
 
 	Image           string
-	ImagePullPolicy string
+	ImagePullPolicy corev1.PullPolicy
 	ImagePullSecret string
 
 	IsPlatformComponent bool

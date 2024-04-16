@@ -41,11 +41,17 @@ spec:
             - -grpc-addr=$(KUBEFOX_COMPONENT_IP):6060
             - -nats-addr={{ .Platform.Name }}-nats.{{ .Platform.Namespace }}
             - -vault-url={{ .Values.vaultURL }}
+            {{ if .Telemetry.Collector.Enabled -}}
+            - -telemetry-addr={{ .Telemetry.Collector.Address }}
+            - -telemetry-proto={{ .Telemetry.Collector.Protocol | default "grpc" }}
+            - -telemetry-interval={{ .Telemetry.Metrics.CollectionIntervalSeconds }}s
+            {{ else -}}
             - -telemetry-addr=false
+            {{ end -}}
             - -health-addr=0.0.0.0:1111
             - -max-event-size={{ .Values.maxEventSize }}
-            - -log-format={{ .Logger.Format | default "json" }}
-            - -log-level={{ .Logger.Level | default "info" }}
+            - -log-format={{ .Telemetry.Logs.Format | default "json" }}
+            - -log-level={{ .Telemetry.Logs.Level | default "info" }}
           env:
           {{- include "env" . | nindent 12 }}
             - name: KUBEFOX_COMPONENT_IP

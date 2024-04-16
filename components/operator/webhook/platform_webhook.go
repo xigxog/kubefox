@@ -14,7 +14,6 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/xigxog/kubefox/api"
 	"github.com/xigxog/kubefox/api/kubernetes/v1alpha1"
 	"github.com/xigxog/kubefox/components/operator/defaults"
 	"github.com/xigxog/kubefox/k8s"
@@ -51,19 +50,6 @@ func (r *PlatformWebhook) Handle(ctx context.Context, req admission.Request) adm
 	platform := &v1alpha1.Platform{}
 	if err := r.DecodeRaw(req.Object, platform); err != nil {
 		return admission.Errored(http.StatusBadRequest, err)
-	}
-
-	if platform.Spec.Logger.Format == "" {
-		platform.Spec.Logger.Format = api.DefaultLogFormat
-	}
-	if platform.Spec.Logger.Level == "" {
-		platform.Spec.Logger.Level = api.DefaultLogLevel
-	}
-	if platform.Spec.Events.TimeoutSeconds == 0 {
-		platform.Spec.Events.TimeoutSeconds = api.DefaultTimeoutSeconds
-	}
-	if platform.Spec.Events.MaxSize.IsZero() {
-		platform.Spec.Events.MaxSize.Set(api.DefaultMaxEventSizeBytes)
 	}
 
 	svc := &platform.Spec.HTTPSrv.Service

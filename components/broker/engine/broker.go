@@ -59,7 +59,7 @@ type Engine interface {
 
 type Broker interface {
 	AddSpans(*core.Component, ...*telemetry.Span)
-	AddResourceSpans([]*tracev1.ResourceSpans)
+	AddProtoSpans(*core.Component, []*tracev1.Span)
 	AuthorizeComponent(context.Context, *Metadata) error
 	Subscribe(context.Context, *SubscriptionConf) (ReplicaSubscription, error)
 	RecvEvent(evt *core.Event, receiver Receiver) *BrokerEventContext
@@ -147,11 +147,11 @@ func (brk *broker) Start() {
 		}
 	}
 
-	// if config.TelemetryAddr != "false" {
-	// 	if err := brk.telClient.Start(ctx, brk.comp); err != nil {
-	// 		brk.shutdown(ExitCodeTelemetry, err)
-	// 	}
-	// }
+	if config.TelemetryAddr != "false" {
+		if err := brk.telClient.Start(ctx); err != nil {
+			brk.shutdown(ExitCodeTelemetry, err)
+		}
+	}
 
 	if err := brk.natsClient.Connect(ctx); err != nil {
 		brk.shutdown(ExitCodeNATS, err)
@@ -187,12 +187,12 @@ func (brk *broker) Start() {
 	brk.shutdown(0, nil)
 }
 
-func (brk *broker) AddResourceSpans(spans []*tracev1.ResourceSpans) {
-	brk.telClient.AddResourceSpans(spans)
-}
-
 func (brk *broker) AddSpans(comp *core.Component, spans ...*telemetry.Span) {
 	brk.telClient.AddSpans(comp, spans...)
+}
+
+func (brk *broker) AddProtoSpans(comp *core.Component, spans []*tracev1.Span) {
+	brk.telClient.AddProtoSpans(comp, spans)
 }
 
 func (brk *broker) Subscribe(ctx context.Context, conf *SubscriptionConf) (ReplicaSubscription, error) {

@@ -45,8 +45,8 @@ spec:
             - -broker-addr=$(KUBEFOX_HOST_IP):6060
             - -health-addr=0.0.0.0:1111
             - -max-event-size={{ .Values.maxEventSize }}
-            - -log-format={{ .Logger.Format | default "json" }}
-            - -log-level={{ .Logger.Level | default "info" }}
+            - -log-format={{ .Telemetry.Logs.Format | default "json" }}
+            - -log-level={{ .Telemetry.Logs.Level | default "info" }}
           env:
           {{- include "env" . | nindent 12 }}
             - name: KUBEFOX_COMPONENT_POD

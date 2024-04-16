@@ -11,17 +11,21 @@ package v1alpha1
 import (
 	"github.com/xigxog/kubefox/api"
 	common "github.com/xigxog/kubefox/api/kubernetes"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // PlatformSpec defines the desired state of Platform
 type PlatformSpec struct {
-	Events  EventsSpec        `json:"events,omitempty"`
-	Broker  BrokerSpec        `json:"broker,omitempty"`
-	HTTPSrv HTTPSrvSpec       `json:"httpsrv,omitempty"`
-	NATS    NATSSpec          `json:"nats,omitempty"`
-	Logger  common.LoggerSpec `json:"logger,omitempty"`
+	Events    EventsSpec           `json:"events,omitempty"`
+	Broker    BrokerSpec           `json:"broker,omitempty"`
+	HTTPSrv   HTTPSrvSpec          `json:"httpsrv,omitempty"`
+	NATS      NATSSpec             `json:"nats,omitempty"`
+	Telemetry common.TelemetrySpec `json:"telemetry,omitempty"`
+	// +kubebuilder:validation:Enum=Always;IfNotPresent;Never
+	// +kubebuilder:default=IfNotPresent
+	ImagePullPolicy corev1.PullPolicy `json:"imagePullPolicy,omitempty"`
 }
 
 type EventsSpec struct {
@@ -31,6 +35,7 @@ type EventsSpec struct {
 
 	// Large events reduce performance and increase memory usage. Default 5Mi.
 	// Maximum 16Mi.
+	// +kubebuilder:default=5242880
 	MaxSize resource.Quantity `json:"maxSize,omitempty"`
 }
 
@@ -115,7 +120,9 @@ type PlatformDetails struct {
 // +kubebuilder:printcolumn:name="Available",type=string,JSONPath=`.status.conditions[?(@.type=='Available')].status`
 // +kubebuilder:printcolumn:name="Event Timeout",type=integer,JSONPath=`.spec.events.timeoutSeconds`
 // +kubebuilder:printcolumn:name="Event Max",type=string,JSONPath=`.spec.events.maxSize`
-// +kubebuilder:printcolumn:name="Log Level",type=string,JSONPath=`.spec.logger.level`
+// +kubebuilder:printcolumn:name="Log Level",type=string,JSONPath=`.spec.telemetry.logs.level`
+// +kubebuilder:printcolumn:name="Trace Level",type=string,JSONPath=`.spec.telemetry.traces.level`
+// +kubebuilder:printcolumn:name="Publish Telemetry",type=boolean,JSONPath=`.spec.telemetry.collector.enabled`
 
 // Platform is the Schema for the Platforms API
 type Platform struct {

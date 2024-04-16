@@ -22,18 +22,18 @@ import (
 	"github.com/xigxog/kubefox/grpc"
 	"github.com/xigxog/kubefox/logkf"
 
-	otelgrpc "go.opentelemetry.io/proto/otlp/collector/trace/v1"
 	gogrpc "google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/reflection"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/proto"
 )
 
 type GRPCServer struct {
 	grpc.UnimplementedBrokerServer
-	otelgrpc.UnimplementedTraceServiceServer
+	// otelgrpc.UnimplementedTraceServiceServer
 
 	wrapped *gogrpc.Server
 	brk     Broker
@@ -68,7 +68,7 @@ func (srv *GRPCServer) Start(ctx context.Context) error {
 	)
 
 	grpc.RegisterBrokerServer(srv.wrapped, srv)
-	otelgrpc.RegisterTraceServiceServer(srv.wrapped, srv)
+	// otelgrpc.RegisterTraceServiceServer(srv.wrapped, srv)
 	reflection.Register(srv.wrapped)
 
 	lis, err := net.Listen("tcp", config.GRPCSrvAddr)
@@ -242,11 +242,25 @@ func (srv *GRPCServer) subscribe(stream grpc.Broker_SubscribeServer) (ReplicaSub
 			}
 			evt.Source.BrokerId = srv.brk.Component().Id
 
-			ctx := srv.brk.RecvEvent(evt, ReceiverGRPCServer)
+			var err *core.Err
+			if evt.Category == core.Category_MESSAGE &&
+				evt.Type == string(api.EventTypeTelemetry) &&
+				evt.Target.Equal(srv.brk.Component()) {
 
-			<-ctx.Done()
+				t := &core.Telemetry{}
+				if e := proto.Unmarshal(evt.Content, t); e != nil {
+					err = core.ErrInvalid(e)
+				}
 
-			if err := ctx.CoreErr(); err != nil &&
+				srv.brk.AddProtoSpans(meta.Component, t.Spans)
+
+			} else {
+				ctx := srv.brk.RecvEvent(evt, ReceiverGRPCServer)
+				<-ctx.Done()
+				err = ctx.CoreErr()
+			}
+
+			if err != nil &&
 				evt.Category == core.Category_REQUEST &&
 				err.Code() != core.CodeTimeout {
 
@@ -267,16 +281,16 @@ func (srv *GRPCServer) subscribe(stream grpc.Broker_SubscribeServer) (ReplicaSub
 	}
 }
 
-func (srv *GRPCServer) Export(ctx context.Context, req *otelgrpc.ExportTraceServiceRequest) (*otelgrpc.ExportTraceServiceResponse, error) {
-	// TODO auth
-	if req == nil {
-		return &otelgrpc.ExportTraceServiceResponse{}, nil
-	}
+// func (srv *GRPCServer) Export(ctx context.Context, req *otelgrpc.ExportTraceServiceRequest) (*otelgrpc.ExportTraceServiceResponse, error) {
+// 	// TODO auth
+// 	if req == nil {
+// 		return &otelgrpc.ExportTraceServiceResponse{}, nil
+// 	}
 
-	srv.brk.AddResourceSpans(req.ResourceSpans)
+// 	srv.brk.AddResourceSpans(req.ResourceSpans)
 
-	return &otelgrpc.ExportTraceServiceResponse{}, nil
-}
+// 	return &otelgrpc.ExportTraceServiceResponse{}, nil
+// }
 
 func parseMD(stream grpc.Broker_SubscribeServer) (*Metadata, error) {
 	md, found := metadata.FromIncomingContext(stream.Context())

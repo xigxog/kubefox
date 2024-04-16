@@ -10,6 +10,7 @@ package telemetry
 
 import (
 	"context"
+	"fmt"
 	"sync"
 	"time"
 
@@ -19,6 +20,7 @@ import (
 	"github.com/xigxog/kubefox/telemetry"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace"
+	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp"
 	"go.opentelemetry.io/otel/propagation"
 	"go.opentelemetry.io/otel/sdk/metric"
@@ -54,27 +56,45 @@ func (h OTELErrorHandler) Handle(err error) {
 }
 
 func NewClient() *Client {
-	//REMOVE
-	config.TelemetryAddr = "kubefox-jaeger-collector.kubefox-system:4318"
-
 	otel.SetErrorHandler(OTELErrorHandler{Log: logkf.Global})
 	otel.SetTextMapPropagator(propagation.TraceContext{})
 
 	c := &Client{
-		otelClient: otlptracehttp.NewClient(
-			// otlptracehttp.WithTLSClientConfig(tlsCfg),
-			otlptracehttp.WithInsecure(),
-			otlptracehttp.WithEndpoint(config.TelemetryAddr),
-		),
 		tick: time.NewTicker(time.Minute / 2),
 		log:  logkf.Global,
 	}
-	go c.uploadTraces()
 
 	return c
 }
 
-// func (c *Client) Start(ctx context.Context, comp *core.Component) error {
+func (c *Client) Start(ctx context.Context) error {
+	c.log.Debug("telemetry client starting")
+
+	switch config.TelemetryProtocol {
+	case "grpc":
+		c.otelClient = otlptracegrpc.NewClient(
+			otlptracegrpc.WithEndpoint(config.TelemetryAddr),
+			otlptracegrpc.WithInsecure(),
+		)
+	case "http":
+		c.otelClient = otlptracehttp.NewClient(
+			otlptracehttp.WithEndpoint(config.TelemetryAddr),
+			otlptracehttp.WithInsecure(),
+		)
+	default:
+		return fmt.Errorf("unsupported telemetry protocol '%s'", config.TelemetryProtocol)
+	}
+
+	if err := c.otelClient.Start(ctx); err != nil {
+		return err
+	}
+
+	go c.uploadTraces()
+	c.log.Info("telemetry client started")
+
+	return nil
+}
+
 // 	c.log.Debug("telemetry client starting")
 
 // 	otel.SetErrorHandler(OTELErrorHandler{Log: c.log})
@@ -163,14 +183,22 @@ func (cl *Client) Shutdown(timeout time.Duration) {
 	}
 }
 
-func (cl *Client) AddResourceSpans(spans []*tracev1.ResourceSpans) {
-	// TODO enhance attributes like instance, platform, etc.
-	cl.mutex.Lock()
-	cl.spans = append(cl.spans, spans...)
-	cl.mutex.Unlock()
-}
+// func (cl *Client) AddResourceSpans(spans []*tracev1.ResourceSpans) {
+// 	// TODO enhance attributes like instance, platform, etc.
+// 	cl.mutex.Lock()
+// 	cl.spans = append(cl.spans, spans...)
+// 	cl.mutex.Unlock()
+// }
 
 func (cl *Client) AddSpans(comp *core.Component, spans ...*telemetry.Span) {
+	protoSpans := make([]*tracev1.Span, len(spans))
+	for i := range spans {
+		protoSpans[i] = spans[i].Span
+	}
+	cl.AddProtoSpans(comp, protoSpans)
+}
+
+func (cl *Client) AddProtoSpans(comp *core.Component, spans []*tracev1.Span) {
 	resSpans := &tracev1.ResourceSpans{
 		Resource: &resv1.Resource{
 			Attributes: []*commonv1.KeyValue{
@@ -186,14 +214,11 @@ func (cl *Client) AddSpans(comp *core.Component, spans ...*telemetry.Span) {
 		},
 		ScopeSpans: []*tracev1.ScopeSpans{
 			{
-				Spans:     make([]*tracev1.Span, len(spans)),
+				Spans:     spans,
 				SchemaUrl: semconv.SchemaURL,
 			},
 		},
 		SchemaUrl: semconv.SchemaURL,
-	}
-	for i := range spans {
-		resSpans.ScopeSpans[0].Spans[i] = spans[i].Span
 	}
 
 	cl.mutex.Lock()

@@ -92,11 +92,40 @@ type ContainerSpec struct {
 	StartupProbe *corev1.Probe `json:"startupProbe,omitempty"`
 }
 
-type LoggerSpec struct {
+type TelemetrySpec struct {
+	Collector CollectorSpec `json:"collector,omitempty"`
+	Logs      LogsSpec      `json:"logs,omitempty"`
+	Metrics   MetricsSpec   `json:"metrics,omitempty"`
+	Traces    TracesSpec    `json:"traces,omitempty"`
+}
+
+type CollectorSpec struct {
+	// +kubebuilder:default=false
+	Enabled bool   `json:"enabled"`
+	Address string `json:"address,omitempty"`
+	// +kubebuilder:validation:Enum=http;grpc
+	Protocol string `json:"protocol,omitempty"`
+}
+
+type LogsSpec struct {
 	// +kubebuilder:validation:Enum=debug;info;warn;error
+	// +kubebuilder:default=info
 	Level string `json:"level,omitempty"`
 	// +kubebuilder:validation:Enum=json;console
+	// +kubebuilder:default=json
 	Format string `json:"format,omitempty"`
+}
+
+type MetricsSpec struct {
+	// +kubebuilder:validation:Minimum=3
+	// +kubebuilder:default=60
+	CollectionIntervalSeconds uint `json:"collectionIntervalSeconds,omitempty"`
+}
+
+type TracesSpec struct {
+	// +kubebuilder:validation:Enum=debug;info;warn;error
+	// +kubebuilder:default=info
+	Level string `json:"level,omitempty"`
 }
 
 type ObjectRef struct {
