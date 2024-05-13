@@ -33,7 +33,6 @@ func main() {
 	flag.StringVar(&config.NATSAddr, "nats-addr", "127.0.0.1:4222", "Address and port of NATS server.")
 	flag.StringVar(&config.VaultURL, "vault-url", "https://127.0.0.1:8200", "URL of Vault server.")
 	flag.StringVar(&config.TelemetryAddr, "telemetry-addr", "127.0.0.1:4318", `Address and port of OTEL telemetry collector, set to "false" to disable.`)
-	flag.StringVar(&config.TelemetryProtocol, "telemetry-proto", "grpc", `Protocol for OTEL telemetry collector.`)
 	flag.DurationVar(&config.TelemetryInterval, "telemetry-interval", time.Minute, `Interval at which to report metrics, , set to "0" to disable.`)
 	flag.Int64Var(&config.MaxEventSize, "max-event-size", api.DefaultMaxEventSizeBytes, "Maximum size of event in bytes.")
 	flag.IntVar(&config.NumWorkers, "num-workers", runtime.NumCPU(), "Number of worker threads to start, default is number of logical CPUs.")

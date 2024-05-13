@@ -243,6 +243,7 @@ func (srv *GRPCServer) subscribe(stream grpc.Broker_SubscribeServer) (ReplicaSub
 			evt.Source.BrokerId = srv.brk.Component().Id
 
 			var err *core.Err
+			// TODO move routing to broker
 			if evt.Category == core.Category_MESSAGE &&
 				evt.Type == string(api.EventTypeTelemetry) &&
 				evt.Target.Equal(srv.brk.Component()) {
@@ -252,7 +253,7 @@ func (srv *GRPCServer) subscribe(stream grpc.Broker_SubscribeServer) (ReplicaSub
 					err = core.ErrInvalid(e)
 				}
 
-				srv.brk.AddProtoSpans(meta.Component, t.Spans)
+				srv.brk.RecordTelemetry(meta.Component, t)
 
 			} else {
 				ctx := srv.brk.RecvEvent(evt, ReceiverGRPCServer)

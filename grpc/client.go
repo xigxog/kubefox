@@ -26,6 +26,7 @@ import (
 
 	"github.com/xigxog/kubefox/logkf"
 	otelgrpc "go.opentelemetry.io/proto/otlp/collector/trace/v1"
+	logsv1 "go.opentelemetry.io/proto/otlp/logs/v1"
 	tracev1 "go.opentelemetry.io/proto/otlp/trace/v1"
 	gogrpc "google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
@@ -126,7 +127,7 @@ func (c *Client) run(def *api.ComponentDefinition, retry int) (int, error) {
 		  }
 		}]}`
 
-	conn, err := gogrpc.Dial(c.BrokerAddr,
+	conn, err := gogrpc.NewClient(c.BrokerAddr,
 		gogrpc.WithPerRPCCredentials(c),
 		gogrpc.WithTransportCredentials(creds),
 		gogrpc.WithDefaultServiceConfig(grpcCfg),
@@ -296,9 +297,10 @@ func (c *Client) send(evt *core.Event, start time.Time) error {
 	return c.brk.Send(evt)
 }
 
-func (c *Client) SendSpans(spans ...*telemetry.Span) {
+func (c *Client) SendTelemetry(spans []*telemetry.Span, logRecords []*logsv1.LogRecord) {
 	t := &core.Telemetry{
-		Spans: make([]*tracev1.Span, len(spans)),
+		Spans:      make([]*tracev1.Span, len(spans)),
+		LogRecords: logRecords,
 	}
 
 	for i := range spans {

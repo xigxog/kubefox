@@ -28,7 +28,6 @@ import (
 	"github.com/xigxog/kubefox/logkf"
 	"github.com/xigxog/kubefox/telemetry"
 	"github.com/xigxog/kubefox/utils"
-	tracev1 "go.opentelemetry.io/proto/otlp/trace/v1"
 	authv1 "k8s.io/api/authentication/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -58,8 +57,7 @@ type Engine interface {
 }
 
 type Broker interface {
-	AddSpans(*core.Component, ...*telemetry.Span)
-	AddProtoSpans(*core.Component, []*tracev1.Span)
+	RecordTelemetry(*core.Component, *core.Telemetry)
 	AuthorizeComponent(context.Context, *Metadata) error
 	Subscribe(context.Context, *SubscriptionConf) (ReplicaSubscription, error)
 	RecvEvent(evt *core.Event, receiver Receiver) *BrokerEventContext
@@ -81,7 +79,7 @@ type broker struct {
 	subMgr SubscriptionMgr
 	recvCh chan *BrokerEventContext
 
-	store *Store
+	store *store
 
 	ctx    context.Context
 	cancel context.CancelFunc
@@ -187,16 +185,12 @@ func (brk *broker) Start() {
 	brk.shutdown(0, nil)
 }
 
-func (brk *broker) AddSpans(comp *core.Component, spans ...*telemetry.Span) {
-	brk.telClient.AddSpans(comp, spans...)
-}
-
-func (brk *broker) AddProtoSpans(comp *core.Component, spans []*tracev1.Span) {
-	brk.telClient.AddProtoSpans(comp, spans)
+func (brk *broker) RecordTelemetry(comp *core.Component, tel *core.Telemetry) {
+	brk.telClient.AddTelemetry(comp, tel)
 }
 
 func (brk *broker) Subscribe(ctx context.Context, conf *SubscriptionConf) (ReplicaSubscription, error) {
-	sub, grpSub, err := brk.subMgr.Create(ctx, conf, brk.recvCh)
+	sub, grpSub, err := brk.subMgr.Create(ctx, conf)
 	if err != nil {
 		return nil, err
 	}
@@ -292,13 +286,17 @@ func (brk *broker) RecvEvent(evt *core.Event, receiver Receiver) *BrokerEventCon
 	parentCtx, cancel := context.WithCancelCause(context.Background())
 	ctx, _ := context.WithTimeoutCause(parentCtx, evt.TTL(), core.ErrTimeout())
 
+	span := telemetry.StartSpan(
+		fmt.Sprintf("%s from %s", evt.Category, evt.Source.GroupKey()), evt.ParentSpan)
+	span.SetEventAttributes(evt)
+
 	evtCtx := &BrokerEventContext{
 		Context:    ctx,
 		Cancel:     cancel,
 		Event:      evt,
 		Receiver:   receiver,
 		ReceivedAt: time.Now(),
-		Span:       telemetry.StartSpan("receive event", evt.ParentSpan),
+		Span:       span,
 	}
 
 	go func() {
@@ -330,12 +328,12 @@ func (brk *broker) startWorker(id int) {
 					kfErr = core.ErrUnexpected(err)
 				}
 
+				ctx.Span.RecordErr(kfErr)
+
 				switch kfErr.Code() {
 				case core.CodeUnexpected:
 					ctx.Log.Error(err)
-				case core.CodeBrokerMismatch:
-					ctx.Log.Warn(err)
-				case core.CodeUnauthorized:
+				case core.CodeBrokerMismatch, core.CodeUnauthorized:
 					ctx.Log.Warn(err)
 				default:
 					ctx.Log.Debug(err)
@@ -349,6 +347,9 @@ func (brk *broker) startWorker(id int) {
 				ctx.Cancel(nil)
 			}
 
+			ctx.Span.End()
+			brk.telClient.AddSpans(brk.comp, ctx.Span)
+
 		case <-brk.ctx.Done():
 			return
 		}
@@ -356,19 +357,15 @@ func (brk *broker) startWorker(id int) {
 }
 
 func (brk *broker) routeEvent(ctx *BrokerEventContext) (err error) {
-	// TODO need a way to decide if to sample span after creation, after event
-	// context is attached. It looks like "sampler" is called at creation.
-
 	ctx.Log.Debugf("routing event from receiver '%s'", ctx.Receiver)
 
 	routeSpan := ctx.Span.StartChildSpan(
-		fmt.Sprintf("route %s from %s", ctx.Event.Category, ctx.Event.Source.Key()),
+		"Route Event",
 		telemetry.Attr(telemetry.AttrKeyEventId, ctx.Event.Id),
 		telemetry.Attr(telemetry.AttrKeyEventSourceName, ctx.Event.Source.Key()))
-
 	defer routeSpan.End()
 
-	findSpan := routeSpan.StartChildSpan("find target")
+	findSpan := routeSpan.StartChildSpan("Find Target")
 	if err = brk.validateEvent(ctx); err == nil { //success
 		err = brk.findTarget(ctx)
 	}
@@ -379,11 +376,13 @@ func (brk *broker) routeEvent(ctx *BrokerEventContext) (err error) {
 	findSpan.End()
 
 	// Update log and span attributes after matching.
-	routeSpan.SetAttributes(telemetry.Attr(telemetry.AttrKeyEventTargetName, ctx.Event.Target.Key()))
-	ctx.Log = ctx.Log.WithEvent(ctx.Event)
-	ctx.Log.Debugf("matched event to target '%s'", ctx.Event.Target.Key())
+	ctx.Span.Name += " to " + ctx.Event.Target.GroupKey()
+	ctx.Span.SetEventAttributes(ctx.Event)
 
-	sendSpan := routeSpan.StartChildSpan(fmt.Sprintf("send to %s", ctx.Event.Target.Key()))
+	ctx.Log = ctx.Log.WithEvent(ctx.Event)
+	ctx.Log.Debugf("matched event to target '%s'", ctx.Event.Target.GroupKey())
+
+	sendSpan := routeSpan.StartChildSpan("Send Event")
 	if ctx.TargetAdapter != nil {
 		// TODO move http client to adapter
 		err = brk.httpClient.SendEvent(ctx)
@@ -393,11 +392,13 @@ func (brk *broker) routeEvent(ctx *BrokerEventContext) (err error) {
 		switch {
 		case found:
 			// Found component subscribed via gRPC.
+			sendSpan.Name = "Send gRPC event"
 			ctx.Log.Debug("subscription found, sending event with gRPC")
 			err = sub.SendEvent(ctx)
 
 		case ctx.Receiver != ReceiverNATS && ctx.Event.Target.BrokerId != brk.comp.Id:
 			// Component not found locally, send via NATS.
+			sendSpan.Name = "Send NATS event"
 			ctx.Log.Debug("subscription not found, sending event with nats")
 			err = brk.natsClient.Publish(ctx.Event.Target.Subject(), ctx.Event)
 
@@ -405,14 +406,7 @@ func (brk *broker) routeEvent(ctx *BrokerEventContext) (err error) {
 			err = core.ErrComponentGone()
 		}
 	}
-	if err != nil {
-		sendSpan.End(err)
-		return
-	}
-	sendSpan.End()
-
-	ctx.Span.End()
-	brk.AddSpans(brk.comp, ctx.Span, routeSpan, findSpan, sendSpan)
+	sendSpan.End(err)
 
 	return
 }

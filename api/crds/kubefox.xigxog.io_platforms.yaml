@@ -5173,22 +5173,14 @@ spec:
                       enabled:
                         default: false
                         type: boolean
-                      protocol:
-                        enum:
-                        - http
-                        - grpc
-                        type: string
                     required:
                     - enabled
                     type: object
                   logs:
                     properties:
-                      format:
-                        default: json
-                        enum:
-                        - json
-                        - console
-                        type: string
+                      export:
+                        default: true
+                        type: boolean
                       level:
                         default: info
                         enum:
@@ -5197,6 +5189,31 @@ spec:
                         - warn
                         - error
                         type: string
+                      stdout:
+                        properties:
+                          enabled:
+                            default: true
+                            type: boolean
+                          format:
+                            default: console
+                            enum:
+                            - json
+                            - console
+                            type: string
+                          level:
+                            default: info
+                            enum:
+                            - debug
+                            - info
+                            - warn
+                            - error
+                            type: string
+                        required:
+                        - enabled
+                        type: object
+                    required:
+                    - export
+                    - stdout
                     type: object
                   metrics:
                     properties:
@@ -5204,17 +5221,27 @@ spec:
                         default: 60
                         minimum: 3
                         type: integer
+                      export:
+                        default: true
+                        type: boolean
+                      verbose:
+                        default: false
+                        type: boolean
+                    required:
+                    - export
+                    - verbose
                     type: object
                   traces:
                     properties:
-                      level:
-                        default: info
-                        enum:
-                        - debug
-                        - info
-                        - warn
-                        - error
-                        type: string
+                      export:
+                        default: true
+                        type: boolean
+                      verbose:
+                        default: false
+                        type: boolean
+                    required:
+                    - export
+                    - verbose
                     type: object
                 type: object
             type: object

@@ -25,8 +25,7 @@ var (
 	GRPCSrvAddr   string
 	HealthSrvAddr string
 
-	NATSAddr          string
-	VaultURL          string
-	TelemetryAddr     string
-	TelemetryProtocol string
+	NATSAddr      string
+	VaultURL      string
+	TelemetryAddr string
 )

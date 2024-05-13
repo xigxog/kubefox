@@ -43,7 +43,6 @@ spec:
             - -vault-url={{ .Values.vaultURL }}
             {{ if .Telemetry.Collector.Enabled -}}
             - -telemetry-addr={{ .Telemetry.Collector.Address }}
-            - -telemetry-proto={{ .Telemetry.Collector.Protocol | default "grpc" }}
             - -telemetry-interval={{ .Telemetry.Metrics.CollectionIntervalSeconds }}s
             {{ else -}}
             - -telemetry-addr=false

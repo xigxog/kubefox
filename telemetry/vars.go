@@ -67,12 +67,9 @@ const (
 	AttrKeyGraphQLOpName         = "graphql.operation.name"
 	AttrKeyGraphQLOpType         = "graphql.operation.type" // query, mutation, subscription
 	AttrKeyGRPCStatusCode        = "rpc.grpc.status_code"
-	AttrKeyHTTPMethod            = "http.method"
 	AttrKeyHTTPReqBodySize       = "http.request.body.size"
-	AttrKeyHTTPReqContentLength  = "http.request.header.content-length"
 	AttrKeyHTTPReqMethod         = "http.request.method"
 	AttrKeyHTTPRespBodySize      = "http.response.body.size"
-	AttrKeyHTTPRespContentLength = "http.response.header.content-length"
 	AttrKeyHTTPRespStatusCode    = "http.response.status_code"
 	AttrKeyHTTPRoute             = "http.route"
 	AttrKeyK8sClusterId          = "k8s.cluster.uid"

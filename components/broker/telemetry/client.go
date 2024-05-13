@@ -10,7 +10,6 @@ package telemetry
 
 import (
 	"context"
-	"fmt"
 	"sync"
 	"time"
 
@@ -21,14 +20,14 @@ import (
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc"
-	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp"
 	"go.opentelemetry.io/otel/propagation"
-	"go.opentelemetry.io/otel/sdk/metric"
-	"go.opentelemetry.io/otel/sdk/trace"
 	semconv "go.opentelemetry.io/otel/semconv/v1.4.0"
 	commonv1 "go.opentelemetry.io/proto/otlp/common/v1"
+	logsv1 "go.opentelemetry.io/proto/otlp/logs/v1"
 	resv1 "go.opentelemetry.io/proto/otlp/resource/v1"
 	tracev1 "go.opentelemetry.io/proto/otlp/trace/v1"
+	gogrpc "google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 )
 
 var (
@@ -36,11 +35,12 @@ var (
 )
 
 type Client struct {
-	otelClient    otlptrace.Client
-	meterProvider *metric.MeterProvider
-	traceProvider *trace.TracerProvider
+	conn        *gogrpc.ClientConn
+	traceClient otlptrace.Client
+	logsClient  *logsClient
 
 	spans []*tracev1.ResourceSpans
+	logs  []*logsv1.ResourceLogs
 
 	tick  *time.Ticker
 	mutex sync.Mutex
@@ -70,98 +70,27 @@ func NewClient() *Client {
 func (c *Client) Start(ctx context.Context) error {
 	c.log.Debug("telemetry client starting")
 
-	switch config.TelemetryProtocol {
-	case "grpc":
-		c.otelClient = otlptracegrpc.NewClient(
-			otlptracegrpc.WithEndpoint(config.TelemetryAddr),
-			otlptracegrpc.WithInsecure(),
-		)
-	case "http":
-		c.otelClient = otlptracehttp.NewClient(
-			otlptracehttp.WithEndpoint(config.TelemetryAddr),
-			otlptracehttp.WithInsecure(),
-		)
-	default:
-		return fmt.Errorf("unsupported telemetry protocol '%s'", config.TelemetryProtocol)
+	conn, err := gogrpc.NewClient(config.TelemetryAddr,
+		gogrpc.WithTransportCredentials(insecure.NewCredentials()),
+	)
+	if err != nil {
+		return err
 	}
+	c.conn = conn
 
-	if err := c.otelClient.Start(ctx); err != nil {
+	c.traceClient = otlptracegrpc.NewClient(otlptracegrpc.WithGRPCConn(conn))
+	if err := c.traceClient.Start(ctx); err != nil {
 		return err
 	}
 
-	go c.uploadTraces()
+	c.logsClient = NewLogsClient(c.log)
+	c.logsClient.Start(ctx, conn)
+
+	go c.publishTelemetry()
 	c.log.Info("telemetry client started")
 
 	return nil
 }
-
-// 	c.log.Debug("telemetry client starting")
-
-// 	otel.SetErrorHandler(OTELErrorHandler{Log: c.log})
-// 	otel.SetTextMapPropagator(propagation.TraceContext{})
-
-// tlsCfg, err := cl.tls()
-// if err != nil {
-// 	cl.log.Error(err)
-// 	os.Exit(core.TelemetryErrorCode)
-// }
-
-// res := resource.NewWithAttributes(
-// 	semconv.SchemaURL,
-// 	semconv.ServiceName(comp.Key()),
-// 	attribute.String("kubefox."+logkf.KeyInstance, config.Instance),
-// 	attribute.String("kubefox."+logkf.KeyPlatform, config.Platform),
-// 	attribute.String("kubefox."+logkf.KeyPlatformComponent, api.PlatformComponentBroker),
-// )
-
-// metricExp, err := otlpmetrichttp.New(ctx,
-// 	// otlpmetrichttp.WithTLSClientConfig(tlsCfg),
-// 	otlpmetrichttp.WithInsecure(),
-// 	otlpmetrichttp.WithEndpoint(config.TelemetryAddr))
-// if err != nil {
-// 	return c.log.ErrorN("%v", err)
-// }
-
-// interval := time.Duration(config.TelemetryInterval) * time.Second
-// c.meterProvider = metric.NewMeterProvider(
-// 	metric.WithResource(res),
-// 	metric.WithReader(metric.NewPeriodicReader(metricExp, metric.WithInterval(interval))))
-// otel.SetMeterProvider(c.meterProvider)
-
-// if err := host.Start(); err != nil {
-// 	return c.log.ErrorN("%v", err)
-// }
-// if err := runtime.Start(runtime.WithMinimumReadMemStatsInterval(interval)); err != nil {
-// 	return c.log.ErrorN("%v", err)
-// }
-
-// c.otelClient = otlptracehttp.NewClient(
-// 	// otlptracehttp.WithTLSClientConfig(tlsCfg),
-// 	otlptracehttp.WithInsecure(),
-// 	otlptracehttp.WithEndpoint(config.TelemetryAddr),
-// )
-
-// exporter, err := otlptrace.New(ctx, c.otelClient)
-// trExp, err := stdouttrace.New(stdouttrace.WithPrettyPrint())
-// if err != nil {
-// 	return c.log.ErrorN("%v", err)
-// }
-
-// bsp := trace.NewBatchSpanProcessor(trExp)
-// bsp.OnEnd(nil) // this adds span to queue
-
-// c.traceProvider = trace.NewTracerProvider(
-// 	// TODO sample setup? just rely on outside request to determine if to sample?
-// 	// trace.WithSampler(&Sampler{}),
-// 	trace.WithSampler(trace.AlwaysSample()),
-// 	trace.WithResource(res),
-// 	trace.WithBatcher(exporter),
-// )
-// otel.SetTracerProvider(c.traceProvider)
-
-// 	c.log.Info("telemetry client started")
-// 	return nil
-// }
 
 func (cl *Client) Shutdown(timeout time.Duration) {
 	// log from context
@@ -170,31 +99,34 @@ func (cl *Client) Shutdown(timeout time.Duration) {
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 
-	if cl.meterProvider != nil {
-		if err := cl.meterProvider.Shutdown(ctx); err != nil {
+	if cl.traceClient != nil {
+		if err := cl.traceClient.Stop(ctx); err != nil {
 			cl.log.Warn(err)
 		}
 	}
-
-	if cl.traceProvider != nil {
-		if err := cl.traceProvider.Shutdown(ctx); err != nil {
+	if cl.conn != nil {
+		if err := cl.conn.Close(); err != nil {
 			cl.log.Warn(err)
 		}
 	}
 }
 
-// func (cl *Client) AddResourceSpans(spans []*tracev1.ResourceSpans) {
-// 	// TODO enhance attributes like instance, platform, etc.
-// 	cl.mutex.Lock()
-// 	cl.spans = append(cl.spans, spans...)
-// 	cl.mutex.Unlock()
-// }
+func (cl *Client) AddTelemetry(comp *core.Component, tel *core.Telemetry) {
+	cl.AddProtoSpans(comp, tel.Spans)
+	cl.AddProtoLogs(comp, tel.LogRecords)
+}
 
 func (cl *Client) AddSpans(comp *core.Component, spans ...*telemetry.Span) {
+	if len(spans) == 0 {
+		return
+	}
+
 	protoSpans := make([]*tracev1.Span, len(spans))
 	for i := range spans {
 		protoSpans[i] = spans[i].Span
+		cl.AddSpans(comp, spans[i].ChildSpans...)
 	}
+
 	cl.AddProtoSpans(comp, protoSpans)
 }
 
@@ -226,26 +158,81 @@ func (cl *Client) AddProtoSpans(comp *core.Component, spans []*tracev1.Span) {
 	cl.mutex.Unlock()
 }
 
-func (cl *Client) uploadTraces() {
-	for range cl.tick.C {
-		if len(cl.spans) == 0 {
-			continue
-		}
+func (cl *Client) AddProtoLogs(comp *core.Component, logRecords []*logsv1.LogRecord) {
+	resSpans := &logsv1.ResourceLogs{
+		Resource: buildResource(comp),
+		ScopeLogs: []*logsv1.ScopeLogs{
+			{
+				LogRecords: logRecords,
+				SchemaUrl:  semconv.SchemaURL,
+			},
+		},
+		SchemaUrl: semconv.SchemaURL,
+	}
 
-		cl.mutex.Lock()
+	cl.mutex.Lock()
+	cl.logs = append(cl.logs, resSpans)
+	cl.mutex.Unlock()
+}
+
+// TODO have broker/grpc server create resource and pass that instead of comp so
+// it doesn't need to be recreated over and over.
+func buildResource(comp *core.Component) *resv1.Resource {
+	return &resv1.Resource{
+		Attributes: []*commonv1.KeyValue{
+			telemetry.Attr(telemetry.AttrKeySvcName, comp.Key()).KeyValue,
+			telemetry.Attr(telemetry.AttrKeyComponentType, comp.Type).KeyValue,
+			telemetry.Attr(telemetry.AttrKeyComponentApp, comp.App).KeyValue,
+			telemetry.Attr(telemetry.AttrKeyComponentName, comp.Name).KeyValue,
+			telemetry.Attr(telemetry.AttrKeyComponentHash, comp.Hash).KeyValue,
+			telemetry.Attr(telemetry.AttrKeyComponentId, comp.Id).KeyValue,
+			telemetry.Attr(telemetry.AttrKeyInstance, config.Instance).KeyValue,
+			telemetry.Attr(telemetry.AttrKeyPlatform, config.Platform).KeyValue,
+		},
+	}
+}
+
+func (cl *Client) publishTelemetry() {
+	for range cl.tick.C {
 		ctx, cancel := context.WithTimeout(context.Background(), time.Minute/4)
 
-		cl.log.Debugf("uploading %d resource spans", len(cl.spans))
-
-		if err := cl.otelClient.UploadTraces(ctx, cl.spans); err != nil {
-			cl.log.Errorf("error uploading traces: %v", err)
-		}
-
-		cl.spans = nil
+		cl.publishSpans(ctx)
+		cl.publishLogs(ctx)
 
 		cancel()
-		cl.mutex.Unlock()
 	}
+}
+
+func (cl *Client) publishSpans(ctx context.Context) {
+	if cl.traceClient == nil || len(cl.spans) == 0 {
+		return
+	}
+
+	cl.mutex.Lock()
+
+	cl.log.Debugf("uploading %d resource spans", len(cl.spans))
+	if err := cl.traceClient.UploadTraces(ctx, cl.spans); err != nil {
+		cl.log.Errorf("error uploading traces: %v", err)
+	}
+	cl.spans = nil
+
+	cl.mutex.Unlock()
+}
+
+func (cl *Client) publishLogs(ctx context.Context) {
+	if cl.logsClient == nil || len(cl.logs) == 0 {
+		return
+	}
+
+	cl.mutex.Lock()
+
+	cl.log.Debugf("uploading %d resource logs", len(cl.logs))
+	if err := cl.logsClient.UploadLogs(ctx, cl.logs); err != nil {
+		cl.log.Errorf("error uploading logs: %v", err)
+	}
+	cl.logs = nil
+
+	cl.mutex.Unlock()
 }
 
 // func (cl *Client) tls() (*tls.Config, error) {

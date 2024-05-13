@@ -20,11 +20,8 @@ import (
 )
 
 type SubscriptionMgr interface {
-	Create(ctx context.Context, cfg *SubscriptionConf, recvCh chan *BrokerEventContext) (ReplicaSubscription, GroupSubscription, error)
+	Create(ctx context.Context, cfg *SubscriptionConf) (ReplicaSubscription, GroupSubscription, error)
 	Subscription(comp *core.Component) (Subscription, bool)
-	ReplicaSubscription(comp *core.Component) (ReplicaSubscription, bool)
-	GroupSubscription(comp *core.Component) (GroupSubscription, bool)
-	Subscriptions() []ReplicaSubscription
 	Close()
 }
 
@@ -38,15 +35,9 @@ type GroupSubscription interface {
 	Subscription
 }
 
-type SubscriptionConf struct {
-	Component    *core.Component
-	ComponentDef *api.ComponentDefinition
-	SendFunc     SendEvent
-	EnableGroup  bool
-}
-
 type ReplicaSubscription interface {
 	Subscription
+
 	Component() *core.Component
 	ComponentDef() *api.ComponentDefinition
 	IsGroupEnabled() bool
@@ -54,16 +45,23 @@ type ReplicaSubscription interface {
 	Err() error
 }
 
+type SubscriptionConf struct {
+	Component    *core.Component
+	ComponentDef *api.ComponentDefinition
+	SendFunc     SendEvent
+	EnableGroup  bool
+}
+
 type subscriptionMgr struct {
 	subMap map[string]*subscription
-	grpMap map[string]*subscriptionGroup
+	grpMap map[string]*groupSubscription
 
 	mutex sync.RWMutex
 
 	log *logkf.Logger
 }
 
-type subscriptionGroup struct {
+type groupSubscription struct {
 	subMap map[string]bool
 	sendCh chan *evtRespCh
 
@@ -77,7 +75,6 @@ type subscription struct {
 	mgr     *subscriptionMgr
 
 	sendFunc   SendEvent
-	recvCh     chan *BrokerEventContext
 	sendCh     chan *evtRespCh
 	grpEnabled bool
 
@@ -98,14 +95,21 @@ type sendResp struct {
 func NewManager() SubscriptionMgr {
 	return &subscriptionMgr{
 		subMap: make(map[string]*subscription),
-		grpMap: make(map[string]*subscriptionGroup),
+		grpMap: make(map[string]*groupSubscription),
 		log:    logkf.Global,
 	}
 }
 
-func (mgr *subscriptionMgr) Create(ctx context.Context, cfg *SubscriptionConf, recvCh chan *BrokerEventContext) (ReplicaSubscription, GroupSubscription, error) {
-	if err := checkComp(cfg.Component); err != nil {
-		return nil, nil, err
+func (mgr *subscriptionMgr) Create(ctx context.Context, cfg *SubscriptionConf) (ReplicaSubscription, GroupSubscription, error) {
+	switch {
+	case cfg.Component == nil:
+		return nil, nil, fmt.Errorf("component is missing")
+	case cfg.Component.Name == "":
+		return nil, nil, fmt.Errorf("component is missing name")
+	case cfg.Component.Hash == "":
+		return nil, nil, fmt.Errorf("component is missing hash")
+	case cfg.Component.Id == "":
+		return nil, nil, fmt.Errorf("component is missing id")
 	}
 
 	if sub, found := mgr.ReplicaSubscription(cfg.Component); found {
@@ -116,12 +120,12 @@ func (mgr *subscriptionMgr) Create(ctx context.Context, cfg *SubscriptionConf, r
 	mgr.mutex.Lock()
 	defer mgr.mutex.Unlock()
 
-	var grpSub *subscriptionGroup
+	var grpSub *groupSubscription
 	if cfg.EnableGroup {
 		s, found := mgr.grpMap[cfg.Component.GroupKey()]
 		if !found {
 			ctx, cancel := context.WithCancel(context.Background())
-			s = &subscriptionGroup{
+			s = &groupSubscription{
 				subMap: make(map[string]bool),
 				sendCh: make(chan *evtRespCh),
 				ctx:    ctx,
@@ -139,7 +143,6 @@ func (mgr *subscriptionMgr) Create(ctx context.Context, cfg *SubscriptionConf, r
 		compDef:    cfg.ComponentDef,
 		mgr:        mgr,
 		sendFunc:   cfg.SendFunc,
-		recvCh:     recvCh,
 		grpEnabled: cfg.EnableGroup,
 		ctx:        subCtx,
 		cancel:     subCancel,
@@ -239,7 +242,7 @@ func (mgr *subscriptionMgr) cancel(sub *subscription, err error) {
 	delete(mgr.subMap, sub.comp.Id)
 }
 
-func (grp *subscriptionGroup) SendEvent(evt *BrokerEventContext) error {
+func (grp *groupSubscription) SendEvent(evt *BrokerEventContext) error {
 	respCh := make(chan *sendResp)
 	grp.sendCh <- &evtRespCh{mEvt: evt, respCh: respCh}
 	resp := <-respCh
@@ -247,11 +250,11 @@ func (grp *subscriptionGroup) SendEvent(evt *BrokerEventContext) error {
 	return resp.Err
 }
 
-func (grp *subscriptionGroup) IsActive() bool {
+func (grp *groupSubscription) IsActive() bool {
 	return len(grp.subMap) > 0
 }
 
-func (sub *subscriptionGroup) Context() context.Context {
+func (sub *groupSubscription) Context() context.Context {
 	return sub.ctx
 }
 
@@ -311,18 +314,4 @@ func (sub *subscription) processSendChan() {
 			return
 		}
 	}
-}
-
-func checkComp(comp *core.Component) error {
-	if comp.Name == "" {
-		return fmt.Errorf("component is missing name")
-	}
-	if comp.Hash == "" {
-		return fmt.Errorf("component is missing hash")
-	}
-	if comp.Id == "" {
-		return fmt.Errorf("component is missing id")
-	}
-
-	return nil
 }

@@ -29,6 +29,7 @@ import (
 	"github.com/xigxog/kubefox/logkf"
 	"github.com/xigxog/kubefox/telemetry"
 	"github.com/xigxog/kubefox/utils"
+	logsv1 "go.opentelemetry.io/proto/otlp/logs/v1"
 )
 
 const (
@@ -315,6 +316,9 @@ func (svc *kit) recvReq(req *grpc.ComponentEvent) {
 	)
 	ktx.spans = append(ktx.spans, ktx.reqSpan)
 
+	ktx.reqSpan.Info("this is a test info level log")
+	ktx.reqSpan.Debug("this is a test debug level log")
+
 	if handler != nil {
 		err = handler(ktx)
 	}
@@ -330,5 +334,10 @@ func (svc *kit) recvReq(req *grpc.ComponentEvent) {
 	}
 
 	ktx.reqSpan.End()
-	go svc.brk.SendSpans(ktx.spans...)
+
+	var logs []*logsv1.LogRecord
+	for _, s := range ktx.spans {
+		logs = append(logs, s.LogRecords...)
+	}
+	go svc.brk.SendTelemetry(ktx.spans, logs)
 }

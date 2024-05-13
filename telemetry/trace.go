@@ -11,6 +11,7 @@ package telemetry
 import (
 	crand "crypto/rand"
 	"encoding/binary"
+	"encoding/hex"
 	"fmt"
 	"math/rand"
 	"reflect"
@@ -18,7 +19,9 @@ import (
 	"time"
 
 	"github.com/xigxog/kubefox/core"
+	"github.com/xigxog/kubefox/logkf"
 	commonv1 "go.opentelemetry.io/proto/otlp/common/v1"
+	logsv1 "go.opentelemetry.io/proto/otlp/logs/v1"
 	resv1 "go.opentelemetry.io/proto/otlp/resource/v1"
 	tracev1 "go.opentelemetry.io/proto/otlp/trace/v1"
 )
@@ -32,7 +35,10 @@ var (
 type Span struct {
 	*tracev1.Span
 
-	Recorded []*tracev1.Span
+	ChildSpans []*Span
+	LogRecords []*logsv1.LogRecord
+
+	mutex sync.Mutex
 }
 
 type Attribute struct {
@@ -101,6 +107,10 @@ func Attr(key string, val any) Attribute {
 	return Attribute{&commonv1.KeyValue{Key: string(key), Value: anyVal}}
 }
 
+// TODO https://opentelemetry.io/docs/specs/otel/trace/api/#spankind
+// https://opentelemetry.io/docs/concepts/instrumentation-scope/
+// for better span names, https://opentelemetry.io/docs/specs/otel/trace/api/#span
+
 func StartSpan(name string, parent *core.SpanContext, attrs ...Attribute) *Span {
 	if parent == nil {
 		parent = &core.SpanContext{
@@ -137,13 +147,17 @@ func StartSpan(name string, parent *core.SpanContext, attrs ...Attribute) *Span 
 	randSrcMutex.Unlock()
 
 	return &Span{
-		Span:     protoSpan,
-		Recorded: []*tracev1.Span{protoSpan},
+		Span: protoSpan,
 	}
 }
 
 func (s *Span) StartChildSpan(name string, attrs ...Attribute) *Span {
-	return StartSpan(name, s.SpanContext(), attrs...)
+	logkf.Global.Warnf("start child span; name: %s, my name: %s, my span id: %s, my pctx id: %s, grand span id: %s",
+		name, s.Name, hex.EncodeToString(s.SpanId), hex.EncodeToString(s.SpanContext().SpanId), hex.EncodeToString(s.ParentSpanId))
+	child := StartSpan(name, s.SpanContext(), attrs...)
+	s.ChildSpans = append(s.ChildSpans, child)
+
+	return child
 }
 
 func (s *Span) SpanContext() *core.SpanContext {
@@ -153,6 +167,14 @@ func (s *Span) SpanContext() *core.SpanContext {
 		TraceState: s.TraceState,
 		Flags:      s.Flags,
 	}
+}
+
+func (s *Span) ShouldSample() bool {
+	if s == nil {
+		return false
+	}
+
+	return (byte(s.Flags)>>0)&1 == 1
 }
 
 func (s *Span) SetAttributes(attrs ...Attribute) {
@@ -171,10 +193,77 @@ func (s *Span) SetAttributes(attrs ...Attribute) {
 	}
 }
 
+func (s *Span) SetEventAttributes(evt *core.Event) {
+	if evt == nil {
+		return
+	}
+
+	s.SetAttributes(
+		Attr(AttrKeyEventId, evt.Id),
+		Attr(AttrKeyEventParentId, evt.ParentId),
+		Attr(AttrKeyEventType, evt.Type),
+		Attr(AttrKeyEventCategory, evt.Category),
+	)
+
+	if evt.Context != nil {
+		s.SetAttributes(
+			Attr(AttrKeyEventVirtualEnv, evt.Context.VirtualEnvironment),
+			Attr(AttrKeyEventAppDeployment, evt.Context.AppDeployment),
+			Attr(AttrKeyEventRelManifest, evt.Context.ReleaseManifest),
+		)
+	}
+
+	if evt.Source != nil {
+		s.SetAttributes(
+			Attr(AttrKeyEventSourceId, evt.Source.Id),
+			Attr(AttrKeyEventSourceHash, evt.Source.Hash),
+			Attr(AttrKeyEventSourceName, evt.Source.Name),
+			Attr(AttrKeyEventSourceType, evt.Source.Type),
+		)
+	}
+
+	if evt.Target != nil {
+		s.SetAttributes(
+			Attr(AttrKeyEventTargetId, evt.Target.Id),
+			Attr(AttrKeyEventTargetHash, evt.Target.Hash),
+			Attr(AttrKeyEventTargetName, evt.Target.Name),
+			Attr(AttrKeyEventTargetType, evt.Target.Type),
+		)
+	}
+}
+
+func (s *Span) Info(msg string) {
+	s.log(logsv1.SeverityNumber_SEVERITY_NUMBER_INFO, "info", msg)
+}
+
+func (s *Span) Debug(msg string) {
+	s.log(logsv1.SeverityNumber_SEVERITY_NUMBER_DEBUG, "debug", msg)
+}
+
+func (s *Span) log(lvlNum logsv1.SeverityNumber, lvl, msg string) {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+
+	s.LogRecords = append(s.LogRecords, &logsv1.LogRecord{
+		TimeUnixNano:   now(),
+		TraceId:        s.TraceId,
+		SpanId:         s.SpanId,
+		SeverityNumber: lvlNum,
+		SeverityText:   lvl,
+		Body: &commonv1.AnyValue{
+			Value: &commonv1.AnyValue_StringValue{
+				StringValue: msg},
+		},
+	})
+}
+
 func (s *Span) RecordErr(err error) {
 	if err == nil {
 		return
 	}
+
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
 
 	s.Events = append(s.Events, &tracev1.Span_Event{
 		TimeUnixNano: now(),
@@ -186,19 +275,29 @@ func (s *Span) RecordErr(err error) {
 	})
 }
 
+// End sets the span's and its children's end times. If an end time has already
+// been set it will not be modified.
 func (s *Span) End(errs ...error) {
 	if len(errs) > 0 {
 		for _, e := range errs {
 			s.RecordErr(e)
 		}
 
-		s.Status = &tracev1.Status{
-			Message: errs[0].Error(),
-			Code:    tracev1.Status_STATUS_CODE_ERROR,
+		if errs[0] != nil {
+			s.Status = &tracev1.Status{
+				Message: errs[0].Error(),
+				Code:    tracev1.Status_STATUS_CODE_ERROR,
+			}
 		}
 	}
 
-	s.EndTimeUnixNano = now()
+	for _, c := range s.ChildSpans {
+		c.End()
+	}
+
+	if s.EndTimeUnixNano == 0 {
+		s.EndTimeUnixNano = now()
+	}
 }
 
 func now() uint64 {

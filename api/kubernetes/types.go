@@ -103,29 +103,43 @@ type CollectorSpec struct {
 	// +kubebuilder:default=false
 	Enabled bool   `json:"enabled"`
 	Address string `json:"address,omitempty"`
-	// +kubebuilder:validation:Enum=http;grpc
-	Protocol string `json:"protocol,omitempty"`
 }
 
 type LogsSpec struct {
+	// +kubebuilder:default=true
+	Export bool `json:"export"`
+	// +kubebuilder:validation:Enum=debug;info;warn;error
+	// +kubebuilder:default=info
+	Level  string `json:"level,omitempty"`
+	StdOut StdOut `json:"stdout"`
+}
+
+type StdOut struct {
+	// +kubebuilder:default=true
+	Enabled bool `json:"enabled"`
 	// +kubebuilder:validation:Enum=debug;info;warn;error
 	// +kubebuilder:default=info
 	Level string `json:"level,omitempty"`
 	// +kubebuilder:validation:Enum=json;console
-	// +kubebuilder:default=json
+	// +kubebuilder:default=console
 	Format string `json:"format,omitempty"`
 }
 
 type MetricsSpec struct {
+	// +kubebuilder:default=true
+	Export bool `json:"export"`
+	// +kubebuilder:default=false
+	Verbose bool `json:"verbose"`
 	// +kubebuilder:validation:Minimum=3
 	// +kubebuilder:default=60
 	CollectionIntervalSeconds uint `json:"collectionIntervalSeconds,omitempty"`
 }
 
 type TracesSpec struct {
-	// +kubebuilder:validation:Enum=debug;info;warn;error
-	// +kubebuilder:default=info
-	Level string `json:"level,omitempty"`
+	// +kubebuilder:default=true
+	Export bool `json:"export"`
+	// +kubebuilder:default=false
+	Verbose bool `json:"verbose"`
 }
 
 type ObjectRef struct {

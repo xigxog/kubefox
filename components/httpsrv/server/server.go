@@ -126,6 +126,13 @@ func (srv *Server) ServeHTTP(resWriter http.ResponseWriter, httpReq *http.Reques
 	ctx, cancel := context.WithTimeoutCause(httpReq.Context(), EventTimeout, core.ErrTimeout())
 	defer cancel()
 
+	log := srv.log
+
+	var (
+		req, resp *core.Event
+		err       error
+	)
+
 	setHeader(resWriter, api.HeaderAdapter, srv.brk.Component.Key())
 
 	var parentTrace *core.SpanContext
@@ -141,18 +148,31 @@ func (srv *Server) ServeHTTP(resWriter http.ResponseWriter, httpReq *http.Reques
 	}
 
 	var spans []*telemetry.Span
-	span := telemetry.StartSpan(fmt.Sprintf("%s %s", httpReq.Method, httpReq.URL), parentTrace)
+	span := telemetry.StartSpan(fmt.Sprintf("%s %s", httpReq.Method, httpReq.URL), parentTrace,
+		telemetry.Attr(telemetry.AttrKeyHTTPReqMethod, httpReq.Method),
+		telemetry.Attr(telemetry.AttrKeyHTTPReqBodySize, httpReq.ContentLength),
+	)
 	spans = append(spans, span)
 
 	defer func() {
 		span.End()
-		go srv.brk.SendSpans(spans...)
+		if (req != nil && req.ParentSpan.Sample()) ||
+			(resp != nil && resp.ParentSpan.Sample()) {
+
+			log.Debug("sending spans to broker")
+			go srv.brk.SendTelemetry(spans, nil)
+
+		} else {
+			log.Debug("discarding spans")
+		}
 	}()
 
+	// TODO add standard http attributes
+	// https://github.com/open-telemetry/opentelemetry-collector-contrib/tree/main/exporter/azuremonitorexporter#attribute-mapping
 	parseSpan := telemetry.StartSpan("parse http request", span.SpanContext())
 	spans = append(spans, parseSpan)
 
-	req := core.NewReq(core.EventOpts{
+	req = core.NewReq(core.EventOpts{
 		Source:     srv.brk.Component,
 		Timeout:    EventTimeout,
 		ParentSpan: span.SpanContext(),
@@ -165,10 +185,10 @@ func (srv *Server) ServeHTTP(resWriter http.ResponseWriter, httpReq *http.Reques
 	}
 	parseSpan.End()
 
-	log := srv.log.WithEvent(req)
+	log = log.WithEvent(req)
 	log.Debug("receive request")
 
-	resp, err := srv.brk.SendReq(ctx, req, time.Now())
+	resp, err = srv.brk.SendReq(ctx, req, time.Now())
 
 	respSpan := telemetry.StartSpan("send http response", span.SpanContext())
 	spans = append(spans, respSpan)

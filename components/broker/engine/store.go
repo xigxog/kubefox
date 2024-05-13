@@ -33,7 +33,23 @@ import (
 	"sigs.k8s.io/yaml"
 )
 
-type Store struct {
+type Store interface {
+	Open() error
+	Close()
+
+	Platform(context.Context) (*v1alpha1.Platform, error)
+	AppDeployment(context.Context, string) (*v1alpha1.AppDeployment, error)
+	ComponentDef(context.Context, *core.Component) (*api.ComponentDefinition, error)
+	Adapter(*BrokerEventContext, string, api.ComponentType) (common.Adapter, error)
+
+	ReleaseMatcher(context.Context) (*matcher.EventMatcher, error)
+	DeploymentMatcher(*BrokerEventContext) (*matcher.EventMatcher, error)
+
+	AttachEventContext(*BrokerEventContext) error
+	IsGenesisAdapter(context.Context, *core.Component) bool
+}
+
+type store struct {
 	resCache ctrlcache.Cache
 	vaultCli *vault.Client
 
@@ -50,9 +66,9 @@ type Store struct {
 	log *logkf.Logger
 }
 
-func NewStore() *Store {
+func NewStore() *store {
 	ctx, cancel := context.WithCancel(context.Background())
-	return &Store{
+	return &store{
 		validationCache: cache.New[api.Problems](time.Minute * 15),
 		depMatcherCache: cache.New[*matcher.EventMatcher](time.Minute * 15),
 		secretsCache:    cache.New[*api.Data](time.Minute * 15),
@@ -62,7 +78,7 @@ func NewStore() *Store {
 	}
 }
 
-func (str *Store) Open() error {
+func (str *store) Open() error {
 	ctx, cancel := context.WithTimeout(str.ctx, time.Minute*3)
 	defer cancel()
 
@@ -80,7 +96,7 @@ func (str *Store) Open() error {
 	return nil
 }
 
-func (str *Store) init(initCtx context.Context) error {
+func (str *store) init(initCtx context.Context) error {
 	key := vault.Key{
 		Instance:  config.Instance,
 		Namespace: config.Namespace,
@@ -138,7 +154,7 @@ func (str *Store) init(initCtx context.Context) error {
 	return nil
 }
 
-func (str *Store) initInformers(ctx context.Context, objs ...client.Object) error {
+func (str *store) initInformers(ctx context.Context, objs ...client.Object) error {
 	for _, obj := range objs {
 		// Getting the informer adds it to the cache.
 		if inf, err := str.resCache.GetInformer(ctx, obj); err != nil {
@@ -150,11 +166,11 @@ func (str *Store) initInformers(ctx context.Context, objs ...client.Object) erro
 	return nil
 }
 
-func (str *Store) Close() {
+func (str *store) Close() {
 	str.cancel()
 }
 
-func (str *Store) ComponentDef(ctx context.Context, comp *core.Component) (*api.ComponentDefinition, error) {
+func (str *store) ComponentDef(ctx context.Context, comp *core.Component) (*api.ComponentDefinition, error) {
 	if str.compCache == nil {
 		if err := str.updateComponentCache(ctx); err != nil {
 			return nil, err
@@ -169,7 +185,7 @@ func (str *Store) ComponentDef(ctx context.Context, comp *core.Component) (*api.
 	return def, nil
 }
 
-func (str *Store) IsGenesisAdapter(ctx context.Context, comp *core.Component) bool {
+func (str *store) IsGenesisAdapter(ctx context.Context, comp *core.Component) bool {
 	r, err := str.ComponentDef(ctx, comp)
 	if err != nil {
 		return false
@@ -183,17 +199,17 @@ func (str *Store) IsGenesisAdapter(ctx context.Context, comp *core.Component) bo
 	return false
 }
 
-func (str *Store) Platform(ctx context.Context) (*v1alpha1.Platform, error) {
+func (str *store) Platform(ctx context.Context) (*v1alpha1.Platform, error) {
 	obj := &v1alpha1.Platform{}
 	return obj, str.resCache.Get(ctx, str.key(config.Platform), obj)
 }
 
-func (str *Store) AppDeployment(ctx context.Context, name string) (*v1alpha1.AppDeployment, error) {
+func (str *store) AppDeployment(ctx context.Context, name string) (*v1alpha1.AppDeployment, error) {
 	obj := &v1alpha1.AppDeployment{}
 	return obj, str.resCache.Get(ctx, str.key(name), obj)
 }
 
-func (str *Store) ReleaseMatcher(ctx context.Context) (*matcher.EventMatcher, error) {
+func (str *store) ReleaseMatcher(ctx context.Context) (*matcher.EventMatcher, error) {
 	if str.releaseMatcher != nil {
 		return str.releaseMatcher, nil
 	}
@@ -206,7 +222,7 @@ func (str *Store) ReleaseMatcher(ctx context.Context) (*matcher.EventMatcher, er
 	return str.releaseMatcher, nil
 }
 
-func (str *Store) DeploymentMatcher(ctx *BrokerEventContext) (*matcher.EventMatcher, error) {
+func (str *store) DeploymentMatcher(ctx *BrokerEventContext) (*matcher.EventMatcher, error) {
 	// Check cache.
 	if depM, found := str.depMatcherCache.Get(ctx.Key); found {
 		str.log.Debugf("found cached matcher for event context key '%s'", ctx.Key)
@@ -232,7 +248,7 @@ func (str *Store) DeploymentMatcher(ctx *BrokerEventContext) (*matcher.EventMatc
 // BrokerEvent. Secrets are retrieved from Vault and included in the Data
 // member. The Event Context is then validated, problems found during validation
 // are returned.
-func (str *Store) AttachEventContext(ctx *BrokerEventContext) error {
+func (str *store) AttachEventContext(ctx *BrokerEventContext) error {
 	var (
 		ve       = &v1alpha1.VirtualEnvironment{}
 		appDep   = &v1alpha1.AppDeployment{}
@@ -322,7 +338,7 @@ func (str *Store) AttachEventContext(ctx *BrokerEventContext) error {
 	return nil
 }
 
-func (str *Store) Adapter(ctx *BrokerEventContext, name string, typ api.ComponentType) (common.Adapter, error) {
+func (str *store) Adapter(ctx *BrokerEventContext, name string, typ api.ComponentType) (common.Adapter, error) {
 	if ctx.ReleaseManifest != nil {
 		return ctx.ReleaseManifest.GetAdapter(name, typ)
 	}
@@ -339,7 +355,7 @@ func (str *Store) Adapter(ctx *BrokerEventContext, name string, typ api.Componen
 	return a, str.resCache.Get(ctx, str.key(name), a)
 }
 
-func (str *Store) mergeSecrets(ctx context.Context, d api.DataProvider, data *api.Data) error {
+func (str *store) mergeSecrets(ctx context.Context, d api.DataProvider, data *api.Data) error {
 	key := fmt.Sprintf("%s-%s", d.GetDataKey(), d.GetResourceVersion())
 	if secs, _ := str.secretsCache.Get(key); secs != nil {
 		str.log.Debugf("using cached secrets for '%s'", key)
@@ -357,7 +373,7 @@ func (str *Store) mergeSecrets(ctx context.Context, d api.DataProvider, data *ap
 	return nil
 }
 
-func (str *Store) OnAdd(obj interface{}, isInInitialList bool) {
+func (str *store) OnAdd(obj interface{}, isInInitialList bool) {
 	if isInInitialList {
 		str.log.Debugf("%T initialized", obj)
 		return
@@ -365,15 +381,15 @@ func (str *Store) OnAdd(obj interface{}, isInInitialList bool) {
 	str.onChange(obj, "added")
 }
 
-func (str *Store) OnUpdate(oldObj, obj interface{}) {
+func (str *store) OnUpdate(oldObj, obj interface{}) {
 	str.onChange(obj, "updated")
 }
 
-func (str *Store) OnDelete(obj interface{}) {
+func (str *store) OnDelete(obj interface{}) {
 	str.onChange(obj, "deleted")
 }
 
-func (str *Store) onChange(obj interface{}, op string) {
+func (str *store) onChange(obj interface{}, op string) {
 	str.log.Debugf("%T %s", obj, op)
 
 	updateComps := false
@@ -393,7 +409,7 @@ func (str *Store) onChange(obj interface{}, op string) {
 	}()
 }
 
-func (str *Store) updateComponentCache(ctx context.Context) error {
+func (str *store) updateComponentCache(ctx context.Context) error {
 	compCache := map[string]*api.ComponentDefinition{}
 
 	appDepList := &v1alpha1.AppDeploymentList{}
@@ -435,7 +451,7 @@ func (str *Store) updateComponentCache(ctx context.Context) error {
 	return nil
 }
 
-func (str *Store) updateReleaseMatcher(ctx context.Context) error {
+func (str *store) updateReleaseMatcher(ctx context.Context) error {
 	veList := &v1alpha1.VirtualEnvironmentList{}
 	if err := str.resCache.List(ctx, veList); err != nil {
 		// Force rebuild on next use.
@@ -515,7 +531,7 @@ func (str *Store) updateReleaseMatcher(ctx context.Context) error {
 	return nil
 }
 
-func (str *Store) buildRoutes(ctx *BrokerEventContext) ([]*core.Route, error) {
+func (str *store) buildRoutes(ctx *BrokerEventContext) ([]*core.Route, error) {
 	var routes []*core.Route
 	for compName, compSpec := range ctx.AppDeployment.Spec.Components {
 		comp := core.NewComponent(
@@ -547,6 +563,6 @@ func (str *Store) buildRoutes(ctx *BrokerEventContext) ([]*core.Route, error) {
 	return routes, nil
 }
 
-func (str *Store) key(name string) types.NamespacedName {
+func (str *store) key(name string) types.NamespacedName {
 	return k8s.Key(config.Namespace, name)
 }

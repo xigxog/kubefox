@@ -115,6 +115,14 @@ func applyOpts(evt *Event, cat Category, opts EventOpts) *Event {
 	return evt
 }
 
+func (s *SpanContext) Sample() bool {
+	if s == nil {
+		return false
+	}
+
+	return (byte(s.Flags)>>0)&1 == 1
+}
+
 func (evt *Event) SetParent(parent *Event) {
 	if parent == nil {
 		return
@@ -587,14 +595,14 @@ func (evt *Event) SetHTTPRequest(httpReq *http.Request, maxEventSize int64) erro
 	evt.Category = Category_REQUEST
 
 	if evt.Context.VirtualEnvironment == "" {
-		evt.Context.VirtualEnvironment = GetParamOrHeader(httpReq, api.HeaderVirtualEnv, api.HeaderVirtualEnvAbbrv, api.HeaderVirtualEnvShort)
+		evt.Context.VirtualEnvironment = GetParamOrHeader(httpReq, api.HeaderVirtualEnv, api.HeaderVirtualEnvAbbrv)
 	}
 	if evt.Context.AppDeployment == "" {
-		evt.Context.AppDeployment = GetParamOrHeader(httpReq, api.HeaderAppDeployment, api.HeaderAppDeploymentAbbrv, api.HeaderAppDeploymentShort)
+		evt.Context.AppDeployment = GetParamOrHeader(httpReq, api.HeaderAppDeployment, api.HeaderAppDeploymentAbbrv)
 	}
 
 	if evt.Type == "" || evt.Type == string(api.EventTypeUnknown) {
-		evtType := GetParamOrHeader(httpReq, api.HeaderEventType, api.HeaderEventTypeAbbrv, api.HeaderEventTypeShort)
+		evtType := GetParamOrHeader(httpReq, api.HeaderEventType, api.HeaderEventTypeAbbrv)
 		if evtType != "" {
 			evt.Type = evtType
 		} else {
@@ -602,10 +610,18 @@ func (evt *Event) SetHTTPRequest(httpReq *http.Request, maxEventSize int64) erro
 		}
 	}
 
+	sample := GetParamOrHeader(httpReq, api.HeaderTelemetrySample, api.HeaderTelemetrySampleAbbrv)
+	if strings.EqualFold(sample, "true") || sample == "1" {
+		if evt.ParentSpan == nil {
+			evt.ParentSpan = &SpanContext{}
+		}
+		evt.ParentSpan.Flags = 1
+	}
+
 	DelParamOrHeader(httpReq,
-		api.HeaderVirtualEnv, api.HeaderVirtualEnvAbbrv, api.HeaderVirtualEnvShort,
-		api.HeaderAppDeployment, api.HeaderAppDeploymentAbbrv, api.HeaderAppDeploymentShort,
-		api.HeaderEventType, api.HeaderEventTypeAbbrv, api.HeaderEventTypeShort,
+		api.HeaderVirtualEnv, api.HeaderVirtualEnvAbbrv,
+		api.HeaderAppDeployment, api.HeaderAppDeploymentAbbrv,
+		api.HeaderEventType, api.HeaderEventTypeAbbrv,
 	)
 
 	u := *httpReq.URL
