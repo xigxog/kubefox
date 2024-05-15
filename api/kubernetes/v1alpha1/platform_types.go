@@ -22,6 +22,7 @@ type PlatformSpec struct {
 	HTTPSrv HTTPSrvSpec       `json:"httpsrv,omitempty"`
 	NATS    NATSSpec          `json:"nats,omitempty"`
 	Logger  common.LoggerSpec `json:"logger,omitempty"`
+	Debug   DebugSpec         `json:"debug,omitempty"`
 }
 
 type EventsSpec struct {
@@ -48,6 +49,12 @@ type HTTPSrvSpec struct {
 type BrokerSpec struct {
 	PodSpec       common.PodSpec       `json:"podSpec,omitempty"`
 	ContainerSpec common.ContainerSpec `json:"containerSpec,omitempty"`
+}
+
+type DebugSpec struct {
+	// +kubebuilder:default=false
+	Enabled    bool   `json:"enabled,omitempty"`
+	BrokerAddr string `json:"brokerAddr,omitempty"`
 }
 
 type HTTPSrvService struct {
@@ -139,4 +146,8 @@ type PlatformList struct {
 
 func init() {
 	SchemeBuilder.Register(&Platform{}, &PlatformList{})
+}
+
+func (p *Platform) DebugEnabled() bool {
+	return p.Spec.Debug.Enabled && p.Name == "debug" && p.Namespace == "kubefox-debug"
 }

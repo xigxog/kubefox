@@ -11,7 +11,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.13.0
+    controller-gen.kubebuilder.io/version: v0.15.0
   name: environments.kubefox.xigxog.io
 spec:
   group: kubefox.xigxog.io
@@ -30,9 +30,11 @@ spec:
       openAPIV3Schema:
         properties:
           apiVersion:
-            description: 'APIVersion defines the versioned schema of this representation
-              of an object. Servers should convert recognized schemas to the latest
-              internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
             type: string
           data:
             properties:
@@ -69,9 +71,12 @@ spec:
                 type: object
             type: object
           kind:
-            description: 'Kind is a string value representing the REST resource this
-              object represents. Servers may infer this from the endpoint the client
-              submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
             type: string
           metadata:
             type: object
@@ -81,29 +86,29 @@ spec:
                 properties:
                   activationDeadlineSeconds:
                     default: 300
-                    description: If the pending Release cannot be activated before
-                      the activation deadline it will be considered failed and the
-                      Release will automatically rolled back to the current active
-                      Release. Pointer is used to distinguish between not set and
-                      false.
+                    description: |-
+                      If the pending Release cannot be activated before the activation deadline
+                      it will be considered failed and the Release will automatically rolled
+                      back to the current active Release. Pointer is used to distinguish
+                      between not set and false.
                     minimum: 3
                     type: integer
                   historyLimits:
                     properties:
                       ageDays:
-                        description: Maximum age of the Release to keep in history.
-                          Once the limit is reached the oldest Release in history
-                          will be deleted. Age is based on archiveTime. Set to 0 to
-                          disable. Pointer is used to distinguish between not set
-                          and false.
+                        description: |-
+                          Maximum age of the Release to keep in history. Once the limit is reached
+                          the oldest Release in history will be deleted. Age is based on
+                          archiveTime. Set to 0 to disable. Pointer is used to distinguish between
+                          not set and false.
                         minimum: 0
                         type: integer
                       count:
                         default: 10
-                        description: Maximum number of Releases to keep in history.
-                          Once the limit is reached the oldest Release in history
-                          will be deleted. Age is based on archiveTime. Pointer is
-                          used to distinguish between not set and false.
+                        description: |-
+                          Maximum number of Releases to keep in history. Once the limit is reached
+                          the oldest Release in history will be deleted. Age is based on
+                          archiveTime. Pointer is used to distinguish between not set and false.
                         minimum: 0
                         type: integer
                     type: object

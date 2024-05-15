@@ -35,6 +35,7 @@ type Flags struct {
 	vaultURL          string
 	logFormat         string
 	logLevel          string
+	tokenPath         string
 }
 
 var (
@@ -50,6 +51,7 @@ func main() {
 	flag.StringVar(&f.vaultURL, "vault-url", "", "URL of Vault server. (required)")
 	flag.StringVar(&f.logFormat, "log-format", "console", `Log format; one of ["json", "console"].`)
 	flag.StringVar(&f.logLevel, "log-level", "debug", `Log level; one of ["debug", "info", "warn", "error"].`)
+	flag.StringVar(&f.tokenPath, "token-path", api.PathSvcAccToken, "Path to Service Account Token")
 	flag.Parse()
 
 	utils.CheckRequiredFlag("instance", f.instance)
@@ -92,10 +94,11 @@ func generateCerts(log *logkf.Logger) error {
 	}
 
 	vaultCli, err := vault.New(vault.ClientOptions{
-		Instance: f.instance,
-		Role:     vault.RoleName(key),
-		URL:      f.vaultURL,
-		CACert:   api.PathCACert,
+		Instance:  f.instance,
+		Role:      vault.RoleName(key),
+		URL:       f.vaultURL,
+		CACert:    api.PathCACert,
+		TokenPath: f.tokenPath,
 	})
 	if err != nil {
 		return err

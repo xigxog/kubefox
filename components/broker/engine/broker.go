@@ -148,11 +148,11 @@ func (brk *broker) Start() {
 		}
 	}
 
-	// if config.TelemetryAddr != "false" {
-	if err := brk.telClient.Start(ctx, brk.comp); err != nil {
-		brk.shutdown(ExitCodeTelemetry, err)
+	if config.TelemetryAddr != "false" {
+		if err := brk.telClient.Start(ctx, brk.comp); err != nil {
+			brk.shutdown(ExitCodeTelemetry, err)
+		}
 	}
-	// }
 
 	if err := brk.natsClient.Connect(ctx); err != nil {
 		brk.shutdown(ExitCodeNATS, err)
@@ -253,6 +253,11 @@ func (brk *broker) AuthorizeComponent(ctx context.Context, meta *Metadata) error
 		}
 
 		found := false
+		if p.DebugEnabled() && meta.Pod == "debug" {
+			found = true
+			brk.log.Warnf("Platform debug enabled, accepting connection from component '%s'",
+				meta.Component.Name)
+		}
 		for _, c := range p.Status.Components {
 			if c.Name == meta.Component.Name &&
 				c.Hash == meta.Component.Hash &&

@@ -38,6 +38,7 @@ type ClientOpts struct {
 	Pod           string
 	BrokerAddr    string
 	HealthSrvAddr string
+	TokenPath     string
 }
 
 type Broker struct {
@@ -75,6 +76,10 @@ type ActiveReq struct {
 }
 
 func NewClient(opts ClientOpts) *Client {
+	if opts.TokenPath == "" {
+		opts.TokenPath = api.PathSvcAccToken
+	}
+
 	c := &Client{
 		ClientOpts: opts,
 		reqMap:     make(map[string]*ActiveReq),
@@ -355,7 +360,7 @@ func (c *Client) ServeHTTP(resp http.ResponseWriter, req *http.Request) {
 }
 
 func (c *Client) GetRequestMetadata(ctx context.Context, uri ...string) (map[string]string, error) {
-	b, err := os.ReadFile(api.PathSvcAccToken)
+	b, err := os.ReadFile(c.ClientOpts.TokenPath)
 	if err != nil {
 		return nil, err
 	}
@@ -385,7 +390,10 @@ func (c *Client) startReqMapReaper() {
 
 	ticker := time.NewTicker(time.Second * 30)
 	for range ticker.C {
-		log.Debugf("reaping request map of size %d", len(c.reqMap))
+		if len(c.reqMap) > 0 {
+			log.Debugf("reaping request map of size %d", len(c.reqMap))
+		}
+
 		c.reqMapMutex.RLock()
 		// Add a 5 second buffer to expiration.
 		now := time.Now().Add(time.Second * -30)

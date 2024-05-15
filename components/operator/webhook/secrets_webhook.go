@@ -23,7 +23,7 @@ import (
 )
 
 type SecretsWebhook struct {
-	*admission.Decoder
+	admission.Decoder
 
 	Instance string
 }

@@ -7,7 +7,7 @@
 #
 # SPDX-License-Identifier: MPL-2.0
 
-
+set -o xtrace
 set -o errexit
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." &>/dev/null && pwd -P)"
@@ -63,4 +63,4 @@ KIND_NAME=${KIND_NAME:-"kind"}
 KIND_LOAD=${KIND_LOAD:-false}
 DOCKERFILE=""
 
-set -o pipefail -o xtrace -o nounset
+set -o pipefail -o nounset

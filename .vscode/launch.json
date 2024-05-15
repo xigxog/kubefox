@@ -12,30 +12,14 @@
       "program": "components/broker/main.go",
       "args": [
         "-instance=kubefox",
-        "-platform=dev",
-        "-namespace=kubefox-dev",
-        "-grpc-addr=127.0.0.1:6060",
-        "-nats-addr=127.0.0.1",
+        "-platform=debug",
+        "-namespace=kubefox-debug",
+        "-grpc-addr=0.0.0.0:6060",
         "-telemetry-addr=false",
         "-health-addr=false",
         "-log-format=console",
-        "-log-level=debug"
-      ]
-    },
-    {
-      "name": "operator",
-      "type": "go",
-      "request": "launch",
-      "mode": "auto",
-      "program": "components/operator/main.go",
-      "args": [
-        "-instance=kubefox",
-        "-namespace=kubefox-system",
-        "-vault-url=https://127.0.0.1:8200",
-        "-health-addr=0.0.0.0:1111",
-        "-log-format=console",
         "-log-level=debug",
-        "-leader-elect=false"
+        "-token-path=/tmp/kubefox/broker-token"
       ]
     },
     {
@@ -45,14 +29,16 @@
       "mode": "auto",
       "program": "components/httpsrv/main.go",
       "args": [
+        "-platform=debug",
         "-name=httpsrv",
-        "-commit=26501c382353f0291990580e68cba61040099b9c",
-        "-http-addr=0.0.0.0:8080",
+        "-hash=debug",
+        "-pod=debug",
         "-https-addr=false",
         "-broker-addr=127.0.0.1:6060",
         "-health-addr=false",
         "-log-format=console",
-        "-log-level=debug"
+        "-log-level=debug",
+        "-token-path=/tmp/kubefox/httpsrv-token"
       ]
     }
   ]

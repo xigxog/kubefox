@@ -583,7 +583,7 @@ func (evt *Event) SetHTTPRequest(httpReq *http.Request, maxEventSize int64) erro
 	evt.Category = Category_REQUEST
 
 	if evt.Context.VirtualEnvironment == "" {
-		evt.Context.VirtualEnvironment = GetParamOrHeader(httpReq, api.HeaderVirtualEnvironment, api.HeaderVirtualEnvironmentAbbrv, api.HeaderVirtualEnvironmentShort)
+		evt.Context.VirtualEnvironment = GetParamOrHeader(httpReq, api.HeaderVirtualEnv, api.HeaderVirtualEnvAbbrv, api.HeaderVirtualEnvShort)
 	}
 	if evt.Context.AppDeployment == "" {
 		evt.Context.AppDeployment = GetParamOrHeader(httpReq, api.HeaderAppDep, api.HeaderAppDepAbbrv, api.HeaderAppDepShort)
@@ -599,7 +599,7 @@ func (evt *Event) SetHTTPRequest(httpReq *http.Request, maxEventSize int64) erro
 	}
 
 	DelParamOrHeader(httpReq,
-		api.HeaderVirtualEnvironment, api.HeaderVirtualEnvironmentAbbrv, api.HeaderVirtualEnvironmentShort,
+		api.HeaderVirtualEnv, api.HeaderVirtualEnvAbbrv, api.HeaderVirtualEnvShort,
 		api.HeaderAppDep, api.HeaderAppDepAbbrv, api.HeaderAppDepShort,
 		api.HeaderEventType, api.HeaderEventTypeAbbrv, api.HeaderEventTypeShort,
 	)

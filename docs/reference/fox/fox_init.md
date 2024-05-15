@@ -15,8 +15,9 @@ fox init [flags]
 ### Options
 
 ```
+      --graphql      use defaults to setup KubeFox for graphql tutorial
   -h, --help         help for init
-      --quickstart   use defaults to setup KubeFox for quickstart guide
+      --quickstart   use defaults to setup KubeFox for quickstart tutorial
 ```
 
 ### Options inherited from parent commands

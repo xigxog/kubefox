@@ -38,6 +38,7 @@ func main() {
 	flag.IntVar(&config.NumWorkers, "num-workers", runtime.NumCPU(), "Number of worker threads to start, default is number of logical CPUs.")
 	flag.StringVar(&config.LogFormat, "log-format", "console", `Log format; one of ["json", "console"].`)
 	flag.StringVar(&config.LogLevel, "log-level", "debug", `Log level; one of ["debug", "info", "warn", "error"].`)
+	flag.StringVar(&config.TokenPath, "token-path", api.PathSvcAccToken, "Path to Service Account Token")
 	flag.Parse()
 
 	utils.CheckRequiredFlag("instance", config.Instance)

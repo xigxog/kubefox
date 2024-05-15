@@ -40,8 +40,9 @@ type Instance struct {
 }
 
 type Platform struct {
-	Name      string
-	Namespace string
+	Name       string
+	Namespace  string
+	BrokerAddr string
 }
 
 type Component struct {

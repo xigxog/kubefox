@@ -20,7 +20,7 @@ import (
 )
 
 type ImmutableWebhook struct {
-	*admission.Decoder
+	admission.Decoder
 }
 
 const (

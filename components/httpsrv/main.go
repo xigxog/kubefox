@@ -25,7 +25,7 @@ import (
 
 func main() {
 	var name, hash, pod string
-	var logFormat, logLevel string
+	var logFormat, logLevel, tokenPath string
 	flag.StringVar(&server.Platform, "platform", "", "KubeFox Platform name. (required)")
 	flag.StringVar(&name, "name", "", `Component name. (required)`)
 	flag.StringVar(&hash, "hash", "", `Hash the Component was built from. (required)`)
@@ -38,6 +38,7 @@ func main() {
 	flag.DurationVar(&server.EventTimeout, "timeout", time.Minute, "Default timeout for an event.")
 	flag.StringVar(&logFormat, "log-format", "console", "Log format. [options 'json', 'console']")
 	flag.StringVar(&logLevel, "log-level", "debug", "Log level. [options 'debug', 'info', 'warn', 'error']")
+	flag.StringVar(&tokenPath, "token-path", api.PathSvcAccToken, "Path to Service Account Token")
 	flag.Parse()
 
 	utils.CheckRequiredFlag("platform", server.Platform)
@@ -45,7 +46,9 @@ func main() {
 	utils.CheckRequiredFlag("hash", hash)
 	utils.CheckRequiredFlag("pod", pod)
 
-	if hash != build.Info.Hash {
+	if hash != build.Info.Hash &&
+		!(hash == "debug" && build.Info.Hash == "") {
+
 		fmt.Fprintf(os.Stderr, "hash '%s' does not match build info hash '%s'", hash, build.Info.Hash)
 		os.Exit(1)
 	}
@@ -64,7 +67,7 @@ func main() {
 
 	telemetry.SetComponent(comp)
 
-	srv := server.New(comp, pod)
+	srv := server.New(comp, pod, tokenPath)
 	defer srv.Shutdown()
 
 	if err := srv.Run(); err != nil {

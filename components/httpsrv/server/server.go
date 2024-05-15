@@ -41,7 +41,7 @@ type Server struct {
 	log *logkf.Logger
 }
 
-func New(comp *core.Component, pod string) *Server {
+func New(comp *core.Component, pod string, tokenPath string) *Server {
 	return &Server{
 		brk: grpc.NewClient(grpc.ClientOpts{
 			Platform:      Platform,
@@ -49,6 +49,7 @@ func New(comp *core.Component, pod string) *Server {
 			Pod:           pod,
 			BrokerAddr:    BrokerAddr,
 			HealthSrvAddr: HealthSrvAddr,
+			TokenPath:     tokenPath,
 		}),
 		log: logkf.Global,
 	}
@@ -171,7 +172,7 @@ func (srv *Server) ServeHTTP(resWriter http.ResponseWriter, httpReq *http.Reques
 	// Add Event Context to response headers.
 	if resp != nil && resp.Context != nil {
 		setHeader(resWriter, api.HeaderPlatform, resp.Context.Platform)
-		setHeader(resWriter, api.HeaderVirtualEnvironment, resp.Context.VirtualEnvironment)
+		setHeader(resWriter, api.HeaderVirtualEnv, resp.Context.VirtualEnvironment)
 		setHeader(resWriter, api.HeaderAppDep, resp.Context.AppDeployment)
 		setHeader(resWriter, api.HeaderReleaseManifest, resp.Context.ReleaseManifest)
 	}

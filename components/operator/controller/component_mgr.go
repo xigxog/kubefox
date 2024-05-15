@@ -150,8 +150,9 @@ func (cm *ComponentManager) ReconcileApps(ctx context.Context, namespace string)
 				BootstrapImage: BootstrapImage,
 			},
 			Platform: templates.Platform{
-				Name:      platform.Name,
-				Namespace: platform.Namespace,
+				Name:       platform.Name,
+				Namespace:  platform.Namespace,
+				BrokerAddr: "$(KUBEFOX_HOST_IP):6060",
 			},
 			Owner: []*metav1.OwnerReference{
 				metav1.NewControllerRef(platform, platform.GroupVersionKind()),
@@ -159,6 +160,9 @@ func (cm *ComponentManager) ReconcileApps(ctx context.Context, namespace string)
 
 			BuildInfo: build.Info,
 		},
+	}
+	if platform.DebugEnabled() && platform.Spec.Debug.BrokerAddr != "" {
+		td.Data.Platform.BrokerAddr = platform.Spec.Debug.BrokerAddr
 	}
 
 	compsTplData := map[string]*TemplateData{}

@@ -9,7 +9,7 @@
 
 source "$(dirname "${BASH_SOURCE[0]}")/setup.sh"
 
-CONTROLLER_GEN_VERSION="v0.13.0"
+CONTROLLER_GEN_VERSION="v0.15.0"
 PROTOC_GEN_GO_VERSION="v1.28"
 PROTOC_GEN_GO_GRPC_VERSION="1.2.0" # --version does not output 'v'
 

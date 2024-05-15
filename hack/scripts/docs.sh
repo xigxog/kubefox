@@ -12,7 +12,7 @@ source "$(dirname "${BASH_SOURCE[0]}")/setup.sh"
 
 PROTOC_GEN_DOC_VERSION="v1.5.1"
 GOMARKDOC_VERSION="v1.1.0"
-CRD_REF_DOCS_VERSION="v0.1.5"
+CRD_REF_DOCS_VERSION="v0.1.5-1"
 
 FOX_ROOT="${REPO_ROOT}/../fox"
 

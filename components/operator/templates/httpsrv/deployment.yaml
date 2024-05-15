@@ -42,7 +42,7 @@ spec:
             - -pod=$(KUBEFOX_COMPONENT_POD)
             - -http-addr=0.0.0.0:8080
             - -https-addr=0.0.0.0:8443
-            - -broker-addr=$(KUBEFOX_HOST_IP):6060
+            - -broker-addr={{ .Platform.BrokerAddr }}
             - -health-addr=0.0.0.0:1111
             - -max-event-size={{ .Values.maxEventSize }}
             - -log-format={{ .Logger.Format | default "json" }}
