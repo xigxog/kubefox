@@ -144,12 +144,13 @@ func (c *Client) GetData(ctx context.Context, key api.DataKey, data *api.Data) e
 	resp, err := c.Logical().ReadRawWithDataWithContext(ctx, DataSubPath(key, "data"), nil)
 	if resp != nil {
 		defer resp.Body.Close()
+
+		if resp.StatusCode == http.StatusNotFound {
+			return core.ErrNotFound()
+		}
 	}
 	if err != nil {
 		return err
-	}
-	if resp.StatusCode == http.StatusNotFound {
-		return core.ErrNotFound()
 	}
 
 	secret := &VaultSecret{

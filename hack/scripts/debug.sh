@@ -11,6 +11,7 @@ source "$(dirname "${BASH_SOURCE[0]}")/setup.sh"
 
 function teardown {
     kill $(jobs -p)
+    rm -rf /tmp/kubefox
 
     echo
     echo "Patching Platform to disable debug..."
@@ -115,5 +116,6 @@ EOF
 echo
 
 echo "🦊🏁🌟 Debug environment ready! 🌟🏁🦊"
+echo
 
 wait

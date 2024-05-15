@@ -122,8 +122,8 @@ export FOX_INFO=true && \
     mkdir -p /tmp/kubefox/hello-world && \
     cd /tmp/kubefox/hello-world && \
     fox init && \
-    kubectl apply -f ./hack/environments/ -n kubefox-debug
-    fox publish --wait 5m
+    fox publish --wait 5m && \
+    kubectl apply -f ./hack/environments/ -n kubefox-debug ; \
     cd -
 ```
 
@@ -142,21 +142,6 @@ info    Don't worry, 🦊 Fox can create one for you.
 Would you like to create a KubeFox Platform? [Y/n] y
 Enter the KubeFox Platform's name (required): debug
 Enter the Kubernetes namespace of the KubeFox Platform (default 'kubefox-debug'):
-
-info    KubeFox App initialization complete!
-environment.kubefox.xigxog.io/prod created
-virtualenvironment.kubefox.xigxog.io/prod created
-environment.kubefox.xigxog.io/qa created
-virtualenvironment.kubefox.xigxog.io/qa created
-info    Component image 'localhost/kubefox/hello-world/backend:3fbfcb274c2116d4d82271da41074135' exists, skipping build.
-info    Loading component image 'localhost/kubefox/hello-world/backend:3fbfcb274c2116d4d82271da41074135' into kind cluster 'kind'.
-
-info    Component image 'localhost/kubefox/hello-world/frontend:98c75bd20b210d15b456ec92faab2abd' exists, skipping build.
-info    Loading component image 'localhost/kubefox/hello-world/frontend:98c75bd20b210d15b456ec92faab2abd' into kind cluster 'kind'.
-
-info    Waiting for KubeFox Platform 'debug' to be ready...
-info    Waiting for component 'backend' to be ready...
-info    Waiting for component 'frontend' to be ready...
 ```
 
 Great! Now that there is a local instance you just need to enable debug mode and
