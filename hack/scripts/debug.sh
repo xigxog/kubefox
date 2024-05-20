@@ -18,7 +18,7 @@ function teardown {
     kubectl patch \
         -n ${PLATFORM_NS} platform/debug \
         --type merge \
-        --patch '{"spec":{"logger":{"format":"json","level":"info"},"debug":{"enabled":false,"brokerAddr":""}}}'
+        --patch '{"spec":{"telemetry":{"logs":{"format":"json","level":"info"}},"debug":{"enabled":false,"brokerAddr":""}}}'
     sleep 1
     echo
 
@@ -71,7 +71,7 @@ echo "Patching Platform to enable debug..."
 kubectl patch \
     -n ${PLATFORM_NS} platform/debug \
     --type merge \
-    --patch '{"spec":{"logger":{"format":"console","level":"debug"},"debug":{"enabled":true,"brokerAddr":"'${IP}':6060"}}}'
+    --patch '{"spec":{"telemetry":{"logs":{"format":"console","level":"debug"}},"debug":{"enabled":true,"brokerAddr":"'${IP}':6060"}}}'
 sleep 1
 echo
 

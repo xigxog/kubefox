@@ -25,6 +25,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/xigxog/kubefox/api"
+	"github.com/xigxog/kubefox/utils"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/structpb"
 )
@@ -120,7 +121,7 @@ func (s *SpanContext) Sample() bool {
 		return false
 	}
 
-	return (byte(s.Flags)>>0)&1 == 1
+	return utils.HasBit(s.Flags, 0)
 }
 
 func (evt *Event) SetParent(parent *Event) {
@@ -615,7 +616,7 @@ func (evt *Event) SetHTTPRequest(httpReq *http.Request, maxEventSize int64) erro
 		if evt.ParentSpan == nil {
 			evt.ParentSpan = &SpanContext{}
 		}
-		evt.ParentSpan.Flags = 1
+		evt.ParentSpan.Flags = utils.SetBit(evt.ParentSpan.Flags, 0)
 	}
 
 	DelParamOrHeader(httpReq,

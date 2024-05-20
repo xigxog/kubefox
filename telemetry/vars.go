@@ -28,6 +28,7 @@ const (
 	AttrKeyEventTargetId      = "kubefox.event.target.id"
 	AttrKeyEventTargetName    = "kubefox.event.target.name"
 	AttrKeyEventTargetType    = "kubefox.event.target.type"
+	AttrKeyEventTTL           = "kubefox.event.ttl"
 	AttrKeyEventType          = "kubefox.event.type"
 	AttrKeyEventVirtualEnv    = "kubefox.event.context.virtual_environment"
 	AttrKeyInstance           = "kubefox.instance"

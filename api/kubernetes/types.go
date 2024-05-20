@@ -106,24 +106,30 @@ type CollectorSpec struct {
 }
 
 type LogsSpec struct {
-	// +kubebuilder:default=true
-	Export bool `json:"export"`
-	// +kubebuilder:validation:Enum=debug;info;warn;error
-	// +kubebuilder:default=info
-	Level  string `json:"level,omitempty"`
-	StdOut StdOut `json:"stdout"`
-}
-
-type StdOut struct {
-	// +kubebuilder:default=true
-	Enabled bool `json:"enabled"`
 	// +kubebuilder:validation:Enum=debug;info;warn;error
 	// +kubebuilder:default=info
 	Level string `json:"level,omitempty"`
 	// +kubebuilder:validation:Enum=json;console
-	// +kubebuilder:default=console
+	// +kubebuilder:default=json
 	Format string `json:"format,omitempty"`
+
+	// TODO uncomment when otel logs implemented and remove format above
+	//// +kubebuilder:default=true
+	// Export bool `json:"export"`
+	// StdOut StdOut `json:"stdout"`
 }
+
+// TODO uncomment when otel logs implemented
+// type StdOut struct {
+// 	// +kubebuilder:default=true
+// 	Enabled bool `json:"enabled"`
+// 	// +kubebuilder:validation:Enum=debug;info;warn;error
+// 	// +kubebuilder:default=info
+// 	Level string `json:"level,omitempty"`
+// 	// +kubebuilder:validation:Enum=json;console
+// 	// +kubebuilder:default=console
+// 	Format string `json:"format,omitempty"`
+// }
 
 type MetricsSpec struct {
 	// +kubebuilder:default=true

@@ -167,3 +167,15 @@ func Join(sep string, elems ...string) string {
 
 	return b.String()[1:]
 }
+
+func SetBit(n uint32, pos uint) uint32 {
+	return n | (1 << pos)
+}
+
+func ClearBit(n uint32, pos uint) uint32 {
+	return n & ^(1 << pos)
+}
+
+func HasBit(n uint32, pos uint) bool {
+	return (n & (1 << pos)) > 0
+}

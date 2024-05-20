@@ -3238,45 +3238,6 @@ spec:
                 - IfNotPresent
                 - Never
                 type: string
-              logger:
-                properties:
-                  export:
-                    default: true
-                    type: boolean
-                  level:
-                    default: info
-                    enum:
-                    - debug
-                    - info
-                    - warn
-                    - error
-                    type: string
-                  stdout:
-                    properties:
-                      enabled:
-                        default: true
-                        type: boolean
-                      format:
-                        default: console
-                        enum:
-                        - json
-                        - console
-                        type: string
-                      level:
-                        default: info
-                        enum:
-                        - debug
-                        - info
-                        - warn
-                        - error
-                        type: string
-                    required:
-                    - enabled
-                    type: object
-                required:
-                - export
-                - stdout
-                type: object
               nats:
                 properties:
                   containerSpec:
@@ -4835,9 +4796,12 @@ spec:
                     type: object
                   logs:
                     properties:
-                      export:
-                        default: true
-                        type: boolean
+                      format:
+                        default: json
+                        enum:
+                        - json
+                        - console
+                        type: string
                       level:
                         default: info
                         enum:
@@ -4846,31 +4810,6 @@ spec:
                         - warn
                         - error
                         type: string
-                      stdout:
-                        properties:
-                          enabled:
-                            default: true
-                            type: boolean
-                          format:
-                            default: console
-                            enum:
-                            - json
-                            - console
-                            type: string
-                          level:
-                            default: info
-                            enum:
-                            - debug
-                            - info
-                            - warn
-                            - error
-                            type: string
-                        required:
-                        - enabled
-                        type: object
-                    required:
-                    - export
-                    - stdout
                     type: object
                   metrics:
                     properties:

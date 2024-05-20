@@ -11,7 +11,6 @@ package telemetry
 import (
 	crand "crypto/rand"
 	"encoding/binary"
-	"encoding/hex"
 	"fmt"
 	"math/rand"
 	"reflect"
@@ -19,7 +18,7 @@ import (
 	"time"
 
 	"github.com/xigxog/kubefox/core"
-	"github.com/xigxog/kubefox/logkf"
+	"github.com/xigxog/kubefox/utils"
 	commonv1 "go.opentelemetry.io/proto/otlp/common/v1"
 	logsv1 "go.opentelemetry.io/proto/otlp/logs/v1"
 	resv1 "go.opentelemetry.io/proto/otlp/resource/v1"
@@ -152,8 +151,6 @@ func StartSpan(name string, parent *core.SpanContext, attrs ...Attribute) *Span 
 }
 
 func (s *Span) StartChildSpan(name string, attrs ...Attribute) *Span {
-	logkf.Global.Warnf("start child span; name: %s, my name: %s, my span id: %s, my pctx id: %s, grand span id: %s",
-		name, s.Name, hex.EncodeToString(s.SpanId), hex.EncodeToString(s.SpanContext().SpanId), hex.EncodeToString(s.ParentSpanId))
 	child := StartSpan(name, s.SpanContext(), attrs...)
 	s.ChildSpans = append(s.ChildSpans, child)
 
@@ -174,10 +171,14 @@ func (s *Span) ShouldSample() bool {
 		return false
 	}
 
-	return (byte(s.Flags)>>0)&1 == 1
+	return utils.HasBit(s.Flags, 0)
 }
 
 func (s *Span) SetAttributes(attrs ...Attribute) {
+	if s == nil {
+		return
+	}
+
 	for _, a := range attrs {
 		found := false
 		for i, c := range s.Attributes {
@@ -188,13 +189,15 @@ func (s *Span) SetAttributes(attrs ...Attribute) {
 			}
 		}
 		if !found {
+			s.mutex.Lock()
 			s.Attributes = append(s.Attributes, a.KeyValue)
+			s.mutex.Unlock()
 		}
 	}
 }
 
 func (s *Span) SetEventAttributes(evt *core.Event) {
-	if evt == nil {
+	if s == nil || evt == nil {
 		return
 	}
 
@@ -203,6 +206,7 @@ func (s *Span) SetEventAttributes(evt *core.Event) {
 		Attr(AttrKeyEventParentId, evt.ParentId),
 		Attr(AttrKeyEventType, evt.Type),
 		Attr(AttrKeyEventCategory, evt.Category),
+		Attr(AttrKeyEventTTL, evt.Ttl),
 	)
 
 	if evt.Context != nil {
@@ -229,6 +233,10 @@ func (s *Span) SetEventAttributes(evt *core.Event) {
 			Attr(AttrKeyEventTargetName, evt.Target.Name),
 			Attr(AttrKeyEventTargetType, evt.Target.Type),
 		)
+	}
+
+	for _, child := range s.ChildSpans {
+		child.SetEventAttributes(evt)
 	}
 }
 
@@ -265,6 +273,7 @@ func (s *Span) RecordErr(err error) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
+	s.Flags = utils.SetBit(s.Flags, 0)
 	s.Events = append(s.Events, &tracev1.Span_Event{
 		TimeUnixNano: now(),
 		Name:         EventNameException,
@@ -298,6 +307,15 @@ func (s *Span) End(errs ...error) {
 	if s.EndTimeUnixNano == 0 {
 		s.EndTimeUnixNano = now()
 	}
+}
+
+func (s *Span) Flatten() []*Span {
+	flat := []*Span{s}
+	for _, c := range s.ChildSpans {
+		flat = append(flat, c.Flatten()...)
+	}
+
+	return flat
 }
 
 func now() uint64 {

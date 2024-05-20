@@ -26,7 +26,6 @@ type PlatformSpec struct {
 	// +kubebuilder:validation:Enum=Always;IfNotPresent;Never
 	// +kubebuilder:default=IfNotPresent
 	ImagePullPolicy corev1.PullPolicy `json:"imagePullPolicy,omitempty"`
-	Logger          common.LogsSpec   `json:"logger,omitempty"`
 	Debug           DebugSpec         `json:"debug,omitempty"`
 }
 

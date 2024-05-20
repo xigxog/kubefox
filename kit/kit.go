@@ -285,8 +285,7 @@ func (svc *kit) recvReq(req *grpc.ComponentEvent) {
 		env:   req.Env,
 		start: time.Now(),
 		ctx:   ctx,
-
-		log: log,
+		log:   log,
 	}
 
 	var (
@@ -300,7 +299,7 @@ func (svc *kit) recvReq(req *grpc.ComponentEvent) {
 			err = core.ErrNotFound(fmt.Errorf("default handler not found"))
 		} else {
 			handler = svc.defHandler
-			rule = "default route"
+			rule = "Default route"
 		}
 
 	case req.RouteId >= 0 && req.RouteId < int64(len(svc.routes)):
@@ -311,13 +310,10 @@ func (svc *kit) recvReq(req *grpc.ComponentEvent) {
 		err = core.ErrNotFound(fmt.Errorf("invalid route id %d", req.RouteId))
 	}
 
-	ktx.reqSpan = telemetry.StartSpan(rule, req.Event.ParentSpan,
+	ktx.rootSpan = telemetry.StartSpan(rule, req.Event.ParentSpan,
 		telemetry.Attr(telemetry.AttrKeyRouteId, req.RouteId),
 	)
-	ktx.spans = append(ktx.spans, ktx.reqSpan)
-
-	ktx.reqSpan.Info("this is a test info level log")
-	ktx.reqSpan.Debug("this is a test debug level log")
+	ktx.rootSpan.SetEventAttributes(req.Event)
 
 	if handler != nil {
 		err = handler(ktx)
@@ -330,14 +326,16 @@ func (svc *kit) recvReq(req *grpc.ComponentEvent) {
 		if err := ktx.Resp().Forward(errEvt); err != nil {
 			log.Errorf("unexpected error sending response: %v", err)
 		}
-		// TODO mark span as error
 	}
 
-	ktx.reqSpan.End()
+	ktx.rootSpan.End(err)
+
+	spans := ktx.rootSpan.Flatten()
 
 	var logs []*logsv1.LogRecord
-	for _, s := range ktx.spans {
+	for _, s := range spans {
 		logs = append(logs, s.LogRecords...)
 	}
-	go svc.brk.SendTelemetry(ktx.spans, logs)
+
+	go svc.brk.SendTelemetry(spans, logs)
 }

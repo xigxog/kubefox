@@ -668,7 +668,6 @@ func (in *PlatformSpec) DeepCopyInto(out *PlatformSpec) {
 	in.HTTPSrv.DeepCopyInto(&out.HTTPSrv)
 	in.NATS.DeepCopyInto(&out.NATS)
 	out.Telemetry = in.Telemetry
-	out.Logger = in.Logger
 	out.Debug = in.Debug
 }
 

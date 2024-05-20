@@ -17,6 +17,7 @@ import (
 	"github.com/xigxog/kubefox/core"
 	"github.com/xigxog/kubefox/logkf"
 	"github.com/xigxog/kubefox/telemetry"
+	"github.com/xigxog/kubefox/utils"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc"
@@ -60,7 +61,7 @@ func NewClient() *Client {
 	otel.SetTextMapPropagator(propagation.TraceContext{})
 
 	c := &Client{
-		tick: time.NewTicker(time.Minute / 2),
+		tick: time.NewTicker(time.Second * 15),
 		log:  logkf.Global,
 	}
 
@@ -159,6 +160,10 @@ func (cl *Client) AddProtoSpans(comp *core.Component, spans []*tracev1.Span) {
 }
 
 func (cl *Client) AddProtoLogs(comp *core.Component, logRecords []*logsv1.LogRecord) {
+	if len(logRecords) == 0 {
+		return
+	}
+
 	resSpans := &logsv1.ResourceLogs{
 		Resource: buildResource(comp),
 		ScopeLogs: []*logsv1.ScopeLogs{
@@ -194,10 +199,19 @@ func buildResource(comp *core.Component) *resv1.Resource {
 
 func (cl *Client) publishTelemetry() {
 	for range cl.tick.C {
-		ctx, cancel := context.WithTimeout(context.Background(), time.Minute/4)
+		ctx, cancel := context.WithTimeout(context.Background(), time.Second*30)
 
-		cl.publishSpans(ctx)
-		cl.publishLogs(ctx)
+		var wg sync.WaitGroup
+		wg.Add(2)
+		go func() {
+			cl.publishSpans(ctx)
+			wg.Done()
+		}()
+		go func() {
+			cl.publishLogs(ctx)
+			wg.Done()
+		}()
+		wg.Wait()
 
 		cancel()
 	}
@@ -209,14 +223,29 @@ func (cl *Client) publishSpans(ctx context.Context) {
 	}
 
 	cl.mutex.Lock()
+	defer cl.mutex.Unlock()
+
+	i := 0
+	for _, resSpan := range cl.spans {
+		if shouldSample(resSpan) {
+			cl.spans[i] = resSpan
+			i++
+		}
+	}
+	if diff := len(cl.spans) - i; diff > 0 {
+		cl.log.Debugf("%d resource spans do not have sample flag set, discarding", diff)
+	}
+	// Truncate spans that do not need to be sampled.
+	cl.spans = cl.spans[:i]
+	if len(cl.spans) == 0 {
+		return
+	}
 
 	cl.log.Debugf("uploading %d resource spans", len(cl.spans))
 	if err := cl.traceClient.UploadTraces(ctx, cl.spans); err != nil {
 		cl.log.Errorf("error uploading traces: %v", err)
 	}
 	cl.spans = nil
-
-	cl.mutex.Unlock()
 }
 
 func (cl *Client) publishLogs(ctx context.Context) {
@@ -233,6 +262,18 @@ func (cl *Client) publishLogs(ctx context.Context) {
 	cl.logs = nil
 
 	cl.mutex.Unlock()
+}
+
+func shouldSample(resSpan *tracev1.ResourceSpans) bool {
+	for _, scopeSpan := range resSpan.ScopeSpans {
+		for _, s := range scopeSpan.Spans {
+			if utils.HasBit(s.Flags, 0) {
+				return true
+			}
+		}
+	}
+
+	return false
 }
 
 // func (cl *Client) tls() (*tls.Config, error) {

@@ -292,8 +292,7 @@ func (brk *broker) RecvEvent(evt *core.Event, receiver Receiver) *BrokerEventCon
 	ctx, _ := context.WithTimeoutCause(parentCtx, evt.TTL(), core.ErrTimeout())
 
 	span := telemetry.StartSpan(
-		fmt.Sprintf("%s from %s", evt.Category, evt.Source.GroupKey()), evt.ParentSpan)
-	span.SetEventAttributes(evt)
+		fmt.Sprintf("Route %s from %s", evt.Category, evt.Source.GroupKey()), evt.ParentSpan)
 
 	evtCtx := &BrokerEventContext{
 		Context:    ctx,
@@ -352,7 +351,9 @@ func (brk *broker) startWorker(id int) {
 				ctx.Cancel(nil)
 			}
 
+			ctx.Span.SetEventAttributes(ctx.Event)
 			ctx.Span.End()
+
 			brk.telClient.AddSpans(brk.comp, ctx.Span)
 
 		case <-brk.ctx.Done():
@@ -365,7 +366,7 @@ func (brk *broker) routeEvent(ctx *BrokerEventContext) (err error) {
 	ctx.Log.Debugf("routing event from receiver '%s'", ctx.Receiver)
 
 	routeSpan := ctx.Span.StartChildSpan(
-		"Route Event",
+		"Send "+ctx.Event.Category.String(),
 		telemetry.Attr(telemetry.AttrKeyEventId, ctx.Event.Id),
 		telemetry.Attr(telemetry.AttrKeyEventSourceName, ctx.Event.Source.Key()))
 	defer routeSpan.End()
@@ -381,8 +382,7 @@ func (brk *broker) routeEvent(ctx *BrokerEventContext) (err error) {
 	findSpan.End()
 
 	// Update log and span attributes after matching.
-	ctx.Span.Name += " to " + ctx.Event.Target.GroupKey()
-	ctx.Span.SetEventAttributes(ctx.Event)
+	routeSpan.Name += " to " + ctx.Event.Target.GroupKey()
 
 	ctx.Log = ctx.Log.WithEvent(ctx.Event)
 	ctx.Log.Debugf("matched event to target '%s'", ctx.Event.Target.GroupKey())

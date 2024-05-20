@@ -24,6 +24,7 @@ import (
 	"github.com/xigxog/kubefox/grpc"
 	"github.com/xigxog/kubefox/logkf"
 	"github.com/xigxog/kubefox/telemetry"
+	"github.com/xigxog/kubefox/utils"
 
 	"go.opentelemetry.io/contrib/instrumentation/net/http/httptrace/otelhttptrace"
 )
@@ -130,8 +131,9 @@ func (srv *Server) ServeHTTP(resWriter http.ResponseWriter, httpReq *http.Reques
 	log := srv.log
 
 	var (
-		req, resp *core.Event
-		err       error
+		req, resp                     *core.Event
+		rootSpan, parseSpan, respSpan *telemetry.Span
+		err                           error
 	)
 
 	setHeader(resWriter, api.HeaderAdapter, srv.brk.Component.Key())
@@ -148,37 +150,43 @@ func (srv *Server) ServeHTTP(resWriter http.ResponseWriter, httpReq *http.Reques
 		}
 	}
 
-	var spans []*telemetry.Span
-	span := telemetry.StartSpan(fmt.Sprintf("%s %s", httpReq.Method, httpReq.URL), parentTrace,
+	rootSpan = telemetry.StartSpan(fmt.Sprintf("%s %s", httpReq.Method, httpReq.URL), parentTrace,
 		telemetry.Attr(telemetry.AttrKeyHTTPReqMethod, httpReq.Method),
 		telemetry.Attr(telemetry.AttrKeyHTTPReqBodySize, httpReq.ContentLength),
 	)
-	spans = append(spans, span)
-
-	defer func() {
-		span.End()
-		if (req != nil && req.ParentSpan.Sample()) ||
-			(resp != nil && resp.ParentSpan.Sample()) {
-
-			log.Debug("sending spans to broker")
-			go srv.brk.SendTelemetry(spans, nil)
-
-		} else {
-			log.Debug("discarding spans")
-		}
-	}()
-
-	// TODO add standard http attributes
-	// https://github.com/open-telemetry/opentelemetry-collector-contrib/tree/main/exporter/azuremonitorexporter#attribute-mapping
-	parseSpan := telemetry.StartSpan("parse http request", span.SpanContext())
-	spans = append(spans, parseSpan)
 
 	req = core.NewReq(core.EventOpts{
 		Source:     srv.brk.Component,
 		Timeout:    EventTimeout,
-		ParentSpan: span.SpanContext(),
+		ParentSpan: rootSpan.SpanContext(),
 	})
 	setHeader(resWriter, api.HeaderEventId, req.Id)
+
+	defer func() {
+		if req.ParentSpan.Sample() {
+			rootSpan.Flags = utils.SetBit(rootSpan.Flags, 0)
+		}
+
+		if resp != nil {
+			req.SetContext(resp.Context)
+			if resp.ParentSpan.Sample() {
+				rootSpan.Flags = utils.SetBit(rootSpan.Flags, 0)
+			}
+		}
+
+		rootSpan.SetEventAttributes(req)
+		respSpan.SetEventAttributes(resp)
+
+		rootSpan.End()
+
+		log.Debug("sending spans to broker")
+
+		go srv.brk.SendTelemetry(rootSpan.Flatten(), nil)
+	}()
+
+	// TODO add standard http attributes
+	// https://github.com/open-telemetry/opentelemetry-collector-contrib/tree/main/exporter/azuremonitorexporter#attribute-mapping
+	parseSpan = rootSpan.StartChildSpan("Parse HTTP request")
 
 	if err := req.SetHTTPRequest(httpReq, MaxEventSize); err != nil {
 		writeError(resWriter, err, srv.log)
@@ -191,8 +199,7 @@ func (srv *Server) ServeHTTP(resWriter http.ResponseWriter, httpReq *http.Reques
 
 	resp, err = srv.brk.SendReq(ctx, req, time.Now())
 
-	respSpan := telemetry.StartSpan("send http response", span.SpanContext())
-	spans = append(spans, respSpan)
+	respSpan = rootSpan.StartChildSpan("Send HTTP response")
 	defer respSpan.End()
 
 	// Add Event Context to response headers.

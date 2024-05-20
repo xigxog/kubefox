@@ -34,8 +34,7 @@ type kontext struct {
 	kit *kit
 	env map[string]*structpb.Value
 
-	reqSpan *telemetry.Span
-	spans   []*telemetry.Span
+	rootSpan *telemetry.Span
 
 	start time.Time
 	ctx   context.Context
@@ -151,11 +150,11 @@ func (k *kontext) Transport(target ComponentDep) http.RoundTripper {
 }
 
 func (k *kontext) sendReq(req *core.Event) (*core.Event, error) {
-	span := k.reqSpan.StartChildSpan(
-		fmt.Sprintf("send REQUEST to %s", req.Target.Key()))
+	span := k.rootSpan.StartChildSpan(
+		fmt.Sprintf("Send REQUEST to %s", req.Target.Key()))
+	span.SetEventAttributes(req)
 	defer span.End()
 
-	k.spans = append(k.spans, span)
 	req.ParentSpan = span.SpanContext()
 
 	return k.kit.brk.SendReq(k.ctx, req, k.start)

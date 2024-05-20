@@ -153,7 +153,6 @@ Platform is the Schema for the Platforms API
 
 
 
-
 ### VirtualEnvironment
 
 
@@ -724,15 +723,13 @@ Used by:<br>
 <p style="font-size:.6rem;">
 Used by:<br>
 
-- <a href=#platformspec>PlatformSpec</a><br>
 - <a href=#telemetryspec>TelemetrySpec</a><br>
 </p>
 
 | Field | Type | Description | Validation |
 | ----- | ---- | ----------- | ---------- |
-| `export` | <div style="white-space:nowrap">boolean<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap">default: true</div> |
 | `level` | <div style="white-space:nowrap">enum[`debug`, `info`, `warn`, `error`]<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap">default: info</div> |
-| `stdout` | <div style="white-space:nowrap">[StdOut](#stdout)<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
+| `format` | <div style="white-space:nowrap">enum[`json`, `console`]<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap">default: json</div> |
 
 
 
@@ -833,7 +830,6 @@ Used by:<br>
 | `nats` | <div style="white-space:nowrap">[NATSSpec](#natsspec)<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
 | `telemetry` | <div style="white-space:nowrap">[TelemetrySpec](#telemetryspec)<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
 | `imagePullPolicy` | <div style="white-space:nowrap">enum[`Always`, `IfNotPresent`, `Never`]<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap">default: IfNotPresent</div> |
-| `logger` | <div style="white-space:nowrap">[LogsSpec](#logsspec)<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
 | `debug` | <div style="white-space:nowrap">[DebugSpec](#debugspec)<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
 
 
@@ -1045,24 +1041,6 @@ Used by:<br>
 | `rule` | <div style="white-space:nowrap">string<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap">required</div> |
 | `priority` | <div style="white-space:nowrap">integer<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
 | `envVarSchema` | <div style="white-space:nowrap">[EnvVarSchema](#envvarschema)<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
-
-
-
-### StdOut
-
-
-
-<p style="font-size:.6rem;">
-Used by:<br>
-
-- <a href=#logsspec>LogsSpec</a><br>
-</p>
-
-| Field | Type | Description | Validation |
-| ----- | ---- | ----------- | ---------- |
-| `enabled` | <div style="white-space:nowrap">boolean<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap">default: true</div> |
-| `level` | <div style="white-space:nowrap">enum[`debug`, `info`, `warn`, `error`]<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap">default: info</div> |
-| `format` | <div style="white-space:nowrap">enum[`json`, `console`]<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap">default: console</div> |
 
 
 
