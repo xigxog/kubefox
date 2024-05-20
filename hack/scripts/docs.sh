@@ -7,7 +7,6 @@
 #
 # SPDX-License-Identifier: MPL-2.0
 
-
 source "$(dirname "${BASH_SOURCE[0]}")/setup.sh"
 
 PROTOC_GEN_DOC_VERSION="v1.5.1"
@@ -22,10 +21,10 @@ KIT_DOCS_GO="${DOCS_SRC}/reference/kit/go"
 rm -rf ${DOCS_OUT}
 
 ### Install tools. If wrong version is installed, tool will be overwritten.
-${TOOLS_DIR}/protoc-gen-doc -version | grep -q ${PROTOC_GEN_DOC_VERSION} ||
+${TOOLS_DIR}/protoc-gen-doc -version 2>/dev/null | grep -q ${PROTOC_GEN_DOC_VERSION} ||
     go install github.com/pseudomuto/protoc-gen-doc/cmd/protoc-gen-doc@${PROTOC_GEN_DOC_VERSION}
 
-${TOOLS_DIR}/gomarkdoc --version | grep -q ${GOMARKDOC_VERSION} ||
+${TOOLS_DIR}/gomarkdoc --version 2>/dev/null | grep -q ${GOMARKDOC_VERSION} ||
     go install github.com/princjef/gomarkdoc/cmd/gomarkdoc@${GOMARKDOC_VERSION}
 
 go install github.com/xigxog/crd-ref-docs@${CRD_REF_DOCS_VERSION}
