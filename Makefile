@@ -31,3 +31,7 @@ clean:
 .PHONY: commit
 commit:
 	$(REPO_ROOT)hack/scripts/commit.sh
+
+.PHONY: debug
+debug:
+	$(REPO_ROOT)hack/scripts/debug.sh

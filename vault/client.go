@@ -42,6 +42,7 @@ type ClientOptions struct {
 	// AutoRenew indicates that the Vault token should automatically be renewed
 	// to ensure it does not expire.
 	AutoRenew bool
+	TokenPath string
 }
 
 type Key struct {
@@ -62,6 +63,10 @@ func New(opts ClientOptions) (*Client, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
 	defer cancel()
 
+	if opts.TokenPath == "" {
+		opts.TokenPath = api.PathSvcAccToken
+	}
+
 	cfg := vapi.DefaultConfig()
 	cfg.Address = opts.URL
 	cfg.MaxRetries = 3
@@ -76,7 +81,7 @@ func New(opts ClientOptions) (*Client, error) {
 		return nil, err
 	}
 
-	b, err := os.ReadFile(api.PathSvcAccToken)
+	b, err := os.ReadFile(opts.TokenPath)
 	if err != nil {
 		return nil, err
 	}
@@ -139,9 +144,10 @@ func (c *Client) GetData(ctx context.Context, key api.DataKey, data *api.Data) e
 	resp, err := c.Logical().ReadRawWithDataWithContext(ctx, DataSubPath(key, "data"), nil)
 	if resp != nil {
 		defer resp.Body.Close()
-	}
-	if resp.StatusCode == http.StatusNotFound {
-		return core.ErrNotFound()
+
+		if resp.StatusCode == http.StatusNotFound {
+			return core.ErrNotFound()
+		}
 	}
 	if err != nil {
 		return err

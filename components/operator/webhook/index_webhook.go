@@ -22,7 +22,7 @@ import (
 )
 
 type IndexWebhook struct {
-	*admission.Decoder
+	admission.Decoder
 }
 
 func (r *IndexWebhook) Handle(ctx context.Context, req admission.Request) admission.Response {

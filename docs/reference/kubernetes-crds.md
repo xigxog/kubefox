@@ -47,6 +47,7 @@ AppDeployment is the Schema for the AppDeployments API
 
 
 
+
 ### Environment
 
 
@@ -152,6 +153,7 @@ Platform is the Schema for the Platforms API
 
 
 
+
 ### VirtualEnvironment
 
 
@@ -232,7 +234,7 @@ Used by:<br>
 | Field | Type | Description | Validation |
 | ----- | ---- | ----------- | ---------- |
 | `appName` | <div style="white-space:nowrap">string<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap">required</div> |
-| `version` | <div style="white-space:nowrap">string<div> | <div style="max-width:30rem">Version of the defined App. Use of semantic versioning is recommended. Once set the AppDeployment spec becomes immutable.</div> | <div style="white-space:nowrap"></div> |
+| `version` | <div style="white-space:nowrap">string<div> | <div style="max-width:30rem">Version of the defined App. Use of semantic versioning is recommended.<br /><br />Once set the AppDeployment spec becomes immutable.</div> | <div style="white-space:nowrap"></div> |
 | `commit` | <div style="white-space:nowrap">string<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap">required, pattern: ^[a-z0-9]{40}$</div> |
 | `commitTime` | <div style="white-space:nowrap">[Time](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.28/#time-v1-meta)<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap">required</div> |
 | `branch` | <div style="white-space:nowrap">string<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
@@ -295,7 +297,6 @@ Used by:<br>
 | ----- | ---- | ----------- | ---------- |
 | `enabled` | <div style="white-space:nowrap">boolean<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap">default: false</div> |
 | `address` | <div style="white-space:nowrap">string<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
-| `protocol` | <div style="white-space:nowrap">enum[`http`, `grpc`]<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
 
 
 
@@ -361,10 +362,10 @@ Used by:<br>
 
 | Field | Type | Description | Validation |
 | ----- | ---- | ----------- | ---------- |
-| `resources` | <div style="white-space:nowrap">[ResourceRequirements](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.28/#resourcerequirements-v1-core)<div> | <div style="max-width:30rem">Compute Resources required by this container. Cannot be updated. [More info](https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/).</div> | <div style="white-space:nowrap"></div> |
-| `livenessProbe` | <div style="white-space:nowrap">[Probe](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.28/#probe-v1-core)<div> | <div style="max-width:30rem">Periodic probe of container liveness. Container will be restarted if the probe fails. Cannot be updated. [More info](https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes).</div> | <div style="white-space:nowrap"></div> |
-| `readinessProbe` | <div style="white-space:nowrap">[Probe](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.28/#probe-v1-core)<div> | <div style="max-width:30rem">Periodic probe of container service readiness. Container will be removed from service endpoints if the probe fails. Cannot be updated. [More info](https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes).</div> | <div style="white-space:nowrap"></div> |
-| `startupProbe` | <div style="white-space:nowrap">[Probe](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.28/#probe-v1-core)<div> | <div style="max-width:30rem">StartupProbe indicates that the Pod has successfully initialized. If specified, no other probes are executed until this completes successfully. If this probe fails, the Pod will be restarted, just as if the livenessProbe failed. This can be used to provide different probe parameters at the beginning of a Pod's lifecycle, when it might take a long time to load data or warm a cache, than during steady-state operation. This cannot be updated. [More info](https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes).</div> | <div style="white-space:nowrap"></div> |
+| `resources` | <div style="white-space:nowrap">[ResourceRequirements](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.28/#resourcerequirements-v1-core)<div> | <div style="max-width:30rem">Compute Resources required by this container. Cannot be updated. [More<br /><br />info](https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/).</div> | <div style="white-space:nowrap"></div> |
+| `livenessProbe` | <div style="white-space:nowrap">[Probe](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.28/#probe-v1-core)<div> | <div style="max-width:30rem">Periodic probe of container liveness. Container will be restarted if the<br /><br />probe fails. Cannot be updated. [More<br /><br />info](https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes).</div> | <div style="white-space:nowrap"></div> |
+| `readinessProbe` | <div style="white-space:nowrap">[Probe](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.28/#probe-v1-core)<div> | <div style="max-width:30rem">Periodic probe of container service readiness. Container will be removed<br /><br />from service endpoints if the probe fails. Cannot be updated. [More<br /><br />info](https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes).</div> | <div style="white-space:nowrap"></div> |
+| `startupProbe` | <div style="white-space:nowrap">[Probe](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.28/#probe-v1-core)<div> | <div style="max-width:30rem">StartupProbe indicates that the Pod has successfully initialized. If<br /><br />specified, no other probes are executed until this completes<br /><br />successfully. If this probe fails, the Pod will be restarted, just as if<br /><br />the livenessProbe failed. This can be used to provide different probe<br /><br />parameters at the beginning of a Pod's lifecycle, when it might take a<br /><br />long time to load data or warm a cache, than during steady-state<br /><br />operation. This cannot be updated. [More<br /><br />info](https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes).</div> | <div style="white-space:nowrap"></div> |
 
 
 
@@ -420,6 +421,23 @@ Used by:<br>
 
 
 
+### DebugSpec
+
+
+
+<p style="font-size:.6rem;">
+Used by:<br>
+
+- <a href=#platformspec>PlatformSpec</a><br>
+</p>
+
+| Field | Type | Description | Validation |
+| ----- | ---- | ----------- | ---------- |
+| `enabled` | <div style="white-space:nowrap">boolean<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap">default: false</div> |
+| `brokerAddr` | <div style="white-space:nowrap">string<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
+
+
+
 ### Dependency
 
 
@@ -469,8 +487,8 @@ Used by:<br>
 
 | Field | Type | Description | Validation |
 | ----- | ---- | ----------- | ---------- |
-| `count` | <div style="white-space:nowrap">integer<div> | <div style="max-width:30rem">Maximum number of Releases to keep in history. Once the limit is reached the oldest Release in history will be deleted. Age is based on archiveTime. Pointer is used to distinguish between not set and false.</div> | <div style="white-space:nowrap">min: 0, default: 10</div> |
-| `ageDays` | <div style="white-space:nowrap">integer<div> | <div style="max-width:30rem">Maximum age of the Release to keep in history. Once the limit is reached the oldest Release in history will be deleted. Age is based on archiveTime. Set to 0 to disable. Pointer is used to distinguish between not set and false.</div> | <div style="white-space:nowrap">min: 0</div> |
+| `count` | <div style="white-space:nowrap">integer<div> | <div style="max-width:30rem">Maximum number of Releases to keep in history. Once the limit is reached<br /><br />the oldest Release in history will be deleted. Age is based on<br /><br />archiveTime. Pointer is used to distinguish between not set and false.</div> | <div style="white-space:nowrap">min: 0, default: 10</div> |
+| `ageDays` | <div style="white-space:nowrap">integer<div> | <div style="max-width:30rem">Maximum age of the Release to keep in history. Once the limit is reached<br /><br />the oldest Release in history will be deleted. Age is based on<br /><br />archiveTime. Set to 0 to disable. Pointer is used to distinguish between<br /><br />not set and false.</div> | <div style="white-space:nowrap">min: 0</div> |
 
 
 
@@ -487,7 +505,7 @@ Used by:<br>
 | Field | Type | Description | Validation |
 | ----- | ---- | ----------- | ---------- |
 | `type` | <div style="white-space:nowrap">enum[`Stable`, `Testing`]<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap">default: Stable</div> |
-| `activationDeadlineSeconds` | <div style="white-space:nowrap">integer<div> | <div style="max-width:30rem">If the pending Release cannot be activated before the activation deadline it will be considered failed and the Release will automatically rolled back to the current active Release. Pointer is used to distinguish between not set and false.</div> | <div style="white-space:nowrap">min: 3, default: 300</div> |
+| `activationDeadlineSeconds` | <div style="white-space:nowrap">integer<div> | <div style="max-width:30rem">If the pending Release cannot be activated before the activation deadline<br /><br />it will be considered failed and the Release will automatically rolled<br /><br />back to the current active Release. Pointer is used to distinguish<br /><br />between not set and false.</div> | <div style="white-space:nowrap">min: 3, default: 300</div> |
 | `historyLimits` | <div style="white-space:nowrap">[EnvHistoryLimits](#envhistorylimits)<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
 
 
@@ -590,7 +608,7 @@ Used by:<br>
 | Field | Type | Description | Validation |
 | ----- | ---- | ----------- | ---------- |
 | `timeoutSeconds` | <div style="white-space:nowrap">integer<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap">min: 3, default: 30</div> |
-| `maxSize` | <div style="white-space:nowrap">[Quantity](https://kubernetes.io/docs/reference/kubernetes-api/common-definitions/quantity/)<div> | <div style="max-width:30rem">Large events reduce performance and increase memory usage. Default 5Mi. Maximum 16Mi.</div> | <div style="white-space:nowrap">default: 5242880</div> |
+| `maxSize` | <div style="white-space:nowrap">[Quantity](https://kubernetes.io/docs/reference/kubernetes-api/common-definitions/quantity/)<div> | <div style="max-width:30rem">Large events reduce performance and increase memory usage. Default 5Mi.<br /><br />Maximum 16Mi.</div> | <div style="white-space:nowrap">default: 5242880</div> |
 
 
 
@@ -634,7 +652,7 @@ Used by:<br>
 | ----- | ---- | ----------- | ---------- |
 | `url` | <div style="white-space:nowrap">string<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap">required, minLength: 1</div> |
 | `headers` | <div style="white-space:nowrap">map{string, string}<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
-| `insecureSkipVerify` | <div style="white-space:nowrap">boolean<div> | <div style="max-width:30rem">InsecureSkipVerify controls whether the Adapter verifies the server's certificate chain and host name. If InsecureSkipVerify is true, any certificate presented by the server and any host name in that certificate is accepted. In this mode, TLS is susceptible to machine-in-the-middle attacks.</div> | <div style="white-space:nowrap">default: false</div> |
+| `insecureSkipVerify` | <div style="white-space:nowrap">boolean<div> | <div style="max-width:30rem">InsecureSkipVerify controls whether the Adapter verifies the server's<br /><br />certificate chain and host name. If InsecureSkipVerify is true, any<br /><br />certificate presented by the server and any host name in that certificate<br /><br />is accepted. In this mode, TLS is susceptible to machine-in-the-middle<br /><br />attacks.</div> | <div style="white-space:nowrap">default: false</div> |
 | `followRedirects` | <div style="white-space:nowrap">enum[`Never`, `Always`, `SameHost`]<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap">default: Never</div> |
 
 
@@ -673,8 +691,8 @@ Used by:<br>
 | ----- | ---- | ----------- | ---------- |
 | `type` | <div style="white-space:nowrap">enum[`ClusterIP`, `NodePort`, `LoadBalancer`]<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap">default: ClusterIP</div> |
 | `ports` | <div style="white-space:nowrap">[HTTPSrvPorts](#httpsrvports)<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
-| `labels` | <div style="white-space:nowrap">map{string, string}<div> | <div style="max-width:30rem">Map of string keys and values that can be used to organize and categorize (scope and select) objects. May match selectors of replication controllers and services. [More info](https://kubernetes.io/docs/concepts/overview/working-with-objects/labels).</div> | <div style="white-space:nowrap"></div> |
-| `annotations` | <div style="white-space:nowrap">map{string, string}<div> | <div style="max-width:30rem">Annotations is an unstructured key value map stored with a resource that may be set by external tools to store and retrieve arbitrary metadata. They are not queryable and should be preserved when modifying objects. [More info](https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations).</div> | <div style="white-space:nowrap"></div> |
+| `labels` | <div style="white-space:nowrap">map{string, string}<div> | <div style="max-width:30rem">Map of string keys and values that can be used to organize and categorize<br /><br />(scope and select) objects. May match selectors of replication<br /><br />controllers and services. [More<br /><br />info](https://kubernetes.io/docs/concepts/overview/working-with-objects/labels).</div> | <div style="white-space:nowrap"></div> |
+| `annotations` | <div style="white-space:nowrap">map{string, string}<div> | <div style="max-width:30rem">Annotations is an unstructured key value map stored with a resource that<br /><br />may be set by external tools to store and retrieve arbitrary metadata.<br /><br />They are not queryable and should be preserved when modifying objects.<br /><br />[More<br /><br />info](https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations).</div> | <div style="white-space:nowrap"></div> |
 
 
 
@@ -706,13 +724,15 @@ Used by:<br>
 <p style="font-size:.6rem;">
 Used by:<br>
 
+- <a href=#platformspec>PlatformSpec</a><br>
 - <a href=#telemetryspec>TelemetrySpec</a><br>
 </p>
 
 | Field | Type | Description | Validation |
 | ----- | ---- | ----------- | ---------- |
+| `export` | <div style="white-space:nowrap">boolean<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap">default: true</div> |
 | `level` | <div style="white-space:nowrap">enum[`debug`, `info`, `warn`, `error`]<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap">default: info</div> |
-| `format` | <div style="white-space:nowrap">enum[`json`, `console`]<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap">default: json</div> |
+| `stdout` | <div style="white-space:nowrap">[StdOut](#stdout)<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
 
 
 
@@ -728,6 +748,8 @@ Used by:<br>
 
 | Field | Type | Description | Validation |
 | ----- | ---- | ----------- | ---------- |
+| `export` | <div style="white-space:nowrap">boolean<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap">default: true</div> |
+| `verbose` | <div style="white-space:nowrap">boolean<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap">default: false</div> |
 | `collectionIntervalSeconds` | <div style="white-space:nowrap">integer<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap">min: 3, default: 60</div> |
 
 
@@ -811,6 +833,8 @@ Used by:<br>
 | `nats` | <div style="white-space:nowrap">[NATSSpec](#natsspec)<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
 | `telemetry` | <div style="white-space:nowrap">[TelemetrySpec](#telemetryspec)<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
 | `imagePullPolicy` | <div style="white-space:nowrap">enum[`Always`, `IfNotPresent`, `Never`]<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap">default: IfNotPresent</div> |
+| `logger` | <div style="white-space:nowrap">[LogsSpec](#logsspec)<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
+| `debug` | <div style="white-space:nowrap">[DebugSpec](#debugspec)<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
 
 
 
@@ -845,10 +869,10 @@ Used by:<br>
 
 | Field | Type | Description | Validation |
 | ----- | ---- | ----------- | ---------- |
-| `labels` | <div style="white-space:nowrap">map{string, string}<div> | <div style="max-width:30rem">Map of string keys and values that can be used to organize and categorize (scope and select) objects. May match selectors of replication controllers and services. [More info](https://kubernetes.io/docs/concepts/overview/working-with-objects/labels).</div> | <div style="white-space:nowrap"></div> |
-| `annotations` | <div style="white-space:nowrap">map{string, string}<div> | <div style="max-width:30rem">Annotations is an unstructured key value map stored with a resource that may be set by external tools to store and retrieve arbitrary metadata. They are not queryable and should be preserved when modifying objects. [More info](https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations).</div> | <div style="white-space:nowrap"></div> |
-| `nodeSelector` | <div style="white-space:nowrap">map{string, string}<div> | <div style="max-width:30rem">NodeSelector is a selector which must be true for the pod to fit on a node. Selector which must match a node's labels for the pod to be scheduled on that node. [More info](https://kubernetes.io/docs/concepts/configuration/assign-pod-node/).</div> | <div style="white-space:nowrap"></div> |
-| `nodeName` | <div style="white-space:nowrap">string<div> | <div style="max-width:30rem">NodeName is a request to schedule this pod onto a specific node. If it is non-empty, the scheduler simply schedules this pod onto that node, assuming that it fits resource requirements.</div> | <div style="white-space:nowrap"></div> |
+| `labels` | <div style="white-space:nowrap">map{string, string}<div> | <div style="max-width:30rem">Map of string keys and values that can be used to organize and categorize<br /><br />(scope and select) objects. May match selectors of replication<br /><br />controllers and services. [More<br /><br />info](https://kubernetes.io/docs/concepts/overview/working-with-objects/labels).</div> | <div style="white-space:nowrap"></div> |
+| `annotations` | <div style="white-space:nowrap">map{string, string}<div> | <div style="max-width:30rem">Annotations is an unstructured key value map stored with a resource that<br /><br />may be set by external tools to store and retrieve arbitrary metadata.<br /><br />They are not queryable and should be preserved when modifying objects.<br /><br />[More<br /><br />info](https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations).</div> | <div style="white-space:nowrap"></div> |
+| `nodeSelector` | <div style="white-space:nowrap">map{string, string}<div> | <div style="max-width:30rem">NodeSelector is a selector which must be true for the pod to fit on a<br /><br />node. Selector which must match a node's labels for the pod to be<br /><br />scheduled on that node. [More<br /><br />info](https://kubernetes.io/docs/concepts/configuration/assign-pod-node/).</div> | <div style="white-space:nowrap"></div> |
+| `nodeName` | <div style="white-space:nowrap">string<div> | <div style="max-width:30rem">NodeName is a request to schedule this pod onto a specific node. If it is<br /><br />non-empty, the scheduler simply schedules this pod onto that node,<br /><br />assuming that it fits resource requirements.</div> | <div style="white-space:nowrap"></div> |
 | `affinity` | <div style="white-space:nowrap">[Affinity](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.28/#affinity-v1-core)<div> | <div style="max-width:30rem">If specified, the pod's scheduling constraints</div> | <div style="white-space:nowrap"></div> |
 | `tolerations` | <div style="white-space:nowrap">[Toleration](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.28/#toleration-v1-core) array<div> | <div style="max-width:30rem">If specified, the pod's tolerations.</div> | <div style="white-space:nowrap"></div> |
 
@@ -856,7 +880,8 @@ Used by:<br>
 
 ### Problem
 
-ObservedTime is added here instead of api package to prevent k8s.io dependencies from getting pulled into Kit.
+ObservedTime is added here instead of api package to prevent k8s.io
+dependencies from getting pulled into Kit.
 
 <p style="font-size:.6rem;">
 Used by:<br>
@@ -888,9 +913,9 @@ Used by:<br>
 | ----- | ---- | ----------- | ---------- |
 | `kind` | <div style="white-space:nowrap">[ProblemSourceKind](#problemsourcekind)<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap">required</div> |
 | `name` | <div style="white-space:nowrap">string<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
-| `observedGeneration` | <div style="white-space:nowrap">integer<div> | <div style="max-width:30rem">ObservedGeneration represents the .metadata.generation of the ProblemSource that the problem was generated from. For instance, if the ProblemSource .metadata.generation is currently 12, but the observedGeneration is 9, the problem is out of date with respect to the current state of the instance.</div> | <div style="white-space:nowrap"></div> |
+| `observedGeneration` | <div style="white-space:nowrap">integer<div> | <div style="max-width:30rem">ObservedGeneration represents the .metadata.generation of the<br /><br />ProblemSource that the problem was generated from. For instance, if the<br /><br />ProblemSource .metadata.generation is currently 12, but the<br /><br />observedGeneration is 9, the problem is out of date with respect to the<br /><br />current state of the instance.</div> | <div style="white-space:nowrap"></div> |
 | `path` | <div style="white-space:nowrap">string<div> | <div style="max-width:30rem">Path of source object attribute causing problem.</div> | <div style="white-space:nowrap"></div> |
-| `value` | <div style="white-space:nowrap">string<div> | <div style="max-width:30rem">Value causing problem. Pointer is used to distinguish between not set and empty string.</div> | <div style="white-space:nowrap"></div> |
+| `value` | <div style="white-space:nowrap">string<div> | <div style="max-width:30rem">Value causing problem. Pointer is used to distinguish between not set and<br /><br />empty string.</div> | <div style="white-space:nowrap"></div> |
 
 
 
@@ -973,7 +998,7 @@ Used by:<br>
 | Field | Type | Description | Validation |
 | ----- | ---- | ----------- | ---------- |
 | `type` | <div style="white-space:nowrap">enum[`Stable`, `Testing`]<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
-| `activationDeadlineSeconds` | <div style="white-space:nowrap">integer<div> | <div style="max-width:30rem">If the pending Release cannot be activated before the activation deadline it will be considered failed and the Release will automatically rolled back to the current active Release. Pointer is used to distinguish between not set and false.</div> | <div style="white-space:nowrap">min: 3</div> |
+| `activationDeadlineSeconds` | <div style="white-space:nowrap">integer<div> | <div style="max-width:30rem">If the pending Release cannot be activated before the activation deadline<br /><br />it will be considered failed and the Release will automatically rolled<br /><br />back to the current active Release. Pointer is used to distinguish<br /><br />between not set and false.</div> | <div style="white-space:nowrap">min: 3</div> |
 | `historyLimits` | <div style="white-space:nowrap">[HistoryLimits](#historylimits)<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
 
 
@@ -994,7 +1019,7 @@ Used by:<br>
 | `id` | <div style="white-space:nowrap">string<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap">required, minLength: 1</div> |
 | `releaseManifest` | <div style="white-space:nowrap">string<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
 | `requestTime` | <div style="white-space:nowrap">[Time](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.28/#time-v1-meta)<div> | <div style="max-width:30rem">Time at which the VirtualEnvironment was updated to use the Release.</div> | <div style="white-space:nowrap"></div> |
-| `activationTime` | <div style="white-space:nowrap">[Time](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.28/#time-v1-meta)<div> | <div style="max-width:30rem">Time at which the Release became active. If not set the Release was never activated.</div> | <div style="white-space:nowrap"></div> |
+| `activationTime` | <div style="white-space:nowrap">[Time](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.28/#time-v1-meta)<div> | <div style="max-width:30rem">Time at which the Release became active. If not set the Release was never<br /><br />activated.</div> | <div style="white-space:nowrap"></div> |
 | `archiveTime` | <div style="white-space:nowrap">[Time](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.28/#time-v1-meta)<div> | <div style="max-width:30rem">Time at which the Release was archived to history.</div> | <div style="white-space:nowrap"></div> |
 | `archiveReason` | <div style="white-space:nowrap">enum[`PendingDeadlineExceeded`, `RolledBack`, `Superseded`]<div> | <div style="max-width:30rem">Reason Release was archived.</div> | <div style="white-space:nowrap"></div> |
 | `problems` | <div style="white-space:nowrap">[Problem](#problem) array<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
@@ -1020,6 +1045,24 @@ Used by:<br>
 | `rule` | <div style="white-space:nowrap">string<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap">required</div> |
 | `priority` | <div style="white-space:nowrap">integer<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
 | `envVarSchema` | <div style="white-space:nowrap">[EnvVarSchema](#envvarschema)<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
+
+
+
+### StdOut
+
+
+
+<p style="font-size:.6rem;">
+Used by:<br>
+
+- <a href=#logsspec>LogsSpec</a><br>
+</p>
+
+| Field | Type | Description | Validation |
+| ----- | ---- | ----------- | ---------- |
+| `enabled` | <div style="white-space:nowrap">boolean<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap">default: true</div> |
+| `level` | <div style="white-space:nowrap">enum[`debug`, `info`, `warn`, `error`]<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap">default: info</div> |
+| `format` | <div style="white-space:nowrap">enum[`json`, `console`]<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap">default: console</div> |
 
 
 
@@ -1054,7 +1097,8 @@ Used by:<br>
 
 | Field | Type | Description | Validation |
 | ----- | ---- | ----------- | ---------- |
-| `level` | <div style="white-space:nowrap">enum[`debug`, `info`, `warn`, `error`]<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap">default: info</div> |
+| `export` | <div style="white-space:nowrap">boolean<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap">default: true</div> |
+| `verbose` | <div style="white-space:nowrap">boolean<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap">default: false</div> |
 
 
 
@@ -1107,7 +1151,7 @@ Used by:<br>
 
 | Field | Type | Description | Validation |
 | ----- | ---- | ----------- | ---------- |
-| `environment` | <div style="white-space:nowrap">string<div> | <div style="max-width:30rem">Name of the Environment this VirtualEnvironment is part of. This field is immutable.</div> | <div style="white-space:nowrap">required, minLength: 1</div> |
+| `environment` | <div style="white-space:nowrap">string<div> | <div style="max-width:30rem">Name of the Environment this VirtualEnvironment is part of. This field is<br /><br />immutable.</div> | <div style="white-space:nowrap">required, minLength: 1</div> |
 | `release` | <div style="white-space:nowrap">[Release](#release)<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
 | `releasePolicy` | <div style="white-space:nowrap">[ReleasePolicy](#releasepolicy)<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
 
@@ -1125,7 +1169,7 @@ Used by:<br>
 
 | Field | Type | Description | Validation |
 | ----- | ---- | ----------- | ---------- |
-| `dataChecksum` | <div style="white-space:nowrap">string<div> | <div style="max-width:30rem">DataChecksum is a hash value of the Data object. The Environment Data object is merged before the hash is created. It can be used to check for changes to the Data object.</div> | <div style="white-space:nowrap"></div> |
+| `dataChecksum` | <div style="white-space:nowrap">string<div> | <div style="max-width:30rem">DataChecksum is a hash value of the Data object. The Environment Data<br /><br />object is merged before the hash is created. It can be used to check for<br /><br />changes to the Data object.</div> | <div style="white-space:nowrap"></div> |
 | `pendingReleaseFailed` | <div style="white-space:nowrap">boolean<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
 | `activeRelease` | <div style="white-space:nowrap">[ReleaseStatus](#releasestatus)<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
 | `pendingRelease` | <div style="white-space:nowrap">[ReleaseStatus](#releasestatus)<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |

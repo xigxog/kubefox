@@ -104,10 +104,11 @@ func (str *store) init(initCtx context.Context) error {
 	}
 
 	vaultCli, err := vault.New(vault.ClientOptions{
-		Instance: config.Instance,
-		Role:     vault.RoleName(key),
-		URL:      config.VaultURL,
-		CACert:   api.PathCACert,
+		Instance:  config.Instance,
+		Role:      vault.RoleName(key),
+		URL:       config.VaultURL,
+		CACert:    api.PathCACert,
+		TokenPath: config.TokenPath,
 	})
 	if err != nil {
 		return err
@@ -188,7 +189,12 @@ func (str *store) ComponentDef(ctx context.Context, comp *core.Component) (*api.
 func (str *store) IsGenesisAdapter(ctx context.Context, comp *core.Component) bool {
 	r, err := str.ComponentDef(ctx, comp)
 	if err != nil {
-		return false
+		p, err := str.Platform(ctx)
+		if err != nil {
+			return false
+		}
+
+		return p.DebugEnabled() && comp.Hash == "debug"
 	}
 
 	switch r.Type {

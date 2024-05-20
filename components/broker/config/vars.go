@@ -28,4 +28,6 @@ var (
 	NATSAddr      string
 	VaultURL      string
 	TelemetryAddr string
+
+	TokenPath string
 )

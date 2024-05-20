@@ -11,7 +11,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.13.0
+    controller-gen.kubebuilder.io/version: v0.15.0
   name: releasemanifests.kubefox.xigxog.io
 spec:
   group: kubefox.xigxog.io
@@ -42,9 +42,11 @@ spec:
       openAPIV3Schema:
         properties:
           apiVersion:
-            description: 'APIVersion defines the versioned schema of this representation
-              of an object. Servers should convert recognized schemas to the latest
-              internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
             type: string
           data:
             description: Data is the merged values of the Environment and VirtualEnvironment
@@ -58,9 +60,12 @@ spec:
                 x-kubernetes-preserve-unknown-fields: true
             type: object
           kind:
-            description: 'Kind is a string value representing the REST resource this
-              object represents. Servers may infer this from the endpoint the client
-              submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
             type: string
           metadata:
             type: object
@@ -72,10 +77,11 @@ spec:
                     items:
                       properties:
                         apiVersion:
-                          description: 'APIVersion defines the versioned schema of
-                            this representation of an object. Servers should convert
-                            recognized schemas to the latest internal value, and may
-                            reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+                          description: |-
+                            APIVersion defines the versioned schema of this representation of an object.
+                            Servers should convert recognized schemas to the latest internal value, and
+                            may reject unrecognized values.
+                            More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
                           type: string
                         details:
                           properties:
@@ -85,10 +91,12 @@ spec:
                               type: string
                           type: object
                         kind:
-                          description: 'Kind is a string value representing the REST
-                            resource this object represents. Servers may infer this
-                            from the endpoint the client submits requests to. Cannot
-                            be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+                          description: |-
+                            Kind is a string value representing the REST resource this object represents.
+                            Servers may infer this from the endpoint the client submits requests to.
+                            Cannot be updated.
+                            In CamelCase.
+                            More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
                           type: string
                         metadata:
                           properties:
@@ -103,11 +111,10 @@ spec:
                               minLength: 1
                               type: string
                             uid:
-                              description: UID is a type that holds unique ID values,
-                                including UUIDs.  Because we don't ONLY use UUIDs,
-                                this is an alias to string.  Being a type captures
-                                intent and helps make sure that UIDs and names do
-                                not get conflated.
+                              description: |-
+                                UID is a type that holds unique ID values, including UUIDs.  Because we
+                                don't ONLY use UUIDs, this is an alias to string.  Being a type captures
+                                intent and helps make sure that UIDs and names do not get conflated.
                               type: string
                           required:
                           - generation
@@ -129,12 +136,12 @@ spec:
                               type: object
                             insecureSkipVerify:
                               default: false
-                              description: InsecureSkipVerify controls whether the
-                                Adapter verifies the server's certificate chain and
-                                host name. If InsecureSkipVerify is true, any certificate
-                                presented by the server and any host name in that
-                                certificate is accepted. In this mode, TLS is susceptible
-                                to machine-in-the-middle attacks.
+                              description: |-
+                                InsecureSkipVerify controls whether the Adapter verifies the server's
+                                certificate chain and host name. If InsecureSkipVerify is true, any
+                                certificate presented by the server and any host name in that certificate
+                                is accepted. In this mode, TLS is susceptible to machine-in-the-middle
+                                attacks.
                               type: boolean
                             url:
                               minLength: 1
@@ -152,10 +159,11 @@ spec:
                 items:
                   properties:
                     apiVersion:
-                      description: 'APIVersion defines the versioned schema of this
-                        representation of an object. Servers should convert recognized
-                        schemas to the latest internal value, and may reject unrecognized
-                        values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+                      description: |-
+                        APIVersion defines the versioned schema of this representation of an object.
+                        Servers should convert recognized schemas to the latest internal value, and
+                        may reject unrecognized values.
+                        More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
                       type: string
                     details:
                       description: AppDeploymentDetails defines additional details
@@ -176,10 +184,12 @@ spec:
                           type: string
                       type: object
                     kind:
-                      description: 'Kind is a string value representing the REST resource
-                        this object represents. Servers may infer this from the endpoint
-                        the client submits requests to. Cannot be updated. In CamelCase.
-                        More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+                      description: |-
+                        Kind is a string value representing the REST resource this object represents.
+                        Servers may infer this from the endpoint the client submits requests to.
+                        Cannot be updated.
+                        In CamelCase.
+                        More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
                       type: string
                     metadata:
                       properties:
@@ -194,10 +204,10 @@ spec:
                           minLength: 1
                           type: string
                         uid:
-                          description: UID is a type that holds unique ID values,
-                            including UUIDs.  Because we don't ONLY use UUIDs, this
-                            is an alias to string.  Being a type captures intent and
-                            helps make sure that UIDs and names do not get conflated.
+                          description: |-
+                            UID is a type that holds unique ID values, including UUIDs.  Because we
+                            don't ONLY use UUIDs, this is an alias to string.  Being a type captures
+                            intent and helps make sure that UIDs and names do not get conflated.
                           type: string
                       required:
                       - generation
@@ -310,9 +320,9 @@ spec:
                         tag:
                           type: string
                         version:
-                          description: Version of the defined App. Use of semantic
-                            versioning is recommended. Once set the AppDeployment
-                            spec becomes immutable.
+                          description: |-
+                            Version of the defined App. Use of semantic versioning is recommended.
+                            Once set the AppDeployment spec becomes immutable.
                           type: string
                       required:
                       - appName
@@ -329,10 +339,11 @@ spec:
               environment:
                 properties:
                   apiVersion:
-                    description: 'APIVersion defines the versioned schema of this
-                      representation of an object. Servers should convert recognized
-                      schemas to the latest internal value, and may reject unrecognized
-                      values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+                    description: |-
+                      APIVersion defines the versioned schema of this representation of an object.
+                      Servers should convert recognized schemas to the latest internal value, and
+                      may reject unrecognized values.
+                      More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
                     type: string
                   data:
                     properties:
@@ -369,10 +380,12 @@ spec:
                         type: object
                     type: object
                   kind:
-                    description: 'Kind is a string value representing the REST resource
-                      this object represents. Servers may infer this from the endpoint
-                      the client submits requests to. Cannot be updated. In CamelCase.
-                      More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+                    description: |-
+                      Kind is a string value representing the REST resource this object represents.
+                      Servers may infer this from the endpoint the client submits requests to.
+                      Cannot be updated.
+                      In CamelCase.
+                      More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
                     type: string
                   metadata:
                     properties:
@@ -387,10 +400,10 @@ spec:
                         minLength: 1
                         type: string
                       uid:
-                        description: UID is a type that holds unique ID values, including
-                          UUIDs.  Because we don't ONLY use UUIDs, this is an alias
-                          to string.  Being a type captures intent and helps make
-                          sure that UIDs and names do not get conflated.
+                        description: |-
+                          UID is a type that holds unique ID values, including UUIDs.  Because we
+                          don't ONLY use UUIDs, this is an alias to string.  Being a type captures
+                          intent and helps make sure that UIDs and names do not get conflated.
                         type: string
                     required:
                     - generation
@@ -403,30 +416,29 @@ spec:
                         properties:
                           activationDeadlineSeconds:
                             default: 300
-                            description: If the pending Release cannot be activated
-                              before the activation deadline it will be considered
-                              failed and the Release will automatically rolled back
-                              to the current active Release. Pointer is used to distinguish
+                            description: |-
+                              If the pending Release cannot be activated before the activation deadline
+                              it will be considered failed and the Release will automatically rolled
+                              back to the current active Release. Pointer is used to distinguish
                               between not set and false.
                             minimum: 3
                             type: integer
                           historyLimits:
                             properties:
                               ageDays:
-                                description: Maximum age of the Release to keep in
-                                  history. Once the limit is reached the oldest Release
-                                  in history will be deleted. Age is based on archiveTime.
-                                  Set to 0 to disable. Pointer is used to distinguish
-                                  between not set and false.
+                                description: |-
+                                  Maximum age of the Release to keep in history. Once the limit is reached
+                                  the oldest Release in history will be deleted. Age is based on
+                                  archiveTime. Set to 0 to disable. Pointer is used to distinguish between
+                                  not set and false.
                                 minimum: 0
                                 type: integer
                               count:
                                 default: 10
-                                description: Maximum number of Releases to keep in
-                                  history. Once the limit is reached the oldest Release
-                                  in history will be deleted. Age is based on archiveTime.
-                                  Pointer is used to distinguish between not set and
-                                  false.
+                                description: |-
+                                  Maximum number of Releases to keep in history. Once the limit is reached
+                                  the oldest Release in history will be deleted. Age is based on
+                                  archiveTime. Pointer is used to distinguish between not set and false.
                                 minimum: 0
                                 type: integer
                             type: object
@@ -447,10 +459,11 @@ spec:
               virtualEnvironment:
                 properties:
                   apiVersion:
-                    description: 'APIVersion defines the versioned schema of this
-                      representation of an object. Servers should convert recognized
-                      schemas to the latest internal value, and may reject unrecognized
-                      values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+                    description: |-
+                      APIVersion defines the versioned schema of this representation of an object.
+                      Servers should convert recognized schemas to the latest internal value, and
+                      may reject unrecognized values.
+                      More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
                     type: string
                   data:
                     properties:
@@ -487,10 +500,12 @@ spec:
                         type: object
                     type: object
                   kind:
-                    description: 'Kind is a string value representing the REST resource
-                      this object represents. Servers may infer this from the endpoint
-                      the client submits requests to. Cannot be updated. In CamelCase.
-                      More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+                    description: |-
+                      Kind is a string value representing the REST resource this object represents.
+                      Servers may infer this from the endpoint the client submits requests to.
+                      Cannot be updated.
+                      In CamelCase.
+                      More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
                     type: string
                   metadata:
                     properties:
@@ -505,10 +520,10 @@ spec:
                         minLength: 1
                         type: string
                       uid:
-                        description: UID is a type that holds unique ID values, including
-                          UUIDs.  Because we don't ONLY use UUIDs, this is an alias
-                          to string.  Being a type captures intent and helps make
-                          sure that UIDs and names do not get conflated.
+                        description: |-
+                          UID is a type that holds unique ID values, including UUIDs.  Because we
+                          don't ONLY use UUIDs, this is an alias to string.  Being a type captures
+                          intent and helps make sure that UIDs and names do not get conflated.
                         type: string
                     required:
                     - generation
@@ -518,8 +533,9 @@ spec:
                   spec:
                     properties:
                       environment:
-                        description: Name of the Environment this VirtualEnvironment
-                          is part of. This field is immutable.
+                        description: |-
+                          Name of the Environment this VirtualEnvironment is part of. This field is
+                          immutable.
                         minLength: 1
                         type: string
                       release:
@@ -531,11 +547,10 @@ spec:
                                   minLength: 1
                                   type: string
                                 version:
-                                  description: Version of the App being released.
-                                    Use of semantic versioning is recommended. If
-                                    set the value is compared to the AppDeployment
-                                    version. If the two versions do not match the
-                                    release will fail.
+                                  description: |-
+                                    Version of the App being released. Use of semantic versioning is
+                                    recommended. If set the value is compared to the AppDeployment version.
+                                    If the two versions do not match the release will fail.
                                   type: string
                               required:
                               - appDeployment
@@ -548,29 +563,28 @@ spec:
                       releasePolicy:
                         properties:
                           activationDeadlineSeconds:
-                            description: If the pending Release cannot be activated
-                              before the activation deadline it will be considered
-                              failed and the Release will automatically rolled back
-                              to the current active Release. Pointer is used to distinguish
+                            description: |-
+                              If the pending Release cannot be activated before the activation deadline
+                              it will be considered failed and the Release will automatically rolled
+                              back to the current active Release. Pointer is used to distinguish
                               between not set and false.
                             minimum: 3
                             type: integer
                           historyLimits:
                             properties:
                               ageDays:
-                                description: Maximum age of the Release to keep in
-                                  history. Once the limit is reached the oldest Release
-                                  in history will be deleted. Age is based on archiveTime.
-                                  Set to 0 to disable. Pointer is used to distinguish
-                                  between not set and false.
+                                description: |-
+                                  Maximum age of the Release to keep in history. Once the limit is reached
+                                  the oldest Release in history will be deleted. Age is based on
+                                  archiveTime. Set to 0 to disable. Pointer is used to distinguish between
+                                  not set and false.
                                 minimum: 0
                                 type: integer
                               count:
-                                description: Maximum number of Releases to keep in
-                                  history. Once the limit is reached the oldest Release
-                                  in history will be deleted. Age is based on archiveTime.
-                                  Pointer is used to distinguish between not set and
-                                  false.
+                                description: |-
+                                  Maximum number of Releases to keep in history. Once the limit is reached
+                                  the oldest Release in history will be deleted. Age is based on
+                                  archiveTime. Pointer is used to distinguish between not set and false.
                                 minimum: 0
                                 type: integer
                             type: object

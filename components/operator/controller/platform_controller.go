@@ -134,6 +134,13 @@ func (r *PlatformReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 }
 
 func (r *PlatformReconciler) reconcile(ctx context.Context, platform *v1alpha1.Platform, log *logkf.Logger) error {
+	if platform.Spec.Debug.Enabled && platform.Name != "debug" && platform.Namespace != "kubefox-debug" {
+		log.Warn("debug is enabled for Platform but name or namespace are incorrect, skipping reconcile")
+		log.Debug("to enable debug Platform name must be 'debug' and namespace must be 'kubefox-debug'")
+
+		return nil
+	}
+
 	setupKey := k8s.ToString(platform)
 
 	cm := &v1.ConfigMap{}
@@ -155,8 +162,9 @@ func (r *PlatformReconciler) reconcile(ctx context.Context, platform *v1alpha1.P
 				BootstrapImage: BootstrapImage,
 			},
 			Platform: templates.Platform{
-				Name:      platform.Name,
-				Namespace: platform.Namespace,
+				Name:       platform.Name,
+				Namespace:  platform.Namespace,
+				BrokerAddr: "$(KUBEFOX_HOST_IP):6060",
 			},
 			Owner: []*metav1.OwnerReference{
 				metav1.NewControllerRef(platform, platform.GroupVersionKind()),
@@ -168,6 +176,9 @@ func (r *PlatformReconciler) reconcile(ctx context.Context, platform *v1alpha1.P
 				api.ValKeyVaultURL:     r.VaultURL,
 			},
 		},
+	}
+	if d := platform.Spec.Debug; d.Enabled && d.BrokerAddr != "" {
+		platformTD.Data.Platform.BrokerAddr = d.BrokerAddr
 	}
 
 	if r.isSetup(setupKey) {

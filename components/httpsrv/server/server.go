@@ -41,7 +41,7 @@ type Server struct {
 	log *logkf.Logger
 }
 
-func New(comp *core.Component, pod string) *Server {
+func New(comp *core.Component, pod string, tokenPath string) *Server {
 	return &Server{
 		brk: grpc.NewClient(grpc.ClientOpts{
 			Platform:      Platform,
@@ -49,6 +49,7 @@ func New(comp *core.Component, pod string) *Server {
 			Pod:           pod,
 			BrokerAddr:    BrokerAddr,
 			HealthSrvAddr: HealthSrvAddr,
+			TokenPath:     tokenPath,
 		}),
 		log: logkf.Global,
 	}

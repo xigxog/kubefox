@@ -23,7 +23,7 @@ import (
 
 type PlatformWebhook struct {
 	*k8s.Client
-	*admission.Decoder
+	admission.Decoder
 }
 
 func (r *PlatformWebhook) Handle(ctx context.Context, req admission.Request) admission.Response {

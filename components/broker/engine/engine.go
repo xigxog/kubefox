@@ -250,6 +250,11 @@ func (brk *broker) AuthorizeComponent(ctx context.Context, meta *Metadata) error
 		}
 
 		found := false
+		if p.DebugEnabled() && meta.Pod == "debug" {
+			found = true
+			brk.log.Warnf("Platform debug enabled, accepting connection from component '%s'",
+				meta.Component.Name)
+		}
 		for _, c := range p.Status.Components {
 			if c.Name == meta.Component.Name &&
 				c.Hash == meta.Component.Hash &&
