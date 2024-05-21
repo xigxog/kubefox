@@ -59,11 +59,12 @@ func init() {
 	kutil.Must(apiv1.AddToScheme(scheme))
 }
 
+// TODO move to config struct
 var (
-	instance, namespace  string
-	vaultURL, healthAddr string
-	logFormat, logLevel  string
-	leaderElection       bool
+	instance, namespace          string
+	vaultURL, healthAddr         string
+	logFormat, logLevel          string
+	leaderElection, defTelemetry bool
 )
 
 func main() {
@@ -74,6 +75,7 @@ func main() {
 	flag.BoolVar(&leaderElection, "leader-elect", true, "Enable leader election for controller manager. Enabling this will ensure there is only one active controller manager.")
 	flag.StringVar(&logFormat, "log-format", "console", `Log format; one of ["json", "console"].`)
 	flag.StringVar(&logLevel, "log-level", "debug", `Log level; one of ["debug", "info", "warn", "error"].`)
+	flag.BoolVar(&defTelemetry, "default-telemetry", false, `Enables use of default telemetry configuration from Helm chart.`)
 	flag.Parse()
 
 	utils.CheckRequiredFlag("instance", instance)
@@ -191,8 +193,10 @@ func main() {
 	})
 	mgr.GetWebhookServer().Register("/v1alpha1/platforms/mutate", &kwebhook.Admission{
 		Handler: &webhook.PlatformWebhook{
-			Client:  &ctrlClient.Client,
-			Decoder: admission.NewDecoder(scheme),
+			Client:       &ctrlClient.Client,
+			Decoder:      admission.NewDecoder(scheme),
+			Namespace:    namespace,
+			DefTelemetry: defTelemetry,
 		},
 	})
 	mgr.GetWebhookServer().Register("/secrets/mutate", &kwebhook.Admission{

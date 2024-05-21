@@ -24,6 +24,9 @@ import (
 type PlatformWebhook struct {
 	*k8s.Client
 	admission.Decoder
+
+	Namespace    string
+	DefTelemetry bool
 }
 
 func (r *PlatformWebhook) Handle(ctx context.Context, req admission.Request) admission.Response {
@@ -66,6 +69,14 @@ func (r *PlatformWebhook) Handle(ctx context.Context, req admission.Request) adm
 	defaults.Set(&platform.Spec.NATS.ContainerSpec, &defaults.NATS)
 	defaults.Set(&platform.Spec.Broker.ContainerSpec, &defaults.Broker)
 	defaults.Set(&platform.Spec.HTTPSrv.ContainerSpec, &defaults.HTTPSrv)
+
+	if r.DefTelemetry &&
+		!platform.Spec.Telemetry.Collector.Enabled &&
+		platform.Spec.Telemetry.Collector.Address == "" {
+
+		platform.Spec.Telemetry.Collector.Enabled = true
+		platform.Spec.Telemetry.Collector.Address = fmt.Sprintf("jaeger-agent.%s:4317", r.Namespace)
+	}
 
 	current, err := json.Marshal(platform)
 	if err != nil {

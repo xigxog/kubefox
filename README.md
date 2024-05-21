@@ -91,13 +91,14 @@ create a new kind cluster.
 
 ```shell
 kind create cluster --wait 5m
+export BRANCH=$(git rev-parse --abbrev-ref HEAD)
 ```
 
 Then, build all the components and load their container images into the kind
 cluster.
 
 ```shell
-make all KIND_LOAD=true
+make all KIND_LOAD=true VERSION="${BRANCH}"
 ```
 
 Now, install the KubeFox Operator using the current branch name as the image
@@ -107,7 +108,7 @@ tag.
 helm install kubefox kubefox \
     --repo https://xigxog.github.io/helm-charts \
     --create-namespace --namespace kubefox-system \
-    --set log.format=console --set log.level=debug --set image.tag=$(git rev-parse --abbrev-ref HEAD) \
+    --set log.format=console --set log.level=debug --set image.tag="${BRANCH}" \
     --wait
 ```
 
