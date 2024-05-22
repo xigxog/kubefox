@@ -100,6 +100,7 @@ type TelemetrySpec struct {
 }
 
 type CollectorSpec struct {
+	// +kubebuilder:default=false
 	Enabled bool   `json:"enabled,omitempty"`
 	Address string `json:"address,omitempty"`
 }

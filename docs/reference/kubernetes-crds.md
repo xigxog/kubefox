@@ -294,7 +294,7 @@ Used by:<br>
 
 | Field | Type | Description | Validation |
 | ----- | ---- | ----------- | ---------- |
-| `enabled` | <div style="white-space:nowrap">boolean<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
+| `enabled` | <div style="white-space:nowrap">boolean<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap">default: false</div> |
 | `address` | <div style="white-space:nowrap">string<div> | <div style="max-width:30rem"></div> | <div style="white-space:nowrap"></div> |
 
 
