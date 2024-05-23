@@ -1284,7 +1284,7 @@ fox release graphql-main --virtual-env dev-john
 
 Now we're going to release to prod, but before we do, let's discuss some fundamental differences
 between the prod environment and the dev environment.  If we look back at the dev
-environment (open `dev.yaml` in VS Code - you'll fine it in the hack/environments folder
+environment (open `dev.yaml` in VS Code - you'll find it in the hack/environments folder
 in kubefox-graphql).  You'll see a releasePolicy defined as type: Testing.
 
 ```yaml linenums="9" hl_lines="8"
@@ -1426,10 +1426,11 @@ must be versioned and built from a tag in the repository (KubeFox helps with
 that as you can see above).  
 
 Concerning the uncommitted changes message - remember that KubeFox works from
-the repository outward.  We discussed the fact that KubeFox inspects the
-repository, detects changes, and publishes only those changes that it finds.  If
-uncommitted changes are present, KubeFox will halt the publish operation until
-that situation is resolved in the repository.
+the repository outward. We discussed the fact that KubeFox inspects the
+repository, detects changes, and publishes only those changes that it finds. In
+so doing, KubeFox eliminates redundant deployments and controls provisioning.
+However, if uncommitted changes are present, KubeFox will halt the publish
+operation until that situation is resolved in the repository.
 
 Remember that we made a change earlier to uncomment subPath in dev.yaml?  That's
 the pending change with which we need to deal before we can publish.  In our case, let's simply commit the changes and republish:
@@ -1535,10 +1536,9 @@ Again, KubeFox works from the repository outward.  It inspected the
 component, determined it had not changed and continued with the deployment.
 This is a common occurrence when working with a KubeFox App.  It is not
 incumbent on the developer, QA or build staff to determine what has changed and
-modify CI/CD accordingly.  Instead, staff simply publishes, and KubeFox handles
-the rest. Besides being an enormous timesaver, this approach lends itself to far
-greater accuracy during development cycles.  Additionally, provisioning is
-controlled in a largely seamless manner.
+modify CI/CD accordingly.  Instead, staff can simply publish the App as a monolith; KubeFox determines what components have changed or been added, and builds and deploys only those modified and/or new containers. Besides being an enormous timesaver, this approach lends itself to far
+greater accuracy during development cycles.  Additionally, provisioning is 
+controlled in an automated and seamless manner.
 
 KubeFox did create a new AppDeployment, with the name `graphql-v1`:
 
@@ -1790,7 +1790,7 @@ Your screen should look like what is shown below in Figure 15.
   <figcaption>Figure 15 - Initial GraphQL query panel for the superhero table</figcaption>
 </figure>
 
-In the botom center panel - right below the `GraphiQL` text and play button,
+In the bottom center panel - right below the `GraphiQL` text and play button,
 there is a query ready for us to execute. Just to get acquainted, click that play
 button.  It should look as shown in Figure 16 below.
 
@@ -2138,7 +2138,7 @@ Now we can do a Fox publish.  We're publishing from our branch.
     ```
 
 It’s actually going to rebuild the component this time because we made changes
-to it.  By default, Fox uses the includes the branch name as part of the
+to it.  By default, Fox uses the branch name as part of the
 AppDeployment name.  So our AppDeployment name is `graphql-feature`.  Let's jump
 over to k9s again and see what we have.
 
@@ -2177,7 +2177,7 @@ the released version is our original deployment - `graphql-main`.
 
 The App in dev-john is unchanged.  As it should be.  
 
-Our new deploying with our gender modifications - `graphql-feature` - is running
+Our new deployment with our gender modifications - `graphql-feature` - is running
 and we can access it.  We just need to include query parameters on the URL.
 
 [http://localhost:8080/john/hasura/heroes?kf-dep=graphql-feature&kf-ve=dev-john](http://localhost:8080/john/hasura/heroes?kf-dep=graphql-feature&kf-ve=dev-john){:target="_blank"} 
@@ -2289,7 +2289,7 @@ database content.
 </figure>
 
 Normal workflow now would be to checkout main, do a merge and deploy.  With
-KubeFox, we do a Fox publish.  This operation is going to update the
+KubeFox, we simply do a Fox publish.  This operation is going to update the
 `graphql-main` AppDeployment (check the AppDeployment name in the output).  
 
 ```{ .shell .copy }
