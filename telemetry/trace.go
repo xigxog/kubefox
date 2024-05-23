@@ -18,7 +18,6 @@ import (
 	"time"
 
 	"github.com/xigxog/kubefox/core"
-	"github.com/xigxog/kubefox/utils"
 	commonv1 "go.opentelemetry.io/proto/otlp/common/v1"
 	logsv1 "go.opentelemetry.io/proto/otlp/logs/v1"
 	resv1 "go.opentelemetry.io/proto/otlp/resource/v1"
@@ -166,14 +165,6 @@ func (s *Span) SpanContext() *core.SpanContext {
 	}
 }
 
-func (s *Span) ShouldSample() bool {
-	if s == nil {
-		return false
-	}
-
-	return utils.HasBit(s.Flags, 0)
-}
-
 func (s *Span) SetAttributes(attrs ...Attribute) {
 	if s == nil {
 		return
@@ -240,6 +231,32 @@ func (s *Span) SetEventAttributes(evt *core.Event) {
 	}
 }
 
+func (s *Span) Record() bool {
+	if s.TraceState == "kf=1" {
+		return true
+	}
+
+	for _, c := range s.ChildSpans {
+		if c.Record() {
+			return true
+		}
+	}
+
+	return false
+}
+
+func (s *Span) SetRecord(record bool) {
+	if record {
+		s.TraceState = "kf=1"
+	} else {
+		s.TraceState = ""
+	}
+
+	for _, child := range s.ChildSpans {
+		child.SetRecord(record)
+	}
+}
+
 func (s *Span) Info(msg string) {
 	s.log(logsv1.SeverityNumber_SEVERITY_NUMBER_INFO, "info", msg)
 }
@@ -273,7 +290,7 @@ func (s *Span) RecordErr(err error) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
-	s.Flags = utils.SetBit(s.Flags, 0)
+	s.SetRecord(true)
 	s.Events = append(s.Events, &tracev1.Span_Event{
 		TimeUnixNano: now(),
 		Name:         EventNameException,
@@ -311,8 +328,13 @@ func (s *Span) End(errs ...error) {
 
 func (s *Span) Flatten() []*Span {
 	flat := []*Span{s}
+	record := s.Record()
 	for _, c := range s.ChildSpans {
 		flat = append(flat, c.Flatten()...)
+		record = record || c.Record()
+	}
+	if record {
+		s.SetRecord(true)
 	}
 
 	return flat

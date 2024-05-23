@@ -68,7 +68,7 @@ var (
 				"cpu":    resource.MustParse("100m"),
 			},
 			Limits: v1.ResourceList{
-				"memory": resource.MustParse("160Mi"),
+				"memory": resource.MustParse("256Mi"),
 				"cpu":    resource.MustParse("2"),
 			},
 		},

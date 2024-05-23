@@ -127,7 +127,7 @@ func (srv *GRPCServer) Subscribe(stream grpc.Broker_SubscribeServer) error {
 		case status.Code() == codes.Canceled:
 			l.Debug("context canceled")
 		case status.Code() == codes.PermissionDenied:
-			l.Warn(err)
+			l.Debug(err)
 		default:
 			l.Error(err)
 		}

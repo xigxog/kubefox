@@ -116,7 +116,7 @@ func applyOpts(evt *Event, cat Category, opts EventOpts) *Event {
 	return evt
 }
 
-func (s *SpanContext) Sample() bool {
+func (s *SpanContext) Sampled() bool {
 	if s == nil {
 		return false
 	}
@@ -609,14 +609,6 @@ func (evt *Event) SetHTTPRequest(httpReq *http.Request, maxEventSize int64) erro
 		} else {
 			evt.Type = string(api.EventTypeHTTP)
 		}
-	}
-
-	sample := GetParamOrHeader(httpReq, api.HeaderTelemetrySample, api.HeaderTelemetrySampleAbbrv)
-	if strings.EqualFold(sample, "true") || sample == "1" {
-		if evt.ParentSpan == nil {
-			evt.ParentSpan = &SpanContext{}
-		}
-		evt.ParentSpan.Flags = utils.SetBit(evt.ParentSpan.Flags, 0)
 	}
 
 	DelParamOrHeader(httpReq,

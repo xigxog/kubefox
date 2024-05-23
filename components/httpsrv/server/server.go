@@ -16,6 +16,7 @@ import (
 	"net"
 	"net/http"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -150,10 +151,20 @@ func (srv *Server) ServeHTTP(resWriter http.ResponseWriter, httpReq *http.Reques
 		}
 	}
 
-	rootSpan = telemetry.StartSpan(fmt.Sprintf("%s %s", httpReq.Method, httpReq.URL), parentTrace,
+	name := fmt.Sprintf("%s %s", httpReq.Method, httpReq.URL)
+	rootSpan = telemetry.StartSpan(name, parentTrace,
 		telemetry.Attr(telemetry.AttrKeyHTTPReqMethod, httpReq.Method),
 		telemetry.Attr(telemetry.AttrKeyHTTPReqBodySize, httpReq.ContentLength),
 	)
+
+	if parentTrace != nil && utils.HasBit(parentTrace.Flags, 0) {
+		rootSpan.SetRecord(true)
+	}
+
+	sample := core.GetParamOrHeader(httpReq, api.HeaderTelemetrySample, api.HeaderTelemetrySampleAbbrv)
+	if strings.EqualFold(sample, "true") || sample == "1" {
+		rootSpan.SetRecord(true)
+	}
 
 	req = core.NewReq(core.EventOpts{
 		Source:     srv.brk.Component,
@@ -163,15 +174,8 @@ func (srv *Server) ServeHTTP(resWriter http.ResponseWriter, httpReq *http.Reques
 	setHeader(resWriter, api.HeaderEventId, req.Id)
 
 	defer func() {
-		if req.ParentSpan.Sample() {
-			rootSpan.Flags = utils.SetBit(rootSpan.Flags, 0)
-		}
-
 		if resp != nil {
 			req.SetContext(resp.Context)
-			if resp.ParentSpan.Sample() {
-				rootSpan.Flags = utils.SetBit(rootSpan.Flags, 0)
-			}
 		}
 
 		rootSpan.SetEventAttributes(req)
@@ -181,7 +185,9 @@ func (srv *Server) ServeHTTP(resWriter http.ResponseWriter, httpReq *http.Reques
 
 		log.Debug("sending spans to broker")
 
-		go srv.brk.SendTelemetry(rootSpan.Flatten(), nil)
+		if rootSpan.Record() {
+			srv.brk.SendTelemetry(rootSpan.Flatten(), nil)
+		}
 	}()
 
 	// TODO add standard http attributes

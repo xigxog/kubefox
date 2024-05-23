@@ -17,7 +17,6 @@ import (
 	"github.com/xigxog/kubefox/core"
 	"github.com/xigxog/kubefox/logkf"
 	"github.com/xigxog/kubefox/telemetry"
-	"github.com/xigxog/kubefox/utils"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc"
@@ -29,6 +28,10 @@ import (
 	tracev1 "go.opentelemetry.io/proto/otlp/trace/v1"
 	gogrpc "google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
+)
+
+const (
+	maxQueueSize = 1_000
 )
 
 var (
@@ -132,6 +135,33 @@ func (cl *Client) AddSpans(comp *core.Component, spans ...*telemetry.Span) {
 }
 
 func (cl *Client) AddProtoSpans(comp *core.Component, spans []*tracev1.Span) {
+	cl.mutex.Lock()
+	defer cl.mutex.Unlock()
+
+	switch {
+	case len(spans) == 0:
+		return
+	case len(cl.spans) > maxQueueSize:
+		cl.log.Warnf("maximum number of queued spans exceeded, discarding %d incoming", len(spans))
+		return
+	}
+
+	i := 0
+	for _, s := range spans {
+		if s.TraceState == "kf=1" {
+			spans[i] = s
+			i++
+		}
+	}
+	if diff := len(spans) - i; diff > 0 {
+		cl.log.Debugf("%d spans do not have record state set, discarding", diff)
+	}
+	// Truncate spans that do not need to be recorded.
+	spans = spans[:i]
+	if len(spans) == 0 {
+		return
+	}
+
 	resSpans := &tracev1.ResourceSpans{
 		Resource: &resv1.Resource{
 			Attributes: []*commonv1.KeyValue{
@@ -154,13 +184,18 @@ func (cl *Client) AddProtoSpans(comp *core.Component, spans []*tracev1.Span) {
 		SchemaUrl: semconv.SchemaURL,
 	}
 
-	cl.mutex.Lock()
 	cl.spans = append(cl.spans, resSpans)
-	cl.mutex.Unlock()
 }
 
 func (cl *Client) AddProtoLogs(comp *core.Component, logRecords []*logsv1.LogRecord) {
-	if len(logRecords) == 0 {
+	cl.mutex.Lock()
+	defer cl.mutex.Unlock()
+
+	switch {
+	case len(logRecords) == 0:
+		return
+	case len(cl.logs) > maxQueueSize:
+		cl.log.Warnf("maximum number of queued log records exceeded, discarding %d incoming", len(logRecords))
 		return
 	}
 
@@ -175,9 +210,7 @@ func (cl *Client) AddProtoLogs(comp *core.Component, logRecords []*logsv1.LogRec
 		SchemaUrl: semconv.SchemaURL,
 	}
 
-	cl.mutex.Lock()
 	cl.logs = append(cl.logs, resSpans)
-	cl.mutex.Unlock()
 }
 
 // TODO have broker/grpc server create resource and pass that instead of comp so
@@ -225,22 +258,6 @@ func (cl *Client) publishSpans(ctx context.Context) {
 	cl.mutex.Lock()
 	defer cl.mutex.Unlock()
 
-	i := 0
-	for _, resSpan := range cl.spans {
-		if shouldSample(resSpan) {
-			cl.spans[i] = resSpan
-			i++
-		}
-	}
-	if diff := len(cl.spans) - i; diff > 0 {
-		cl.log.Debugf("%d resource spans do not have sample flag set, discarding", diff)
-	}
-	// Truncate spans that do not need to be sampled.
-	cl.spans = cl.spans[:i]
-	if len(cl.spans) == 0 {
-		return
-	}
-
 	cl.log.Debugf("uploading %d resource spans", len(cl.spans))
 	if err := cl.traceClient.UploadTraces(ctx, cl.spans); err != nil {
 		cl.log.Errorf("error uploading traces: %v", err)
@@ -254,26 +271,13 @@ func (cl *Client) publishLogs(ctx context.Context) {
 	}
 
 	cl.mutex.Lock()
+	defer cl.mutex.Unlock()
 
 	cl.log.Debugf("uploading %d resource logs", len(cl.logs))
 	if err := cl.logsClient.UploadLogs(ctx, cl.logs); err != nil {
 		cl.log.Errorf("error uploading logs: %v", err)
 	}
 	cl.logs = nil
-
-	cl.mutex.Unlock()
-}
-
-func shouldSample(resSpan *tracev1.ResourceSpans) bool {
-	for _, scopeSpan := range resSpan.ScopeSpans {
-		for _, s := range scopeSpan.Spans {
-			if utils.HasBit(s.Flags, 0) {
-				return true
-			}
-		}
-	}
-
-	return false
 }
 
 // func (cl *Client) tls() (*tls.Config, error) {

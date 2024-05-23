@@ -330,12 +330,14 @@ func (svc *kit) recvReq(req *grpc.ComponentEvent) {
 
 	ktx.rootSpan.End(err)
 
-	spans := ktx.rootSpan.Flatten()
+	if ktx.rootSpan.Record() {
+		spans := ktx.rootSpan.Flatten()
 
-	var logs []*logsv1.LogRecord
-	for _, s := range spans {
-		logs = append(logs, s.LogRecords...)
+		var logs []*logsv1.LogRecord
+		for _, s := range spans {
+			logs = append(logs, s.LogRecords...)
+		}
+
+		svc.brk.SendTelemetry(spans, logs)
 	}
-
-	go svc.brk.SendTelemetry(spans, logs)
 }
