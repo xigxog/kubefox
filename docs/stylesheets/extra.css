@@ -33,6 +33,11 @@ img[alt="diagram"] {
   background-color: white;
 }
 
+img[alt="macosx-warning"] {
+  height: 75%;
+  width: 75%;
+}
+
 [dir="ltr"] .md-header__title {
   margin-left: 0;
 }
@@ -70,3 +75,4 @@ img[alt="diagram"] {
 .md-grid {
   max-width: 90%;
 }
+

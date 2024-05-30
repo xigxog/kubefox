@@ -37,6 +37,28 @@ Here are a few optional but recommended tools:
 - [Azure CLI](https://learn.microsoft.com/en-us/cli/azure/install-azure-cli) -
   CLI for communicating with the Azure control plane.
 
+## Tracing
+
+You can choose to run the Quickstart with tracing active, or without tracing.
+With tracing active, a couple of additional Pods are created:  
+
+1. A Pod for OpenTelemetry which collects and exports trace data to Jaeger
+2. A Pod for Jaeger providing a visual interface for trace data
+
+Tracing enables you to trace the workflow of your application - which components
+call which components, how much time was spent in each component etc.
+
+If this is the first time you've worked with Kubernetes or KubeFox, perhaps skip
+tracing for now just to keep things simple.  But if you're feeling adventurous
+or curious, feel free to proceed with Tracing Active.
+
+=== "Tracing Active"
+
+=== "No Tracing"
+
+By the way, once you select **Tracing Active** or **No Tracing**, or whether
+you're going to use **Local(kind)** or **Azure** (below), it remains selected throughout the document so you can select-and-forget. 
+
 ## Setup Kubernetes
 
 Let's kick things off by setting up a Kubernetes cluster. Use the following
@@ -120,6 +142,9 @@ already have a Kubernetes Cluster provisioned, you can skip this step.
           "tags": null,
           "type": "Microsoft.Resources/resourceGroups"
         }
+
+        (... and much more ...)
+
         ```
 
     Once your AKS cluster is ready add the cluster to your kubectl configuration
@@ -130,6 +155,17 @@ already have a Kubernetes Cluster provisioned, you can skip this step.
       --resource-group $AZ_RESOURCE_GROUP  \
       --name $AZ_AKS_NAME
     ```
+
+    ??? info "A different object named ... already exists in your kubeconfig file messages"
+
+        If you see messages like these, you've probably run the Quickstart on Azure previously.  Just answer "y" to overwrite as shown below.
+
+        A different object named kf-quickstart-eus2-aks-01 already exists in your kubeconfig file.
+        Overwrite? (y/n): y
+
+        A different object named clusterUser_kf-quickstart-infra-eus2-rg_kf-quickstart-eus2-aks-01 already exists in your kubeconfig file. Overwrite? (y/n): y
+
+        Merged "kf-quickstart-eus2-aks-01" as current context in /Users/Steven/.kube/config
 
     The last resource to create is the Azure Container Registry (ACR). This is
     used to store the KubeFox Component container images.
@@ -161,24 +197,46 @@ In this step you will install the KubeFox Helm Chart to initiate the KubeFox
 Operator on your Kubernetes cluster. The operator manages KubeFox Platforms and
 Apps.
 
-```{ .shell .copy }
-helm upgrade kubefox kubefox \
-  --repo https://xigxog.github.io/helm-charts \
-  --create-namespace --namespace kubefox-system \
-  --install --wait
-```
+=== "Tracing Active"
 
-??? example "Output"
-
-    ```text
-    Release "kubefox" does not exist. Installing it now.
-    NAME: kubefox
-    LAST DEPLOYED: Thu Jan  1 00:00:00 1970
-    NAMESPACE: kubefox-system
-    STATUS: deployed
-    REVISION: 1
-    TEST SUITE: None
+    ```{ .shell .copy }
+    helm upgrade kubefox kubefox \
+    --repo https://xigxog.github.io/helm-charts \
+    --create-namespace --namespace kubefox-system \
+    --set telemetry.enabled=true \
+    --install --wait
     ```
+
+    ??? example "Output"
+
+        ```text
+        Release "kubefox" does not exist. Installing it now.
+        NAME: kubefox
+        LAST DEPLOYED: Fri May 24 18:18:57 2024
+        NAMESPACE: kubefox-system
+        STATUS: deployed
+        REVISION: 1
+        ```
+
+=== "No Tracing"
+
+    ```{ .shell .copy }
+    helm upgrade kubefox kubefox \
+    --repo https://xigxog.github.io/helm-charts \
+    --create-namespace --namespace kubefox-system \
+    --install --wait
+    ```
+
+    ??? example "Output"
+
+        ```text
+        Release "kubefox" does not exist. Installing it now.
+        NAME: kubefox
+        LAST DEPLOYED: Fri May 24 18:18:57 2024
+        NAMESPACE: kubefox-system
+        STATUS: deployed
+        REVISION: 1
+        ```
 
 Now install Fox, a CLI tool used to interact with KubeFox and prepare your Apps
 for deployment and release.
@@ -294,6 +352,13 @@ cat hack/environments/* && \
     virtualenvironment.kubefox.xigxog.io/qa created
     ```
 
+We have two Virtual Environments:
+
+1. prod - which inherits an environment variable 'who' set to “Universe” and a
+   subpath of “prod” from its parent Environment.
+2. qa - which inherits an environment variable 'who' set to "World" and a
+   subpath of “qa” from its parent Environment.
+
 Next deploy the `hello-world` App. Simply use the `publish` command, which not
 only builds the OCI images for the Components but also pushes them to the
 container registry and finally deploys the App to the KubeFox Platform. You have
@@ -405,8 +470,9 @@ The `broker`, `httpsrv`, and `nats` Pods are part of the KubeFox Platform
 initiated by the Operator during Platform creation.
 
 Typically, connections to KubeFox Apps are made through a public-facing load
-balancer. For the simplicity of this guide use Fox to create a local proxy
-instead. In a new terminal run the following command.
+balancer. To keep things simple for purposes of this tutorial, we'll use the Fox CLI to create a local proxy instead. Note that we're going to leave the proxy running, so it's important to start it in a new terminal window.
+
+In the new terminal window run the following command:
 
 ```{ .shell .copy }
 fox proxy 8080
@@ -415,7 +481,7 @@ fox proxy 8080
 ??? info "macOS Network Warning"
 
     <figure markdown>
-      ![macosx-warning](../images/fox-mac-net-warn.png)
+      <img src="../images/fox-mac-net-warn.png" alt="macosx-warning">
     </figure>
 
     If you are using macOS you might notice this dialog popup when you start the
@@ -429,15 +495,76 @@ fox proxy 8080
     HTTP proxy started on http://127.0.0.1:8080
     ```
 
-Now, back in the original terminal, test the AppDeployment. KubeFox won't route
-requests to the App until it's released, but you can still test AppDeployments
-by manually providing context. KubeFox needs two pieces of information to route
-an event, the AppDeployment to use and the Virtual Environments to inject. These
-can be passed as headers or query parameters for HTTP requests.
+=== "Tracing Active"
 
-```{ .shell .copy }
-curl "http://localhost:8080/qa/hello?kf-dep=hello-world-main&kf-ve=qa"
-```
+    KubeFox has the ability to generate trace data automatically.  To see the
+    traces, we need to do a couple of simple things.  First, we need to set up port
+    forwarding to enable a browser window to access the trace data we'll generate.
+    As with the proxy, this will be a command we will leave running so we need
+    another (a third) terminal window.
+
+    In the new terminal window, enter the following command: 
+
+    ```{ .shell .copy }
+    kubectl port-forward -n kubefox-system service/jaeger-query 16686:16686
+    ```
+    ??? example "Output"
+
+        ```text
+        Forwarding from 127.0.0.1:16686 -> 16686
+        Forwarding from [::1]:16686 -> 16686
+        ```
+    With the port forward active, we can take a quick look at the Jaeger UI.  Jaeger
+    provides us the ability to visualize the traces generated by KubeFox. Click on
+    the link and you should see a screen similar to that in Figure 1.
+
+    [http://localhost:16686/](http://localhost:16686/){:target="_blank"} 
+
+    <figure markdown>
+      <img src="../images/screenshots/quickstart/jaeger_initial_screen.png" width=100% height=100%>
+      <figcaption>Figure 1 - Inital Jaeger Screen</figcaption>
+    </figure>
+
+    Note that we don't have any traces at this point because we haven't yet
+    exercised our application.  We'll jump back over to Jaeger in a moment.
+
+    Leave the port forward and the proxy running, and return to the original
+    terminal.  Back in the original terminal, let's test the AppDeployment. KubeFox won't route
+    requests to the App until it's released, but you can still test AppDeployments
+    by manually providing context. KubeFox needs two pieces of information to route
+    an event, the AppDeployment to use and the Virtual Environments to inject. These
+    can be passed as headers or query parameters for HTTP requests.
+
+    The query parameters are:
+
+    - kf-dep - specifies the deployment we want to target
+    - kv-ve - specifies a Virtual Environment in which the target deployment is available
+    - kf-sample=true - tells KubeFox that we want to generate trace data for a request
+
+    Let's run our first curl request!
+
+    ```{ .shell .copy }
+    curl "http://localhost:8080/qa/hello?kf-dep=hello-world-main&kf-ve=qa&kf-sample=true"
+    ```
+=== "No Tracing"
+
+    Leave the proxy running, and return to the original terminal. Back in the
+    original terminal, let's test the AppDeployment. KubeFox won't route requests to
+    the App until it's released, but you can still test AppDeployments
+    by manually providing context. KubeFox needs two pieces of information to route
+    an event, the AppDeployment to use and the Virtual Environments to inject. These
+    can be passed as headers or query parameters for HTTP requests.
+
+    The query parameters are:
+
+    - kf-dep - specifies the deployment we want to target
+    - kv-ve - specifies a Virtual Environment in which the target deployment is available
+
+    Let's run our first curl request!
+
+    ```{ .shell .copy }
+    curl "http://localhost:8080/qa/hello?kf-dep=hello-world-main&kf-ve=qa"
+    ```
 
 ??? example "Output"
 
@@ -445,21 +572,64 @@ curl "http://localhost:8080/qa/hello?kf-dep=hello-world-main&kf-ve=qa"
     👋 Hello World!
     ```
 
-Try switching to the `prod` Virtual Environments — this can be done seamlessly
+Try switching to the `prod` Virtual Environment — this can be done seamlessly
 with KubeFox without creating another AppDeployment. This is possible because
 KubeFox injects context at request time instead of at deployment. Adding Virtual
-Environments has nearly zero overhead! Be sure to change the URL path from
-`/qa/hello` to `/prod/hello` to reflect the change of the `subPath` variable.
+Environments has nearly zero overhead! We need to change the URL path from
+`/qa/hello` to `/prod/hello` to match the `subPath` variable we specified in the
+Environment.
 
-```{ .shell .copy }
-curl "http://localhost:8080/prod/hello?kf-dep=hello-world-main&kf-ve=prod"
-```
+=== "Tracing Active"
 
-??? example "Output"
-
-    ```text
-    👋 Hello Universe!
+    ```{ .shell .copy }
+    curl "http://localhost:8080/prod/hello?kf-dep=hello-world-main&kf-ve=prod&kf-sample=true"
     ```
+
+    ??? example "Output"
+
+        ```text
+        👋 Hello Universe!
+        ```
+
+    Let's take a look at Jaeger at this point.  Go to the tab you opened above and
+    do the following:
+
+    1. Refresh the page
+    2. Select the "hello-world-frontend..." in the "Service" dropdown.
+    3. Click the "Find Traces" button at the bottom.
+
+    You should see something similar to what is shown in Figure 2 below.
+
+    <figure markdown>
+      <img src="../images/screenshots/quickstart/jaeger_first_frontend_traces_qa_prod.png" width=100% height=100%>
+      <figcaption>Figure 2 - Jaeger Screen showing traces for the frontend</figcaption>
+    </figure>
+
+    Pretty cool, right?  With no time invested in the configuration of telemetry,
+    you're seeing trace data for the `hello-world` App, simply by virtue of building
+    the App with KubeFox.
+
+    Feel free to play around with Jaeger and get acquainted with the interface.
+    Some pointers: 
+
+    - Trace data will be available to Jaeger a few seconds after running a command.
+    - It is the 'kf-sample=true' query parameter that generates the trace data for a
+      particular commmand.
+    - The simplest way to see data is to go through steps above (Refresh the Jaeger
+      page, select the Service for which you want to see trace data, and click the
+      "Find Traces" button). 
+
+=== "No Tracing"
+
+    ```{ .shell .copy }
+    curl "http://localhost:8080/prod/hello?kf-dep=hello-world-main&kf-ve=prod"
+    ```
+
+    ??? example "Output"
+
+        ```text
+        👋 Hello Universe!
+        ```
 
 ## Release
 
@@ -599,13 +769,28 @@ fox publish --version v1 --create-tag && \
         type: ReleasePending
     ```
 
+When a `Fox Release` is performed to a Virtual Environment, KubeFox will default
+traffic to that subPath to the current release.  In our case, traffic to
+localhost:8080/qa/hello will be routed to the currently released version of the
+`hello-world` App.
+
 Test the same request as before, but this time without specifying context. Since
 the App has been released, the request is matched by the Component's route, and
 context information is automatically applied.
 
-```{ .shell .copy }
-curl "http://localhost:8080/qa/hello"
-```
+=== "Tracing Active"
+
+    ```{ .shell .copy }
+    curl "http://localhost:8080/qa/hello?kf-sample=true"
+    ```
+
+    Note:  We do need to add the 'kf-sample=true' query parameter to capture trace data.
+
+=== "No Tracing"
+
+    ```{ .shell .copy }
+    curl "http://localhost:8080/qa/hello"
+    ```
 
 ??? example "Output"
 
@@ -635,9 +820,24 @@ Surprisingly, nothing has changed in the Pods running on Kubernetes. KubeFox
 dynamically injects context per request, just like when you changed Virtual
 Environments earlier with the query parameters.
 
+AppDeployments are KubeFox custom resources, so you can get information on
+AppDeployments with Kubectl. 
+
+```{ .shell .copy }
+kubectl get appdeployments --namespace kubefox-demo
+```
+
+??? example "Output"
+
+    ```text
+    NAME               APP           VERSION   AVAILABLE   REASON                PROGRESSING
+    hello-world-main   hello-world             True        ComponentsAvailable   False
+    hello-world-v1     hello-world   v1        True        ComponentsAvailable   False
+    ```
+
 ## Update
 
-Next, make a modification to the `frontend` Component, commit the changes, and
+Next, let's make a modification to the `frontend` Component, commit the changes, and
 deploy. Open up `components/frontend/main.go` in your favorite editor and update
 line `28` in the `sayHello` function to say something new.
 
@@ -657,7 +857,24 @@ func sayHello(k kit.Kontext) error {
 }
 ```
 
-1. Update me to say `Hey` instead of `Hello`.
+Update the sayHello function to say `Hey` instead of `Hello`, and save your changes.  It should look
+like this:
+
+```go linenums="22" hl_lines="7"
+func sayHello(k kit.Kontext) error {
+    r, err := k.Req(backend).Send()
+    if err != nil {
+        return err
+    }
+
+    msg := fmt.Sprintf("👋 Hey %s!", r.Str()) //(1)
+    json := map[string]any{"msg": msg}
+    html := fmt.Sprintf(htmlTmpl, msg)
+    k.Log().Debug(msg)
+
+    return k.Resp().SendAccepts(json, html, msg)
+}
+```
 
 Fox operates against the current commit of the Git repo when deploying
 Components. That means before deploying you need to commit the changes to record
@@ -747,13 +964,25 @@ git add . && \
 Fox didn't rebuild the `backend` Component as no changes were made. Try testing
 out the current `v1` Release and latest `hello-world-main` AppDeployment.
 
-```{ .shell .copy }
-echo -ne "VERSION\tVIRTENV\tOUTPUT" && \
-  echo -ne "\nv1\tqa\t"; curl "http://localhost:8080/qa/hello" && \
-  echo -ne "\nv1\tprod\t"; curl "http://localhost:8080/prod/hello?kf-dep=hello-world-v1&kf-ve=prod" && \
-  echo -ne "\nmain\tqa\t"; curl "http://localhost:8080/qa/hello?kf-dep=hello-world-main&kf-ve=qa" && \
-  echo -ne "\nmain\tprod\t"; curl "http://localhost:8080/prod/hello?kf-dep=hello-world-main&kf-ve=prod"
-```
+=== "Tracing Active"
+
+    ```{ .shell .copy }
+    echo -ne "VERSION\tVIRTENV\tOUTPUT" && \
+      echo -ne "\nv1\tqa\t"; curl "http://localhost:8080/qa/hello?kf-sample=true" && \
+      echo -ne "\nv1\tprod\t"; curl "http://localhost:8080/prod/hello?kf-dep=hello-world-v1&kf-ve=prod&kf-sample=true" && \
+      echo -ne "\nmain\tqa\t"; curl "http://localhost:8080/qa/hello?kf-dep=hello-world-main&kf-ve=qa&kf-sample=true" && \
+      echo -ne "\nmain\tprod\t"; curl "http://localhost:8080/prod/hello?kf-dep=hello-world-main&kf-ve=prod&kf-sample=true"
+    ```
+
+=== "No Tracing"
+
+    ```{ .shell .copy }
+    echo -ne "VERSION\tVIRTENV\tOUTPUT" && \
+      echo -ne "\nv1\tqa\t"; curl "http://localhost:8080/qa/hello" && \
+      echo -ne "\nv1\tprod\t"; curl "http://localhost:8080/prod/hello?kf-dep=hello-world-v1&kf-ve=prod" && \
+      echo -ne "\nmain\tqa\t"; curl "http://localhost:8080/qa/hello?kf-dep=hello-world-main&kf-ve=qa" && \
+      echo -ne "\nmain\tprod\t"; curl "http://localhost:8080/prod/hello?kf-dep=hello-world-main&kf-ve=prod"
+    ```
 
 ??? example "Output"
 
@@ -764,6 +993,22 @@ echo -ne "VERSION\tVIRTENV\tOUTPUT" && \
     main    qa      👋 Hey World!
     main    prod    👋 Hey Universe!
     ```
+
+What is happening here?
+
+1. The first request is going to the `qa` subpath and no deployment or Virtual
+   Environment is specified.  KubeFox will route the request to the
+   currently-released version of the `hello-world` App in the qa Virtual
+   Environment, which is the hello-world-v1 deployment (AppDeployment to be specific) - our original version.
+2. The second request is routed to the 'prod' subpath and the `hello-world-v1`
+   deployment and `prod` Virtual Environment are specified - so we'll again be
+   accessing v1, our original version. 
+3. The third request is routed to the `hello-world-main` deployment in the `qa`
+   Virtual Environment.  When we did the `Fox Publish` above, we replaced the
+   `hello-world-main` deployment with the one we just modified (where we say
+   "Hey" instead of "Hello").
+4. The last request is the same - it's routed to the (new) `hello-world-main` deployment in the `prod`
+   Virtual Environment.  
 
 Now that you've created a new AppDeployment, take another look at the Pods
 running on Kubernetes.
@@ -785,15 +1030,21 @@ kubectl get pods --namespace kubefox-demo
     ```
 
 You might be surprised to find only three Component Pods running to support the
-two AppDeployments and Release. Because the `backend` Component did not change,
-the two AppDeployments are able to share the same `backend` Pod. KubeFox
-dynamically shapes traffic at runtime and will route traffic to the correct
-version of the App depending on context.
+two AppDeployments and Release. Remember that KubeFox skipped the build of the
+`backend` component?  Because it did not change, the two AppDeployments are able
+to share the same `backend` Pod. This is just one of the ways that KubeFox helps
+control provisioning.  
+
+KubeFox can achieve this because it dynamically shapes traffic at runtime and will route traffic to the correct
+version of the App depending on context.  Requests to the `v1` deployment - our
+original version of the App, will use the initial version of the frontend
+component.  Requests to the `main` deployment will use the newly-created version
+of the frontend. 
 
 ## Promote
 
-Finally, publish the new version of the App, release it to the `qa` Virtual
-Environments, and then promote version `v1` to the `prod` Virtual Environments.
+Finally, let's publish the new version of the App, release it to the `qa` Virtual
+Environment, and then promote version `v1` to the `prod` Virtual Environment.
 Stricter policies of the `prod` Virtual Environments require the Release to be
 stable. To achieve this, the Operator creates a ReleaseManifest when it
 activates the Release. A ReleaseManifest is an immutable snapshot of all
@@ -801,7 +1052,8 @@ constituents of the Release; the Environment, Virtual Environments, Adapters,
 and AppDeployments. This ensures any changes made to these resources after the
 Release is activated do not affect the Release.
 
-Release the new version to `qa` and promote `v1` to `prod`.
+Release the new version - we'll call it `v2` - to `qa`, and promote the `v1`
+version to `prod`.
 
 ```{ .shell .copy }
 fox publish --version v2 --create-tag && \
@@ -984,24 +1236,78 @@ fox publish --version v2 --create-tag && \
         type: ReleasePending
     ```
 
+Note that Fox recognized that the versions of the components composing these
+releases were already present on the cluster, so they didn't need to be built or
+deployed.  We didn't make any
+modifications; we're just publishing the new version - `v2` - which has our
+"Hey" change and releasing it to the `qa` Virtual Environment, and we're
+releasing our `v1` (original) version to the `prod` Virtual
+Environment.  This mirrors what we'd do in real life - the latest changes
+released to QA for additional testing and the stable version to Prod.
+
 Give the new Releases a spin! Notice the new output from the updated `frontend`
 Component in `qa`, while `prod` still displays the original output from `v1`.
 With Releases in both Virtual Environments there's no need to manually specify
-the context.
+the context (with the `kf-dep` and `kf-ve` query parameters).  
 
-```{ .shell .copy }
-echo -ne "VERSION\tVIRTENV\tOUTPUT" && \
-  echo -ne "\nv1\tprod\t"; curl "http://localhost:8080/prod/hello" && \
-  echo -ne "\nv2\tqa\t"; curl "http://localhost:8080/qa/hello"
-```
+=== "Tracing Active"
 
-??? example "Output"
-
-    ```text
-    VERSION VIRTENV OUTPUT
-    v1      prod    👋 Hello Universe!
-    v2      qa      👋 Hey World!
+    ```{ .shell .copy }
+    echo -ne "VERSION\tVIRTENV\tOUTPUT" && \
+      echo -ne "\nv1\tprod\t"; curl "http://localhost:8080/prod/hello?kf-sample=true" && \
+      echo -ne "\nv2\tqa\t"; curl "http://localhost:8080/qa/hello?kf-sample=true"
     ```
+
+    ??? example "Output"
+
+        ```text
+        VERSION VIRTENV OUTPUT
+        v1      prod    👋 Hello Universe!
+        v2      qa      👋 Hey World!
+        ```
+
+    Let's jump over to Jaeger again (remember to refresh the page, select the component and click the 'Find Traces' button).  Take a look at the most recent frontend Pod
+    and you'll see 3 traces similar to Figure 3 below:
+
+    <figure markdown>
+      <img src="../images/screenshots/quickstart/jaeger_second_frontend_traces_Hey.png" width=100% height=100%>
+      <figcaption>Figure 3 - Jaeger Screen showing traces for the updated ("Hey") frontend component</figcaption>
+    </figure>
+
+    If you look at the other version of the frontend - the original "Hello" version,
+    you'll see that it has 6 traces (Figure 4):
+
+    <figure markdown>
+      <img src="../images/screenshots/quickstart/jaeger-original_frontend_traces_Hello.png" width=100% height=100%>
+      <figcaption>Figure 4 - Jaeger Screen showing traces for the original ("Hello") frontend component</figcaption>
+    </figure>
+
+    And finally, if you look at the traces for the backend component, you'll see
+    that it has 9 traces (Figure 5):
+
+    <figure markdown>
+      <img src="../images/screenshots/quickstart/jaeger_backend_traces.png" width=100% height=100%>
+      <figcaption>Figure 5 - Jaeger Screen showing traces for the backend component</figcaption>
+    </figure>
+
+    That's because the backend component is handling traffic for both versions of
+    the frontend.  
+
+=== "No Tracing"
+
+    ```{ .shell .copy }
+    echo -ne "VERSION\tVIRTENV\tOUTPUT" && \
+      echo -ne "\nv1\tprod\t"; curl "http://localhost:8080/prod/hello" && \
+      echo -ne "\nv2\tqa\t"; curl "http://localhost:8080/qa/hello"
+    ```
+
+    ??? example "Output"
+
+        ```text
+        VERSION VIRTENV OUTPUT
+        v1      prod    👋 Hello Universe!
+        v2      qa      👋 Hey World!
+        ```
 
 Just for fun take one final look at all that you've created.
 
