@@ -6,7 +6,7 @@
 //
 // SPDX-License-Identifier: MPL-2.0
 
-package engine
+package server
 
 import (
 	"context"
@@ -23,6 +23,7 @@ import (
 	"github.com/xigxog/kubefox/api/kubernetes/v1alpha1"
 	"github.com/xigxog/kubefox/components/broker/config"
 	"github.com/xigxog/kubefox/core"
+	"github.com/xigxog/kubefox/grpc"
 	"github.com/xigxog/kubefox/logkf"
 )
 
@@ -32,12 +33,12 @@ type HTTPClient struct {
 	secureTransport   *http.Transport
 	insecureTransport *http.Transport
 
-	brk Broker
+	brk *grpc.Client
 
 	log *logkf.Logger
 }
 
-func NewHTTPClient(brk Broker) *HTTPClient {
+func NewHTTPClient(brk *grpc.Client) *HTTPClient {
 	clients := make(map[string]*http.Client, 7)
 
 	// TODO support live refresh of root ca
@@ -93,17 +94,12 @@ func NewHTTPClient(brk Broker) *HTTPClient {
 	}
 }
 
-func (c *HTTPClient) SendEvent(req *BrokerEventContext) error {
-	if req.TargetAdapter == nil {
-		return core.ErrInvalid(fmt.Errorf("adapter is missing"))
-	}
-	adapter, ok := req.TargetAdapter.(*v1alpha1.HTTPAdapter)
-	if !ok {
-		return core.ErrInvalid(fmt.Errorf("adapter is not HTTPAdapter"))
-	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), req.TTL())
+func (c *HTTPClient) SendEvent(req *grpc.ComponentEvent) error {
+	ctx, cancel := context.WithTimeout(context.Background(), req.Event.TTL())
 	log := c.log.WithEvent(req.Event)
+	// TODO: At this point I need to find the HTTP adapter this event is for
+	// and send the request to the adapter's URL with the adapter's headers.
+	adapter := &v1alpha1.HTTPAdapter{}
 
 	httpReq, err := req.Event.HTTPRequest(ctx)
 	if err != nil {
@@ -149,9 +145,9 @@ func (c *HTTPClient) SendEvent(req *BrokerEventContext) error {
 	comp := core.NewPlatformComponent(
 		api.ComponentTypeHTTPAdapter,
 		req.Event.Target.Name,
-		c.brk.Component().Hash,
+		c.brk.Component.Hash,
 	)
-	comp.Id, comp.BrokerId = c.brk.Component().Id, c.brk.Component().BrokerId
+	comp.Id, comp.BrokerId = c.brk.Component.Id, c.brk.Component.BrokerId
 
 	resp := core.NewResp(core.EventOpts{
 		Parent: req.Event,
@@ -178,7 +174,8 @@ func (c *HTTPClient) SendEvent(req *BrokerEventContext) error {
 			log.Debug(err)
 		}
 
-		c.brk.RecvEvent(resp, ReceiverHTTPClient)
+		// TODO: Is this the correct timestamp to pass along?
+		c.brk.SendResp(resp, req.ReceivedAt)
 	}()
 
 	return nil

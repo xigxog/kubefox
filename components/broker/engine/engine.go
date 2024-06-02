@@ -388,28 +388,27 @@ func (brk *broker) routeEvent(ctx *BrokerEventContext) (err error) {
 	ctx.Log.Debugf("matched event to target '%s'", ctx.Event.Target.GroupKey())
 
 	sendSpan := routeSpan.StartChildSpan("Send Event")
-	if ctx.TargetAdapter != nil {
-		// TODO move http client to adapter
-		err = brk.httpClient.SendEvent(ctx)
 
-	} else {
-		sub, found := brk.subMgr.Subscription(ctx.Event.Target)
-		switch {
-		case found:
-			// Found component subscribed via gRPC.
-			sendSpan.Name = "Send gRPC event"
-			ctx.Log.Debug("subscription found, sending event with gRPC")
-			err = sub.SendEvent(ctx)
+	// TODO: Problems I am facing that I need to figure out
+	// 1) All of the code to find the target adapater exists here in the broker. Because of this I need to pass along via gRPC context about the target adapter
+	// 2) OR look it up again in the HTTP server like: Host, potocol, options, header, ect....
 
-		case ctx.Receiver != ReceiverNATS && ctx.Event.Target.BrokerId != brk.comp.Id:
-			// Component not found locally, send via NATS.
-			sendSpan.Name = "Send NATS event"
-			ctx.Log.Debug("subscription not found, sending event with nats")
-			err = brk.natsClient.Publish(ctx.Event.Target.Subject(), ctx.Event)
+	sub, found := brk.subMgr.Subscription(ctx.Event.Target, ctx.TargetAdapter)
+	switch {
+	case found:
+		// Found component subscribed via gRPC.
+		sendSpan.Name = "Send gRPC event"
+		ctx.Log.Debug("subscription found, sending event with gRPC")
+		err = sub.SendEvent(ctx)
 
-		default:
-			err = core.ErrComponentGone()
-		}
+	case ctx.Receiver != ReceiverNATS && ctx.Event.Target.BrokerId != brk.comp.Id:
+		// Component not found locally, send via NATS.
+		sendSpan.Name = "Send NATS event"
+		ctx.Log.Debug("subscription not found, sending event with nats")
+		err = brk.natsClient.Publish(ctx.Event.Target.Subject(), ctx.Event)
+
+	default:
+		err = core.ErrComponentGone()
 	}
 	sendSpan.End(err)
 

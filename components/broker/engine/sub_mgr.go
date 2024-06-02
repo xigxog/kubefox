@@ -15,13 +15,14 @@ import (
 	"sync/atomic"
 
 	"github.com/xigxog/kubefox/api"
+	common "github.com/xigxog/kubefox/api/kubernetes"
 	"github.com/xigxog/kubefox/core"
 	"github.com/xigxog/kubefox/logkf"
 )
 
 type SubscriptionMgr interface {
 	Create(ctx context.Context, cfg *SubscriptionConf) (ReplicaSubscription, GroupSubscription, error)
-	Subscription(comp *core.Component) (Subscription, bool)
+	Subscription(comp *core.Component, targetAdapter common.Adapter) (Subscription, bool)
 	Close()
 }
 
@@ -156,8 +157,8 @@ func (mgr *subscriptionMgr) Create(ctx context.Context, cfg *SubscriptionConf) (
 	return sub, grpSub, nil
 }
 
-func (mgr *subscriptionMgr) Subscription(comp *core.Component) (Subscription, bool) {
-	if comp == nil {
+func (mgr *subscriptionMgr) Subscription(comp *core.Component, targetAdapter common.Adapter) (Subscription, bool) {
+	if comp == nil && targetAdapter == nil {
 		return nil, false
 	}
 
@@ -165,7 +166,33 @@ func (mgr *subscriptionMgr) Subscription(comp *core.Component) (Subscription, bo
 		return sub, true
 	}
 
+	// TODO: Is this the best place/way to find the correct adapter to forward the event to?
+	if sub, found := mgr.AdapterSubscription(targetAdapter); found {
+		return sub, true
+	}
+
 	return mgr.GroupSubscription(comp)
+}
+
+func (mgr *subscriptionMgr) AdapterSubscription(targetAdapter common.Adapter) (ReplicaSubscription, bool) {
+	if targetAdapter == nil || targetAdapter.GetComponentType() == "" {
+		return nil, false
+	}
+
+	mgr.mutex.RLock()
+	defer mgr.mutex.RUnlock()
+
+	var sub ReplicaSubscription
+	found := false
+	found_debug := false
+	for _, sub_map := range mgr.subMap {
+		if !found_debug && sub_map.ComponentDef().Type == targetAdapter.GetComponentType() {
+			sub, found = sub_map, true
+			found_debug = sub_map.comp.Hash == "debug"
+		}
+	}
+
+	return sub, found
 }
 
 func (mgr *subscriptionMgr) ReplicaSubscription(comp *core.Component) (ReplicaSubscription, bool) {
