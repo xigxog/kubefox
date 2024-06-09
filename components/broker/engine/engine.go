@@ -70,7 +70,6 @@ type broker struct {
 	grpcSrv *GRPCServer
 
 	natsClient *NATSClient
-	httpClient *HTTPClient
 	k8sClient  client.Client
 
 	healthSrv *brktel.HealthServer
@@ -114,7 +113,6 @@ func New() Engine {
 	}
 	brk.grpcSrv = NewGRPCServer(brk)
 	brk.natsClient = NewNATSClient(brk)
-	brk.httpClient = NewHTTPClient(brk)
 
 	return brk
 }
