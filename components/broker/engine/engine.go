@@ -389,10 +389,6 @@ func (brk *broker) routeEvent(ctx *BrokerEventContext) (err error) {
 
 	sendSpan := routeSpan.StartChildSpan("Send Event")
 
-	// TODO: Problems I am facing that I need to figure out
-	// 1) All of the code to find the target adapater exists here in the broker. Because of this I need to pass along via gRPC context about the target adapter
-	// 2) OR look it up again in the HTTP server like: Host, potocol, options, header, ect....
-
 	sub, found := brk.subMgr.Subscription(ctx.Event.Target, ctx.TargetAdapter)
 	switch {
 	case found:
