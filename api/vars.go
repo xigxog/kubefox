@@ -259,6 +259,7 @@ const (
 	ValKeyStatusCode   = "statusCode"
 	ValKeyURL          = "url"
 	ValKeyVaultURL     = "vaultURL"
+	ValKeySpec         = "spec"
 )
 
 // Headers and query params.

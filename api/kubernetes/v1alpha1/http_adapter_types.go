@@ -9,6 +9,7 @@
 package v1alpha1
 
 import (
+	"encoding/json"
 	"fmt"
 
 	"github.com/xigxog/kubefox/api"
@@ -112,25 +113,26 @@ func (a *HTTPAdapter) Validate(data *api.Data) api.Problems {
 	return problems
 }
 
-func (a *HTTPAdapter) Resolve(data *api.Data) error {
+func (a *HTTPAdapter) Resolve(data *api.Data) ([]byte, error) {
 	tpl := a.getTemplate()
 
-	url, err := tpl.URL.Resolve(data, true)
+	_, err := tpl.URL.Resolve(data, true)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	headers := make(map[string]string, len(tpl.Headers))
 	for k, v := range tpl.Headers {
 		if headers[k], err = v.Resolve(data, true); err != nil {
-			return err
+			return nil, err
 		}
 	}
 
-	a.Spec.URL = url
-	a.Spec.Headers = headers
-
-	return nil
+	spec, err := json.Marshal(a.Spec)
+	if err != nil {
+		return nil, err
+	}
+	return spec, nil
 }
 
 func (a *HTTPAdapter) getTemplate() *HTTPAdapterTemplate {

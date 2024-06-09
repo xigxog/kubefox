@@ -479,9 +479,15 @@ func (brk *broker) findTarget(ctx *BrokerEventContext) (err error) {
 				if ctx.TargetAdapter, err = brk.store.Adapter(ctx, ctx.Event.Target.Name, typ); err != nil {
 					return err
 				}
-				if err := ctx.TargetAdapter.Resolve(ctx.Data); err != nil {
+				// TODO: Data on `ctx.Event.Target` still need to be filled out, however,
+				// at this point in time we cannot fill in all fields of data that are
+				// required to match to a group subscription.
+
+				spec, err := ctx.TargetAdapter.Resolve(ctx.Data)
+				if err != nil {
 					return err
 				}
+				ctx.Event.SetSpec(spec)
 
 				return nil
 			}

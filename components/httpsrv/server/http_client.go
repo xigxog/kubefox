@@ -12,6 +12,7 @@ import (
 	"context"
 	"crypto/tls"
 	"crypto/x509"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -21,7 +22,6 @@ import (
 
 	"github.com/xigxog/kubefox/api"
 	"github.com/xigxog/kubefox/api/kubernetes/v1alpha1"
-	"github.com/xigxog/kubefox/components/broker/config"
 	"github.com/xigxog/kubefox/core"
 	"github.com/xigxog/kubefox/grpc"
 	"github.com/xigxog/kubefox/logkf"
@@ -97,9 +97,16 @@ func NewHTTPClient(brk *grpc.Client) *HTTPClient {
 func (c *HTTPClient) SendEvent(req *grpc.ComponentEvent) error {
 	ctx, cancel := context.WithTimeout(context.Background(), req.Event.TTL())
 	log := c.log.WithEvent(req.Event)
-	// TODO: At this point I need to find the HTTP adapter this event is for
-	// and send the request to the adapter's URL with the adapter's headers.
+
 	adapter := &v1alpha1.HTTPAdapter{}
+	stringSpec := req.Event.GetValue(api.ValKeySpec).GetStringValue()
+
+	err := json.Unmarshal([]byte(stringSpec), &adapter.Spec)
+
+	if err != nil {
+		cancel()
+		return core.ErrInvalid(fmt.Errorf("error parsing adapter spec: %v", err))
+	}
 
 	httpReq, err := req.Event.HTTPRequest(ctx)
 	if err != nil {
@@ -162,7 +169,7 @@ func (c *HTTPClient) SendEvent(req *grpc.ComponentEvent) error {
 		if httpResp, err := c.adapterClient(adapter).Do(httpReq); err != nil {
 			reqErr = core.ErrUnexpected(fmt.Errorf("http request failed: %v", err))
 		} else {
-			reqErr = resp.SetHTTPResponse(httpResp, config.MaxEventSize)
+			reqErr = resp.SetHTTPResponse(httpResp, MaxEventSize)
 		}
 		if reqErr != nil {
 			if !errors.Is(reqErr, &core.Err{}) {
@@ -174,7 +181,6 @@ func (c *HTTPClient) SendEvent(req *grpc.ComponentEvent) error {
 			log.Debug(err)
 		}
 
-		// TODO: Is this the correct timestamp to pass along?
 		c.brk.SendResp(resp, req.ReceivedAt)
 	}()
 

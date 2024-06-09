@@ -368,6 +368,10 @@ func (evt *Event) SetValueProto(key string, val *structpb.Value) {
 	evt.Values[key] = val
 }
 
+func (evt *Event) SetSpec(spec []byte) {
+	evt.SetValue(api.ValKeySpec, string(spec))
+}
+
 func (evt *Event) TTL() time.Duration {
 	return time.Duration(evt.Ttl) * time.Nanosecond
 }

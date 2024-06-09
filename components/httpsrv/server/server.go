@@ -137,8 +137,6 @@ func (srv *Server) Run() error {
 }
 
 func (srv *Server) ReceiveEvent(req *grpc.ComponentEvent) {
-	req.Event.ReduceTTL(req.ReceivedAt)
-
 	srv.log.WithEvent(req.Event)
 	srv.httpClient.SendEvent(req)
 }
