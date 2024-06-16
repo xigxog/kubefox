@@ -452,13 +452,6 @@ func (x *Event) GetValues() map[string]*structpb.Value {
 	return nil
 }
 
-func (x *Event) GetValue(key string) *structpb.Value {
-	if x != nil && x.Values != nil {
-		return x.Values[key]
-	}
-	return nil
-}
-
 func (x *Event) GetContentType() string {
 	if x != nil {
 		return x.ContentType
