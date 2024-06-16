@@ -36,7 +36,7 @@ type Adapter interface {
 
 	GetComponentType() api.ComponentType
 	Validate(data *api.Data) api.Problems
-	Resolve(data *api.Data) ([]byte, error)
+	Resolve(data *api.Data) (any, error)
 }
 
 // +kubebuilder:object:generate=false

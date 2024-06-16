@@ -54,8 +54,9 @@ type SubscriptionConf struct {
 }
 
 type subscriptionMgr struct {
-	subMap map[string]*subscription
-	grpMap map[string]*groupSubscription
+	subMap     map[string]*subscription
+	adapterMap map[api.ComponentType]*subscription
+	grpMap     map[string]*groupSubscription
 
 	mutex sync.RWMutex
 
@@ -95,9 +96,10 @@ type sendResp struct {
 
 func NewManager() SubscriptionMgr {
 	return &subscriptionMgr{
-		subMap: make(map[string]*subscription),
-		grpMap: make(map[string]*groupSubscription),
-		log:    logkf.Global,
+		subMap:     make(map[string]*subscription),
+		adapterMap: make(map[api.ComponentType]*subscription),
+		grpMap:     make(map[string]*groupSubscription),
+		log:        logkf.Global,
 	}
 }
 
@@ -154,6 +156,11 @@ func (mgr *subscriptionMgr) Create(ctx context.Context, cfg *SubscriptionConf) (
 	}
 	mgr.subMap[cfg.Component.Id] = sub
 
+	componentType := api.ComponentType(cfg.Component.Type)
+	if componentType.IsAdapter() {
+		mgr.adapterMap[componentType] = sub
+	}
+
 	return sub, grpSub, nil
 }
 
@@ -166,15 +173,14 @@ func (mgr *subscriptionMgr) Subscription(comp *core.Component, targetAdapter com
 		return sub, true
 	}
 
-	// TODO: Is this the best place/way to find the correct adapter to forward the event to?
-	if sub, found := mgr.AdapterSubscription(targetAdapter); found {
+	if sub, found := mgr.AdapterSubscription(comp, targetAdapter); found {
 		return sub, true
 	}
 
 	return mgr.GroupSubscription(comp)
 }
 
-func (mgr *subscriptionMgr) AdapterSubscription(targetAdapter common.Adapter) (ReplicaSubscription, bool) {
+func (mgr *subscriptionMgr) AdapterSubscription(comp *core.Component, targetAdapter common.Adapter) (ReplicaSubscription, bool) {
 	if targetAdapter == nil || targetAdapter.GetComponentType() == "" {
 		return nil, false
 	}
@@ -182,17 +188,16 @@ func (mgr *subscriptionMgr) AdapterSubscription(targetAdapter common.Adapter) (R
 	mgr.mutex.RLock()
 	defer mgr.mutex.RUnlock()
 
-	var sub ReplicaSubscription
-	found := false
-	found_debug := false
-	for _, sub_map := range mgr.subMap {
-		if !found_debug && sub_map.ComponentDef().Type == targetAdapter.GetComponentType() {
-			sub, found = sub_map, true
-			found_debug = sub_map.comp.Hash == "debug"
-		}
+	sub, found := mgr.adapterMap[targetAdapter.GetComponentType()]
+	if !found || sub == nil || !sub.IsActive() {
+		return nil, false
 	}
 
-	return sub, found
+	subscribedComponent := sub.Component()
+	comp.Hash = subscribedComponent.Hash
+	comp.Name = subscribedComponent.Name
+
+	return sub, true
 }
 
 func (mgr *subscriptionMgr) ReplicaSubscription(comp *core.Component) (ReplicaSubscription, bool) {

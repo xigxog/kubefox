@@ -70,12 +70,10 @@ func (lhs *Component) Equal(rhs *Component) bool {
 	if lhs == nil || rhs == nil {
 		return false
 	}
-	// TODO: Name cannot be added as the name of the component will not match
-	// the name of the adapter that it was matched to.
-	// Error: component unauthorized: event from 'httpsrv-debug-nd2w3odf5r' claiming to be 'httpbin-debug-nd2w3odf5r' for platform 'debug'
+
 	return lhs.Type == rhs.Type &&
 		lhs.App == rhs.App &&
-		// lhs.Name == rhs.Name &&
+		lhs.Name == rhs.Name &&
 		lhs.Hash == rhs.Hash &&
 		lhs.Id == rhs.Id &&
 		lhs.BrokerId == rhs.BrokerId

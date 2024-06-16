@@ -39,42 +39,16 @@ type Server struct {
 
 	wrapped    *http.Server
 	brk        *grpc.Client
-	wg         sync.WaitGroup
 	httpClient *HTTPClient
 
 	log *logkf.Logger
 }
 
-func New(comp *core.Component, pod string, tokenPath string) *Server {
-	broker := grpc.NewClient(grpc.ClientOpts{
-		Platform:      Platform,
-		Component:     comp,
-		Pod:           pod,
-		BrokerAddr:    BrokerAddr,
-		HealthSrvAddr: HealthSrvAddr,
-		TokenPath:     tokenPath,
-	})
+func New(broker *grpc.Client, httpClient *HTTPClient) *Server {
 	return &Server{
 		brk:        broker,
-		httpClient: NewHTTPClient(broker),
+		httpClient: httpClient,
 		log:        logkf.Global,
-	}
-}
-
-func (srv *Server) startWorker(id int) {
-	log := srv.log.With(logkf.KeyWorker, fmt.Sprintf("worker-%d", id))
-	defer func() {
-		log.Info("worker stopped")
-		srv.wg.Done()
-	}()
-
-	for {
-		select {
-		case req := <-srv.brk.Req():
-			srv.ReceiveEvent(req)
-		case err := <-srv.brk.Err():
-			srv.log.Errorf("server error: %v", err)
-		}
 	}
 }
 
@@ -128,17 +102,7 @@ func (srv *Server) Run() error {
 
 	go srv.brk.Start(&api.ComponentDefinition{Type: api.ComponentTypeHTTPAdapter}, maxAttempts)
 
-	numWorkers := 1
-	srv.wg.Add(numWorkers)
-	for i := 0; i < numWorkers; i++ {
-		go srv.startWorker(i)
-	}
 	return <-srv.brk.Err()
-}
-
-func (srv *Server) ReceiveEvent(req *grpc.ComponentEvent) {
-	srv.log.WithEvent(req.Event)
-	srv.httpClient.SendEvent(req)
 }
 
 func (srv *Server) Shutdown() {

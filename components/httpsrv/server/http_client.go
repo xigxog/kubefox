@@ -99,9 +99,7 @@ func (c *HTTPClient) SendEvent(req *grpc.ComponentEvent) error {
 	log := c.log.WithEvent(req.Event)
 
 	adapter := &v1alpha1.HTTPAdapter{}
-	stringSpec := req.Event.GetValue(api.ValKeySpec).GetStringValue()
-
-	err := json.Unmarshal([]byte(stringSpec), &adapter.Spec)
+	err := req.Event.Spec(&adapter.Spec)
 
 	if err != nil {
 		cancel()
@@ -178,7 +176,7 @@ func (c *HTTPClient) SendEvent(req *grpc.ComponentEvent) error {
 			resp.Type = string(api.EventTypeError)
 			resp.SetJSON(reqErr)
 
-			log.Debug(err)
+			log.Debug(reqErr)
 		}
 
 		c.brk.SendResp(resp, req.ReceivedAt)

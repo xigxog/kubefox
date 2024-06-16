@@ -18,6 +18,7 @@ import (
 	"github.com/xigxog/kubefox/build"
 	"github.com/xigxog/kubefox/components/httpsrv/server"
 	"github.com/xigxog/kubefox/core"
+	"github.com/xigxog/kubefox/grpc"
 	"github.com/xigxog/kubefox/logkf"
 	"github.com/xigxog/kubefox/telemetry"
 	"github.com/xigxog/kubefox/utils"
@@ -35,6 +36,7 @@ func main() {
 	flag.StringVar(&server.BrokerAddr, "broker-addr", "127.0.0.1:6060", "Address and port of the Broker gRPC server.")
 	flag.StringVar(&server.HealthSrvAddr, "health-addr", "127.0.0.1:1111", `Address and port the HTTP health server should bind to, set to "false" to disable.`)
 	flag.Int64Var(&server.MaxEventSize, "max-event-size", api.DefaultMaxEventSizeBytes, "Maximum size of event in bytes.")
+	flag.IntVar(&server.EventListenerSize, "http-listener-size", api.DefaultEventListenerSize, "The number of event listeners for the HTTP server.")
 	flag.DurationVar(&server.EventTimeout, "timeout", time.Minute, "Default timeout for an event.")
 	flag.StringVar(&logFormat, "log-format", "console", "Log format. [options 'json', 'console']")
 	flag.StringVar(&logLevel, "log-level", "debug", "Log level. [options 'debug', 'info', 'warn', 'error']")
@@ -67,8 +69,22 @@ func main() {
 
 	telemetry.SetComponent(comp)
 
-	srv := server.New(comp, pod, tokenPath)
+	broker := grpc.NewClient(grpc.ClientOpts{
+		Platform:      server.Platform,
+		Component:     comp,
+		Pod:           pod,
+		BrokerAddr:    server.BrokerAddr,
+		HealthSrvAddr: server.HealthSrvAddr,
+		TokenPath:     tokenPath,
+	})
+
+	httpClient := server.NewHTTPClient(broker)
+
+	srv := server.New(broker, httpClient)
 	defer srv.Shutdown()
+
+	listener := server.NewListener(broker, httpClient)
+	listener.StartWorkers(server.EventListenerSize)
 
 	if err := srv.Run(); err != nil {
 		logkf.Global.Fatal(err)

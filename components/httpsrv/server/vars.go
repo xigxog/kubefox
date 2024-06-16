@@ -18,4 +18,5 @@ var (
 	BrokerAddr, HealthSrvAddr string
 	EventTimeout              time.Duration
 	MaxEventSize              int64
+	EventListenerSize         int
 )
