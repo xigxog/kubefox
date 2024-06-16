@@ -181,7 +181,7 @@ func (mgr *subscriptionMgr) Subscription(comp *core.Component, targetAdapter com
 }
 
 func (mgr *subscriptionMgr) AdapterSubscription(comp *core.Component, targetAdapter common.Adapter) (ReplicaSubscription, bool) {
-	if targetAdapter == nil || targetAdapter.GetComponentType() == "" {
+	if comp == nil || targetAdapter == nil || targetAdapter.GetComponentType() == "" {
 		return nil, false
 	}
 
