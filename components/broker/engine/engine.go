@@ -387,7 +387,7 @@ func (brk *broker) routeEvent(ctx *BrokerEventContext) (err error) {
 
 	sendSpan := routeSpan.StartChildSpan("Send Event")
 
-	sub, found := brk.subMgr.Subscription(ctx.Event.Target, ctx.TargetAdapter)
+	sub, found := brk.subMgr.Subscription(ctx.Event.Target)
 	switch {
 	case found:
 		// Found component subscribed via gRPC.
@@ -479,6 +479,14 @@ func (brk *broker) findTarget(ctx *BrokerEventContext) (err error) {
 					return err
 				}
 				ctx.Event.SetSpec(spec)
+
+				targetAdapter := ctx.TargetAdapter
+
+				sub, found := brk.subMgr.Adapter(targetAdapter.GetComponentType())
+				if found && sub != nil && sub.IsActive() {
+					ctx.Event.Target.Hash = sub.ShortHash()
+					ctx.Event.Target.Name = sub.Name()
+				}
 
 				return nil
 			}

@@ -126,13 +126,12 @@ func (a *HTTPAdapter) Resolve(data *api.Data) (any, error) {
 			return nil, err
 		}
 	}
+	copy := a.Spec.DeepCopy()
 
-	a.Spec.URL = url
-	a.Spec.Headers = headers
+	copy.URL = url
+	copy.Headers = headers
 
-	copy := a.DeepCopy().Spec
-
-	return &copy, nil
+	return copy, nil
 }
 
 func (a *HTTPAdapter) getTemplate() *HTTPAdapterTemplate {

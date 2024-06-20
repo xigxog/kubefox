@@ -6,7 +6,7 @@
 //
 // SPDX-License-Identifier: MPL-2.0
 
-package server
+package adapter
 
 import (
 	"context"
@@ -98,9 +98,8 @@ func (c *HTTPClient) SendEvent(req *grpc.ComponentEvent) error {
 	log := c.log.WithEvent(req.Event)
 
 	adapter := &v1alpha1.HTTPAdapter{}
-	err := req.Event.Spec(&adapter.Spec)
 
-	if err != nil {
+	if err := req.Event.Spec(&adapter.Spec); err != nil {
 		cancel()
 		return core.ErrInvalid(fmt.Errorf("error parsing adapter spec: %v", err))
 	}

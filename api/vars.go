@@ -37,7 +37,6 @@ const (
 	DefaultReleaseHistoryAgeLimit           = 0
 	DefaultReleaseHistoryCountLimit         = 10
 	DefaultTimeoutSeconds                   = 30
-	DefaultEventListenerSize                = 1
 )
 
 // Kubernetes Labels

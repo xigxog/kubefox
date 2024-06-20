@@ -15,15 +15,15 @@ import (
 	"sync/atomic"
 
 	"github.com/xigxog/kubefox/api"
-	common "github.com/xigxog/kubefox/api/kubernetes"
 	"github.com/xigxog/kubefox/core"
 	"github.com/xigxog/kubefox/logkf"
 )
 
 type SubscriptionMgr interface {
 	Create(ctx context.Context, cfg *SubscriptionConf) (ReplicaSubscription, GroupSubscription, error)
-	Subscription(comp *core.Component, targetAdapter common.Adapter) (Subscription, bool)
+	Subscription(comp *core.Component) (Subscription, bool)
 	Close()
+	Adapter(componentType api.ComponentType) (GroupSubscription, bool)
 }
 
 type Subscription interface {
@@ -34,6 +34,8 @@ type Subscription interface {
 
 type GroupSubscription interface {
 	Subscription
+	ShortHash() string
+	Name() string
 }
 
 type ReplicaSubscription interface {
@@ -55,7 +57,7 @@ type SubscriptionConf struct {
 
 type subscriptionMgr struct {
 	subMap     map[string]*subscription
-	adapterMap map[api.ComponentType]*subscription
+	adapterMap map[api.ComponentType]*groupSubscription
 	grpMap     map[string]*groupSubscription
 
 	mutex sync.RWMutex
@@ -64,8 +66,10 @@ type subscriptionMgr struct {
 }
 
 type groupSubscription struct {
-	subMap map[string]bool
-	sendCh chan *evtRespCh
+	shortHash string
+	name      string
+	subMap    map[string]bool
+	sendCh    chan *evtRespCh
 
 	ctx    context.Context
 	cancel context.CancelFunc
@@ -97,10 +101,15 @@ type sendResp struct {
 func NewManager() SubscriptionMgr {
 	return &subscriptionMgr{
 		subMap:     make(map[string]*subscription),
-		adapterMap: make(map[api.ComponentType]*subscription),
+		adapterMap: make(map[api.ComponentType]*groupSubscription),
 		grpMap:     make(map[string]*groupSubscription),
 		log:        logkf.Global,
 	}
+}
+
+func (mgr *subscriptionMgr) Adapter(componentType api.ComponentType) (GroupSubscription, bool) {
+	mapValue := mgr.adapterMap[componentType]
+	return mapValue, mapValue != nil
 }
 
 func (mgr *subscriptionMgr) Create(ctx context.Context, cfg *SubscriptionConf) (ReplicaSubscription, GroupSubscription, error) {
@@ -129,10 +138,12 @@ func (mgr *subscriptionMgr) Create(ctx context.Context, cfg *SubscriptionConf) (
 		if !found {
 			ctx, cancel := context.WithCancel(context.Background())
 			s = &groupSubscription{
-				subMap: make(map[string]bool),
-				sendCh: make(chan *evtRespCh),
-				ctx:    ctx,
-				cancel: cancel,
+				shortHash: cfg.Component.ShortHash(),
+				name:      cfg.Component.Name,
+				subMap:    make(map[string]bool),
+				sendCh:    make(chan *evtRespCh),
+				ctx:       ctx,
+				cancel:    cancel,
 			}
 			mgr.grpMap[cfg.Component.GroupKey()] = s
 		}
@@ -153,19 +164,19 @@ func (mgr *subscriptionMgr) Create(ctx context.Context, cfg *SubscriptionConf) (
 	if grpSub != nil {
 		sub.sendCh = grpSub.sendCh
 		go sub.processSendChan()
+
+		componentType := api.ComponentType(cfg.Component.Type)
+		if componentType.IsAdapter() {
+			mgr.adapterMap[componentType] = grpSub
+		}
 	}
 	mgr.subMap[cfg.Component.Id] = sub
-
-	componentType := api.ComponentType(cfg.Component.Type)
-	if componentType.IsAdapter() {
-		mgr.adapterMap[componentType] = sub
-	}
 
 	return sub, grpSub, nil
 }
 
-func (mgr *subscriptionMgr) Subscription(comp *core.Component, targetAdapter common.Adapter) (Subscription, bool) {
-	if comp == nil && targetAdapter == nil {
+func (mgr *subscriptionMgr) Subscription(comp *core.Component) (Subscription, bool) {
+	if comp == nil {
 		return nil, false
 	}
 
@@ -173,31 +184,7 @@ func (mgr *subscriptionMgr) Subscription(comp *core.Component, targetAdapter com
 		return sub, true
 	}
 
-	if sub, found := mgr.AdapterSubscription(comp, targetAdapter); found {
-		return sub, true
-	}
-
 	return mgr.GroupSubscription(comp)
-}
-
-func (mgr *subscriptionMgr) AdapterSubscription(comp *core.Component, targetAdapter common.Adapter) (ReplicaSubscription, bool) {
-	if comp == nil || targetAdapter == nil || targetAdapter.GetComponentType() == "" {
-		return nil, false
-	}
-
-	mgr.mutex.RLock()
-	defer mgr.mutex.RUnlock()
-
-	sub, found := mgr.adapterMap[targetAdapter.GetComponentType()]
-	if !found || sub == nil || !sub.IsActive() {
-		return nil, false
-	}
-
-	subscribedComponent := sub.Component()
-	comp.Hash = subscribedComponent.Hash
-	comp.Name = subscribedComponent.Name
-
-	return sub, true
 }
 
 func (mgr *subscriptionMgr) ReplicaSubscription(comp *core.Component) (ReplicaSubscription, bool) {
@@ -272,6 +259,14 @@ func (mgr *subscriptionMgr) cancel(sub *subscription, err error) {
 	}
 
 	delete(mgr.subMap, sub.comp.Id)
+}
+
+func (sub *groupSubscription) ShortHash() string {
+	return sub.shortHash
+}
+
+func (sub *groupSubscription) Name() string {
+	return sub.name
 }
 
 func (grp *groupSubscription) SendEvent(evt *BrokerEventContext) error {

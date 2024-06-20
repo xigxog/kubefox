@@ -6,7 +6,7 @@
 //
 // SPDX-License-Identifier: MPL-2.0
 
-package server
+package adapter
 
 import (
 	"context"
