@@ -480,9 +480,7 @@ func (brk *broker) findTarget(ctx *BrokerEventContext) (err error) {
 				}
 				ctx.Event.SetSpec(spec)
 
-				targetAdapter := ctx.TargetAdapter
-
-				sub, found := brk.subMgr.Adapter(targetAdapter.GetComponentType())
+				sub, found := brk.subMgr.Adapter(ctx.TargetAdapter.GetComponentType())
 				if found && sub != nil && sub.IsActive() {
 					ctx.Event.Target.Hash = sub.ShortHash()
 					ctx.Event.Target.Name = sub.Name()
