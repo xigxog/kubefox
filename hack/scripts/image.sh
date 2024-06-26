@@ -16,6 +16,7 @@ if ${DEBUG}; then
 	DOCKERFILE="--file Dockerfile.debug ."
 fi
 
+# Required dependency: https://github.com/containers/buildah/blob/main/install.md
 buildah bud --build-arg COMPONENT="${COMPONENT}" --build-arg COMPRESS="${COMPRESS}" --tag "${IMAGE}" ${DOCKERFILE}
 if ${KIND_LOAD}; then
 	buildah push "${IMAGE}" "docker-daemon:${IMAGE}"

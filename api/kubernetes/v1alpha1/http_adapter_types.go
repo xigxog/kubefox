@@ -112,25 +112,26 @@ func (a *HTTPAdapter) Validate(data *api.Data) api.Problems {
 	return problems
 }
 
-func (a *HTTPAdapter) Resolve(data *api.Data) error {
+func (a *HTTPAdapter) Resolve(data *api.Data) (any, error) {
 	tpl := a.getTemplate()
 
 	url, err := tpl.URL.Resolve(data, true)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	headers := make(map[string]string, len(tpl.Headers))
 	for k, v := range tpl.Headers {
 		if headers[k], err = v.Resolve(data, true); err != nil {
-			return err
+			return nil, err
 		}
 	}
+	copy := a.Spec.DeepCopy()
 
-	a.Spec.URL = url
-	a.Spec.Headers = headers
+	copy.URL = url
+	copy.Headers = headers
 
-	return nil
+	return copy, nil
 }
 
 func (a *HTTPAdapter) getTemplate() *HTTPAdapterTemplate {

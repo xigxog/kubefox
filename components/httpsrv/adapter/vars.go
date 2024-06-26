@@ -6,7 +6,7 @@
 //
 // SPDX-License-Identifier: MPL-2.0
 
-package server
+package adapter
 
 import (
 	"time"
@@ -18,4 +18,5 @@ var (
 	BrokerAddr, HealthSrvAddr string
 	EventTimeout              time.Duration
 	MaxEventSize              int64
+	WorkerCount               int
 )

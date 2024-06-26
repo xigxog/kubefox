@@ -70,6 +70,7 @@ func (lhs *Component) Equal(rhs *Component) bool {
 	if lhs == nil || rhs == nil {
 		return false
 	}
+
 	return lhs.Type == rhs.Type &&
 		lhs.App == rhs.App &&
 		lhs.Name == rhs.Name &&

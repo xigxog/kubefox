@@ -6,7 +6,7 @@
 //
 // SPDX-License-Identifier: MPL-2.0
 
-package engine
+package adapter
 
 import (
 	"context"
@@ -21,8 +21,8 @@ import (
 
 	"github.com/xigxog/kubefox/api"
 	"github.com/xigxog/kubefox/api/kubernetes/v1alpha1"
-	"github.com/xigxog/kubefox/components/broker/config"
 	"github.com/xigxog/kubefox/core"
+	"github.com/xigxog/kubefox/grpc"
 	"github.com/xigxog/kubefox/logkf"
 )
 
@@ -32,12 +32,12 @@ type HTTPClient struct {
 	secureTransport   *http.Transport
 	insecureTransport *http.Transport
 
-	brk Broker
+	brk *grpc.Client
 
 	log *logkf.Logger
 }
 
-func NewHTTPClient(brk Broker) *HTTPClient {
+func NewHTTPClient(brk *grpc.Client) *HTTPClient {
 	clients := make(map[string]*http.Client, 7)
 
 	// TODO support live refresh of root ca
@@ -93,17 +93,16 @@ func NewHTTPClient(brk Broker) *HTTPClient {
 	}
 }
 
-func (c *HTTPClient) SendEvent(req *BrokerEventContext) error {
-	if req.TargetAdapter == nil {
-		return core.ErrInvalid(fmt.Errorf("adapter is missing"))
-	}
-	adapter, ok := req.TargetAdapter.(*v1alpha1.HTTPAdapter)
-	if !ok {
-		return core.ErrInvalid(fmt.Errorf("adapter is not HTTPAdapter"))
-	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), req.TTL())
+func (c *HTTPClient) SendEvent(req *grpc.ComponentEvent) error {
+	ctx, cancel := context.WithTimeout(context.Background(), req.Event.TTL())
 	log := c.log.WithEvent(req.Event)
+
+	adapter := &v1alpha1.HTTPAdapter{}
+
+	if err := req.Event.Spec(&adapter.Spec); err != nil {
+		cancel()
+		return core.ErrInvalid(fmt.Errorf("error parsing adapter spec: %v", err))
+	}
 
 	httpReq, err := req.Event.HTTPRequest(ctx)
 	if err != nil {
@@ -115,6 +114,9 @@ func (c *HTTPClient) SendEvent(req *BrokerEventContext) error {
 		return core.ErrInvalid(fmt.Errorf("error parsing adapter url: %v", err))
 
 	} else {
+		if adapterURL.Path == "" {
+			adapterURL.Path = "/"
+		}
 		adapterURL = adapterURL.JoinPath(httpReq.URL.EscapedPath())
 
 		httpReq.Host = adapterURL.Host
@@ -146,9 +148,9 @@ func (c *HTTPClient) SendEvent(req *BrokerEventContext) error {
 	comp := core.NewPlatformComponent(
 		api.ComponentTypeHTTPAdapter,
 		req.Event.Target.Name,
-		c.brk.Component().Hash,
+		c.brk.Component.Hash,
 	)
-	comp.Id, comp.BrokerId = c.brk.Component().Id, c.brk.Component().BrokerId
+	comp.Id, comp.BrokerId = c.brk.Component.Id, c.brk.Component.BrokerId
 
 	resp := core.NewResp(core.EventOpts{
 		Parent: req.Event,
@@ -163,7 +165,7 @@ func (c *HTTPClient) SendEvent(req *BrokerEventContext) error {
 		if httpResp, err := c.adapterClient(adapter).Do(httpReq); err != nil {
 			reqErr = core.ErrUnexpected(fmt.Errorf("http request failed: %v", err))
 		} else {
-			reqErr = resp.SetHTTPResponse(httpResp, config.MaxEventSize)
+			reqErr = resp.SetHTTPResponse(httpResp, MaxEventSize)
 		}
 		if reqErr != nil {
 			if !errors.Is(reqErr, &core.Err{}) {
@@ -172,10 +174,10 @@ func (c *HTTPClient) SendEvent(req *BrokerEventContext) error {
 			resp.Type = string(api.EventTypeError)
 			resp.SetJSON(reqErr)
 
-			log.Debug(err)
+			log.Debug(reqErr)
 		}
 
-		c.brk.RecvEvent(resp, ReceiverHTTPClient)
+		c.brk.SendResp(resp, req.ReceivedAt)
 	}()
 
 	return nil

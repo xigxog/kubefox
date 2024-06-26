@@ -35,7 +35,12 @@ trap 'teardown' SIGINT SIGTERM
 
 INSTANCE_NS="kubefox-system"
 PLATFORM_NS="kubefox-debug"
-IP=$(hostname -I | awk '{print $1}')
+
+# Alternative method to get the IP address
+# IP=$(hostname --ip-address | awk '{print $1}')
+
+# Depends on the jq package
+IP=$(ip -json route get 8.8.8.8 | jq -r '.[].prefsrc')
 
 HOST_IP=${HOST_IP:-"${IP}"}
 
@@ -60,7 +65,7 @@ go run ./components/bootstrap/main.go \
     -platform-namespace=${PLATFORM_NS} \
     -component=broker \
     -component-service-name=debug-broker.${PLATFORM_NS} \
-    -component-ip=${IP} \
+    -component-ip=${HOST_IP} \
     -vault-url=https://127.0.0.1:8200 \
     -log-format=console \
     -log-level=debug \
@@ -71,7 +76,7 @@ echo "Patching Platform to enable debug..."
 kubectl patch \
     -n ${PLATFORM_NS} platform/debug \
     --type merge \
-    --patch '{"spec":{"telemetry":{"logs":{"format":"console","level":"debug"}},"debug":{"enabled":true,"brokerAddr":"'${IP}':6060"}}}'
+    --patch '{"spec":{"telemetry":{"logs":{"format":"console","level":"debug"}},"debug":{"enabled":true,"brokerAddr":"'${HOST_IP}':6060"}}}'
 sleep 1
 echo
 

@@ -6,7 +6,7 @@
 //
 // SPDX-License-Identifier: MPL-2.0
 
-package server
+package adapter
 
 import (
 	"context"
@@ -37,23 +37,18 @@ const (
 type Server struct {
 	sync.Mutex
 
-	wrapped *http.Server
-	brk     *grpc.Client
+	wrapped    *http.Server
+	brk        *grpc.Client
+	httpClient *HTTPClient
 
 	log *logkf.Logger
 }
 
-func New(comp *core.Component, pod string, tokenPath string) *Server {
+func New(broker *grpc.Client, httpClient *HTTPClient) *Server {
 	return &Server{
-		brk: grpc.NewClient(grpc.ClientOpts{
-			Platform:      Platform,
-			Component:     comp,
-			Pod:           pod,
-			BrokerAddr:    BrokerAddr,
-			HealthSrvAddr: HealthSrvAddr,
-			TokenPath:     tokenPath,
-		}),
-		log: logkf.Global,
+		brk:        broker,
+		httpClient: httpClient,
+		log:        logkf.Global,
 	}
 }
 

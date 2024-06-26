@@ -70,7 +70,6 @@ type broker struct {
 	grpcSrv *GRPCServer
 
 	natsClient *NATSClient
-	httpClient *HTTPClient
 	k8sClient  client.Client
 
 	healthSrv *brktel.HealthServer
@@ -114,7 +113,6 @@ func New() Engine {
 	}
 	brk.grpcSrv = NewGRPCServer(brk)
 	brk.natsClient = NewNATSClient(brk)
-	brk.httpClient = NewHTTPClient(brk)
 
 	return brk
 }
@@ -388,28 +386,23 @@ func (brk *broker) routeEvent(ctx *BrokerEventContext) (err error) {
 	ctx.Log.Debugf("matched event to target '%s'", ctx.Event.Target.GroupKey())
 
 	sendSpan := routeSpan.StartChildSpan("Send Event")
-	if ctx.TargetAdapter != nil {
-		// TODO move http client to adapter
-		err = brk.httpClient.SendEvent(ctx)
 
-	} else {
-		sub, found := brk.subMgr.Subscription(ctx.Event.Target)
-		switch {
-		case found:
-			// Found component subscribed via gRPC.
-			sendSpan.Name = "Send gRPC event"
-			ctx.Log.Debug("subscription found, sending event with gRPC")
-			err = sub.SendEvent(ctx)
+	sub, found := brk.subMgr.Subscription(ctx.Event.Target)
+	switch {
+	case found:
+		// Found component subscribed via gRPC.
+		sendSpan.Name = "Send gRPC event"
+		ctx.Log.Debug("subscription found, sending event with gRPC")
+		err = sub.SendEvent(ctx)
 
-		case ctx.Receiver != ReceiverNATS && ctx.Event.Target.BrokerId != brk.comp.Id:
-			// Component not found locally, send via NATS.
-			sendSpan.Name = "Send NATS event"
-			ctx.Log.Debug("subscription not found, sending event with nats")
-			err = brk.natsClient.Publish(ctx.Event.Target.Subject(), ctx.Event)
+	case ctx.Receiver != ReceiverNATS && ctx.Event.Target.BrokerId != brk.comp.Id:
+		// Component not found locally, send via NATS.
+		sendSpan.Name = "Send NATS event"
+		ctx.Log.Debug("subscription not found, sending event with nats")
+		err = brk.natsClient.Publish(ctx.Event.Target.Subject(), ctx.Event)
 
-		default:
-			err = core.ErrComponentGone()
-		}
+	default:
+		err = core.ErrComponentGone()
 	}
 	sendSpan.End(err)
 
@@ -480,8 +473,17 @@ func (brk *broker) findTarget(ctx *BrokerEventContext) (err error) {
 				if ctx.TargetAdapter, err = brk.store.Adapter(ctx, ctx.Event.Target.Name, typ); err != nil {
 					return err
 				}
-				if err := ctx.TargetAdapter.Resolve(ctx.Data); err != nil {
+
+				spec, err := ctx.TargetAdapter.Resolve(ctx.Data)
+				if err != nil {
 					return err
+				}
+				ctx.Event.SetSpec(spec)
+
+				sub, found := brk.subMgr.Adapter(ctx.TargetAdapter.GetComponentType())
+				if found && sub != nil && sub.IsActive() {
+					ctx.Event.Target.Hash = sub.ShortHash()
+					ctx.Event.Target.Name = sub.Name()
 				}
 
 				return nil

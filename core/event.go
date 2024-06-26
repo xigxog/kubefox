@@ -368,6 +368,19 @@ func (evt *Event) SetValueProto(key string, val *structpb.Value) {
 	evt.Values[key] = val
 }
 
+func (evt *Event) SetSpec(spec any) error {
+	b, err := json.Marshal(spec)
+	if err != nil {
+		return err
+	}
+	evt.SetValue(api.ValKeySpec, string(b))
+	return nil
+}
+
+func (evt *Event) Spec(spec any) error {
+	return json.Unmarshal([]byte(evt.Value(api.ValKeySpec)), spec)
+}
+
 func (evt *Event) TTL() time.Duration {
 	return time.Duration(evt.Ttl) * time.Nanosecond
 }
