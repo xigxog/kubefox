@@ -2,6 +2,7 @@ site_name: KubeFox
 site_url: https://docs.kubefox.io
 repo_url: https://github.com/xigxog/kubefox
 edit_uri: edit/main/docs
+docs_dir: 'docs'
 repo_name: xigxog/kubefox
 site_description: Documentation for KubeFox
 site_author: John Long
@@ -86,7 +87,9 @@ markdown_extensions:
       line_spans: __span
       pygments_lang_class: true
   - pymdownx.inlinehilite
-  - pymdownx.snippets
+  - pymdownx.snippets:
+      base_path: !relative $config_dir # relative to the current Markdown file
+      check_paths: true
   - pymdownx.superfences:
       custom_fences:
         - name: mermaid

@@ -25,6 +25,15 @@ h2 {
   padding-bottom: 4px;
 }
 
+.tabbed-labels--linked {
+  /* display: none !important; */
+  visibility: visible;
+}
+
+#__tabbed_1_2 {
+  display: flex;
+}
+
 img[alt="diagram"] {
   display: block;
   margin: 0 auto;

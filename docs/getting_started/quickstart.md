@@ -10,49 +10,7 @@ KubeFox. Let's dive in!
 
 ## Prerequisites
 
-Ensure that the following tools are installed for this quickstart (each of the
-keywords below contains a link to the installation web page for the referenced product):
-
-- **[Docker Desktop](https://docs.docker.com/get-docker/)** - The easiest way to get
-  going with Docker is to install Docker Desktop.  Docker is a container toolset and
-  runtime used to build KubeFox Component OCI images and run a local
-  Kubernetes Cluster via kind.  Click the link corresponding to the OS you wish
-  you use.
-    - **[MacOS](https://docs.docker.com/desktop/install/mac-install)** - Install
-      Docker Desktop on Mac.
-    - **[Windows](https://docs.docker.com/desktop/install/windows-install)** -
-      Install Docker Desktop on Windows.
-    - **[Linux](https://docs.docker.com/desktop/install/linux-install/)** - Install
-      Docker Desktop on Linux.
-- **[Fox](./fox-cli.md)** - A CLI for
-  communicating with the KubeFox Platform.
-- **[Git](https://git-scm.com/book/en/v2/Getting-Started-Installing-Git)** - A distributed version
-  control system.  If this is the first time you're installing git, go through
-  the steps to ensure that your identity is established (see "Your Identity" on the next
-  **[page](https://git-scm.com/book/en/v2/Getting-Started-First-Time-Git-Setup)**).
-- **[Helm](https://helm.sh/docs/intro/install/)** - Package manager for Kubernetes
-  used to install the KubeFox Operator on Kubernetes.
-- **[kind](https://kind.sigs.k8s.io/docs/user/quick-start/)** - kind is **K**uberentes
-  **in** **D**ocker. kind is a tool for running local Kubernetes Clusters using Docker
-  container "nodes", hence Docker must be running before you use kind to create
-  your Kubernetes cluster. 
-- **[Kubectl](https://kubernetes.io/docs/tasks/tools/)** - CLI for communicating
-  with a Kubernetes Cluster's control plane, using the Kubernetes API.
-
-Here are a few optional but recommended tools:
-
-- **[Go](https://go.dev/doc/install)** - A programming language. The `hello-world`
-  example App is written in Go, but Fox is able to compile it even without Go
-  installed.
-- **[VS Code](https://code.visualstudio.com/download)** - A lightweight but powerful
-  source code editor. Helpful if you want to explore the `hello-world` app.
-- **[Azure CLI](https://learn.microsoft.com/en-us/cli/azure/install-azure-cli)** -
-  CLI for communicating with the Azure control plane.
-- **[k9s](https://k9scli.io/topics/install/)** - A terminal based UI to interact
-  with your Kubernetes clusters. You can use native kubectl commands to
-  accomplish the same things, but k9s is a nice convenience and we use it here.
-  By the way, the k9s **[homepage](https://k9scli.io/)** is probably the cleverest of any
-  company in the k8s space, succeeding in that endeavor at many levels.
+--8<-- "./docs/getting_started/common_content/prereqs.md"
 
 ## Tracing
 
@@ -71,7 +29,7 @@ or curious, feel free to proceed with Tracing Active.
 
 === "Tracing Active"
 
-=== "No Tracing"
+===+ "No Tracing"
 
 By the way, once you select **Tracing Active** or **No Tracing**, or whether
 you're going to use **Local(kind)** or **Azure** (below), it remains selected throughout the document so you can select-and-forget. 
@@ -84,129 +42,11 @@ already have a Kubernetes Cluster provisioned, you can skip this step.
 
 === "Local (kind)"
 
-    Setup a Kubernetes cluster on your workstation using kind and Docker. Kind
-    is an excellent tool specifically designed for quickly establishing a
-    cluster for testing purposes.
-
-    ```{ .shell .copy }
-    kind create cluster --wait 5m
-    ```
-
-    ??? example "Output"
-
-        ```text
-        Creating cluster "kind" ...
-        ✓ Ensuring node image (kindest/node:v1.27.3) 🖼
-        ✓ Preparing nodes 📦
-        ✓ Writing configuration 📜
-        ✓ Starting control-plane 🕹️
-        ✓ Installing CNI 🔌
-        ✓ Installing StorageClass 💾
-        ✓ Waiting ≤ 5m0s for control-plane = Ready ⏳
-        • Ready after 15s 💚
-        Set kubectl context to "kind-kind"
-        You can now use your cluster with:
-
-        kubectl cluster-info --context kind-kind
-
-        Have a nice day! 👋
-        ```
+    --8<-- "./docs/getting_started/common_content/kind_config.md"
 
 === "Azure (AKS)"
 
-    Establish a remote Kubernetes cluster on the Microsoft Azure cloud platform
-    using the Azure CLI. Keep in mind that creating the specified resources may
-    result in costs. Instructions at the end of the quickstart will guide you in
-    tearing down all the created resources.
-
-    ```{ .shell .copy }
-    az login
-    ```
-    Next set the required variables for this quickstart on Azure.
-
-    ```{ .shell .copy }
-    export AZ_LOCATION=eastus2 && \
-      export AZ_RESOURCE_GROUP=kf-quickstart-infra-eus2-rg && \
-      export AZ_AKS_NAME=kf-quickstart-eus2-aks-01
-    ```
-
-    Now you will create a Resource Group for the AKS cluster, and then deploy
-    Azure Kubernetes Service (AKS) to the group. The cluster provisioning will
-    take several minutes to complete.
-
-    ```{ .shell .copy }
-    az group create --location $AZ_LOCATION --name $AZ_RESOURCE_GROUP && \
-      az aks create \
-        --resource-group $AZ_RESOURCE_GROUP \
-        --tier free \
-        --name $AZ_AKS_NAME \
-        --location $AZ_LOCATION \
-        --generate-ssh-keys \
-        --node-count 1 \
-        --node-vm-size "Standard_B2s"
-    ```
-    ??? example "Output"
-
-        ```json
-        {
-          "id": "/subscriptions/00000000-0000-0000-0000-00000000/resourceGroups/kf-quickstart-infra-eus2-rg",
-          "location": "eastus2",
-          "managedBy": null,
-          "name": "kf-quickstart-infra-eus2-rg",
-          "properties": {
-            "provisioningState": "Succeeded"
-          },
-          "tags": null,
-          "type": "Microsoft.Resources/resourceGroups"
-        }
-
-        (... and much more ...)
-
-        ```
-
-    Once your AKS cluster is ready add the cluster to your kubectl configuration
-    to securely communicate with the Kube API.
-
-    ```{ .shell .copy }
-    az aks get-credentials \
-      --resource-group $AZ_RESOURCE_GROUP  \
-      --name $AZ_AKS_NAME
-    ```
-
-    ??? info "A different object named ... already exists in your kubeconfig file messages"
-
-        If you see messages like these, you've probably run the Quickstart on Azure previously.  Just answer "y" to overwrite as shown below.
-
-        A different object named kf-quickstart-eus2-aks-01 already exists in your kubeconfig file.
-        Overwrite? (y/n): y
-
-        A different object named clusterUser_kf-quickstart-infra-eus2-rg_kf-quickstart-eus2-aks-01 already exists in your kubeconfig file. Overwrite? (y/n): y
-
-        Merged "kf-quickstart-eus2-aks-01" as current context in /Users/Steven/.kube/config
-
-    The last resource to create is the Azure Container Registry (ACR). This is
-    used to store the KubeFox Component container images.
-
-    ```{ .shell .copy }
-    export AZ_ACR_NAME="acr$RANDOM" && \
-      az acr create --name $AZ_ACR_NAME --sku Basic --admin-enabled true --resource-group $AZ_RESOURCE_GROUP
-    ```
-    Set the registry endpoints and token to access the registry. These
-    environment variables are used by Fox to push container images to ACR.
-
-    ```{ .shell .copy }
-    export FOX_REGISTRY_ADDRESS=$(az acr show-endpoints \
-        --name $AZ_ACR_NAME \
-        --resource-group $AZ_RESOURCE_GROUP \
-        --output tsv \
-        --query loginServer) && \
-      export FOX_REGISTRY_TOKEN=$(az acr login \
-        --name $AZ_ACR_NAME \
-        --expose-token \
-        --output tsv \
-        --query accessToken) && \
-      export FOX_REGISTRY_USERNAME="00000000-0000-0000-0000-000000000000"
-    ```
+    --8<-- "./docs/getting_started/common_content/azure_config.md"
 
 ## Setup KubeFox
 
@@ -214,51 +54,18 @@ In this step you will install the KubeFox Helm Chart to initiate the KubeFox
 Operator on your Kubernetes cluster. The operator manages KubeFox Platforms and
 Apps.
 
-=== "Tracing Active"
+=== "Local (kind)"
 
-    ```{ .shell .copy }
-    helm upgrade kubefox kubefox \
-    --repo https://xigxog.github.io/helm-charts \
-    --create-namespace --namespace kubefox-system \
-    --set telemetry.enabled=true \
-    --install --wait
-    ```
+    --8<-- "./docs/getting_started/common_content/install_kubefox_local_tracing_option.md"
 
-    ??? example "Output"
+=== "Azure (AKS)"
 
-        ```text
-        Release "kubefox" does not exist. Installing it now.
-        NAME: kubefox
-        LAST DEPLOYED: Fri May 24 18:18:57 2024
-        NAMESPACE: kubefox-system
-        STATUS: deployed
-        REVISION: 1
-        ```
-
-=== "No Tracing"
-
-    ```{ .shell .copy }
-    helm upgrade kubefox kubefox \
-    --repo https://xigxog.github.io/helm-charts \
-    --create-namespace --namespace kubefox-system \
-    --install --wait
-    ```
-
-    ??? example "Output"
-
-        ```text
-        Release "kubefox" does not exist. Installing it now.
-        NAME: kubefox
-        LAST DEPLOYED: Fri May 24 18:18:57 2024
-        NAMESPACE: kubefox-system
-        STATUS: deployed
-        REVISION: 1
-        ```
+    --8<-- "./docs/getting_started/common_content/install_kubefox_azure_tracing_option.md"
 
 ## Deploy
 
 Awesome! You're all set to start the KubeFox Platform on the your newly created
-cluster and deploy your first KubeFox App. To begin, create a new directory and
+cluster and deploy your first KubeFox App. To begin, create a new directory and 
 use Fox to initialize the `hello-world` App. Run all subsequent commands from
 this directory. The environment variable `FOX_INFO` tells Fox to to provide
 additional output about what is going on. Employ the `--quickstart` flag to use
