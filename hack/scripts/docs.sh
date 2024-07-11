@@ -34,7 +34,13 @@ go install github.com/xigxog/crd-ref-docs@${CRD_REF_DOCS_VERSION}
 protoc \
     --proto_path=./${PROTO_SRC} \
     --doc_out=./${DOCS_SRC}/reference/ --doc_opt=./${DOCS_SRC}/templates/protobuf/protobuf.tmpl,protobuf.md \
-    protobuf_msgs.proto broker_svc.proto
+    protobuf_msgs.proto broker_svc.proto \
+    google/protobuf/struct.proto \
+    opentelemetry/proto/common/v1/common.proto \
+    opentelemetry/proto/logs/v1/logs.proto \
+    opentelemetry/proto/metrics/v1/metrics.proto \
+    opentelemetry/proto/resource/v1/resource.proto \
+    opentelemetry/proto/trace/v1/trace.proto
 
 if [ -d "${FOX_ROOT}" ]; then
     (
