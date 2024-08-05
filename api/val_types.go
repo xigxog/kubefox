@@ -39,54 +39,9 @@ type Val struct {
 	Type        ValType   `json:"-"`
 }
 
-func ValProto(val *structpb.Value) (*Val, error) {
-	if val == nil {
-		return &Val{Type: Nil}, nil
-	}
-	if v, ok := val.GetKind().(*structpb.Value_BoolValue); ok {
-		return ValBool(v.BoolValue), nil
-	}
-	if v, ok := val.GetKind().(*structpb.Value_NumberValue); ok {
-		return ValFloat(v.NumberValue), nil
-	}
-	if v, ok := val.GetKind().(*structpb.Value_StringValue); ok {
-		return ValString(v.StringValue), nil
-	}
-	if l, ok := val.GetKind().(*structpb.Value_ListValue); ok && l.ListValue != nil && len(l.ListValue.Values) > 0 {
-		var numArr []float64
-		var strArr []string
-
-		k := l.ListValue.Values[0].GetKind()
-		if _, ok := k.(*structpb.Value_NumberValue); ok {
-			numArr = make([]float64, len(l.ListValue.Values))
-		} else if _, ok := k.(*structpb.Value_StringValue); ok {
-			strArr = make([]string, len(l.ListValue.Values))
-		} else {
-			return &Val{}, fmt.Errorf("list contains values of unsupported types")
-		}
-
-		for i, v := range l.ListValue.Values {
-			if v == nil {
-				return &Val{}, fmt.Errorf("list contains a nil value")
-			}
-			if v.GetKind() != k {
-				return &Val{}, fmt.Errorf("list contains values of mixed types")
-			}
-			if numArr != nil {
-				numArr[i] = v.GetNumberValue()
-			} else {
-				strArr[i] = v.GetStringValue()
-			}
-		}
-
-		if numArr != nil {
-			return ValArrayFloat(numArr), nil
-		} else {
-			return ValArrayString(strArr), nil
-		}
-	}
-
-	return &Val{}, fmt.Errorf("value is of unsupported type %v", val.GetKind())
+type ValJSON struct {
+	ValType ValType
+	Val     any
 }
 
 func ValNil() *Val {
@@ -106,6 +61,10 @@ func ValFloat(val float64) *Val {
 }
 
 func ValString(val string) *Val {
+	return &Val{Type: String, strVal: val}
+}
+
+func ValJSONString(val string) *Val {
 	return &Val{Type: String, strVal: val}
 }
 
@@ -255,6 +214,16 @@ func (val *Val) String() string {
 	default:
 		return ""
 	}
+}
+
+func (val *Val) JSONString() string {
+	v := &ValJSON{
+		ValType: val.Type,
+		Val:     val.Any(),
+	}
+
+	b, _ := json.Marshal(v)
+	return string(b)
 }
 
 func (val *Val) StringDef(def string) string {

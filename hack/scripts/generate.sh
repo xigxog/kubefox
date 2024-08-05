@@ -7,6 +7,8 @@
 #
 # SPDX-License-Identifier: MPL-2.0
 
+set -x
+
 source "$(dirname "${BASH_SOURCE[0]}")/setup.sh"
 
 CONTROLLER_GEN_VERSION="v0.15.0"

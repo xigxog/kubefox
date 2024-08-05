@@ -20,7 +20,6 @@ import (
 	"github.com/xigxog/kubefox/core"
 	"github.com/xigxog/kubefox/logkf"
 	"github.com/xigxog/kubefox/telemetry"
-	"google.golang.org/protobuf/types/known/structpb"
 )
 
 type Receiver int
@@ -91,9 +90,9 @@ func (ctx *BrokerEventContext) MatchedEvent() *core.MatchedEvent {
 	}
 
 	// Only include vars that target declared as dependencies.
-	m.Env = make(map[string]*structpb.Value, len(def.EnvVarSchema))
+	m.Env = make(map[string]string, len(def.EnvVarSchema))
 	for k := range def.EnvVarSchema {
-		m.Env[k] = ctx.Data.Vars[k].Proto()
+		m.Env[k] = ctx.Data.Vars[k].JSONString()
 	}
 
 	return m

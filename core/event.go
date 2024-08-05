@@ -195,7 +195,10 @@ func (evt *Event) Param(key string) string {
 }
 
 func (evt *Event) ParamV(key string) *api.Val {
-	v, _ := api.ValProto(evt.ParamProto(key))
+	vj := &api.ValJSON{}
+	json.Unmarshal([]byte(evt.Params[key]), vj)
+	v := api.NewVal(vj)
+
 	if !v.IsNil() {
 		return v
 	}
@@ -217,31 +220,28 @@ func (evt *Event) ParamDef(key string, def string) string {
 	}
 }
 
-func (evt *Event) ParamProto(key string) *structpb.Value {
-	if evt.Params == nil {
-		return nil
-	}
-	return evt.Params[key]
-}
+// func (evt *Event) ParamProto(key string) *structpb.Value {
+// 	if evt.Params == nil {
+// 		return nil
+// 	}
+// 	return evt.Params[key]
+// }
 
 func (evt *Event) SetParam(key string, val string) {
-	evt.SetParamProto(key, structpb.NewStringValue(val))
+	evt.SetParamV(key, api.ValString(val))
 }
 
 func (evt *Event) SetParamV(key string, val *api.Val) {
-	evt.SetParamProto(key, val.Proto())
-}
-
-func (evt *Event) SetParamProto(key string, val *structpb.Value) {
 	if val == nil {
 		delete(evt.Params, key)
 		return
 	}
 
 	if evt.Params == nil {
-		evt.Params = map[string]*structpb.Value{}
+		evt.Params = map[string]string{}
 	}
-	evt.Params[key] = val
+
+	evt.Params[key] = val.JSONString()
 }
 
 func (evt *Event) Value(key string) string {
@@ -249,14 +249,17 @@ func (evt *Event) Value(key string) string {
 }
 
 func (evt *Event) ValueV(key string) *api.Val {
-	v, _ := api.ValProto(evt.ValueProto(key))
-	return v
+	return api.ValJSONString(evt.Values[key])
 }
 
 func (evt *Event) ValueMap(key string) map[string][]string {
 	m := make(map[string][]string)
-	p := evt.ValueProto(key).GetStructValue()
-	if p == nil {
+	v := evt.ValueV(key)
+	if v == nil {
+		return m
+	}
+
+	if v.Type != api.ArrayString {
 		return m
 	}
 
@@ -299,12 +302,12 @@ func (evt *Event) ValueMapKeyAll(valKey, key string) []string {
 	return s
 }
 
-func (evt *Event) ValueProto(key string) *structpb.Value {
-	if evt.Values == nil {
-		return nil
-	}
-	return evt.Values[key]
-}
+// func (evt *Event) ValueProto(key string) *structpb.Value {
+// 	if evt.Values == nil {
+// 		return nil
+// 	}
+// 	return evt.Values[key]
+// }
 
 func (evt *Event) SetValue(key string, val string) {
 	evt.SetValueProto(key, structpb.NewStringValue(val))

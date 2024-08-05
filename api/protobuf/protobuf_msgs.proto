@@ -10,7 +10,6 @@ syntax = "proto3";
 
 package kubefox.proto.v1;
 
-import "google/protobuf/struct.proto";
 import "opentelemetry/proto/logs/v1/logs.proto";
 import "opentelemetry/proto/metrics/v1/metrics.proto";
 import "opentelemetry/proto/trace/v1/trace.proto";
@@ -64,8 +63,8 @@ message Event {
   Component source = 9;
   Component target = 10;
 
-  map<string, google.protobuf.Value> params = 11;
-  map<string, google.protobuf.Value> values = 12;
+  map<string, string> params = 11;
+  map<string, string> values = 12;
 
   string content_type = 14;
   bytes content = 15;
@@ -75,7 +74,7 @@ message Event {
 message MatchedEvent {
   Event event = 1;
   int64 route_id = 2;
-  map<string, google.protobuf.Value> env = 3;
+  map<string, string> env = 3;
 }
 
 message Telemetry {
