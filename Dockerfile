@@ -6,16 +6,38 @@
 #
 # SPDX-License-Identifier: MPL-2.0
 
-# Compress binary
-FROM ghcr.io/xigxog/upx:4.2.3 AS upx
+ARG COMPONENT
+
+## Builder
+FROM ghcr.io/xigxog/builder:v0.1.0 AS builder
 
 ARG COMPONENT
+ARG TARGETPLATFORM
 ARG COMPRESS=false
 
-COPY ./bin/${COMPONENT} /component
-RUN if ${COMPRESS}; then upx /component; fi
+ENV ARCH=${TARGETPLATFORM##*/}
 
-# Runtime
+WORKDIR /workspace
+
+RUN go env -w GOCACHE=/go-cache && \
+    go env -w GOMODCACHE=/gomod-cache && \
+    go env -w CGO_ENABLED=0
+
+COPY go.mo[d] go.su[m] ./
+RUN --mount=type=cache,target=/gomod-cache \
+    go mod download
+
+COPY ./ ./
+RUN --mount=type=cache,target=/gomod-cache --mount=type=cache,target=/go-cache \
+    make build COMPONENT=${COMPONENT}
+
+RUN if ${COMPRESS}; then upx ./bin/${COMPONENT}; fi
+
+## Runtime
 FROM ghcr.io/xigxog/base:v0.2.0
-COPY --from=upx /component /component
+
+ARG COMPONENT
+
+COPY --from=builder /workspace/bin/${COMPONENT} /component
+
 ENTRYPOINT [ "/component" ]

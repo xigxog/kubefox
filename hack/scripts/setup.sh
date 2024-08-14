@@ -7,7 +7,7 @@
 #
 # SPDX-License-Identifier: MPL-2.0
 
-# set -o xtrace
+set -o xtrace
 set -o errexit
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." &>/dev/null && pwd -P)"
@@ -18,7 +18,7 @@ SCRIPTS="hack/scripts"
 API_DIR="api"
 COMPONENTS_DIR="components"
 CORE_DIR="core"
-TOOLS_DIR="tools"
+# TOOLS_DIR="tools"
 
 COMPONENT_SRC="${COMPONENTS_DIR}/${COMPONENT}"
 DOCS_SRC="docs"
@@ -47,10 +47,10 @@ IMAGE=${IMAGE:-"${CONTAINER_REGISTRY}/kubefox/${COMPONENT}:${IMAGE_TAG}"}
 
 export GO111MODULE=on
 export CGO_ENABLED=0
-export GOARCH=amd64
+# export GOARCH=amd64
 export GOOS=linux
-export GOBIN="${REPO_ROOT}/${TOOLS_DIR}"
-export PATH="${PATH}:${GOBIN}"
+# export GOBIN="${REPO_ROOT}/${TOOLS_DIR}"
+# export PATH="${PATH}:${GOBIN}"
 
 BUILD_DATE=$(TZ=UTC date --iso-8601=seconds)
 
@@ -61,6 +61,5 @@ SKIP_GENERATE=${SKIP_GENERATE:-false}
 
 KIND_NAME=${KIND_NAME:-"kind"}
 KIND_LOAD=${KIND_LOAD:-false}
-DOCKERFILE=""
 
 set -o pipefail -o nounset
