@@ -13,35 +13,30 @@ import (
 	"errors"
 	"fmt"
 	"strconv"
-
-	"google.golang.org/protobuf/types/known/structpb"
 )
 
 // ValType represents the stored type of Var.
 type ValType int
 
 const (
-	Unknown     ValType = iota // holds an unknown
-	Nil                        // holds a null
-	Bool                       // holds a boolean
-	Number                     // holds an int or float
-	String                     // holds a string
-	ArrayNumber                // holds an array of ints or floats
-	ArrayString                // holds an array of strings
+	Unknown        ValType = iota // holds an unknown
+	Nil                           // holds a null
+	Bool                          // holds a boolean
+	Number                        // holds an int or float
+	String                        // holds a string
+	ArrayNumber                   // holds an array of ints or floats
+	ArrayString                   // holds an array of strings
+	MapArrayString                // holds a map of array of strings
 )
 
 type Val struct {
-	boolVal     bool      `json:"-"`
-	numVal      float64   `json:"-"`
-	strVal      string    `json:"-"`
-	arrayNumVal []float64 `json:"-"`
-	arrayStrVal []string  `json:"-"`
-	Type        ValType   `json:"-"`
-}
-
-type ValJSON struct {
-	ValType ValType
-	Val     any
+	boolVal     bool                `json:"-"`
+	numVal      float64             `json:"-"`
+	strVal      string              `json:"-"`
+	arrayNumVal []float64           `json:"-"`
+	arrayStrVal []string            `json:"-"`
+	mapStrVal   map[string][]string `json:"-"`
+	Type        ValType             `json:"-"`
 }
 
 func ValNil() *Val {
@@ -64,10 +59,6 @@ func ValString(val string) *Val {
 	return &Val{Type: String, strVal: val}
 }
 
-func ValJSONString(val string) *Val {
-	return &Val{Type: String, strVal: val}
-}
-
 func ValArrayInt(val []int) *Val {
 	arr := make([]float64, len(val))
 	for i, v := range val {
@@ -83,6 +74,10 @@ func ValArrayString(val []string) *Val {
 	return &Val{Type: ArrayString, arrayStrVal: val}
 }
 
+func ValMapArrayString(val map[string][]string) *Val {
+	return &Val{Type: ArrayString, mapStrVal: val}
+}
+
 func (val *Val) Any() any {
 	switch val.Type {
 	case Bool:
@@ -95,30 +90,11 @@ func (val *Val) Any() any {
 		return val.arrayNumVal
 	case ArrayString:
 		return val.arrayStrVal
+	case MapArrayString:
+		return val.mapStrVal
 	default:
 		return ""
 	}
-}
-
-func (val *Val) Proto() *structpb.Value {
-	switch val.Type {
-	case Bool:
-		return structpb.NewBoolValue(val.boolVal)
-	case Number:
-		return structpb.NewNumberValue(val.numVal)
-	case String:
-		return structpb.NewStringValue(val.strVal)
-	case ArrayNumber:
-		if v, err := structpb.NewValue(val.arrayNumVal); err == nil {
-			return v
-		}
-	case ArrayString:
-		if v, err := structpb.NewValue(val.arrayStrVal); err == nil {
-			return v
-		}
-	}
-
-	return structpb.NewNullValue()
 }
 
 // Bool returns the boolean value if type is Bool. If type is Number, false will
@@ -216,16 +192,6 @@ func (val *Val) String() string {
 	}
 }
 
-func (val *Val) JSONString() string {
-	v := &ValJSON{
-		ValType: val.Type,
-		Val:     val.Any(),
-	}
-
-	b, _ := json.Marshal(v)
-	return string(b)
-}
-
 func (val *Val) StringDef(def string) string {
 	if val.Type != String {
 		return def
@@ -274,6 +240,14 @@ func (val *Val) ArrayString() []string {
 	return nil
 }
 
+func (val *Val) MapArrayString() map[string][]string {
+	if val.Type != MapArrayString {
+		return map[string][]string{}
+	}
+
+	return val.mapStrVal
+}
+
 func (val *Val) Equals(rhs *Val) bool {
 	if val == nil && rhs == nil {
 		return true
@@ -290,7 +264,7 @@ func (val *Val) IsUnknown() bool {
 }
 
 func (val *Val) IsNil() bool {
-	return val.Type == Nil
+	return val == nil || val.Type == Nil
 }
 
 func (val *Val) IsBool() bool {
@@ -313,6 +287,10 @@ func (val *Val) IsArrayString() bool {
 	return val.Type == ArrayString
 }
 
+func (val *Val) IsMapArrayString() bool {
+	return val.Type == MapArrayString
+}
+
 func (val *Val) IsEmpty() bool {
 	switch val.Type {
 	case Unknown, Nil:
@@ -323,6 +301,8 @@ func (val *Val) IsEmpty() bool {
 		return len(val.arrayNumVal) == 0
 	case ArrayString:
 		return len(val.arrayStrVal) == 0
+	case MapArrayString:
+		return len(val.mapStrVal) == 0
 	default:
 		return false
 	}
@@ -350,6 +330,14 @@ func (val *Val) UnmarshalJSON(value []byte) error {
 	}
 
 	switch value[0] {
+	case '{':
+		// try to unmarshal map of strings
+		if err := json.Unmarshal(value, &val.mapStrVal); err != nil {
+			return err
+		}
+		val.Type = MapArrayString
+		return nil
+
 	case '[':
 		if value[1] == '"' {
 			// then try array of string
@@ -396,6 +384,7 @@ func (val *Val) UnmarshalJSON(value []byte) error {
 
 // MarshalJSON implements the json.Marshaller interface.
 func (val *Val) MarshalJSON() ([]byte, error) {
+	// TODO just use any?
 	switch val.Type {
 	case Unknown:
 		return json.Marshal(nil)
@@ -411,6 +400,8 @@ func (val *Val) MarshalJSON() ([]byte, error) {
 		return json.Marshal(val.arrayNumVal)
 	case ArrayString:
 		return json.Marshal(val.arrayStrVal)
+	case MapArrayString:
+		return json.Marshal(val.mapStrVal)
 	default:
 		return []byte{}, fmt.Errorf("impossible var type")
 	}

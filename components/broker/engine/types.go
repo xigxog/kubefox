@@ -92,7 +92,7 @@ func (ctx *BrokerEventContext) MatchedEvent() *core.MatchedEvent {
 	// Only include vars that target declared as dependencies.
 	m.Env = make(map[string]string, len(def.EnvVarSchema))
 	for k := range def.EnvVarSchema {
-		m.Env[k] = ctx.Data.Vars[k].JSONString()
+		m.Env[k] = ctx.Data.Vars[k].String()
 	}
 
 	return m

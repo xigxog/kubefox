@@ -27,7 +27,6 @@ import (
 	"github.com/xigxog/kubefox/api"
 	"github.com/xigxog/kubefox/utils"
 	"google.golang.org/protobuf/proto"
-	"google.golang.org/protobuf/types/known/structpb"
 )
 
 type EventOpts struct {
@@ -76,8 +75,8 @@ func NewEvent() *Event {
 	return &Event{
 		Id:         uuid.NewString(),
 		CreateTime: time.Now().UnixNano(),
-		Params:     make(map[string]*structpb.Value),
-		Values:     make(map[string]*structpb.Value),
+		Params:     make(map[string]string),
+		Values:     make(map[string]string),
 		Context:    &EventContext{},
 	}
 }
@@ -87,10 +86,10 @@ func clone(evt *Event, cat Category, opts EventOpts) *Event {
 	clone.Id = uuid.NewString()
 	clone.CreateTime = time.Now().UnixNano()
 	if clone.Params == nil {
-		clone.Params = make(map[string]*structpb.Value)
+		clone.Params = make(map[string]string)
 	}
 	if clone.Values == nil {
-		clone.Values = make(map[string]*structpb.Value)
+		clone.Values = make(map[string]string)
 	}
 	if clone.Context == nil {
 		clone.Context = &EventContext{}
@@ -195,9 +194,14 @@ func (evt *Event) Param(key string) string {
 }
 
 func (evt *Event) ParamV(key string) *api.Val {
-	vj := &api.ValJSON{}
-	json.Unmarshal([]byte(evt.Params[key]), vj)
-	v := api.NewVal(vj)
+	v := api.ValNil()
+	if evt.Params == nil {
+		return v
+	}
+
+	if s, ok := evt.Params[key]; ok {
+		json.Unmarshal([]byte(s), v)
+	}
 
 	if !v.IsNil() {
 		return v
@@ -241,7 +245,8 @@ func (evt *Event) SetParamV(key string, val *api.Val) {
 		evt.Params = map[string]string{}
 	}
 
-	evt.Params[key] = val.JSONString()
+	b, _ := json.Marshal(val)
+	evt.Params[key] = string(b)
 }
 
 func (evt *Event) Value(key string) string {
@@ -249,30 +254,25 @@ func (evt *Event) Value(key string) string {
 }
 
 func (evt *Event) ValueV(key string) *api.Val {
-	return api.ValJSONString(evt.Values[key])
+	v := api.ValNil()
+	if evt.Values == nil {
+		return v
+	}
+
+	if s, ok := evt.Values[key]; ok {
+		json.Unmarshal([]byte(s), v)
+	}
+
+	return v
 }
 
 func (evt *Event) ValueMap(key string) map[string][]string {
-	m := make(map[string][]string)
 	v := evt.ValueV(key)
-	if v == nil {
-		return m
+	if !v.IsMapArrayString() {
+		return map[string][]string{}
 	}
 
-	if v.Type != api.ArrayString {
-		return m
-	}
-
-	for k, v := range p.Fields {
-		if v == nil || v.GetListValue() == nil {
-			continue
-		}
-		for _, h := range v.GetListValue().Values {
-			m[k] = append(m[k], h.GetStringValue())
-		}
-	}
-
-	return m
+	return v.MapArrayString()
 }
 
 func (evt *Event) ValueMapKey(valKey, key string) string {
@@ -284,91 +284,49 @@ func (evt *Event) ValueMapKey(valKey, key string) string {
 }
 
 func (evt *Event) ValueMapKeyAll(valKey, key string) []string {
-	s := []string{}
-	m := evt.ValueProto(valKey).GetStructValue()
-	if m == nil {
-		return s
-	}
-
-	f := m.Fields[key]
-	if f == nil || f.GetListValue() == nil {
-		return s
-	}
-
-	for _, v := range f.GetListValue().Values {
-		s = append(s, v.GetStringValue())
-	}
-
-	return s
+	return evt.ValueV(valKey).MapArrayString()[key]
 }
 
-// func (evt *Event) ValueProto(key string) *structpb.Value {
-// 	if evt.Values == nil {
-// 		return nil
-// 	}
-// 	return evt.Values[key]
-// }
-
 func (evt *Event) SetValue(key string, val string) {
-	evt.SetValueProto(key, structpb.NewStringValue(val))
+	evt.SetValueV(key, api.ValString(val))
 }
 
 func (evt *Event) SetValueV(key string, val *api.Val) {
-	evt.SetValueProto(key, val.Proto())
+	b, _ := json.Marshal(val)
+	evt.Values[key] = string(b)
 }
 
 func (evt *Event) SetValueMap(key string, m map[string][]string) {
-	mapAny := make(map[string]interface{}, len(m))
-	for k, v := range m {
-		l := make([]interface{}, len(v))
-		for i, h := range v {
-			l[i] = h
-		}
-		mapAny[k] = l
-	}
+	evt.SetValueV(key, api.ValMapArrayString(m))
 
-	v, _ := structpb.NewValue(mapAny)
-	evt.SetValueProto(key, v)
 }
 
 func (evt *Event) SetValueMapKey(valKey, key, value string, overwrite bool) {
-	m := evt.ValueProto(valKey).GetStructValue()
-	if m == nil {
-		v, _ := structpb.NewValue(map[string]interface{}{
-			key: []any{value},
-		})
-		evt.SetValueProto(valKey, v)
+	v := evt.ValueV(valKey)
+	if v.IsNil() {
+		v = api.ValMapArrayString(map[string][]string{key: {value}})
+		evt.SetValueV(valKey, v)
+		return
+	}
+	if !v.IsMapArrayString() {
 		return
 	}
 
-	f := m.Fields[key]
-	if overwrite || f == nil || f.GetListValue() == nil {
-		v, _ := structpb.NewValue([]any{value})
-		m.Fields[key] = v
-		return
+	a, found := v.MapArrayString()[key]
+	if overwrite || !found || len(a) == 0 {
+		v.MapArrayString()[key] = []string{value}
+	} else {
+		v.MapArrayString()[key] = append(a, value)
 	}
-
-	v, _ := structpb.NewValue(value)
-	f.GetListValue().Values = append(f.GetListValue().Values, v)
 }
 
 func (evt *Event) DelValueMapKey(valKey, key string) {
-	m := evt.ValueProto(valKey).GetStructValue()
-	if m == nil {
+	v := evt.ValueV(valKey)
+	if !v.IsMapArrayString() {
 		return
 	}
-	delete(m.Fields, key)
-}
 
-func (evt *Event) SetValueProto(key string, val *structpb.Value) {
-	if val == nil {
-		delete(evt.Values, key)
-		return
-	}
-	if evt.Values == nil {
-		evt.Values = map[string]*structpb.Value{}
-	}
-	evt.Values[key] = val
+	delete(v.MapArrayString(), key)
 }
 
 func (evt *Event) SetSpec(spec any) error {

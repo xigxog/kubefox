@@ -11,6 +11,7 @@ package kit
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	html "html/template"
 	"io"
@@ -24,15 +25,13 @@ import (
 	"github.com/xigxog/kubefox/core"
 	"github.com/xigxog/kubefox/logkf"
 	"github.com/xigxog/kubefox/telemetry"
-
-	"google.golang.org/protobuf/types/known/structpb"
 )
 
 type kontext struct {
 	*core.Event
 
 	kit *kit
-	env map[string]*structpb.Value
+	env map[string]string
 
 	rootSpan *telemetry.Span
 
@@ -61,13 +60,21 @@ func (k *kontext) Log() *logkf.Logger {
 	return k.log
 }
 
-func (k *kontext) Env(v EnvVarDep) string {
-	return k.EnvV(v).String()
+func (k *kontext) Env(d EnvVarDep) string {
+	return k.EnvV(d).String()
 }
 
-func (k *kontext) EnvV(v EnvVarDep) *api.Val {
-	val, _ := api.ValProto(k.env[v.Name()])
-	return val
+func (k *kontext) EnvV(d EnvVarDep) *api.Val {
+	v := api.ValNil()
+	if k.env == nil {
+		return v
+	}
+
+	if s, ok := k.env[d.Name()]; ok {
+		json.Unmarshal([]byte(s), v)
+	}
+
+	return v
 }
 
 func (k *kontext) EnvDef(v EnvVarDep, def string) string {
