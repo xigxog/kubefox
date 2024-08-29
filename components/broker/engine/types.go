@@ -10,6 +10,7 @@ package engine
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"sync"
 	"time"
@@ -92,7 +93,8 @@ func (ctx *BrokerEventContext) MatchedEvent() *core.MatchedEvent {
 	// Only include vars that target declared as dependencies.
 	m.Env = make(map[string]string, len(def.EnvVarSchema))
 	for k := range def.EnvVarSchema {
-		m.Env[k] = ctx.Data.Vars[k].String()
+		b, _ := json.Marshal(ctx.Data.Vars[k])
+		m.Env[k] = string(b)
 	}
 
 	return m

@@ -318,6 +318,7 @@ func (evt *Event) SetValueMapKey(valKey, key, value string, overwrite bool) {
 	} else {
 		v.MapArrayString()[key] = append(a, value)
 	}
+	evt.SetValueV(valKey, v)
 }
 
 func (evt *Event) DelValueMapKey(valKey, key string) {
@@ -327,6 +328,7 @@ func (evt *Event) DelValueMapKey(valKey, key string) {
 	}
 
 	delete(v.MapArrayString(), key)
+	evt.SetValueV(valKey, v)
 }
 
 func (evt *Event) SetSpec(spec any) error {

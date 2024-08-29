@@ -75,7 +75,7 @@ func ValArrayString(val []string) *Val {
 }
 
 func ValMapArrayString(val map[string][]string) *Val {
-	return &Val{Type: ArrayString, mapStrVal: val}
+	return &Val{Type: MapArrayString, mapStrVal: val}
 }
 
 func (val *Val) Any() any {
@@ -324,10 +324,6 @@ func (val *Val) EnvVarType() EnvVarType {
 // UnmarshalJSON implements the json.Unmarshaller interface.
 func (val *Val) UnmarshalJSON(value []byte) error {
 	defErr := errors.New("value must be type boolean, number, string, []number, or []string; nested objects are not supported")
-
-	if value[0] == '{' {
-		return defErr
-	}
 
 	switch value[0] {
 	case '{':
