@@ -3,11 +3,19 @@ processor type (Intel or Mac). If you're uncertain of how to determine what
 processor you're running, expand the "Mac Processor Determination" section
 below.
 
-<!-- 
-Note:  Had to add the silly "../../../../" prefix to the paths.  Simply put, mkdocs does an http get starting at the location of the file in the directory.  That creates a problem because the location is variable if snippets are employed.  So the option was to locate images where the current doc is - which sucks in my mind.  They should be centrally located, and one should be able to provide an assets path or the like.
+<!-- Note:  Had to add the silly "../../../../" prefix to the paths.  Simply put,     -->
+<!-- mkdocs does an http get starting at the location of the file in the directory.   -->
+<!-- That creates a problem because the location is variable if snippets are          -->
+<!-- employed.  So the option was to locate images where the current doc is -         -->
+<!-- which sucks in my mind.  They should be centrally located, and one should        -->
+<!-- be able to provide an assets path or the like.                                   -->
 
-So I finally gave up.  The silly prefix will (effectively) start the search at the root.
- -->
+<!-- So I finally gave up.  The silly prefix will (effectively) start the             -->
+<!-- search at the root.                                                              -->
+
+<!-- Additionally, a block comment was not respected by mkdocs, so each of these      -->
+<!-- lines had to be independently commented.                                         -->
+
 
 ??? info "Mac Processor Determination"
 
