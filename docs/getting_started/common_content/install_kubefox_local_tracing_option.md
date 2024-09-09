@@ -72,6 +72,7 @@ If (and only if) you're running a Mac with Apple silicon (M1, M2 or M3), select 
             REVISION: 1
             ```
 
+
 === "Apple Silicon"
 
     === "Tracing Active"
@@ -79,12 +80,11 @@ If (and only if) you're running a Mac with Apple silicon (M1, M2 or M3), select 
         Install KubeFox on local kind cluster (on Apple silicon) with tracing active.
 
         ```{ .shell .copy }
-        (APPLE SILICON FLAG)
         helm upgrade kubefox kubefox \
         --repo https://xigxog.github.io/helm-charts \
         --create-namespace --namespace kubefox-system \
         --set telemetry.enabled=true \
-        --install --wait
+        --install --wait --set image.tag=main
         ```
 
         ??? example "Output"
@@ -98,16 +98,16 @@ If (and only if) you're running a Mac with Apple silicon (M1, M2 or M3), select 
             REVISION: 1
             ```
 
+
     === "No Tracing"
 
         Install Kubefox on local kind cluster (on Apple silicon) without tracing active.
 
         ```{ .shell .copy }
-        (APPLE SILICON FLAG)
         helm upgrade kubefox kubefox \
         --repo https://xigxog.github.io/helm-charts \
         --create-namespace --namespace kubefox-system \
-        --install --wait
+        --install --wait --set image.tag=main
         ```
 
         ??? example "Output"
