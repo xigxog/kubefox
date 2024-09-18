@@ -175,6 +175,10 @@ func (srv *Server) ServeHTTP(resWriter http.ResponseWriter, httpReq *http.Reques
 
 		rootSpan.SetEventAttributes(req)
 		respSpan.SetEventAttributes(resp)
+		httpResp := resp.HTTPResponse()
+
+		rootSpan.SetHTTPResponseAttributes(httpResp)
+		respSpan.SetHTTPResponseAttributes(httpResp)
 
 		rootSpan.End()
 

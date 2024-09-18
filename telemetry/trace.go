@@ -13,6 +13,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"math/rand"
+	"net/http"
 	"reflect"
 	sync "sync"
 	"time"
@@ -229,6 +230,17 @@ func (s *Span) SetEventAttributes(evt *core.Event) {
 	for _, child := range s.ChildSpans {
 		child.SetEventAttributes(evt)
 	}
+}
+
+func (s *Span) SetHTTPResponseAttributes(httpResp *http.Response) {
+	if s == nil || httpResp == nil {
+		return
+	}
+
+	s.SetAttributes(
+		Attr(AttrKeyHTTPRespStatusCode, httpResp.StatusCode),
+		Attr(AttrKeyHTTPRespBodySize, httpResp.ContentLength),
+	)
 }
 
 func (s *Span) Record() bool {
